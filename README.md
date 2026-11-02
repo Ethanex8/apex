@@ -6,7 +6,7 @@
 
 ## Repository Structure
 
-- [`CURRICULUM.md`](./CURRICULUM.md) — The comprehensive 5-tier course syllabus (57 courses), textbook reading scopes, core topic breakdowns, 8 capstone engineering specifications, phased home-lab tooling blueprints, and residential safety protocols.
+- [`CURRICULUM.md`](./CURRICULUM.md) — The comprehensive 5-tier course syllabus (58 courses), textbook reading scopes, core topic breakdowns, 8 capstone engineering specifications, phased home-lab tooling blueprints, and residential safety protocols.
 
 ---
 
@@ -25,7 +25,7 @@
 | :--- | :--- | :--- |
 | **Tier 1** | **100-Level** | Single & Multivariable Calculus, Mechanics, Electromagnetism, Modern Physics, Scientific Python, Discrete Math, Materials Science & Lab, Engineering Statics, Parametric CAD & GD&T |
 | **Tier 2** | **200-Level** | Linear Algebra, ODEs & Transforms, Probability & Random Processes, Numerical Methods, PDEs & Complex Analysis, Data Structures & Algorithms, Systems Programming & Low-Level C, Linear Circuits & KiCad EDA, Signals & Systems, SystemVerilog RTL, Mechanics of Materials, 3D Analytical & Variational Dynamics, Engineering Thermodynamics |
-| **Tier 3** | **300-Level** | Specialized Tracks:<br>• **Track A**: Processor Microarchitecture, CMOS VLSI, Embedded RTOS, OS Kernels, Compilers, Networking & ROS 2<br>• **Track B**: Analog Devices, Sensors & Metrology, DSP, Applied Electromagnetics, RF & Microwave Engineering, Power Electronics<br>• **Track C**: Machine Component Design, Mechanical Vibrations, Finite Element Analysis (FEA), Heat Transfer, Fluid Mechanics & Aerodynamics<br>• **Track D**: Lie Groups & Spatial Dynamics, Feedback Control, 3D Computer Vision, Factor-Graph SLAM, Digital Control & System ID |
+| **Tier 3** | **300-Level** | Specialized Tracks:<br>• **Track A**: Processor Microarchitecture, CMOS VLSI, Embedded RTOS, OS Kernels, Compilers, Networking & ROS 2<br>• **Track B**: Analog Devices, Sensors & Metrology, DSP, Applied Electromagnetics, RF & Microwave Engineering, Power Electronics<br>• **Track C**: Machine Component Design, Mechanical Vibrations, Finite Element Analysis (FEA), Fluid Mechanics, Heat Transfer, Rotorcraft Aerodynamics<br>• **Track D**: Lie Groups & Spatial Dynamics, Feedback Control, 3D Computer Vision, Factor-Graph SLAM, Digital Control & System ID |
 | **Tier 4** | **400-Level** | Systems Engineering & HIL, High-Speed PCB & EMC, Antenna & Phased Arrays, Digital Wireless & SDR, Battery Management Systems (BMS), Field-Oriented Servo Drives, Nonlinear & Geometric Control, Algorithmic Motion Planning, Optimal Control & MPC |
 | **Tier 5** | **500-Level** | Underactuated Robotics & Trajectory Optimization, Deep Learning for Robotics, Reinforcement Learning & Sim-to-Real Control |
 
