@@ -34,6 +34,7 @@ flowchart TD
         CS101["CS 101: Scientific Computing & Python"]
         CS102["CS 102: Discrete Mathematics"]
         MATS101["MATS 101: Materials Science"]
+        ME101["ME 101: Engineering Statics"]
         ENGR101["ENGR 101: Parametric CAD & GD&T"]
     end
 
@@ -44,11 +45,13 @@ flowchart TD
         M204["MATH 204: Numerical Methods"]
         M205["MATH 205: PDEs & Complex Analysis"]
         CS201["CS 201: Data Structures & Algorithms"]
+        CS202["CS 202: Systems Programming & Low-Level C"]
         EE201["EE 201: Linear Circuit Theory & EDA"]
         EE202["EE 202: Signals & Systems"]
         ECE201["ECE 201: Digital Logic & SystemVerilog"]
         ME201["ME 201: Mechanics of Materials"]
-        ME202["ME 202: 3D Analytical Dynamics"]
+        ME202["ME 202: 3D Analytical & Variational Dynamics"]
+        ME203["ME 203: Engineering Thermodynamics"]
     end
 
     subgraph T3["Tier 3: 300-Level Junior Tracks"]
@@ -72,7 +75,7 @@ flowchart TD
             ME301["ME 301: Machine Component Design"]
             ME302["ME 302: FEA & Vibrations"]
             ME303["ME 303: Heat Transfer"]
-            ME305["ME 305: Fluid Mechanics & Aerodynamics"]
+            ME304["ME 304: Fluid Mechanics & Aerodynamics"]
         end
         subgraph TrackD["Track D: Robotics & Controls"]
             ROB301["ROB 301: Lie Groups & Spatial Dynamics"]
@@ -111,65 +114,63 @@ flowchart TD
 
     M101 --> M102
     M101 --> P101
-    M102 --> PHYS102
-    M102 --> PHYS103
+    P101 & M102 --> P102
+    P101 & M102 --> P103
     P101 --> MATS101
+    P101 & M102 --> ME101
     M102 --> M201
-    M102 --> M202
-    M201 --> M204
-    M202 --> M204
-    M202 --> M205
-    CS101 --> CS201
-    CS102 --> CS201
-    PHYS102 --> EE201
-    EE201 --> EE202
-    P101 --> ME201
-    ME201 --> ME202
-    M201 --> ME202
-    EE201 --> ECE201
-    
-    ECE201 --> ECE301
-    ECE201 --> ECE303
-    CS201 --> CS301
-    CS201 --> CS302
-    CS301 --> CS303
+    M102 & M201 --> M202
+    M102 & CS102 --> M203
+    M201 & M202 & CS101 --> M204
+    M102 & M202 --> M205
+    CS101 & CS102 --> CS201
+    CS101 --> CS202
+    P102 & M201 & M202 --> EE201
+    EE201 & M201 & M205 --> EE202
+    ME101 & MATS101 --> ME201
+    ME101 & M201 & M202 --> ME202
+    P101 & M102 --> ME203
+    CS102 & EE201 --> ECE201
+
+    ECE201 & CS202 --> ECE301
+    ECE201 & EE201 & EE301 --> ECE302
+    ECE201 & CS201 & CS202 --> ECE303
+    CS201 & CS202 & ECE301 --> CS301
+    CS201 & CS202 & ECE301 --> CS302
+    CS201 & CS301 --> CS303
     EE201 --> EE301
+    EE301 & EE202 & P103 --> EE302
     EE202 --> EE303
-    EE201 --> EE304
-    EE201 --> EE305
-    ME201 --> ME301
-    ME202 --> ME301
-    ME201 --> ME302
-    ME202 --> ME305
-    ME202 --> ROB301
-    EE202 --> ROB302
-    M201 --> ROB303
-    ROB301 --> ROB304
-    ROB302 --> ROB305
-    
-    ECE301 --> ECE401
-    EE304 --> ECE401
-    EE303 --> EE401
-    EE304 --> EE401
-    EE305 --> EE402
-    EE305 --> EE403
-    ROB301 --> ROB401
-    ROB302 --> ROB401
-    ROB301 --> ROB402
-    ROB305 --> ROB402
-    
-    ROB401 --> ROB501
-    ROB402 --> ROB501
-    ROB303 --> ROB502
-    ROB304 --> ROB502
+    P102 & EE201 & EE202 & M205 --> EE304
+    EE201 & EE202 & EE301 --> EE305
+    ME201 & ME202 & ENGR101 --> ME301
+    ME201 & ME202 & M204 --> ME302
+    ME203 & M202 & M205 --> ME303
+    ME202 & ME203 & M205 --> ME304
+    M201 & ME202 --> ROB301
+    EE202 & M201 & M202 --> ROB302
+    M201 & CS201 & ROB301 --> ROB303
+    M201 & M203 & ROB301 --> ROB304
+    ROB302 & EE303 --> ROB305
+
+    ECE303 & EE305 & ME301 & ROB305 --> ENGR401
+    ECE301 & EE304 --> ECE401
+    EE303 & EE304 & M203 --> EE401
+    EE305 & ME303 & M203 & ROB302 & ROB304 --> EE402
+    P102 & M201 & EE305 & ROB305 & ME301 --> EE403
+    ROB301 & ROB302 --> ROB401
+    ROB301 & ROB305 & CS201 & M204 --> ROB402
+
+    ROB401 & ROB402 --> ROB501
+    ROB303 & ROB304 & M203 --> ROB502
 
     ECE401 & CS301 & CS302 --> C1
     EE401 --> C2
     EE402 --> C3
     EE403 --> C4
-    ROB401 & ROB402 & C4 --> C5
+    ROB401 & ROB402 & EE302 & C4 --> C5
     ROB303 & ROB304 & ROB502 --> C6
-    ME305 & ROB401 & ROB501 & C2 --> C7
+    ME304 & ROB401 & ROB501 & C2 --> C7
     C1 & C2 & C3 & C4 & C6 & ROB501 & ROB502 & ENGR401 --> C8
 ```
 
@@ -214,8 +215,13 @@ flowchart TD
 
 ### MATS 101: Materials Science & Mechanical Selection
 - **Prerequisites**: PHYS 101
-- **Texts & Reading Scope**: William Callister & David Rethwisch – *Materials Science and Engineering: An Introduction*; Michael F. Ashby – *Materials Selection in Mechanical Design*.
-- **Core Topics & Lab**: Crystal structures, elastic/plastic deformation, dislocation mechanics, failure modes, and Ashby material selection indices; home lab execution involves destructive stress-strain and creep tests on 3D-printed polymers (PLA, PETG-CF, PA-CF) and aluminum coupons using a 2020-extrusion lever rig, a 50 kg HX711 load cell, and a digital dial indicator.
+- **Texts & Reading Scope**: William Callister & David Rethwisch – *Materials Science and Engineering: An Introduction* (explicitly beginning with Ch. 2: Atomic Structure and Interatomic Bonding); Michael F. Ashby – *Materials Selection in Mechanical Design*.
+- **Core Topics & Lab**: Atomic bonding and interatomic force-potential curves, crystal structures and Miller indices, elastic/plastic deformation, dislocation mechanics, failure modes, and Ashby material selection indices; home lab execution involves destructive stress-strain and creep tests on 3D-printed polymers (PLA, PETG-CF, PA-CF) and aluminum coupons using a 2020-extrusion lever rig, a 50 kg HX711 load cell, and a digital dial indicator.
+
+### ME 101: Engineering Statics
+- **Prerequisites**: PHYS 101, MATH 102
+- **Texts & Reading Scope**: Ferdinand Beer, E. Russell Johnston Jr. & David Mazurek – *Vector Mechanics for Engineers: Statics* (or Russell Hibbeler – *Engineering Mechanics: Statics*).
+- **Core Topics**: 3D force and moment vector systems, equivalent force-couple systems and wrenches, 3D rigid-body static equilibrium and free-body diagrams, structural analysis of trusses (method of joints and sections), frames and machines, internal axial-force, shear-force, and bending-moment diagrams, centroids, distributed loads, area moments of inertia and parallel-axis theorem, dry Coulomb friction (wedges, screws, flat belts, bearings), and method of virtual work.
 
 ### ENGR 101: Parametric CAD, GD&T & Tolerance Analysis
 - **Prerequisites**: None
@@ -234,7 +240,7 @@ flowchart TD
 ### MATH 202: Ordinary Differential Equations & Transforms
 - **Prerequisites**: MATH 102, MATH 201
 - **Texts & Reading Scope**: Boyce & DiPrima – *Elementary Differential Equations* (Ch. 1–9 only; skip Ch. 10–11 as boundary-value PDEs and Fourier series are treated in MATH 205 and EE 202).
-- **Core Topics**: First-order and higher-order linear ODEs, systems of coupled first-order linear equations, phase plane stability analysis, power series solutions, and unilateral Laplace transforms.
+- **Core Topics**: First-order and higher-order linear ODEs, systems of coupled first-order linear equations, matrix exponentials, phase plane stability analysis, power series solutions, and unilateral Laplace transforms.
 
 ### MATH 203: Probability & Random Processes
 - **Prerequisites**: MATH 102, CS 102
@@ -247,7 +253,7 @@ flowchart TD
 - **Core Topics**: Floating-point conditioning, direct and iterative linear system solvers, nonlinear root finding, cubic spline interpolation, Gauss quadrature, finite difference approximations, and adaptive Runge-Kutta ODE integration.
 
 ### MATH 205: Partial Differential Equations & Complex Analysis
-- **Prerequisites**: MATH 202
+- **Prerequisites**: MATH 102, MATH 202
 - **Texts & Reading Scope**: Erwin Kreyszig – *Advanced Engineering Mathematics* (Ch. 11–18 only / Parts C & D; skip Parts A–B and E–G).
 - **Core Topics**: Fourier series and integrals, canonical wave, heat, and Laplace PDEs, separation of variables, complex analytic functions, Cauchy-Riemann equations, Laurent series, contour integration, and Cauchy's residue theorem.
 
@@ -256,10 +262,15 @@ flowchart TD
 - **Texts & Reading Scope**: Michael Goodrich et al. – *Data Structures and Algorithms in Python*.
 - **Core Topics**: Asymptotic complexity, self-balancing binary search trees, binary heaps and priority queues, hash tables, dynamic programming, shortest-path graph search algorithms (Dijkstra, A*), and spatial partitioning trees (k-d trees, octrees).
 
+### CS 202: Systems Programming & Low-Level C
+- **Prerequisites**: CS 101
+- **Texts & Reading Scope**: K.N. King – *C Programming: A Modern Approach* (or Brian Kernighan & Dennis Ritchie – *The C Programming Language*); Randal E. Bryant & David R. O'Hallaron – *Computer Systems: A Programmer's Perspective (CS:APP)* (Ch. 1–3, 7, and 9).
+- **Core Topics**: C99/C11 language standards, two's complement integer and IEEE 754 floating-point bit representations, bitwise manipulation, pointers and pointer arithmetic, arrays and strings, structs/unions and memory alignment/padding, stack frame activation records, dynamic heap allocation (`malloc`/`free` and custom arena/pool allocators), function pointers and callbacks, `volatile` and `const` type qualifiers, preprocessing/compiling/assembling/linking ELF binaries, `Makefile` and `CMake` build systems, and debugging/profiling with `GDB`, `Valgrind`, and AddressSanitizer (ASan).
+
 ### EE 201: Linear Circuit Theory, Network Analysis & EDA
-- **Prerequisites**: PHYS 102, MATH 202
+- **Prerequisites**: PHYS 102, MATH 201, MATH 202
 - **Texts & Reading Scope**: Charles Alexander & Matthew Sadiku – *Fundamentals of Electric Circuits* (Ch. 1–16; skip introductory Laplace review); Peter Dalmaris – *KiCad Like a Pro*.
-- **Core Topics & Lab**: Kirchhoff's laws, nodal and mesh analysis, Thévenin/Norton equivalents, ideal op-amp topologies, RLC transient responses, AC steady-state phasor analysis, schematic capture, and 2-layer/4-layer PCB layout in KiCad; home lab execution uses a 4-channel DSO, arbitrary waveform generator, and LTspice/Ngspice.
+- **Core Topics & Lab**: Kirchhoff's laws, nodal and mesh matrix analysis, Thévenin/Norton equivalents, ideal op-amp topologies, RLC transient responses, AC steady-state phasor analysis, schematic capture, and 2-layer/4-layer PCB layout in KiCad; home lab execution uses a 4-channel DSO, arbitrary waveform generator, and LTspice/Ngspice.
 
 ### EE 202: Continuous & Discrete Signals and Systems
 - **Prerequisites**: EE 201, MATH 201, MATH 205
@@ -271,15 +282,20 @@ flowchart TD
 - **Texts & Reading Scope**: David Harris & Sarah Harris – *Digital Design and Computer Architecture (RISC-V Edition)* (Ch. 1–5 only); Stuart Sutherland – *RTL Modeling with SystemVerilog*.
 - **Core Topics & Lab**: Combinational and sequential logic design, finite state machines (FSMs), timing analysis, metastability and clock-domain synchronizers, synthesizable SystemVerilog RTL coding standards, and testbench verification; home lab execution involves synthesis onto an FPGA board (Sipeed Tang Nano 20K / Artix-7) verified using Verilator, Cocotb, GTKWave, and an 8-channel USB logic analyzer.
 
-### ME 201: Mechanics of Materials & Structural Statics
-- **Prerequisites**: PHYS 101, MATH 102, MATS 101
+### ME 201: Mechanics of Materials
+- **Prerequisites**: ME 101, MATS 101
 - **Texts & Reading Scope**: James Gere & Barry Goodno – *Mechanics of Materials*.
-- **Core Topics**: 3D static equilibrium, internal axial, torsional, shear-force, and bending-moment diagrams, 3D stress and strain tensors, Mohr's circle transformations, beam deflection, column buckling, and von Mises yield criteria.
+- **Core Topics**: 3D Cauchy stress and infinitesimal strain tensors, generalized Hooke's law, axial loading and statically indeterminate thermal stresses, Saint-Venant torsion of circular and thin-walled shafts, pure and asymmetric beam bending, transverse shear stress, 3D stress/strain transformations and Mohr's circle, thin-walled pressure vessels, beam deflection differential equations and strain-energy methods (Castigliano's theorem), Euler column buckling, and von Mises / Tresca yield criteria.
 
-### ME 202: 3D Analytical Dynamics
-- **Prerequisites**: ME 201, MATH 201, MATH 202
-- **Texts & Reading Scope**: Jerry Ginsberg – *Engineering Dynamics*.
-- **Core Topics**: 3D kinematics in moving and rotating reference frames, transport theorem, Coriolis and centrifugal accelerations, 3D inertia tensors, Newton-Euler rigid-body equations of motion, gyroscopic precession, Hamilton's principle, and Lagrange's equations of motion with constraints.
+### ME 202: 3D Analytical & Variational Dynamics
+- **Prerequisites**: ME 101, MATH 201, MATH 202
+- **Texts & Reading Scope**: Jerry Ginsberg – *Engineering Dynamics*; Cornelius Lanczos – *The Variational Principles of Mechanics* (Ch. 1–5 covering Calculus of Variations, D'Alembert's Principle, and Hamilton's Principle).
+- **Core Topics**: 3D kinematics in moving and rotating reference frames, transport theorem, Coriolis and centrifugal accelerations, 3D inertia tensors and principal axes, Newton-Euler rigid-body equations of motion, gyroscopic precession, calculus of variations (functionals, extremals, and the Euler-Lagrange differential equation), virtual displacements and virtual work, D'Alembert's principle, Hamilton's principle of least action, and Lagrange's equations of motion with holonomic and non-holonomic constraints (Lagrange multipliers).
+
+### ME 203: Classical & Engineering Thermodynamics
+- **Prerequisites**: PHYS 101, MATH 102
+- **Texts & Reading Scope**: Yunus Çengel & Michael Boles – *Thermodynamics: An Engineering Approach* (or Michael Moran & Howard Shapiro – *Fundamentals of Engineering Thermodynamics*, Ch. 1–9).
+- **Core Topics**: Thermodynamic system definitions and state postulates, pure substances and phase-change property tables, ideal and real-gas equations of state, First Law of Thermodynamics for closed systems (internal energy, enthalpy, specific heats $c_p$ and $c_v$), steady-state and transient control-volume mass and energy balances (nozzles, diffusers, turbines, compressors, throttling valves, heat exchangers), Second Law of Thermodynamics, Carnot, Rankine, and Brayton cycles, Clausius inequality, entropy generation, isentropic efficiencies, and exergy (availability) analysis.
 
 ---
 
@@ -288,27 +304,27 @@ flowchart TD
 ### Track A: Silicon, Embedded Systems, Computer Architecture & Systems Software
 
 #### ECE 301: Computer Organization & Processor Microarchitecture
-- **Prerequisites**: ECE 201
+- **Prerequisites**: ECE 201, CS 202
 - **Texts & Reading Scope**: David Harris & Sarah Harris – *Digital Design and Computer Architecture (RISC-V Edition)* (Ch. 6–8).
-- **Core Topics**: Single-cycle, multi-cycle, and 5-stage pipelined RISC-V datapaths, structural/data/control hazards, forwarding units, branch prediction, multi-level cache hierarchies, virtual memory address translation (MMU/TLB), and Spike/QEMU ISA co-simulation.
+- **Core Topics**: Single-cycle, multi-cycle, and 5-stage pipelined RISC-V datapaths, structural/data/control hazards, forwarding units, branch prediction, multi-level cache hierarchies, virtual memory address translation (MMU/TLB), C-to-assembly calling conventions, and Spike/QEMU ISA co-simulation.
 
 #### ECE 302: CMOS VLSI Design
-- **Prerequisites**: ECE 201, EE 201
-- **Texts & Reading Scope**: Neil Weste & David Harris – *CMOS VLSI Design*.
-- **Core Topics & Lab**: MOSFET current-voltage equations, CMOS inverter DC and switching characteristics, dynamic and leakage power dissipation, logical effort path optimization, standard-cell layout, clock-tree synthesis (CTS), static timing analysis (STA), and design rule checking (DRC); home lab execution uses the open-source OpenLane/LibreLane flow targeting the SkyWater 130 nm PDK, with optional tapeout through Tiny Tapeout.
+- **Prerequisites**: ECE 201, EE 201, EE 301
+- **Texts & Reading Scope**: Neil Weste & David Harris – *CMOS VLSI Design* (explicitly including Ch. 2: MOS Transistor Theory).
+- **Core Topics & Lab**: MOSFET current-voltage equations, subthreshold leakage, velocity saturation, CMOS inverter DC and switching characteristics, dynamic and leakage power dissipation, logical effort path optimization, standard-cell layout, clock-tree synthesis (CTS), static timing analysis (STA), and design rule checking (DRC); home lab execution uses the open-source OpenLane/LibreLane flow targeting the SkyWater 130 nm PDK, with optional tapeout through Tiny Tapeout.
 
 #### ECE 303: Embedded Real-Time Firmware & RTOS
-- **Prerequisites**: ECE 201, CS 201
+- **Prerequisites**: ECE 201, CS 201, CS 202
 - **Texts & Reading Scope**: Carmine Noviello – *Mastering STM32*; Richard Barry – *Mastering the FreeRTOS Real-Time Kernel*.
 - **Core Topics**: Bare-metal startup code, linker scripts, nested vectored interrupt controllers (NVIC), multi-channel DMA pipelines, lock-free ring buffers, real-time preemptive scheduling (FreeRTOS), priority inversion protocols, memory protection units (MPU), and low-level peripheral drivers for CAN-FD, SPI, I2C, and UART.
 
 #### CS 301: Operating Systems & Systems Programming
-- **Prerequisites**: CS 201, ECE 301
+- **Prerequisites**: CS 201, CS 202, ECE 301
 - **Texts & Reading Scope**: Remzi Arpaci-Dusseau & Andrea Arpaci-Dusseau – *Operating Systems: Three Easy Pieces (OSTEP)*; Russ Cox, Frans Kaashoek & Robert Morris – *xv6: A Simple, Unix-Like Teaching Operating System (RISC-V)*.
 - **Core Topics**: Virtual memory page table management, kernel traps and system calls, context switching, preemptive multi-threading, concurrency primitives (semaphores, mutexes, condition variables), deadlocks, I/O interrupt handlers, and POSIX file systems.
 
 #### CS 302: Compiler Engineering
-- **Prerequisites**: CS 201, ECE 301
+- **Prerequisites**: CS 201, CS 202, ECE 301
 - **Texts & Reading Scope**: Keith Cooper & Linda Torczon – *Engineering a Compiler*.
 - **Core Topics**: Regular expressions, deterministic finite automata (DFA), lexical scanning, context-free grammars, LL/LR parsing, abstract syntax trees (AST), static single assignment (SSA) intermediate representation, control-flow graphs (CFG), data-flow optimization passes, graph-coloring register allocation, and RISC-V assembly code generation.
 
@@ -324,12 +340,12 @@ flowchart TD
 #### EE 301: Semiconductor Devices & Analog Electronics
 - **Prerequisites**: EE 201
 - **Texts & Reading Scope**: Paul Horowitz & Winfield Hill – *The Art of Electronics* (Ch. 1–8); Thomas Hayes – *Learning the Art of Electronics*.
-- **Core Topics**: Small-signal and large-signal BJT/MOSFET modeling, current mirrors, differential pairs, high-gain output stages, operational amplifier frequency compensation and phase margin, active filters, precision voltage references, and low-noise analog signal conditioning.
+- **Core Topics**: PN-junction physics, small-signal and large-signal BJT/MOSFET modeling, current mirrors, differential pairs, high-gain output stages, operational amplifier frequency compensation and phase margin, active filters, precision voltage references, and low-noise analog signal conditioning.
 
 #### EE 302: Sensors, Metrology & Data Conversion
-- **Prerequisites**: EE 301, PHYS 103
+- **Prerequisites**: EE 301, EE 202, PHYS 103
 - **Texts & Reading Scope**: Jacob Fraden – *Handbook of Modern Sensors*; Walt Kester – *Data Conversion Handbook* (selected SAR/Sigma-Delta ADC chapters).
-- **Core Topics**: Wheatstone strain-gauge bridges, optical and magnetic shaft encoders, MEMS capacitive accelerometers and gyroscopes, photodiode transimpedance amplifiers (TIAs) for LiDAR/time-of-flight, Successive Approximation Register (SAR) and Sigma-Delta ADCs, and input-referred noise characterization.
+- **Core Topics**: Wheatstone strain-gauge bridges, optical and magnetic shaft encoders, MEMS capacitive accelerometers and gyroscopes, photodiode transimpedance amplifiers (TIAs) for LiDAR/time-of-flight, anti-aliasing filters, Successive Approximation Register (SAR) and oversampled Sigma-Delta ADCs, quantization noise shaping, and input-referred noise characterization.
 
 #### EE 303: Digital Signal Processing (DSP)
 - **Prerequisites**: EE 202
@@ -337,14 +353,14 @@ flowchart TD
 - **Core Topics**: Discrete-time processing of continuous-time signals, decimation and interpolation, FIR linear-phase filter synthesis (Parks-McClellan), bilinear IIR filter synthesis, Fast Fourier Transform (FFT) algorithms, CORDIC math architectures, cascaded integrator-comb (CIC) decimators, and fixed-point finite word-length effects.
 
 #### EE 304: Applied Electromagnetics & Microwave Engineering
-- **Prerequisites**: EE 201, EE 202, MATH 205
+- **Prerequisites**: PHYS 102, EE 201, EE 202, MATH 205
 - **Texts & Reading Scope**: David Pozar – *Microwave Engineering* (Ch. 1–5 and 11).
-- **Core Topics & Lab**: Transmission line telegrapher equations, wave reflection coefficients, VSWR, Smith chart graphical matching, microstrip geometry synthesis, two-port S-parameter networks, low-noise amplifiers (LNAs), mixers, and phase-locked loop (PLL) local oscillators; home lab characterization uses a LiteVNA 64, tinySA Ultra, and openEMS 3D FDTD field simulations.
+- **Core Topics & Lab**: Maxwell's equations in lossy/lossless media, transmission line telegrapher equations, wave reflection coefficients, VSWR, Smith chart graphical matching, microstrip geometry synthesis, two-port S-parameter networks, low-noise amplifiers (LNAs), mixers, and phase-locked loop (PLL) local oscillators; home lab characterization uses a LiteVNA 64, tinySA Ultra, and openEMS 3D FDTD field simulations.
 
 #### EE 305: Power Electronics & Switched-Mode Converters
-- **Prerequisites**: EE 201, EE 202
+- **Prerequisites**: EE 201, EE 202, EE 301
 - **Texts & Reading Scope**: Robert Erickson & Dragan Maksimovic – *Fundamentals of Power Electronics* (Ch. 1–9); Alex Lidow et al. – *GaN Transistors for Efficient Power Conversion* (selected layout/parasitics chapters).
-- **Core Topics**: Non-isolated buck, boost, and buck-boost topologies, isolated flyback and forward converters, state-space averaging, small-signal control transfer functions, magnetic core selection and planar inductor design, high-side bootstrap and isolated gate drivers, and Gallium Nitride (GaN) switching transient management.
+- **Core Topics**: Non-isolated buck, boost, and buck-boost topologies, isolated flyback and forward converters, power MOSFET/diode switching losses, state-space averaging, small-signal control transfer functions, magnetic core selection and planar inductor design, high-side bootstrap and isolated gate drivers, and Gallium Nitride (GaN) switching transient management.
 
 ---
 
@@ -361,14 +377,14 @@ flowchart TD
 - **Core Topics & Lab**: Formulation of 1D truss/beam elements, 2D plane-stress/strain elements, and 3D isoparametric solid elements, global stiffness and mass matrix assembly, numerical quadrature, structural modal eigenfrequency extraction, and harmonic resonance analysis; home lab validation uses FreeCAD CalculiX/PrePoMax FEA confirmed via MEMS accelerometer physical tap tests and FFT analysis.
 
 #### ME 303: Thermal Engineering & Heat Transfer
-- **Prerequisites**: PHYS 101, MATH 202
+- **Prerequisites**: ME 203, MATH 202, MATH 205
 - **Texts & Reading Scope**: Frank Incropera & David DeWitt – *Fundamentals of Heat and Mass Transfer*.
-- **Core Topics & Lab**: Control-volume thermal energy balances, steady and transient multidimensional conduction, thermal contact resistance networks, laminar and turbulent forced/natural convective boundary layers, fin and heat-pipe heat sink design, and radiative surface exchange; home lab logging uses thermocouples and a USB-C thermal camera.
+- **Core Topics & Lab**: Control-volume thermal energy balances, steady and transient multidimensional heat conduction PDEs, thermal contact resistance networks, laminar and turbulent forced/natural convective boundary layers, fin and heat-pipe heat sink design, and radiative surface exchange; home lab logging uses thermocouples and a USB-C thermal camera.
 
-#### ME 305: Fluid Mechanics & Rotorcraft Aerodynamics
-- **Prerequisites**: ME 202, MATH 205
+#### ME 304: Fluid Mechanics & Rotorcraft Aerodynamics
+- **Prerequisites**: ME 202, ME 203, MATH 205
 - **Texts & Reading Scope**: Frank White – *Fluid Mechanics*; J. Gordon Leishman – *Principles of Helicopter Aerodynamics* (Ch. 2–6 and 12).
-- **Core Topics & Lab**: Navier-Stokes equations, integral and differential momentum balances, boundary layer separation, Blade Element Momentum Theory (BEMT) for multirotor propellers, ducted fan aerodynamics, and ground effect; home lab testing uses an instrumented thrust/torque stand paired with OpenFOAM CFD simulations.
+- **Core Topics & Lab**: Compressible and incompressible Navier-Stokes equations, integral and differential momentum/energy balances, boundary layer separation, Blade Element Momentum Theory (BEMT) for multirotor propellers, ducted fan aerodynamics, and ground effect; home lab testing uses an instrumented thrust/torque stand paired with OpenFOAM CFD simulations.
 
 ---
 
@@ -380,12 +396,12 @@ flowchart TD
 - **Core Topics**: Rotation matrices and matrix exponentials in $\mathrm{SO}(3)$, homogeneous transformations and twists in $\mathrm{SE}(3)$, Product of Exponentials (PoE) forward/inverse kinematics, geometric and analytical Jacobians, spatial inertia matrices, recursive Newton-Euler dynamics (RNEA), URDF modeling, and MuJoCo multibody simulation.
 
 #### ROB 302: Feedback Control Systems
-- **Prerequisites**: EE 202, MATH 202
+- **Prerequisites**: EE 202, MATH 201, MATH 202
 - **Texts & Reading Scope**: Karl Johan Åström & Richard Murray – *Feedback Systems*.
 - **Core Topics**: Linear state-space models, reachability and observability, state feedback pole placement, Linear Quadratic Regulator (LQR) optimal control, Luenberger state observers, frequency-domain transfer functions, Bode and Nyquist stability criteria, gain/phase margins, and PID loop shaping.
 
 #### ROB 303: 3D Computer Vision & Multi-View Geometry
-- **Prerequisites**: MATH 201, CS 201
+- **Prerequisites**: MATH 201, CS 201, ROB 301
 - **Texts & Reading Scope**: Richard Szeliski – *Computer Vision: Algorithms and Applications*; Yi Ma, Stefano Soatto, Jana Kosecka & S. Shankar Sastry – *An Invitation to 3-D Vision*.
 - **Core Topics**: Pinhole camera models, intrinsic/extrinsic calibration, radial/tangential distortion correction, epipolar geometry on $\mathrm{SE}(3)$, fundamental and essential matrices, calibrated stereo disparity algorithms, optical flow, sparse bundle adjustment, and Iterative Closest Point (ICP) point-cloud registration.
 
@@ -419,12 +435,12 @@ flowchart TD
 - **Core Topics**: Microstrip patch antenna synthesis, planar phased arrays, link budget analysis, discrete-time QPSK/OFDM modulation, matched filtering, Gardner timing recovery, and Costas loop carrier phase synchronization.
 
 ### EE 402: Battery Management Systems & Pack Protection
-- **Prerequisites**: EE 305, ME 303, MATH 203
+- **Prerequisites**: EE 305, ME 303, MATH 203, ROB 302, ROB 304
 - **Texts & Reading Scope**: Gregory Plett – *Battery Management Systems* (Vols. I & II); TI BQ769x2 Technical Reference Manual.
 - **Core Topics**: Equivalent-circuit cell modeling (Randles models), online Extended Kalman Filter (EKF) State-of-Charge (SoC) and State-of-Health (SoH) estimation, active/passive cell balancing, pre-charge circuits, solid-state bidirectional e-fuses, and isolated CAN-FD telematics.
 
 ### EE 403: Electric Machinery & Field-Oriented Servo Drives
-- **Prerequisites**: EE 305, ROB 305, ME 301
+- **Prerequisites**: PHYS 102, MATH 201, EE 305, ROB 305, ME 301
 - **Texts & Reading Scope**: Paul Krause et al. – *Analysis of Electric Machinery and Drive Systems* (Ch. 1–6 only; skip utility grid generator sections).
 - **Core Topics**: Magnetic reluctance, reference frame transformations (dq0 Clarke and Park transforms), Permanent Magnet Synchronous Machine (PMSM) dynamic equations, Space Vector PWM (SVPWM), inverter dead-time compensation, high-bandwidth current/torque loop tuning, and field-weakening control.
 
@@ -462,10 +478,10 @@ flowchart TD
 | **2** | **Custom 915 MHz / 2.4 GHz ISM SDR Transceiver & Patch Array Link** | EE 401 | Design and assemble an RF front-end PCB and microstrip patch antenna array tuned for the 915 MHz ISM band; validate link performance over coax using 30 dB SMA attenuators or under legal sub-1 mW ISM radiated limits; characterize $S_{11}$ reflection and spectral emissions on LiteVNA and tinySA Ultra. | \$80–\$150 |
 | **3** | **Smart 6S LiFePO4 BMS & Multi-Rail Power Distribution Unit** | EE 402 | Build a 6S ( $< 25.2\text{ V}$ SELV limit) smart BMS PCB integrating a TI BQ769x2 Analog Front-End, STM32 supervisor MCU, isolated CAN-FD transceiver, solid-state bidirectional e-fuse, and high-efficiency synchronous buck converters; implement an online EKF for real-time State-of-Charge estimation, validated on a 150W DC electronic load. | \$100–\$180 |
 | **4** | **High-Torque Quasi-Direct-Drive (QDD) Actuator & 20 kHz FOC Drive** | EE 403 | Pair a pancake frameless BLDC motor (5010/8108 size) with an integrated 8:1 cycloidal reducer fabricated from PA-CF 3D prints, ground steel dowel pins, thin-section bearings, and cloud-milled aluminum plates; build a 24V 3-phase inverter PCB with DFN5x6 MOSFETs and a 14-bit magnetic encoder (AS5047P), closing a 20 kHz Field-Oriented Control (FOC) torque loop on an STM32G4 MCU. | \$90–\$140 / act. |
-| **5** | **Desktop 6-DOF Precision Robot Arm & 6-Axis Force/Torque Wrist** | ROB 401, ROB 402 | Assemble a 500 mm reach desktop 6-DOF industrial robot arm driven by 6x Capstone 4 actuators, 3K carbon-fiber structural tubes, and SendCutSend CNC aluminum brackets; design and calibrate a Maltese-cross wrist flexure outfitted with 6 mini load cells and a 24-bit ADC (ADS1256); implement real-time gravity compensation, Cartesian impedance control, and RRT* obstacle avoidance. | \$600–\$900 |
+| **5** | **Desktop 6-DOF Precision Robot Arm & 6-Axis Force/Torque Wrist** | ROB 401, ROB 402, EE 302, Capstone 4 | Assemble a 500 mm reach desktop 6-DOF industrial robot arm driven by 6x Capstone 4 actuators, 3K carbon-fiber structural tubes, and SendCutSend CNC aluminum brackets; design and calibrate a Maltese-cross wrist flexure outfitted with 6 mini load cells and a 24-bit ADC (ADS1256); implement real-time gravity compensation, Cartesian impedance control, and RRT* obstacle avoidance. | \$600–\$900 |
 | **6** | **Synchronized Visual-Inertial-LiDAR SLAM & Spatial AI Pod** | ROB 303, ROB 304, ROB 502 | Build a rigid sensor payload containing dual OV9281 global-shutter monochrome cameras (stereo baseline), an industrial BMI088 6-axis IMU, and a Livox Mid-360 or RPLiDAR unit; implement sub-microsecond hardware trigger synchronization using an MCU/FPGA; calibrate spatial-temporal transforms using Kalibr; execute real-time factor-graph visual-inertial-LiDAR odometry (VIO/SLAM) and spatial neural network object detection. | \$250–\$650 |
-| **7** | **Sub-250g Ducted Carbon-Fiber Quadrotor with Custom Flight Computer** | ME 305, ROB 401, ROB 501 | Fabricate a sub-250g prop-guarded airframe using SendCutSend CNC carbon-fiber plates and energy-absorbing 3D-printed TPU ducts; develop a custom STM32 flight controller PCB, low-noise IMU, and 915 MHz SDR teleoperation link (Capstone 2); deploy coordinate-free $\mathrm{SE}(3)$ geometric tracking control and optical flow/VIO indoor collision-avoidance algorithms within safety netting or tethered harnesses. | \$180–\$280 |
-| **8** | **Apex Thesis: Desktop-Scale 12-DOF Torque-Controlled Quadruped / Wheeled-Biped** | ROB 501, ROB 502, ENGR 401 | Build an 8–10 kg dynamic legged quadruped (MIT Mini-Cheetah / ODRI Solo-12 class) serving as the system-level convergence of Capstone 1 (central compute brain), Capstone 2 (wireless telemetry), Capstone 3 (smart BMS power rail), Capstone 4 (12x quasi-direct-drive joint actuators), and Capstone 6 (spatial SLAM pod); execute dynamic trot, jump, and rough-terrain gaits suspended under a doorway pull-up bar safety bungee gantry using convex Model Predictive Control (MPC) and Sim-to-Real reinforcement learning policies. | \$900–\$1,500 incr. |
+| **7** | **Sub-250g Ducted Carbon-Fiber Quadrotor with Custom Flight Computer** | ME 304, ROB 401, ROB 501, Capstone 2 | Fabricate a sub-250g prop-guarded airframe using SendCutSend CNC carbon-fiber plates and energy-absorbing 3D-printed TPU ducts; develop a custom STM32 flight controller PCB, low-noise IMU, and 915 MHz SDR teleoperation link (Capstone 2); deploy coordinate-free $\mathrm{SE}(3)$ geometric tracking control and optical flow/VIO indoor collision-avoidance algorithms within safety netting or tethered harnesses. | \$180–\$280 |
+| **8** | **Apex Thesis: Desktop-Scale 12-DOF Torque-Controlled Quadruped / Wheeled-Biped** | ROB 501, ROB 502, ENGR 401, Capstones 1, 2, 3, 4, 6 | Build an 8–10 kg dynamic legged quadruped (MIT Mini-Cheetah / ODRI Solo-12 class) serving as the system-level convergence of Capstone 1 (central compute brain), Capstone 2 (wireless telemetry), Capstone 3 (smart BMS power rail), Capstone 4 (12x quasi-direct-drive joint actuators), and Capstone 6 (spatial SLAM pod); execute dynamic trot, jump, and rough-terrain gaits suspended under a doorway pull-up bar safety bungee gantry using convex Model Predictive Control (MPC) and Sim-to-Real reinforcement learning policies. | \$900–\$1,500 incr. |
 
 ---
 
@@ -487,7 +503,7 @@ flowchart TD
 #### 3. Mechanical Prototyping Bench (~USD 400–800)
 - **Additive Manufacturing**: Enclosed CoreXY 3D printer with a hardened steel nozzle capable of extruding engineering filaments (PA-CF, PETG-CF, polycarbonate, TPU).
 - **Hardware Fasteners & Bearings**: Heat-set insert press, assortment of metric socket-head screws, ground shoulder bolts, steel dowel pins, and thin-section precision ball bearings.
-- **Mechanical Test Rig**: Modular 2020-extrusion frame with an HX711-interfaced 50 kg load cell for destructive tensile/creep coupons (MATS 101) and propeller thrust/torque measurements (ME 305).
+- **Mechanical Test Rig**: Modular 2020-extrusion frame with an HX711-interfaced 50 kg load cell for destructive tensile/creep coupons (MATS 101) and propeller thrust/torque measurements (ME 304).
 - **Cloud Digital Manufacturing**: Turnkey on-demand laser cutting, CNC sheet bending, and 5-axis aluminum milling services (SendCutSend, JLCCNC, PCBWay CNC) for 6061-T6 aluminum and 3K carbon-fiber brackets.
 
 ### Residential Safety Protocols
