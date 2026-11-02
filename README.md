@@ -12,7 +12,7 @@
 
 ## Core Pillars
 
-1. **First-Principles Rigor**: Full coverage of vector calculus, analytical & variational mechanics, electromagnetism, linear algebra, dynamical systems, Lie groups ($\mathrm{SO}(3)$ and $\mathrm{SE}(3)$), convex optimization, and optimal control.
+1. **First-Principles Rigor**: Full coverage of vector calculus, analytical & variational mechanics, electromagnetism, linear algebra, dynamical systems, Lie groups ( $\mathrm{SO}(3)$ and $\mathrm{SE}(3)$ ), convex optimization, and optimal control.
 2. **Silicon-to-Software Stack**: Spanning transistor physics and CMOS VLSI design up through custom RISC-V CPU pipelining, low-level C systems programming, bare-metal RTOS development, POSIX OS kernels, compiler construction, and distributed robotic middleware (ROS 2 / DDS).
 3. **Physical System Realization**: Hands-on hardware execution across all engineering domains—from 4/6-layer high-speed controlled-impedance PCB design, switched-mode power converters, and Field-Oriented Control (FOC) inverter drives to precision cycloidal gearboxes, carbon-fiber composite airframes, and multi-sensor spatial SLAM pods.
 4. **Apex Synthesis**: System-level convergence into an 8–10 kg, 12-DOF torque-controlled quadruped / wheeled-biped dynamic robot integrating all previous subsystems.
@@ -33,7 +33,7 @@
 
 ## Capstones Matrix
 
-All capstone hardware designs target residential home-lab execution within Safe Extra-Low Voltage ($< 25.2\text{ V}$ SELV) boundaries and budget-conscious procurement:
+All capstone hardware designs target residential home-lab execution within Safe Extra-Low Voltage ( $< 25.2\text{ V}$ SELV) boundaries and budget-conscious procurement:
 
 - **Capstone 1**: Custom 32-Bit RISC-V SoC, 6-Layer PCB, Compiler & Preemptive RTOS
 - **Capstone 2**: Custom 915 MHz / 2.4 GHz ISM SDR Transceiver & Patch Array Link
