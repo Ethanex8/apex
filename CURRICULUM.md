@@ -193,27 +193,27 @@ flowchart TD
 
 ### MATH 101: Single Variable Calculus
 - **Prerequisites**: None
-- **Texts & Reading Scope**: James Stewart – *Calculus: Early Transcendentals* (Appendices A–E, Ch. 1–11 complete).
+- **Texts & Reading Scope**: James Stewart – *Calculus: Early Transcendentals* (Ch. 1–11 and Appendices A–E; skip Ch. 12–16 and Appendices F–H covered in MATH 102, and Ch. 17 on second-order ODEs covered in MATH 202).
 - **Core Topics**: Functions, limits, continuity, differentiation rules, optimization, definite and indefinite integrals, integration techniques, first-order separable/linear differential equations, parametric/polar curves, and infinite series.
 
 ### MATH 102: Multivariable & Vector Calculus
 - **Prerequisites**: MATH 101
-- **Texts & Reading Scope**: James Stewart – *Calculus: Early Transcendentals* (Appendices F–H, Ch. 12–16; skip Ch. 17 as second-order ODEs are covered in MATH 202).
+- **Texts & Reading Scope**: James Stewart – *Calculus: Early Transcendentals* (Ch. 12–16 and Appendices F–H; skip Ch. 1–11 and Appendices A–E covered in MATH 101, and Ch. 17 on second-order ODEs covered in MATH 202).
 - **Core Topics**: 3D coordinate geometry, dot and cross products, space curves, partial derivatives, gradients, Lagrange multipliers, double and triple integrals in cylindrical/spherical coordinates, line and surface integrals, Green’s theorem, Stokes’ theorem, and the Divergence theorem.
 
 ### PHYS 101: Mechanics
 - **Prerequisites**: Co-requisite MATH 101
-- **Texts & Reading Scope**: Randall D. Knight – *Physics for Scientists and Engineers: A Strategic Approach* (Ch. 1–13 and 15; skip Ch. 14 on elasticity and fluids covered in ME 201 and ME 304).
+- **Texts & Reading Scope**: Randall D. Knight – *Physics for Scientists and Engineers: A Strategic Approach* (Ch. 1–13 and 15; skip Ch. 14 on elasticity and fluids covered in ME 201 and ME 304, Ch. 16–19 on thermodynamics covered in ME 203, and Ch. 20–42 covered in PHYS 102 and PHYS 103).
 - **Core Topics**: 1D and 2D kinematics, Newtonian dynamics, impulse and linear momentum conservation, work and kinetic/potential energy, fixed-axis rigid-body rotation, static equilibrium, gravitation, and simple harmonic oscillations.
 
 ### PHYS 102: Electromagnetism
 - **Prerequisites**: PHYS 101, MATH 102
-- **Texts & Reading Scope**: Randall D. Knight – *Physics for Scientists and Engineers: A Strategic Approach* (Ch. 22–27 and 29–31; skip Ch. 28 and 32 on DC and AC circuit analysis covered in EE 201).
+- **Texts & Reading Scope**: Randall D. Knight – *Physics for Scientists and Engineers: A Strategic Approach* (Ch. 22–27 and 29–31; skip Ch. 1–15 covered in PHYS 101, Ch. 16–19 on thermodynamics covered in ME 203, Ch. 20–21 and 33–42 covered in PHYS 103, and Ch. 28 and 32 on DC and AC circuit analysis covered in EE 201).
 - **Core Topics**: Electric charge, Coulomb's law, electric fields, Gauss’s law, electric potential, capacitance, magnetic fields, Ampère's law, Faraday's law of electromagnetic induction, displacement current, and Maxwell's equations.
 
 ### PHYS 103: Waves, Optics & Modern Physics
 - **Prerequisites**: PHYS 101, PHYS 102, MATH 102
-- **Texts & Reading Scope**: Randall D. Knight – *Physics for Scientists and Engineers: A Strategic Approach* (Ch. 20–21, 33–35, and 37–40; skip Ch. 16–19 on Thermodynamics covered in ME 203, Ch. 36 on Relativity, and Ch. 41–42 on Nuclear and Particle Physics).
+- **Texts & Reading Scope**: Randall D. Knight – *Physics for Scientists and Engineers: A Strategic Approach* (Ch. 20–21, 33–35, and 37–40; skip Ch. 1–15 covered in PHYS 101, Ch. 16–19 on thermodynamics covered in ME 203, Ch. 22–32 covered in PHYS 102, Ch. 36 on relativity, and Ch. 41–42 on nuclear and particle physics).
 - **Core Topics**: Travelling mechanical and acoustic waves, superposition, standing waves, wave interference, circular-aperture diffraction limits, ray optics, thin lenses and optical instruments, photoelectric effect, and introductory quantum wave-particle duality.
 
 ### CS 101: Scientific Computing & Modular Programming
@@ -262,12 +262,12 @@ flowchart TD
 
 ### MATH 204: Numerical Methods for Engineers
 - **Prerequisites**: MATH 201, MATH 202, CS 101
-- **Texts & Reading Scope**: Steven C. Chapra & David E. Clough – *Applied Numerical Methods with Python for Engineers and Scientists* (Ch. 1–20 complete).
+- **Texts & Reading Scope**: Steven C. Chapra & David E. Clough – *Applied Numerical Methods with Python for Engineers and Scientists* (Ch. 1–15 and 17–24; skip Ch. 16 on Fourier analysis covered in MATH 205 and EE 202).
 - **Core Topics**: Floating-point representation and conditioning, direct and iterative linear system solvers, nonlinear root finding and multivariable Newton-Raphson, cubic spline interpolation, Gauss quadrature, finite difference approximations, and adaptive Runge-Kutta ODE integration.
 
 ### MATH 205: Partial Differential Equations & Complex Analysis
 - **Prerequisites**: MATH 102, MATH 202
-- **Texts & Reading Scope**: Dennis G. Zill – *Advanced Engineering Mathematics* (Ch. 12–15 and 17–20; skip Ch. 1–11 on ODEs, linear algebra, and vector calculus covered in MATH 102, MATH 201, and MATH 202, and Ch. 16 on numerical PDEs).
+- **Texts & Reading Scope**: Dennis G. Zill – *Advanced Engineering Mathematics (6th Ed.)* (Ch. 12–15 and 17–20; skip Ch. 1–11 on ODEs, linear algebra, and vector calculus covered in MATH 102, MATH 201, and MATH 202, and Ch. 16 on numerical PDEs).
 - **Core Topics**: Orthogonal functions, Fourier series and Fourier integrals, canonical wave, heat, and Laplace PDEs in rectangular, cylindrical, and spherical coordinates, separation of variables, complex analytic functions, Cauchy-Riemann equations, Laurent series, contour integration, Cauchy's residue theorem, and conformal mappings.
 
 ### CS 201: Data Structures & Algorithms
@@ -282,8 +282,8 @@ flowchart TD
 
 ### EE 201: Linear Circuit Theory, Network Analysis & EDA
 - **Prerequisites**: PHYS 102, MATH 201, MATH 202
-- **Texts & Reading Scope**: Charles K. Alexander & Matthew N.O. Sadiku – *Fundamentals of Electric Circuits* (Ch. 1–16; skip Ch. 17–18 on Fourier analysis covered in EE 202 and Ch. 19 on two-port networks covered in EE 305); Peter Dalmaris – *KiCad Like a Pro* (Parts 1–7 complete).
-- **Core Topics & Lab**: Kirchhoff's laws, nodal and mesh matrix analysis, Thévenin/Norton equivalents, ideal op-amp topologies, RLC transient responses, AC steady-state phasor analysis, balanced three-phase circuits, mutual inductance and ideal/linear transformers, $s$-domain Laplace circuit analysis, frequency response and Bode plots, schematic capture, and 2-layer/4-layer PCB layout in KiCad; home lab execution uses a 4-channel DSO, arbitrary waveform generator, and LTspice/Ngspice.
+- **Texts & Reading Scope**: Charles K. Alexander & Matthew N.O. Sadiku – *Fundamentals of Electric Circuits* (Ch. 1–16; skip Ch. 17–18 on Fourier analysis covered in EE 202 and Ch. 19 on two-port networks covered in EE 305); Peter Dalmaris – *KiCad Like a Pro* (Parts 1–8; skip Parts 9–12 on standalone hobbyist projects).
+- **Core Topics & Lab**: Kirchhoff's laws, nodal and mesh matrix analysis, Thévenin/Norton equivalents, ideal op-amp topologies, RLC transient responses, AC steady-state phasor analysis, balanced three-phase circuits, mutual inductance and ideal/linear transformers, complex-frequency ( $s$ ) Laplace circuit analysis, frequency response and Bode plots, schematic capture, and 2-layer/4-layer PCB layout in KiCad; home lab execution uses a 4-channel DSO, arbitrary waveform generator, and LTspice/Ngspice.
 
 ### EE 202: Continuous & Discrete Signals and Systems
 - **Prerequisites**: EE 201, MATH 201, MATH 205
@@ -297,7 +297,7 @@ flowchart TD
 
 ### ME 201: Mechanics of Materials
 - **Prerequisites**: ME 101, MATS 101, MATH 202
-- **Texts & Reading Scope**: James M. Gere & Barry J. Goodno – *Mechanics of Materials* (Ch. 1–11 complete).
+- **Texts & Reading Scope**: Russell C. Hibbeler – *Mechanics of Materials* (Ch. 1–14 complete).
 - **Core Topics**: 3D Cauchy stress and infinitesimal strain tensors, generalized Hooke's law, axial loading and statically indeterminate thermal stresses, Saint-Venant torsion of circular and thin-walled shafts, pure and asymmetric beam bending, transverse shear stress, 3D stress/strain transformations and Mohr's circle, thin-walled pressure vessels, beam deflection differential equations and strain-energy methods (Castigliano's theorem), Euler column buckling, and von Mises / Tresca yield criteria.
 
 ### ME 202: 3D Analytical & Variational Dynamics
@@ -328,7 +328,7 @@ flowchart TD
 
 #### ECE 303: Embedded Real-Time Firmware & RTOS
 - **Prerequisites**: ECE 201, ECE 301, CS 201, CS 202
-- **Texts & Reading Scope**: Jonathan W. Valvano – *Embedded Systems: Real-Time Operating Systems for ARM Cortex-M Microcontrollers* (Ch. 1–5 and 7–9; skip Ch. 6 on Bluetooth Low Energy and Ch. 10 on PID control covered in ROB 302).
+- **Texts & Reading Scope**: Jonathan W. Valvano – *Embedded Systems: Real-Time Operating Systems for ARM Cortex-M Microcontrollers* (Ch. 1–5 and 7–9; skip Ch. 6 on digital signal processing covered in EE 303 and Ch. 10 on PID control covered in ROB 302).
 - **Core Topics**: Bare-metal startup code, linker scripts, nested vectored interrupt controllers (NVIC), multi-channel DMA pipelines, lock-free ring buffers, real-time preemptive RTOS kernel scheduling, priority inversion protocols, memory protection units (MPU), flash file systems, and low-level peripheral drivers for CAN-FD, SPI, I2C, and UART.
 
 #### CS 301: Operating Systems & Systems Programming
@@ -352,7 +352,7 @@ flowchart TD
 
 #### EE 301: Semiconductor Devices & Analog Electronics
 - **Prerequisites**: EE 201
-- **Texts & Reading Scope**: Behzad Razavi – *Fundamentals of Microelectronics* (Ch. 1–13 and 15; skip Ch. 14 on power amplifiers and Ch. 16–17 on digital CMOS covered in ECE 302).
+- **Texts & Reading Scope**: Behzad Razavi – *Fundamentals of Microelectronics* (Ch. 1–15; skip Ch. 16 on digital CMOS circuits covered in ECE 302 and Ch. 17 on alternative CMOS-first amplifier coverage).
 - **Core Topics**: PN-junction physics, small-signal and large-signal BJT/MOSFET modeling, current mirrors, differential pairs, high-gain output stages, operational amplifier frequency compensation and phase margin, LC/VCO oscillators, active filters, precision voltage references, and low-noise analog signal conditioning.
 
 #### EE 302: Sensors, Metrology & Data Conversion
@@ -373,7 +373,7 @@ flowchart TD
 #### EE 305: RF & Microwave Engineering
 - **Prerequisites**: EE 304, EE 202, EE 301
 - **Texts & Reading Scope**: David M. Pozar – *Microwave Engineering* (Ch. 3–8 and 10–13; skip Ch. 1–2 review covered in EE 304, Ch. 9 on ferrimagnetic components, and Ch. 14 on radar/radiometer systems).
-- **Core Topics & Lab**: Microstrip, stripline, and coplanar waveguide (CPW) geometry synthesis, multi-port microwave network theory ( $Z$, $Y$, $ABCD$, and $S$-parameter matrices), signal flow graphs, lumped and distributed impedance matching networks, microwave resonators, directional couplers, Wilkinson power dividers, planar microwave filters, low-noise amplifiers (LNAs, noise figure circles, Rollett stability factor and stability circles), diode/FET mixers, and phase-locked loop (PLL) local oscillators; home lab characterization uses a LiteVNA 64, tinySA Ultra, and openEMS 3D FDTD field simulations.
+- **Core Topics & Lab**: Microstrip, stripline, and coplanar waveguide (CPW) geometry synthesis, multi-port microwave network theory ( $Z, Y, ABCD$ , and $S$ parameter matrices), signal flow graphs, lumped and distributed impedance matching networks, microwave resonators, directional couplers, Wilkinson power dividers, planar microwave filters, low-noise amplifiers (LNAs, noise figure circles, Rollett stability factor and stability circles), diode/FET mixers, and phase-locked loop (PLL) local oscillators; home lab characterization uses a LiteVNA 64, tinySA Ultra, and openEMS 3D FDTD field simulations.
 
 #### EE 306: Power Electronics & Switched-Mode Converters
 - **Prerequisites**: EE 201, EE 202, EE 301
@@ -411,7 +411,7 @@ flowchart TD
 
 #### ME 306: Rotorcraft Aerodynamics & Flight Mechanics
 - **Prerequisites**: ME 304, ME 202
-- **Texts & Reading Scope**: J. Gordon Leishman – *Principles of Helicopter Aerodynamics* (Ch. 1–8 and 10; skip Ch. 9 on dynamic stall and Ch. 11–13 on full-scale fuselage interactions, autogiros, and wind turbines).
+- **Texts & Reading Scope**: J. Gordon Leishman – *Principles of Helicopter Aerodynamics (2nd Ed.)* (Ch. 1–8, 10, and 14; skip Ch. 9 on dynamic stall and Ch. 11–13 on full-scale fuselage interactions, autogiros, and wind turbines).
 - **Core Topics & Lab**: 1D actuator-disk momentum theory in hover, vertical climb, descent, and forward flight, swirl and induced power losses, Blade Element Theory (BET) and combined Blade Element Momentum Theory (BEMT) for multirotor propellers, unsteady airfoil aerodynamics, vortex wake structure, ground effect, and ducted fan / shrouded rotor aerodynamics; home lab testing uses an instrumented thrust/torque stand paired with OpenFOAM CFD simulations.
 
 ---
@@ -421,7 +421,7 @@ flowchart TD
 #### ROB 301: Modern Robotics: Lie Groups, Spatial Dynamics & Simulation
 - **Prerequisites**: MATH 201, MATH 204, ME 202
 - **Texts & Reading Scope**: Kevin M. Lynch & Frank C. Park – *Modern Robotics: Mechanics, Planning, and Control* (Ch. 1–8; skip Ch. 9–10 on trajectory generation and motion planning covered in ROB 402, Ch. 11 on robot control covered in ROB 302 and ROB 401, and Ch. 12–13 on frictional grasping and wheeled mobile robots).
-- **Core Topics & Lab**: Rotation matrices and matrix exponentials in $\mathrm{SO}(3)$, homogeneous transformations and twists in $\mathrm{SE}(3)$, Product of Exponentials (PoE) forward and numerical Newton-Raphson inverse kinematics, geometric and analytical Jacobians, spatial inertia matrices, recursive Newton-Euler dynamics (RNEA), URDF modeling, and multibody physics simulation in MuJoCo and Drake.
+- **Core Topics & Lab**: Rotation matrices and matrix exponentials in $\mathrm{SO}(3)$ , homogeneous transformations and twists in $\mathrm{SE}(3)$ , Product of Exponentials (PoE) forward and numerical Newton-Raphson inverse kinematics, geometric and analytical Jacobians, spatial inertia matrices, recursive Newton-Euler dynamics (RNEA), URDF modeling, and multibody physics simulation in MuJoCo and Drake.
 
 #### ROB 302: Feedback Control Systems
 - **Prerequisites**: EE 202, MATH 201, MATH 202
@@ -430,18 +430,18 @@ flowchart TD
 
 #### ROB 303: 3D Computer Vision & Multi-View Geometry
 - **Prerequisites**: MATH 201, MATH 203, MATH 204, CS 201, ROB 301
-- **Texts & Reading Scope**: Peter Corke – *Robotics, Vision and Control: Fundamental Algorithms in Python (3rd Ed.)* (Ch. 11–14; skip Ch. 1–10 on kinematics, dynamics, and localization covered in ROB 301 and ROB 304, and Ch. 15–16 on visual servoing).
-- **Core Topics**: Pinhole perspective camera models, intrinsic/extrinsic calibration, radial/tangential lens distortion correction, feature extraction and matching, RANSAC outlier rejection, epipolar geometry on $\mathrm{SE}(3)$, fundamental and essential matrices, calibrated stereo disparity algorithms, dense and sparse optical flow, sparse Gauss-Newton/Levenberg-Marquardt bundle adjustment, and Iterative Closest Point (ICP) 3D point-cloud registration.
+- **Texts & Reading Scope**: Peter Corke – *Robotics, Vision and Control: Fundamental Algorithms in Python (3rd Ed.)* (Ch. 10–14; skip Ch. 1–9 on kinematics, dynamics, and localization covered in ROB 301 and ROB 304, and Ch. 15–16 on visual servoing and applications).
+- **Core Topics**: Pinhole perspective camera models, intrinsic/extrinsic calibration, radial/tangential lens distortion correction, feature extraction and matching, RANSAC outlier rejection, epipolar geometry on $\mathrm{SE}(3)$ , fundamental and essential matrices, calibrated stereo disparity algorithms, dense and sparse optical flow, sparse Gauss-Newton/Levenberg-Marquardt bundle adjustment, and Iterative Closest Point (ICP) 3D point-cloud registration.
 
 #### ROB 304: Lie-Group State Estimation & Factor-Graph SLAM
 - **Prerequisites**: MATH 201, MATH 203, MATH 204, ROB 301
 - **Texts & Reading Scope**: Timothy D. Barfoot – *State Estimation for Robotics (2nd Ed.)* (Ch. 1–5 and 7–11; skip Ch. 6 on Gaussian variational inference).
-- **Core Topics**: Recursive Bayesian filtering, linear Kalman Filters, Extended and Unscented Kalman Filters (EKF/UKF), sensor bias and outlier handling, matrix Lie group uncertainty and manifold Error-State Kalman Filters (ESKF) on $\mathrm{SO}(3)$ and $\mathrm{SE}(3)$, maximum a posteriori (MAP) nonlinear Gauss-Newton smoothing, continuous-time trajectory estimation, factor graphs using GTSAM/iSAM2, multi-sensor spatial-temporal extrinsic calibration (Kalibr), visual-inertial odometry (VIO), and LiDAR SLAM.
+- **Core Topics**: Recursive Bayesian filtering, linear Kalman Filters, Extended and Unscented Kalman Filters (EKF/UKF), sensor bias and outlier handling, matrix Lie group uncertainty and manifold Error-State Kalman Filters (ESKF) on $\mathrm{SO}(3)$ and $\mathrm{SE}(3)$ , maximum a posteriori (MAP) nonlinear Gauss-Newton smoothing, continuous-time trajectory estimation, factor graphs using GTSAM/iSAM2, multi-sensor spatial-temporal extrinsic calibration (Kalibr), visual-inertial odometry (VIO), and LiDAR SLAM.
 
 #### ROB 305: Digital Control & System Identification
 - **Prerequisites**: ROB 302, EE 303
-- **Texts & Reading Scope**: Gene F. Franklin, J. David Powell & Michael L. Workman – *Digital Control of Dynamic Systems* (Ch. 1–12 complete).
-- **Core Topics**: Zero-Order Hold (ZOH) discretization, stability mapping from $s$-plane to $z$-plane, discrete-time state-space control and observer design, computational delay compensation, integrator anti-windup, ADC/DAC quantization effects, and experimental frequency/time-domain parameter system identification.
+- **Texts & Reading Scope**: Gene F. Franklin, J. David Powell & Michael L. Workman – *Digital Control of Dynamic Systems* (Ch. 1–12 and 14; skip Ch. 13 on nonlinear control covered in ROB 401).
+- **Core Topics**: Zero-Order Hold (ZOH) discretization, stability mapping from the $s$ plane to the $z$ plane, discrete-time state-space control and observer design, computational delay compensation, integrator anti-windup, ADC/DAC quantization effects, and experimental frequency/time-domain parameter system identification.
 
 ---
 
@@ -449,7 +449,7 @@ flowchart TD
 
 ### ENGR 401: Systems Integration, Wire Harnessing & HIL Testing
 - **Prerequisites**: ECE 303, CS 303, EE 306, ME 301, ROB 305
-- **Texts & Reading Scope**: Alexander Kossiakoff, William N. Sweet, Samuel J. Seymour & Steven M. Biemer – *Systems Engineering Principles and Practice (3rd Ed.)* (Ch. 1–16 complete).
+- **Texts & Reading Scope**: Alexander Kossiakoff, Steven M. Biemer, Samuel J. Seymour & David A. Flanigan – *Systems Engineering Principles and Practice (3rd Ed.)* (Ch. 1–17; skip Ch. 18–22 on post-development production, enterprise, and cybersecurity).
 - **Core Topics**: Requirements decomposition, trade studies and SWaP-C budgets, Failure Modes and Effects Analysis (FMEA), fault-tolerant hardware watchdog architectures, high-flex robotic cable harnessing (Molex/JST crimping, shielding, strain relief), interface control documents (ICDs), and hardware-in-the-loop (HIL) automated verification test benches.
 
 ### ECE 401: High-Speed Digital Design, Signal Integrity & EMC
@@ -459,37 +459,37 @@ flowchart TD
 
 ### EE 401: Antenna Theory & Phased Array Design
 - **Prerequisites**: EE 304, EE 305
-- **Texts & Reading Scope**: Warren L. Stutzman & Gary A. Thiele – *Antenna Theory and Design* (Ch. 1–9 and 13; skip Ch. 10–12 on reflector antennas and CEM methods).
+- **Texts & Reading Scope**: Warren L. Stutzman & Gary A. Thiele – *Antenna Theory and Design (3rd Ed.)* (Ch. 1–11 and 13; skip Ch. 12 on base-station antennas and Ch. 14–16 on computational electromagnetics).
 - **Core Topics**: Radiation integrals and auxiliary vector potentials, directivity, gain, effective aperture, Friis transmission equation and link budget analysis, linear wire dipoles and monopoles, resonant microstrip patch antenna synthesis, axial ratio polarization, two-element and planar phased array factor synthesis, electronic beam steering, and $S_{11}$ return-loss / radiation pattern characterization.
 
 ### EE 402: Digital Wireless Communications & Software-Defined Radio (SDR)
 - **Prerequisites**: EE 303, EE 305, MATH 203
-- **Texts & Reading Scope**: Michael Rice – *Digital Communications: A Discrete-Time Approach* (Ch. 1–10 and Appendix A complete).
+- **Texts & Reading Scope**: Michael Rice – *Digital Communications: A Discrete-Time Approach* (Ch. 1–10 and Appendices A–C complete).
 - **Core Topics**: Baseband and passband discrete-time SDR transceiver architectures, root-raised-cosine pulse shaping, intersymbol interference (ISI) and eye diagrams, matched filtering, AWGN bit-error-rate (BER) link analysis, BPSK/QPSK/QAM and OFDM modulation, Costas loop carrier phase/frequency synchronization, Gardner timing error detector symbol recovery, and frame synchronization.
 
 ### EE 403: Battery Management Systems & Pack Protection
 - **Prerequisites**: EE 306, ME 305, MATH 203, ROB 302, ROB 304
-- **Texts & Reading Scope**: Gregory L. Plett – *Battery Management Systems* (Vol. I: *Battery Modeling*, Ch. 1–2; skip Ch. 3–8 on continuum porous-electrode PDE models; Vol. II: *Equivalent-Circuit Methods*, Ch. 1–7 complete).
+- **Texts & Reading Scope**: Gregory L. Plett – *Battery Management Systems* (Vol. I: *Battery Modeling*, Ch. 1–2 and 7; skip Ch. 3–6 on continuum porous-electrode PDE models; Vol. II: *Equivalent-Circuit Methods*, Ch. 1–7 complete).
 - **Core Topics & Lab**: Electrochemistry fundamentals, equivalent-circuit cell modeling (Randles models), online Extended/Sigma-Point Kalman Filter (EKF/SPKF) State-of-Charge (SoC) and State-of-Health (SoH) estimation, active/passive cell balancing, pre-charge circuits, solid-state bidirectional e-fuses, TI BQ769x2 AFE integration, and isolated CAN-FD telematics.
 
 ### EE 404: Electric Machinery & Field-Oriented Servo Drives
 - **Prerequisites**: PHYS 102, MATH 201, EE 306, ROB 305, ME 301
-- **Texts & Reading Scope**: Sang-Hoon Kim – *Electric Motor Control: DC, AC, and BLDC Motors* (Ch. 1–11 complete).
+- **Texts & Reading Scope**: Sang-Hoon Kim – *Electric Motor Control: DC, AC, and BLDC Motors* (Ch. 1–10 complete).
 - **Core Topics**: Magnetic reluctance and electromechanical energy conversion, reference frame transformations ( $dq0$ Clarke and Park transforms), Permanent Magnet Synchronous Machine (PMSM) dynamic equations, Space Vector PWM (SVPWM), inverter dead-time compensation, high-bandwidth cascaded current/velocity/position loop tuning, and field-weakening control.
 
 ### ROB 401: Nonlinear & Geometric Control
 - **Prerequisites**: ROB 301, ROB 302
 - **Texts & Reading Scope**: Jean-Jacques E. Slotine & Weiping Li – *Applied Nonlinear Control* (Ch. 1–9 complete).
-- **Core Topics**: Phase plane portraits, Lyapunov stability theory, Barbalat's lemma and invariant set theorems, Control Lyapunov Functions (CLFs), input-state and input-output feedback linearization, sliding mode control, adaptive manipulator control, passivity-based and Cartesian manipulator impedance control, and Lie-group attitude/pose tracking on $\mathrm{SO}(3)$ and $\mathrm{SE}(3)$.
+- **Core Topics**: Phase plane portraits, Lyapunov stability theory, Barbalat's lemma and invariant set theorems, Control Lyapunov Functions (CLFs), input-state and input-output feedback linearization, sliding mode control, adaptive manipulator control, passivity-based and Cartesian manipulator impedance control, and Lie-group attitude/pose tracking on $\mathrm{SO}(3)$ and $\mathrm{SE}(3)$ manifolds.
 
 ### ROB 402: Algorithmic Motion Planning
 - **Prerequisites**: ROB 301, CS 201, MATH 203, MATH 204
 - **Texts & Reading Scope**: Steven M. LaValle – *Planning Algorithms* (Ch. 1–8 and 13–14; skip Ch. 9–12 on POMDP decision-theoretic planning and Ch. 15 on control theory covered in ROB 302 and ROB 401).
-- **Core Topics**: Discrete heuristic graph search (A*), configuration space ( $\mathcal{C}$-space) topology and obstacle representations, cell decomposition and combinatorial roadmaps, potential fields and navigation functions, sampling-based motion planning (Probabilistic Roadmaps / PRM, Rapidly-exploring Random Trees / RRT, asymptotically optimal RRT*, and $k$-d tree nearest-neighbor indexing), differential constraints, and minimum-snap/minimum-jerk spline trajectory smoothing.
+- **Core Topics**: Discrete heuristic graph search (A*), configuration space ( $\mathcal{C}$ space) topology and obstacle representations, cell decomposition and combinatorial roadmaps, potential fields and navigation functions, sampling-based motion planning (Probabilistic Roadmaps / PRM, Rapidly-exploring Random Trees / RRT, asymptotically optimal RRT*, and $k$ -d tree nearest-neighbor indexing), differential constraints, and minimum-snap/minimum-jerk spline trajectory smoothing.
 
 ### ROB 403: Optimal Control & Model Predictive Control (MPC)
 - **Prerequisites**: ROB 301, ROB 305, ROB 401, MATH 204
-- **Texts & Reading Scope**: James B. Rawlings, David Q. Mayne & Moritz Diehl – *Model Predictive Control: Theory, Computation, and Design* (Ch. 1–2 and 8; skip Ch. 3–7 on tube-based robust, moving-horizon estimation, distributed, and economic MPC).
+- **Texts & Reading Scope**: James B. Rawlings, David Q. Mayne & Moritz M. Diehl – *Model Predictive Control: Theory, Computation, and Design (2nd Ed.)* (Ch. 1–2 and 8; skip Ch. 3–7 on tube-based robust, moving-horizon estimation, output-feedback, distributed, and explicit multiparametric MPC).
 - **Core Topics**: Constrained numerical optimization and Quadratic Programming (QP), finite-horizon and infinite-horizon Linear Quadratic Regulators (LQR), iterative LQR (iLQR) and Differential Dynamic Programming (DDP), linear and nonlinear receding-horizon Model Predictive Control (MPC), Lyapunov terminal-cost recursive feasibility and stability guarantees, and real-time embedded solver deployment (OSQP/acados).
 
 ---
