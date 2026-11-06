@@ -37,8 +37,8 @@ courses:
         sections:
         - id: '2.1'
           title: The Tangent and Velocity Problems
-          completed: false
-          completed_date: null
+          completed: true
+          completed_date: '2026-11-06'
         - id: '2.2'
           title: The Limit of a Function
           completed: false
