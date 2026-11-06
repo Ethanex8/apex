@@ -7,6 +7,8 @@
 ## Repository Structure
 
 - [`CURRICULUM.md`](./CURRICULUM.md) — The comprehensive 5-tier course syllabus (58 courses), textbook reading scopes, core topic breakdowns, 8 capstone engineering specifications, phased home-lab tooling blueprints, and residential safety protocols.
+- [`curriculum.yaml`](./curriculum.yaml) — The declarative single source of truth defining all courses, prerequisite DAG edges, textbook chapter partitions, capstones, and home-lab specifications.
+- [`scripts/build.py`](./scripts/build.py) — Automated invariant validator and generator that enforces [`GEMINI.md`](./GEMINI.md) rules and compiles `curriculum.yaml` into `CURRICULUM.md` and `README.md`.
 
 ---
 
