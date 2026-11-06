@@ -37,15 +37,15 @@
 
 ## Curriculum Progress
 
-Currently studying **MATH 101 (Single Variable Calculus)**: **8 / 84 sections** (`9.5%`, ETA `2027-01-01` at **1.33 sections/day**).
+Currently studying **MATH 101 (Single Variable Calculus)**: **9 / 84 sections** (`10.7%`, ETA `2027-01-04` at **1.29 sections/day**).
 
 | Tier | Courses Done | Assigned Units | Sections (Done / Est.) | Progress | Cumulative ETA |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Tier 1 (100-Level)** | 0 / 10 | 4.80 / 122 | 8 / ~779 | `█░░░░░░░░░` `1.0%` | `2028-06-06` |
-| **Tier 2 (200-Level)** | 0 / 13 | 0.00 / 166 | 0 / ~1,195 | `░░░░░░░░░░` `0.0%` | `2030-11-19` |
-| **Tier 3 (300-Level)** | 0 / 23 | 0.00 / 280 | 0 / ~2,013 | `░░░░░░░░░░` `0.0%` | `2035-01-07` |
-| **Tier 4 (400-Level)** | 0 / 9 | 0.00 / 95 | 0 / ~665 | `░░░░░░░░░░` `0.0%` | `2036-05-19` |
-| **Tier 5 (500-Level)** | 0 / 3 | 0.00 / 50 | 0 / ~359 | `░░░░░░░░░░` `0.0%` | `2037-02-13` |
+| **Tier 1 (100-Level)** | 0 / 10 | 5.00 / 122 | 9 / ~779 | `█░░░░░░░░░` `1.2%` | `2028-06-27` |
+| **Tier 2 (200-Level)** | 0 / 13 | 0.00 / 166 | 0 / ~1,195 | `░░░░░░░░░░` `0.0%` | `2031-01-13` |
+| **Tier 3 (300-Level)** | 0 / 23 | 0.00 / 280 | 0 / ~2,013 | `░░░░░░░░░░` `0.0%` | `2035-04-27` |
+| **Tier 4 (400-Level)** | 0 / 9 | 0.00 / 95 | 0 / ~665 | `░░░░░░░░░░` `0.0%` | `2036-09-26` |
+| **Tier 5 (500-Level)** | 0 / 3 | 0.00 / 50 | 0 / ~359 | `░░░░░░░░░░` `0.0%` | `2037-07-02` |
 
 For section-by-section checklists, velocity trends, and pace scenarios, see [**PROGRESS.md**](./PROGRESS.md).
 

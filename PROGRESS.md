@@ -9,24 +9,24 @@ Section-level study tracker and chapter-weighted completion forecaster generated
 | Metric | Current Value | Notes |
 | :--- | :--- | :--- |
 | **Active Course(s)** | **MATH 101** (Single Variable Calculus) | 0 / 58 courses completed; 4 additional courses unlocked |
-| **Study Timeline** | `2026-10-31` → `2026-11-05` | 6 active span days |
-| **Overall Velocity** | **1.33 sections/day** (9.3 sections/week) | 8 sections completed across 6 days |
-| **30-Day Rolling Velocity** | **1.33 sections/day** (9.3 sections/week) | 8 sections in trailing 6-day window |
-| **Assigned Units Completed** | **4.80 / 713** (`0.67%`) | Fractional chapter & appendix completion across 58 courses |
-| **Curriculum Sections Completed** | **8 / ~5,011** (`0.16%`) | Exact for TOC-loaded courses; 7.19 sec/ch estimate for unstarted courses |
-| **MATH 101 Completion Forecast** | **`2027-01-01`** (57d remaining) | 8 / 84 sections (`9.5%`) · Next: `1.5` (Inverse Functions and Logarithms) |
-| **Tier 1 (100-Level) Forecast** | **`2028-06-06`** (579d remaining) | 8 / ~779 est. sections (`1.03%`) across 10 courses |
-| **Full Curriculum (Tiers 1–5) Forecast** | **`2037-02-13`** (3,753d / ~10.3 yrs) | 5,003 estimated sections remaining at 1.33 sec/day |
+| **Study Timeline** | `2026-10-31` → `2026-11-06` | 7 active span days |
+| **Overall Velocity** | **1.29 sections/day** (9.0 sections/week) | 9 sections completed across 7 days |
+| **30-Day Rolling Velocity** | **1.29 sections/day** (9.0 sections/week) | 9 sections in trailing 7-day window |
+| **Assigned Units Completed** | **5.00 / 713** (`0.70%`) | Fractional chapter & appendix completion across 58 courses |
+| **Curriculum Sections Completed** | **9 / ~5,011** (`0.18%`) | Exact for TOC-loaded courses; 7.19 sec/ch estimate for unstarted courses |
+| **MATH 101 Completion Forecast** | **`2027-01-04`** (59d remaining) | 9 / 84 sections (`10.7%`) · Next: `2.1` (The Tangent and Velocity Problems) |
+| **Tier 1 (100-Level) Forecast** | **`2028-06-27`** (599d remaining) | 9 / ~779 est. sections (`1.16%`) across 10 courses |
+| **Full Curriculum (Tiers 1–5) Forecast** | **`2037-07-02`** (3,891d / ~10.7 yrs) | 5,002 estimated sections remaining at 1.29 sec/day |
 
 ### Pace Sensitivity Scenarios
 
 | Study Pace | Weekly Volume | MATH 101 ETA | Tier 1 (100-Level) ETA | Full Curriculum (58 Courses) ETA |
 | :--- | :--- | :--- | :--- | :--- |
-| **Current Pace (1.33 sec/day)** | 9.3 sec/wk | `2027-01-01` (57d) | `2028-06-06` (1.6y) | `2037-02-13` (10.3y) |
-| 1.00 section/day | 7.0 sec/wk | `2027-01-20` (76d) | `2028-12-15` (2.1y) | `2040-07-17` (13.7y) |
-| 1.50 sections/day | 10.5 sec/wk | `2026-12-26` (51d) | `2028-04-02` (1.4y) | `2035-12-24` (9.1y) |
-| 2.00 sections/day | 14.0 sec/wk | `2026-12-13` (38d) | `2027-11-26` (1.1y) | `2033-09-11` (6.9y) |
-| 3.00 sections/day | 21.0 sec/wk | `2026-12-01` (26d) | `2027-07-20` (0.7y) | `2031-05-31` (4.6y) |
+| **Current Pace (1.29 sec/day)** | 9.0 sec/wk | `2027-01-04` (59d) | `2028-06-27` (1.6y) | `2037-07-02` (10.7y) |
+| 1.00 section/day | 7.0 sec/wk | `2027-01-20` (75d) | `2028-12-15` (2.1y) | `2040-07-17` (13.7y) |
+| 1.50 sections/day | 10.5 sec/wk | `2026-12-26` (50d) | `2028-04-03` (1.4y) | `2035-12-24` (9.1y) |
+| 2.00 sections/day | 14.0 sec/wk | `2026-12-14` (38d) | `2027-11-26` (1.1y) | `2033-09-11` (6.8y) |
+| 3.00 sections/day | 21.0 sec/wk | `2026-12-01` (25d) | `2027-07-21` (0.7y) | `2031-06-01` (4.6y) |
 
 ---
 
@@ -34,11 +34,11 @@ Section-level study tracker and chapter-weighted completion forecaster generated
 
 | Tier | Level | Courses (Done / Active / Total) | Assigned Units | Sections (Done / Est.) | Progress | Cumulative ETA |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Tier 1** | 100-Level | 0 / 1 / 10 | 4.80 / 122 (`3.9%`) | 8 / ~779 | `█░░░░░░░░░` `1.0%` | `2028-06-06` |
-| **Tier 2** | 200-Level | 0 / 0 / 13 | 0.00 / 166 (`0.0%`) | 0 / ~1,195 | `░░░░░░░░░░` `0.0%` | `2030-11-19` |
-| **Tier 3** | 300-Level | 0 / 0 / 23 | 0.00 / 280 (`0.0%`) | 0 / ~2,013 | `░░░░░░░░░░` `0.0%` | `2035-01-07` |
-| **Tier 4** | 400-Level | 0 / 0 / 9 | 0.00 / 95 (`0.0%`) | 0 / ~665 | `░░░░░░░░░░` `0.0%` | `2036-05-19` |
-| **Tier 5** | 500-Level | 0 / 0 / 3 | 0.00 / 50 (`0.0%`) | 0 / ~359 | `░░░░░░░░░░` `0.0%` | `2037-02-13` |
+| **Tier 1** | 100-Level | 0 / 1 / 10 | 5.00 / 122 (`4.1%`) | 9 / ~779 | `█░░░░░░░░░` `1.2%` | `2028-06-27` |
+| **Tier 2** | 200-Level | 0 / 0 / 13 | 0.00 / 166 (`0.0%`) | 0 / ~1,195 | `░░░░░░░░░░` `0.0%` | `2031-01-13` |
+| **Tier 3** | 300-Level | 0 / 0 / 23 | 0.00 / 280 (`0.0%`) | 0 / ~2,013 | `░░░░░░░░░░` `0.0%` | `2035-04-27` |
+| **Tier 4** | 400-Level | 0 / 0 / 9 | 0.00 / 95 (`0.0%`) | 0 / ~665 | `░░░░░░░░░░` `0.0%` | `2036-09-26` |
+| **Tier 5** | 500-Level | 0 / 0 / 3 | 0.00 / 50 (`0.0%`) | 0 / ~359 | `░░░░░░░░░░` `0.0%` | `2037-07-02` |
 
 ---
 
@@ -47,16 +47,16 @@ Section-level study tracker and chapter-weighted completion forecaster generated
 ### MATH 101: Single Variable Calculus
 
 - **Status**: 🟨 In Progress
-- **Section Progress**: `██░░░░░░░░░░░░░░` **8 / 84 sections** (`9.5%`)
-- **Chapter/Appendix Unit Progress**: **4.80 / 16 units** (`30.0%`)
-- **Next Section Up**: `1.5` — *Inverse Functions and Logarithms* (Ch. 1)
-- **Projected Course Completion**: `2027-01-01` (57 days remaining at current pace)
+- **Section Progress**: `██░░░░░░░░░░░░░░` **9 / 84 sections** (`10.7%`)
+- **Chapter/Appendix Unit Progress**: **5.00 / 16 units** (`31.2%`)
+- **Next Section Up**: `2.1` — *The Tangent and Velocity Problems* (Ch. 2)
+- **Projected Course Completion**: `2027-01-04` (59 days remaining at current pace)
 
 #### James Stewart – *Calculus: Early Transcendentals*, 8th Edition
 
 | Unit | Title | Sections Done | Progress | Latest Completion |
 | :--- | :--- | :--- | :--- | :--- |
-| **Ch. 1** | Functions and Models | 4 / 5 | `████████░░` `80%` | `2026-11-05` |
+| **Ch. 1** | Functions and Models | 5 / 5 | `██████████` `100%` | `2026-11-06` |
 | **Ch. 2** | Limits and Derivatives | 0 / 8 | `░░░░░░░░░░` `0%` | — |
 | **Ch. 3** | Differentiation Rules | 0 / 11 | `░░░░░░░░░░` `0%` | — |
 | **Ch. 4** | Applications of Differentiation | 0 / 9 | `░░░░░░░░░░` `0%` | — |
@@ -74,14 +74,14 @@ Section-level study tracker and chapter-weighted completion forecaster generated
 | **App. E** | Sigma Notation | 0 / 1 | `░░░░░░░░░░` `0%` | — |
 
 <details>
-<summary><strong>View All 84 Sections for MATH 101 (8 completed)</strong></summary>
+<summary><strong>View All 84 Sections for MATH 101 (9 completed)</strong></summary>
 
 **Ch. 1: Functions and Models**
 - [x] `1.1` Four Ways to Represent a Function *(completed `2026-11-02`)*
 - [x] `1.2` Mathematical Models: A Catalog of Essential Functions *(completed `2026-11-03`)*
 - [x] `1.3` New Functions from Old Functions *(completed `2026-11-04`)*
 - [x] `1.4` Exponential Functions *(completed `2026-11-05`)*
-- [ ] `1.5` Inverse Functions and Logarithms
+- [x] `1.5` Inverse Functions and Logarithms *(completed `2026-11-06`)*
 
 **Ch. 2: Limits and Derivatives**
 - [ ] `2.1` The Tangent and Velocity Problems
@@ -200,7 +200,7 @@ Section-level study tracker and chapter-weighted completion forecaster generated
 - **Section Progress**: `░░░░░░░░░░░░░░░░` **0 / 39 sections** (`0.0%`)
 - **Chapter/Appendix Unit Progress**: **0.00 / 8 units** (`0.0%`)
 - **Next Section Up**: `12.1` — *Three-Dimensional Coordinate Systems* (Ch. 12)
-- **Projected Course Completion**: `2027-01-31` (~30 study days; 87 days from latest activity after prerequisites)
+- **Projected Course Completion**: `2027-02-03` (~31 study days; 89 days from latest activity after prerequisites)
 
 #### James Stewart – *Calculus: Early Transcendentals*, 8th Edition
 
@@ -281,6 +281,7 @@ Section-level study tracker and chapter-weighted completion forecaster generated
 
 | Date | Course | Unit | Section | Title |
 | :--- | :--- | :--- | :--- | :--- |
+| `2026-11-06` | **MATH 101** | Ch. 1 | `1.5` | Inverse Functions and Logarithms |
 | `2026-11-05` | **MATH 101** | Ch. 1 | `1.4` | Exponential Functions |
 | `2026-11-04` | **MATH 101** | Ch. 1 | `1.3` | New Functions from Old Functions |
 | `2026-11-03` | **MATH 101** | Ch. 1 | `1.2` | Mathematical Models: A Catalog of Essential Functions |
