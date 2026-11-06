@@ -7,8 +7,10 @@
 ## Repository Structure
 
 - [`CURRICULUM.md`](./CURRICULUM.md) — The comprehensive 5-tier course syllabus (58 courses), textbook reading scopes, core topic breakdowns, 8 capstone engineering specifications, phased home-lab tooling blueprints, and residential safety protocols.
+- [`PROGRESS.md`](./PROGRESS.md) — Live section-level study progress dashboard, velocity analytics, and chapter-weighted completion forecasts across all 5 tiers.
 - [`curriculum.yaml`](./curriculum.yaml) — The declarative single source of truth defining all courses, prerequisite DAG edges, textbook chapter partitions, capstones, and home-lab specifications.
-- [`scripts/build.py`](./scripts/build.py) — Automated invariant validator and generator that enforces [`GEMINI.md`](./GEMINI.md) rules and compiles `curriculum.yaml` into `CURRICULUM.md` and `README.md`.
+- [`progress.yaml`](./progress.yaml) — Incremental textbook section Table of Contents and dated completion records.
+- [`scripts/build.py`](./scripts/build.py) & [`scripts/track.py`](./scripts/track.py) — Automated invariant validator, Markdown generator, and CLI progress tracker.
 
 ---
 
@@ -30,6 +32,22 @@
 | **Tier 3** | **300-Level** | Specialized Tracks:<br>• **Track A**: Processor Microarchitecture, CMOS VLSI, Embedded RTOS, OS Kernels, Compilers, Networking & ROS 2<br>• **Track B**: Analog Devices, Sensors & Metrology, DSP, Applied Electromagnetics, RF & Microwave Engineering, Power Electronics<br>• **Track C**: Machine Component Design, Mechanical Vibrations, Finite Element Analysis (FEA), Fluid Mechanics, Heat Transfer, Rotorcraft Aerodynamics<br>• **Track D**: Lie Groups & Spatial Dynamics, Feedback Control, 3D Computer Vision, Factor-Graph SLAM, Digital Control & System ID |
 | **Tier 4** | **400-Level** | Systems Engineering & HIL, High-Speed PCB & EMC, Antenna & Phased Arrays, Digital Wireless & SDR, Battery Management Systems (BMS), Field-Oriented Servo Drives, Nonlinear & Geometric Control, Algorithmic Motion Planning, Optimal Control & MPC |
 | **Tier 5** | **500-Level** | Underactuated Robotics & Trajectory Optimization, Deep Learning for Robotics, Reinforcement Learning & Sim-to-Real Control |
+
+---
+
+## Curriculum Progress
+
+Currently studying **MATH 101 (Single Variable Calculus)**: **8 / 84 sections** (`9.5%`, ETA `2027-01-01` at **1.33 sections/day**).
+
+| Tier | Courses Done | Assigned Units | Sections (Done / Est.) | Progress | Cumulative ETA |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Tier 1 (100-Level)** | 0 / 10 | 4.80 / 122 | 8 / ~779 | `█░░░░░░░░░` `1.0%` | `2028-06-06` |
+| **Tier 2 (200-Level)** | 0 / 13 | 0.00 / 166 | 0 / ~1,195 | `░░░░░░░░░░` `0.0%` | `2030-11-19` |
+| **Tier 3 (300-Level)** | 0 / 23 | 0.00 / 280 | 0 / ~2,013 | `░░░░░░░░░░` `0.0%` | `2035-01-07` |
+| **Tier 4 (400-Level)** | 0 / 9 | 0.00 / 95 | 0 / ~665 | `░░░░░░░░░░` `0.0%` | `2036-05-19` |
+| **Tier 5 (500-Level)** | 0 / 3 | 0.00 / 50 | 0 / ~359 | `░░░░░░░░░░` `0.0%` | `2037-02-13` |
+
+For section-by-section checklists, velocity trends, and pace scenarios, see [**PROGRESS.md**](./PROGRESS.md).
 
 ---
 

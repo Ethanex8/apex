@@ -1,0 +1,582 @@
+settings:
+  started_date: '2026-10-31'
+  rolling_window_days: 30
+courses:
+  MATH 101:
+    status: in_progress
+    texts:
+    - authors: James Stewart
+      title: 'Calculus: Early Transcendentals'
+      edition: 8th Edition
+      units:
+      - unit: Ch. 1
+        title: Functions and Models
+        sections:
+        - id: '1.1'
+          title: Four Ways to Represent a Function
+          completed: true
+          completed_date: '2026-11-02'
+        - id: '1.2'
+          title: 'Mathematical Models: A Catalog of Essential Functions'
+          completed: true
+          completed_date: '2026-11-03'
+        - id: '1.3'
+          title: New Functions from Old Functions
+          completed: true
+          completed_date: '2026-11-04'
+        - id: '1.4'
+          title: Exponential Functions
+          completed: true
+          completed_date: '2026-11-05'
+        - id: '1.5'
+          title: Inverse Functions and Logarithms
+          completed: false
+          completed_date: null
+      - unit: Ch. 2
+        title: Limits and Derivatives
+        sections:
+        - id: '2.1'
+          title: The Tangent and Velocity Problems
+          completed: false
+          completed_date: null
+        - id: '2.2'
+          title: The Limit of a Function
+          completed: false
+          completed_date: null
+        - id: '2.3'
+          title: Calculating Limits Using the Limit Laws
+          completed: false
+          completed_date: null
+        - id: '2.4'
+          title: The Precise Definition of a Limit
+          completed: false
+          completed_date: null
+        - id: '2.5'
+          title: Continuity
+          completed: false
+          completed_date: null
+        - id: '2.6'
+          title: Limits at Infinity; Horizontal Asymptotes
+          completed: false
+          completed_date: null
+        - id: '2.7'
+          title: Derivatives and Rates of Change
+          completed: false
+          completed_date: null
+        - id: '2.8'
+          title: The Derivative as a Function
+          completed: false
+          completed_date: null
+      - unit: Ch. 3
+        title: Differentiation Rules
+        sections:
+        - id: '3.1'
+          title: Derivatives of Polynomials and Exponential Functions
+          completed: false
+          completed_date: null
+        - id: '3.2'
+          title: The Product and Quotient Rules
+          completed: false
+          completed_date: null
+        - id: '3.3'
+          title: Derivatives of Trigonometric Functions
+          completed: false
+          completed_date: null
+        - id: '3.4'
+          title: The Chain Rule
+          completed: false
+          completed_date: null
+        - id: '3.5'
+          title: Implicit Differentiation
+          completed: false
+          completed_date: null
+        - id: '3.6'
+          title: Derivatives of Logarithmic Functions
+          completed: false
+          completed_date: null
+        - id: '3.7'
+          title: Rates of Change in the Natural and Social Sciences
+          completed: false
+          completed_date: null
+        - id: '3.8'
+          title: Exponential Growth and Decay
+          completed: false
+          completed_date: null
+        - id: '3.9'
+          title: Related Rates
+          completed: false
+          completed_date: null
+        - id: '3.10'
+          title: Linear Approximations and Differentials
+          completed: false
+          completed_date: null
+        - id: '3.11'
+          title: Hyperbolic Functions
+          completed: false
+          completed_date: null
+      - unit: Ch. 4
+        title: Applications of Differentiation
+        sections:
+        - id: '4.1'
+          title: Maximum and Minimum Values
+          completed: false
+          completed_date: null
+        - id: '4.2'
+          title: The Mean Value Theorem
+          completed: false
+          completed_date: null
+        - id: '4.3'
+          title: How Derivatives Affect the Shape of a Graph
+          completed: false
+          completed_date: null
+        - id: '4.4'
+          title: Indeterminate Forms and l'Hospital's Rule
+          completed: false
+          completed_date: null
+        - id: '4.5'
+          title: Summary of Curve Sketching
+          completed: false
+          completed_date: null
+        - id: '4.6'
+          title: Graphing with Calculus and Calculators
+          completed: false
+          completed_date: null
+        - id: '4.7'
+          title: Optimization Problems
+          completed: false
+          completed_date: null
+        - id: '4.8'
+          title: Newton's Method
+          completed: false
+          completed_date: null
+        - id: '4.9'
+          title: Antiderivatives
+          completed: false
+          completed_date: null
+      - unit: Ch. 5
+        title: Integrals
+        sections:
+        - id: '5.1'
+          title: Areas and Distances
+          completed: false
+          completed_date: null
+        - id: '5.2'
+          title: The Definite Integral
+          completed: false
+          completed_date: null
+        - id: '5.3'
+          title: The Fundamental Theorem of Calculus
+          completed: false
+          completed_date: null
+        - id: '5.4'
+          title: Indefinite Integrals and the Net Change Theorem
+          completed: false
+          completed_date: null
+        - id: '5.5'
+          title: The Substitution Rule
+          completed: false
+          completed_date: null
+      - unit: Ch. 6
+        title: Applications of Integration
+        sections:
+        - id: '6.1'
+          title: Areas Between Curves
+          completed: false
+          completed_date: null
+        - id: '6.2'
+          title: Volumes
+          completed: false
+          completed_date: null
+        - id: '6.3'
+          title: Volumes by Cylindrical Shells
+          completed: false
+          completed_date: null
+        - id: '6.4'
+          title: Work
+          completed: false
+          completed_date: null
+        - id: '6.5'
+          title: Average Value of a Function
+          completed: false
+          completed_date: null
+      - unit: Ch. 7
+        title: Techniques of Integration
+        sections:
+        - id: '7.1'
+          title: Integration by Parts
+          completed: false
+          completed_date: null
+        - id: '7.2'
+          title: Trigonometric Integrals
+          completed: false
+          completed_date: null
+        - id: '7.3'
+          title: Trigonometric Substitution
+          completed: false
+          completed_date: null
+        - id: '7.4'
+          title: Integration of Rational Functions by Partial Fractions
+          completed: false
+          completed_date: null
+        - id: '7.5'
+          title: Strategy for Integration
+          completed: false
+          completed_date: null
+        - id: '7.6'
+          title: Integration Using Tables and Computer Algebra Systems
+          completed: false
+          completed_date: null
+        - id: '7.7'
+          title: Approximate Integration
+          completed: false
+          completed_date: null
+        - id: '7.8'
+          title: Improper Integrals
+          completed: false
+          completed_date: null
+      - unit: Ch. 8
+        title: Further Applications of Integration
+        sections:
+        - id: '8.1'
+          title: Arc Length
+          completed: false
+          completed_date: null
+        - id: '8.2'
+          title: Area of a Surface of Revolution
+          completed: false
+          completed_date: null
+        - id: '8.3'
+          title: Applications to Physics and Engineering
+          completed: false
+          completed_date: null
+        - id: '8.4'
+          title: Applications to Economics and Biology
+          completed: false
+          completed_date: null
+        - id: '8.5'
+          title: Probability
+          completed: false
+          completed_date: null
+      - unit: Ch. 9
+        title: Differential Equations
+        sections:
+        - id: '9.1'
+          title: Modeling with Differential Equations
+          completed: false
+          completed_date: null
+        - id: '9.2'
+          title: Direction Fields and Euler's Method
+          completed: false
+          completed_date: null
+        - id: '9.3'
+          title: Separable Equations
+          completed: false
+          completed_date: null
+        - id: '9.4'
+          title: Models for Population Growth
+          completed: false
+          completed_date: null
+        - id: '9.5'
+          title: Linear Equations
+          completed: false
+          completed_date: null
+        - id: '9.6'
+          title: Predator-Prey Systems
+          completed: false
+          completed_date: null
+      - unit: Ch. 10
+        title: Parametric Equations and Polar Coordinates
+        sections:
+        - id: '10.1'
+          title: Curves Defined by Parametric Equations
+          completed: false
+          completed_date: null
+        - id: '10.2'
+          title: Calculus with Parametric Curves
+          completed: false
+          completed_date: null
+        - id: '10.3'
+          title: Polar Coordinates
+          completed: false
+          completed_date: null
+        - id: '10.4'
+          title: Areas and Lengths in Polar Coordinates
+          completed: false
+          completed_date: null
+        - id: '10.5'
+          title: Conic Sections
+          completed: false
+          completed_date: null
+        - id: '10.6'
+          title: Conic Sections in Polar Coordinates
+          completed: false
+          completed_date: null
+      - unit: Ch. 11
+        title: Infinite Sequences and Series
+        sections:
+        - id: '11.1'
+          title: Sequences
+          completed: false
+          completed_date: null
+        - id: '11.2'
+          title: Series
+          completed: false
+          completed_date: null
+        - id: '11.3'
+          title: The Integral Test and Estimates of Sums
+          completed: false
+          completed_date: null
+        - id: '11.4'
+          title: The Comparison Tests
+          completed: false
+          completed_date: null
+        - id: '11.5'
+          title: Alternating Series
+          completed: false
+          completed_date: null
+        - id: '11.6'
+          title: Absolute Convergence and the Ratio and Root Tests
+          completed: false
+          completed_date: null
+        - id: '11.7'
+          title: Strategy for Testing Series
+          completed: false
+          completed_date: null
+        - id: '11.8'
+          title: Power Series
+          completed: false
+          completed_date: null
+        - id: '11.9'
+          title: Representations of Functions as Power Series
+          completed: false
+          completed_date: null
+        - id: '11.10'
+          title: Taylor and Maclaurin Series
+          completed: false
+          completed_date: null
+        - id: '11.11'
+          title: Applications of Taylor Polynomials
+          completed: false
+          completed_date: null
+      - unit: App. A
+        title: Numbers, Inequalities, and Absolute Values
+        sections:
+        - id: A
+          title: Numbers, Inequalities, and Absolute Values
+          completed: true
+          completed_date: '2026-10-31'
+      - unit: App. B
+        title: Coordinate Geometry and Lines
+        sections:
+        - id: B
+          title: Coordinate Geometry and Lines
+          completed: true
+          completed_date: '2026-10-31'
+      - unit: App. C
+        title: Graphs of Second-Degree Equations
+        sections:
+        - id: C
+          title: Graphs of Second-Degree Equations
+          completed: true
+          completed_date: '2026-11-01'
+      - unit: App. D
+        title: Trigonometry
+        sections:
+        - id: D
+          title: Trigonometry
+          completed: true
+          completed_date: '2026-11-01'
+      - unit: App. E
+        title: Sigma Notation
+        sections:
+        - id: E
+          title: Sigma Notation
+          completed: false
+          completed_date: null
+  MATH 102:
+    status: not_started
+    texts:
+    - authors: James Stewart
+      title: 'Calculus: Early Transcendentals'
+      edition: 8th Edition
+      units:
+      - unit: Ch. 12
+        title: Vectors and the Geometry of Space
+        sections:
+        - id: '12.1'
+          title: Three-Dimensional Coordinate Systems
+          completed: false
+          completed_date: null
+        - id: '12.2'
+          title: Vectors
+          completed: false
+          completed_date: null
+        - id: '12.3'
+          title: The Dot Product
+          completed: false
+          completed_date: null
+        - id: '12.4'
+          title: The Cross Product
+          completed: false
+          completed_date: null
+        - id: '12.5'
+          title: Equations of Lines and Planes
+          completed: false
+          completed_date: null
+        - id: '12.6'
+          title: Cylinders and Quadric Surfaces
+          completed: false
+          completed_date: null
+      - unit: Ch. 13
+        title: Vector Functions
+        sections:
+        - id: '13.1'
+          title: Vector Functions and Space Curves
+          completed: false
+          completed_date: null
+        - id: '13.2'
+          title: Derivatives and Integrals of Vector Functions
+          completed: false
+          completed_date: null
+        - id: '13.3'
+          title: Arc Length and Curvature
+          completed: false
+          completed_date: null
+        - id: '13.4'
+          title: 'Motion in Space: Velocity and Acceleration'
+          completed: false
+          completed_date: null
+      - unit: Ch. 14
+        title: Partial Derivatives
+        sections:
+        - id: '14.1'
+          title: Functions of Several Variables
+          completed: false
+          completed_date: null
+        - id: '14.2'
+          title: Limits and Continuity
+          completed: false
+          completed_date: null
+        - id: '14.3'
+          title: Partial Derivatives
+          completed: false
+          completed_date: null
+        - id: '14.4'
+          title: Tangent Planes and Linear Approximations
+          completed: false
+          completed_date: null
+        - id: '14.5'
+          title: The Chain Rule
+          completed: false
+          completed_date: null
+        - id: '14.6'
+          title: Directional Derivatives and the Gradient Vector
+          completed: false
+          completed_date: null
+        - id: '14.7'
+          title: Maximum and Minimum Values
+          completed: false
+          completed_date: null
+        - id: '14.8'
+          title: Lagrange Multipliers
+          completed: false
+          completed_date: null
+      - unit: Ch. 15
+        title: Multiple Integrals
+        sections:
+        - id: '15.1'
+          title: Double Integrals over Rectangles
+          completed: false
+          completed_date: null
+        - id: '15.2'
+          title: Double Integrals over General Regions
+          completed: false
+          completed_date: null
+        - id: '15.3'
+          title: Double Integrals in Polar Coordinates
+          completed: false
+          completed_date: null
+        - id: '15.4'
+          title: Applications of Double Integrals
+          completed: false
+          completed_date: null
+        - id: '15.5'
+          title: Surface Area
+          completed: false
+          completed_date: null
+        - id: '15.6'
+          title: Triple Integrals
+          completed: false
+          completed_date: null
+        - id: '15.7'
+          title: Triple Integrals in Cylindrical Coordinates
+          completed: false
+          completed_date: null
+        - id: '15.8'
+          title: Triple Integrals in Spherical Coordinates
+          completed: false
+          completed_date: null
+        - id: '15.9'
+          title: Change of Variables in Multiple Integrals
+          completed: false
+          completed_date: null
+      - unit: Ch. 16
+        title: Vector Calculus
+        sections:
+        - id: '16.1'
+          title: Vector Fields
+          completed: false
+          completed_date: null
+        - id: '16.2'
+          title: Line Integrals
+          completed: false
+          completed_date: null
+        - id: '16.3'
+          title: The Fundamental Theorem for Line Integrals
+          completed: false
+          completed_date: null
+        - id: '16.4'
+          title: Green's Theorem
+          completed: false
+          completed_date: null
+        - id: '16.5'
+          title: Curl and Divergence
+          completed: false
+          completed_date: null
+        - id: '16.6'
+          title: Parametric Surfaces and Their Areas
+          completed: false
+          completed_date: null
+        - id: '16.7'
+          title: Surface Integrals
+          completed: false
+          completed_date: null
+        - id: '16.8'
+          title: Stokes' Theorem
+          completed: false
+          completed_date: null
+        - id: '16.9'
+          title: The Divergence Theorem
+          completed: false
+          completed_date: null
+      - unit: App. F
+        title: Proofs of Theorems
+        sections:
+        - id: F
+          title: Proofs of Theorems
+          completed: false
+          completed_date: null
+      - unit: App. G
+        title: The Logarithm Defined as an Integral
+        sections:
+        - id: G
+          title: The Logarithm Defined as an Integral
+          completed: false
+          completed_date: null
+      - unit: App. H
+        title: Complex Numbers
+        sections:
+        - id: H
+          title: Complex Numbers
+          completed: false
+          completed_date: null

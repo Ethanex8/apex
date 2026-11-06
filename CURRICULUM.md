@@ -23,6 +23,8 @@ A comprehensive, mathematically rigorous, hands-on curriculum bridging first-pri
 
 ## Curriculum Architecture & Overview
 
+> **DAG Node Legend**: 🟩 **Completed** (`completed`) · 🟨 **In Progress** (`in_progress`) · 🟦 **Unlocked / Ready** (`unlocked`) · ⬜ **Locked** (awaiting prerequisites). See [`PROGRESS.md`](./PROGRESS.md) for section-level tracking and completion forecasts.
+
 ```mermaid
 flowchart TD
     subgraph T1["Tier 1: 100-Level Freshman Foundation"]
@@ -185,6 +187,12 @@ flowchart TD
     CS303 & ROB303 & ROB304 & ROB502 --> C6
     ME306 & ROB401 & ROB501 & C2 --> C7
     C1 & C2 & C3 & C4 & C6 & ROB501 & ROB503 & ENGR401 --> C8
+
+    classDef completed fill:#d4edda,stroke:#28a745,stroke-width:2px,color:#155724
+    classDef in_progress fill:#fff3cd,stroke:#d39e00,stroke-width:2.5px,color:#856404
+    classDef unlocked fill:#e7f3fe,stroke:#0d6efd,stroke-width:1.5px,color:#084298
+    class M101 in_progress
+    class P101,CS101,CS102,ENGR101 unlocked
 ```
 
 ---
