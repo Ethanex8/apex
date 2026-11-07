@@ -41,8 +41,8 @@ courses:
           completed_date: '2026-11-06'
         - id: '2.2'
           title: The Limit of a Function
-          completed: false
-          completed_date: null
+          completed: true
+          completed_date: '2026-11-07'
         - id: '2.3'
           title: Calculating Limits Using the Limit Laws
           completed: false
