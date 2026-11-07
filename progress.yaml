@@ -45,8 +45,8 @@ courses:
           completed_date: '2026-11-07'
         - id: '2.3'
           title: Calculating Limits Using the Limit Laws
-          completed: false
-          completed_date: null
+          completed: true
+          completed_date: '2026-11-07'
         - id: '2.4'
           title: The Precise Definition of a Limit
           completed: false
