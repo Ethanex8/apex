@@ -65,8 +65,8 @@ courses:
           completed_date: '2026-11-08'
         - id: '2.8'
           title: The Derivative as a Function
-          completed: false
-          completed_date: null
+          completed: true
+          completed_date: '2026-11-08'
       - unit: Ch. 3
         title: Differentiation Rules
         sections:
