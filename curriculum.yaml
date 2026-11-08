@@ -324,13 +324,13 @@ courses:
   - authors: David A. Madsen & David P. Madsen
     title: Engineering Drawing and Design
     unit: Ch.
-    total_units: 28
-    assigned: 1-10, 12
-    skipped: 11, 13-28
+    total_units: 25
+    assigned: 1-15
+    skipped: 16-25
     covered_in:
     - ME 301
-    scope: Ch. 1–10 and 12; skip Ch. 11 on fasteners covered in ME 301 and Ch. 13–28 on weldments, piping, structural, civil,
-      and architectural drafting
+    scope: Ch. 1–15; skip Ch. 16–17 on mechanisms, gears, bearings, and belt/chain drives covered in ME 301 and Ch. 18–25 on
+      weldments, sheet metal, electrical, piping, structural, HVAC, civil drafting, and general design process
   topics_label: Core Topics
   core_topics: Master-model parametric part and assembly CAD, technical engineering drawings, ASME Y14.5 geometric dimensioning
     and tolerancing (GD&T) datums and feature control frames, and 1D/3D worst-case and RSS statistical tolerance stack-ups.

@@ -71,6 +71,26 @@ def sync_course_status(cprog: dict) -> None:
             cprog["status"] = "completed"
         elif done > 0:
             cprog["status"] = "in_progress"
+        elif cprog.get("status") == "completed":
+            cprog["status"] = "in_progress"
+
+
+def cmd_start(args: argparse.Namespace) -> int:
+    _, progress_data = load_data()
+    cid = args.course.strip().upper()
+    prog_courses = progress_data.get("courses", {})
+    if cid not in prog_courses:
+        print(f"ERROR: Course '{cid}' does not have a TOC entry in progress.yaml yet.", file=sys.stderr)
+        return 1
+
+    cprog = prog_courses[cid]
+    if cprog.get("status") == "completed":
+        print(f"Course [{cid}] is already completed.")
+        return 0
+
+    cprog["status"] = "in_progress"
+    print(f"Marked [{cid}] status as in_progress")
+    return save_and_rebuild(progress_data)
 
 
 def cmd_done(args: argparse.Namespace) -> int:
@@ -234,6 +254,10 @@ def cmd_next(args: argparse.Namespace) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="cmd", required=True)
+
+    p_start = sub.add_parser("start", help="Mark a course as in_progress")
+    p_start.add_argument("course", help="Course ID, e.g. 'ENGR 101'")
+    p_start.set_defaults(func=cmd_start)
 
     p_done = sub.add_parser("done", help="Mark one or more sections (or ranges like 1.1-1.4) as completed")
     p_done.add_argument("course", help="Course ID, e.g. 'MATH 101'")

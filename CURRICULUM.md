@@ -191,8 +191,8 @@ flowchart TD
     classDef completed fill:#d4edda,stroke:#28a745,stroke-width:2px,color:#155724
     classDef in_progress fill:#fff3cd,stroke:#d39e00,stroke-width:2.5px,color:#856404
     classDef unlocked fill:#e7f3fe,stroke:#0d6efd,stroke-width:1.5px,color:#084298
-    class M101 in_progress
-    class P101,CS101,CS102,ENGR101 unlocked
+    class M101,ENGR101 in_progress
+    class P101,CS101,CS102 unlocked
 ```
 
 ---
@@ -246,7 +246,7 @@ flowchart TD
 
 ### ENGR 101: Parametric CAD, GD&T & Tolerance Analysis
 - **Prerequisites**: None
-- **Texts & Reading Scope**: David A. Madsen & David P. Madsen – *Engineering Drawing and Design* (Ch. 1–10 and 12; skip Ch. 11 on fasteners covered in ME 301 and Ch. 13–28 on weldments, piping, structural, civil, and architectural drafting).
+- **Texts & Reading Scope**: David A. Madsen & David P. Madsen – *Engineering Drawing and Design* (Ch. 1–15; skip Ch. 16–17 on mechanisms, gears, bearings, and belt/chain drives covered in ME 301 and Ch. 18–25 on weldments, sheet metal, electrical, piping, structural, HVAC, civil drafting, and general design process).
 - **Core Topics**: Master-model parametric part and assembly CAD, technical engineering drawings, ASME Y14.5 geometric dimensioning and tolerancing (GD&T) datums and feature control frames, and 1D/3D worst-case and RSS statistical tolerance stack-ups.
 
 ---

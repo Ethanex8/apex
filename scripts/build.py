@@ -1107,11 +1107,18 @@ def render_progress_md(curriculum_data: dict, progress_data: dict, metrics: dict
         as_of = metrics["as_of_date_obj"]
         lines.append("### Pace Sensitivity Scenarios")
         lines.append("")
-        lines.append(
-            "| Study Pace | Weekly Volume | MATH 101 ETA | Tier 1 (100-Level) ETA | Full Curriculum (58 Courses) ETA |"
-        )
-        lines.append("| :--- | :--- | :--- | :--- | :--- |")
-        m101_rem = cm_map["MATH 101"]["sec_remaining"] if "MATH 101" in cm_map else 0
+        active_hdrs = " | ".join(f"{cid} ETA" for cid in active_cids)
+        active_sep = " | ".join(":---" for _ in active_cids)
+        if active_hdrs:
+            lines.append(
+                f"| Study Pace | Weekly Volume | {active_hdrs} | Tier 1 (100-Level) ETA | Full Curriculum (58 Courses) ETA |"
+            )
+            lines.append(f"| :--- | :--- | {active_sep} | :--- | :--- |")
+        else:
+            lines.append(
+                "| Study Pace | Weekly Volume | Tier 1 (100-Level) ETA | Full Curriculum (58 Courses) ETA |"
+            )
+            lines.append("| :--- | :--- | :--- | :--- |")
         t1_rem = t1["cumulative_sec_remaining"]
         all_rem = metrics["total_sec_remaining"]
 
@@ -1125,14 +1132,19 @@ def render_progress_md(curriculum_data: dict, progress_data: dict, metrics: dict
         for label, rate in scenarios:
             if rate <= 0:
                 continue
-            m101_d = math.ceil(m101_rem / rate)
+            active_cells: list[str] = []
+            for cid in active_cids:
+                c_rem = cm_map[cid]["sec_remaining"]
+                c_d = math.ceil(c_rem / rate)
+                c_dt = (as_of + timedelta(days=c_d)).strftime("%Y-%m-%d")
+                active_cells.append(f"`{c_dt}` ({c_d}d)")
             t1_d = math.ceil(t1_rem / rate)
             all_d = math.ceil(all_rem / rate)
-            m101_dt = (as_of + timedelta(days=m101_d)).strftime("%Y-%m-%d")
             t1_dt = (as_of + timedelta(days=t1_d)).strftime("%Y-%m-%d")
             all_dt = (as_of + timedelta(days=all_d)).strftime("%Y-%m-%d")
+            active_row_str = (" | ".join(active_cells) + " | ") if active_cells else ""
             lines.append(
-                f"| {label} | {rate * 7:.1f} sec/wk | `{m101_dt}` ({m101_d}d) | "
+                f"| {label} | {rate * 7:.1f} sec/wk | {active_row_str}"
                 f"`{t1_dt}` ({t1_d / 365.25:.1f}y) | `{all_dt}` ({all_d / 365.25:.1f}y) |"
             )
         lines.append("")
@@ -1166,9 +1178,11 @@ def render_progress_md(curriculum_data: dict, progress_data: dict, metrics: dict
         "not_started": "⬜ Not Started",
     }
 
-    for cid, cprog in prog_courses.items():
-        if cid not in courses_by_id:
-            continue
+    ordered_prog_cids = [
+        c["id"] for c in curriculum_data["courses"] if c["id"] in prog_courses
+    ]
+    for cid in ordered_prog_cids:
+        cprog = prog_courses[cid]
         c = courses_by_id[cid]
         cm = cm_map[cid]
         badge = status_badges.get(cm["status"], cm["status"])
@@ -1319,16 +1333,25 @@ def render_readme_md(data: dict, metrics: dict) -> str:
     lines.append("## Curriculum Progress")
     lines.append("")
     v_day = metrics["overall_velocity"]
-    m101 = metrics["course_metrics"].get("MATH 101")
-    active_line = (
-        f"Currently studying **MATH 101 (Single Variable Calculus)**: "
-        f"**{m101['sec_done']} / {m101['sec_total']} sections** (`{m101['pct_sections']:.1f}%`, "
-        f"ETA `{m101['eta_date']}` at **{v_day:.2f} sections/day**)."
-        if m101
-        else ""
-    )
-    if active_line:
-        lines.append(active_line)
+    active_cms = [
+        cm for cm in metrics["course_metrics"].values() if cm["status"] == "in_progress"
+    ]
+    if len(active_cms) == 1:
+        ac = active_cms[0]
+        lines.append(
+            f"Currently studying **{ac['id']} ({ac['title']})**: "
+            f"**{ac['sec_done']} / {ac['sec_total']} sections** (`{ac['pct_sections']:.1f}%`, "
+            f"ETA `{ac['eta_date']}` at **{v_day:.2f} sections/day**)."
+        )
+        lines.append("")
+    elif len(active_cms) > 1:
+        lines.append(f"Currently studying ({v_day:.2f} sections/day overall velocity):")
+        for ac in active_cms:
+            lines.append(
+                f"- **{ac['id']} ({ac['title']})**: "
+                f"**{ac['sec_done']} / {ac['sec_total']} sections** (`{ac['pct_sections']:.1f}%`, "
+                f"ETA `{ac['eta_date']}`)"
+            )
         lines.append("")
     lines.append("| Tier | Courses Done | Assigned Units | Sections (Done / Est.) | Progress | Cumulative ETA |")
     lines.append("| :--- | :--- | :--- | :--- | :--- | :--- |")

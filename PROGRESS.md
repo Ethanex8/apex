@@ -1,6 +1,6 @@
 # Apex Curriculum Progress & Completion Forecast
 
-Section-level study tracker and chapter-weighted completion forecaster generated from [`curriculum.yaml`](./curriculum.yaml) and [`progress.yaml`](./progress.yaml). Courses with loaded Table of Contents (TOCs) are tracked at exact textbook section granularity, while unstarted courses are forecasted using their 713 assigned chapters and appendices scaled by the empirical section density (7.19 sections/chapter).
+Section-level study tracker and chapter-weighted completion forecaster generated from [`curriculum.yaml`](./curriculum.yaml) and [`progress.yaml`](./progress.yaml). Courses with loaded Table of Contents (TOCs) are tracked at exact textbook section granularity, while unstarted courses are forecasted using their 717 assigned chapters and appendices scaled by the empirical section density (5.58 sections/chapter).
 
 ---
 
@@ -8,25 +8,26 @@ Section-level study tracker and chapter-weighted completion forecaster generated
 
 | Metric | Current Value | Notes |
 | :--- | :--- | :--- |
-| **Active Course(s)** | **MATH 101** (Single Variable Calculus) | 0 / 58 courses completed; 4 additional courses unlocked |
+| **Active Course(s)** | **MATH 101** (Single Variable Calculus), **ENGR 101** (Parametric CAD, GD&T & Tolerance Analysis) | 0 / 58 courses completed; 3 additional courses unlocked |
 | **Study Timeline** | `2026-10-31` → `2026-11-08` | 9 active span days |
 | **Overall Velocity** | **1.89 sections/day** (13.2 sections/week) | 17 sections completed across 9 days |
 | **30-Day Rolling Velocity** | **1.89 sections/day** (13.2 sections/week) | 17 sections in trailing 9-day window |
-| **Assigned Units Completed** | **6.00 / 713** (`0.84%`) | Fractional chapter & appendix completion across 58 courses |
-| **Curriculum Sections Completed** | **17 / ~5,011** (`0.34%`) | Exact for TOC-loaded courses; 7.19 sec/ch estimate for unstarted courses |
+| **Assigned Units Completed** | **6.00 / 717** (`0.84%`) | Fractional chapter & appendix completion across 58 courses |
+| **Curriculum Sections Completed** | **17 / ~3,917** (`0.43%`) | Exact for TOC-loaded courses; 5.58 sec/ch estimate for unstarted courses |
 | **MATH 101 Completion Forecast** | **`2026-12-14`** (36d remaining) | 17 / 84 sections (`20.2%`) · Next: `3.1` (Derivatives of Polynomials and Exponential Functions) |
-| **Tier 1 (100-Level) Forecast** | **`2027-12-17`** (404d remaining) | 17 / ~779 est. sections (`2.18%`) across 10 courses |
-| **Full Curriculum (Tiers 1–5) Forecast** | **`2034-02-03`** (2,644d / ~7.2 yrs) | 4,994 estimated sections remaining at 1.89 sec/day |
+| **ENGR 101 Completion Forecast** | **`2026-12-09`** (31d remaining) | 0 / 58 sections (`0.0%`) · Next: `1.1` (Engineering Design Application, History of Engineering Drawing & Drafting Fields (pp. 2–22)) |
+| **Tier 1 (100-Level) Forecast** | **`2027-09-28`** (324d remaining) | 17 / ~629 est. sections (`2.70%`) across 10 courses |
+| **Full Curriculum (Tiers 1–5) Forecast** | **`2032-07-04`** (2,065d / ~5.7 yrs) | 3,900 estimated sections remaining at 1.89 sec/day |
 
 ### Pace Sensitivity Scenarios
 
-| Study Pace | Weekly Volume | MATH 101 ETA | Tier 1 (100-Level) ETA | Full Curriculum (58 Courses) ETA |
-| :--- | :--- | :--- | :--- | :--- |
-| **Current Pace (1.89 sec/day)** | 13.2 sec/wk | `2026-12-14` (36d) | `2027-12-17` (1.1y) | `2034-02-03` (7.2y) |
-| 1.00 section/day | 7.0 sec/wk | `2027-01-14` (67d) | `2028-12-09` (2.1y) | `2040-07-11` (13.7y) |
-| 1.50 sections/day | 10.5 sec/wk | `2026-12-23` (45d) | `2028-03-30` (1.4y) | `2035-12-21` (9.1y) |
-| 2.00 sections/day | 14.0 sec/wk | `2026-12-12` (34d) | `2027-11-24` (1.0y) | `2033-09-09` (6.8y) |
-| 3.00 sections/day | 21.0 sec/wk | `2026-12-01` (23d) | `2027-07-20` (0.7y) | `2031-05-31` (4.6y) |
+| Study Pace | Weekly Volume | MATH 101 ETA | ENGR 101 ETA | Tier 1 (100-Level) ETA | Full Curriculum (58 Courses) ETA |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Current Pace (1.89 sec/day)** | 13.2 sec/wk | `2026-12-14` (36d) | `2026-12-09` (31d) | `2027-09-28` (0.9y) | `2032-07-04` (5.7y) |
+| 1.00 section/day | 7.0 sec/wk | `2027-01-14` (67d) | `2027-01-05` (58d) | `2028-07-12` (1.7y) | `2037-07-13` (10.7y) |
+| 1.50 sections/day | 10.5 sec/wk | `2026-12-23` (45d) | `2026-12-17` (39d) | `2027-12-21` (1.1y) | `2033-12-21` (7.1y) |
+| 2.00 sections/day | 14.0 sec/wk | `2026-12-12` (34d) | `2026-12-07` (29d) | `2027-09-10` (0.8y) | `2032-03-11` (5.3y) |
+| 3.00 sections/day | 21.0 sec/wk | `2026-12-01` (23d) | `2026-11-28` (20d) | `2027-05-31` (0.6y) | `2030-05-31` (3.6y) |
 
 ---
 
@@ -34,11 +35,11 @@ Section-level study tracker and chapter-weighted completion forecaster generated
 
 | Tier | Level | Courses (Done / Active / Total) | Assigned Units | Sections (Done / Est.) | Progress | Cumulative ETA |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Tier 1** | 100-Level | 0 / 1 / 10 | 6.00 / 122 (`4.9%`) | 17 / ~779 | `█░░░░░░░░░` `2.2%` | `2027-12-17` |
-| **Tier 2** | 200-Level | 0 / 0 / 13 | 0.00 / 166 (`0.0%`) | 0 / ~1,195 | `░░░░░░░░░░` `0.0%` | `2029-09-10` |
-| **Tier 3** | 300-Level | 0 / 0 / 23 | 0.00 / 280 (`0.0%`) | 0 / ~2,013 | `░░░░░░░░░░` `0.0%` | `2032-08-10` |
-| **Tier 4** | 400-Level | 0 / 0 / 9 | 0.00 / 95 (`0.0%`) | 0 / ~665 | `░░░░░░░░░░` `0.0%` | `2033-07-28` |
-| **Tier 5** | 500-Level | 0 / 0 / 3 | 0.00 / 50 (`0.0%`) | 0 / ~359 | `░░░░░░░░░░` `0.0%` | `2034-02-03` |
+| **Tier 1** | 100-Level | 0 / 2 / 10 | 6.00 / 126 (`4.8%`) | 17 / ~629 | `█░░░░░░░░░` `2.7%` | `2027-09-28` |
+| **Tier 2** | 200-Level | 0 / 0 / 13 | 0.00 / 166 (`0.0%`) | 0 / ~926 | `░░░░░░░░░░` `0.0%` | `2029-01-31` |
+| **Tier 3** | 300-Level | 0 / 0 / 23 | 0.00 / 280 (`0.0%`) | 0 / ~1,566 | `░░░░░░░░░░` `0.0%` | `2031-05-10` |
+| **Tier 4** | 400-Level | 0 / 0 / 9 | 0.00 / 95 (`0.0%`) | 0 / ~517 | `░░░░░░░░░░` `0.0%` | `2032-02-07` |
+| **Tier 5** | 500-Level | 0 / 0 / 3 | 0.00 / 50 (`0.0%`) | 0 / ~279 | `░░░░░░░░░░` `0.0%` | `2032-07-04` |
 
 ---
 
@@ -200,7 +201,7 @@ Section-level study tracker and chapter-weighted completion forecaster generated
 - **Section Progress**: `░░░░░░░░░░░░░░░░` **0 / 39 sections** (`0.0%`)
 - **Chapter/Appendix Unit Progress**: **0.00 / 8 units** (`0.0%`)
 - **Next Section Up**: `12.1` — *Three-Dimensional Coordinate Systems* (Ch. 12)
-- **Projected Course Completion**: `2027-01-04` (~21 study days; 57 days from latest activity after prerequisites)
+- **Projected Course Completion**: `2027-02-03` (~21 study days; 87 days from latest activity after prerequisites)
 
 #### James Stewart – *Calculus: Early Transcendentals*, 8th Edition
 
@@ -272,6 +273,127 @@ Section-level study tracker and chapter-weighted completion forecaster generated
 
 **App. H: Complex Numbers**
 - [ ] `H` Complex Numbers
+
+</details>
+
+### ENGR 101: Parametric CAD, GD&T & Tolerance Analysis
+
+- **Status**: 🟨 In Progress
+- **Section Progress**: `░░░░░░░░░░░░░░░░` **0 / 58 sections** (`0.0%`)
+- **Chapter/Appendix Unit Progress**: **0.00 / 15 units** (`0.0%`)
+- **Next Section Up**: `1.1` — *Engineering Design Application, History of Engineering Drawing & Drafting Fields (pp. 2–22)* (Ch. 1)
+- **Projected Course Completion**: `2026-12-09` (31 days remaining at current pace)
+
+#### David A. Madsen & David P. Madsen – *Engineering Drawing and Design*, 5th Edition
+
+| Unit | Title | Sections Done | Progress | Latest Completion |
+| :--- | :--- | :--- | :--- | :--- |
+| **Ch. 1** | Introduction to Engineering Drawing and Design | 0 / 3 | `░░░░░░░░░░` `0%` | — |
+| **Ch. 2** | Drafting Equipment, Media, and Reproduction Methods | 0 / 3 | `░░░░░░░░░░` `0%` | — |
+| **Ch. 3** | Computer-Aided Design and Drafting (CADD) | 0 / 4 | `░░░░░░░░░░` `0%` | — |
+| **Ch. 4** | Manufacturing Materials and Processes | 0 / 4 | `░░░░░░░░░░` `0%` | — |
+| **Ch. 5** | Sketching Applications | 0 / 3 | `░░░░░░░░░░` `0%` | — |
+| **Ch. 6** | Lines and Lettering | 0 / 3 | `░░░░░░░░░░` `0%` | — |
+| **Ch. 7** | Drafting Geometry | 0 / 4 | `░░░░░░░░░░` `0%` | — |
+| **Ch. 8** | Multiviews | 0 / 4 | `░░░░░░░░░░` `0%` | — |
+| **Ch. 9** | Auxiliary Views | 0 / 3 | `░░░░░░░░░░` `0%` | — |
+| **Ch. 10** | Dimensioning and Tolerancing | 0 / 5 | `░░░░░░░░░░` `0%` | — |
+| **Ch. 11** | Fasteners and Springs | 0 / 5 | `░░░░░░░░░░` `0%` | — |
+| **Ch. 12** | Sections, Revolutions, and Conventional Breaks | 0 / 4 | `░░░░░░░░░░` `0%` | — |
+| **Ch. 13** | Geometric Dimensioning and Tolerancing | 0 / 5 | `░░░░░░░░░░` `0%` | — |
+| **Ch. 14** | Pictorial Drawings and Technical Illustrations | 0 / 4 | `░░░░░░░░░░` `0%` | — |
+| **Ch. 15** | Working Drawings | 0 / 4 | `░░░░░░░░░░` `0%` | — |
+
+<details>
+<summary><strong>View All 58 Sections for ENGR 101 (0 completed)</strong></summary>
+
+**Ch. 1: Introduction to Engineering Drawing and Design**
+- [ ] `1.1` Engineering Design Application, History of Engineering Drawing & Drafting Fields (pp. 2–22)
+- [ ] `1.2` Education, Qualifications, Job Opportunities & Professional Organizations (pp. 22–29)
+- [ ] `1.3` Drafting Standards, Workplace Ethics, Copyrights, Trademarks & CADD Applications (pp. 29–38)
+
+**Ch. 2: Drafting Equipment, Media, and Reproduction Methods**
+- [ ] `2.1` Manual Drafting Equipment, Pens, Templates & Drafting Machines (pp. 39–46)
+- [ ] `2.2` Architect's, Engineer's, Mechanical & Metric Scales (pp. 46–50)
+- [ ] `2.3` Drafting Media, ASME Sheet Sizes & Formats, Reproduction Methods & CADD Applications (pp. 50–68)
+
+**Ch. 3: Computer-Aided Design and Drafting (CADD)**
+- [ ] `3.1` CADD Workstations, Software Products, File Formats & Industry Applications (pp. 69–89)
+- [ ] `3.2` 3-D CADD Applications, Virtual Reality & Basic 2-D CADD Techniques (pp. 89–102)
+- [ ] `3.3` Surface Modeling & Parametric Solid Modeling Techniques (pp. 102–111)
+- [ ] `3.4` CADD Standards, Productivity, File Management & Green Technology Applications (pp. 111–120)
+
+**Ch. 4: Manufacturing Materials and Processes**
+- [ ] `4.1` Engineering Materials, Metallurgy, Plastics/Polymers & Material Selection (pp. 121–134)
+- [ ] `4.2` Casting, Forging, Machine Processes & Machined Feature Drawing Representations (pp. 135–153)
+- [ ] `4.3` Manufacturing Plastic Products, Thermosets, Composites, Rapid Prototyping & Tool Design (pp. 153–161)
+- [ ] `4.4` CIM, CAD/CAM Integration, Statistical Process Control (SPC) & 3-D CADD Applications (pp. 161–172)
+
+**Ch. 5: Sketching Applications**
+- [ ] `5.1` Sketching Tools, Materials & Straight Lines (pp. 174–176)
+- [ ] `5.2` Sketching Circular Lines, Arcs, Ellipses & Proportions (pp. 176–181)
+- [ ] `5.3` The Block Technique, Multiview Sketches, Isometric Sketches & 3-D CADD Applications (pp. 181–192)
+
+**Ch. 6: Lines and Lettering**
+- [ ] `6.1` ASME Line Types, Conventions & 2-D CADD Line Applications (pp. 193–206)
+- [ ] `6.2` Single-Stroke Gothic Lettering, Numbers, Fractions & Legibility Standards (pp. 207–210)
+- [ ] `6.3` CADD Text & Annotation Applications in 2-D and 3-D (pp. 210–217)
+
+**Ch. 7: Drafting Geometry**
+- [ ] `7.1` Drafting Geometry, Characteristics of Lines & Geometric Shapes (pp. 218–224)
+- [ ] `7.2` Common Geometric Constructions: Bisecting, Parallel Lines & Dividing Lines (pp. 224–230)
+- [ ] `7.3` Constructing Regular Polygons: Triangles, Hexagons, Octagons & General Polygons (pp. 230–233)
+- [ ] `7.4` Constructing Circular Arc Tangencies, Ogee Curves & Ellipses (pp. 233–246)
+
+**Ch. 8: Multiviews**
+- [ ] `8.1` Orthographic Projection, Third-Angle vs. First-Angle Projection & View Selection (pp. 248–261)
+- [ ] `8.2` Projection of Surfaces, Contours, Circles, Arcs, Fillets, Rounds & Runouts (pp. 262–266)
+- [ ] `8.3` Line Precedence, Multiview Analysis & Layout (pp. 266–267)
+- [ ] `8.4` 2-D and 3-D CADD Multiview Generation & Visualization (pp. 267–291)
+
+**Ch. 9: Auxiliary Views**
+- [ ] `9.1` Primary Auxiliary Views, Fold-Line/Reference-Plane Methods & Visualization (pp. 292–296)
+- [ ] `9.2` Curves, Enlargements, Partial, Removed & Rotated Auxiliary Views (pp. 297–298)
+- [ ] `9.3` Secondary Auxiliary Views, Descriptive Geometry & 2-D/3-D CADD Applications (pp. 299–314)
+
+**Ch. 10: Dimensioning and Tolerancing**
+- [ ] `10.1` Dimensioning Basics, Definitions, Fundamental Rules, Components & Symbols (pp. 315–326)
+- [ ] `10.2` Dimensioning Systems (Unidirectional/Aligned, Rectangular/Tabular/Chain/Baseline) & Fundamentals (pp. 326–334)
+- [ ] `10.3` Preferred Practices, Notes for Machined Features, Location Dimensions, Origin & General Notes (pp. 334–351)
+- [ ] `10.4` Tolerancing Applications, Plus-Minus/Limit Tolerances, Inch/Metric Limits and Fits & Tolerance Accumulation (pp. 351–361)
+- [ ] `10.5` Casting, Forging & Plastic Part Design/Drafting, Surface Texture Symbols & Tool Design (pp. 361–391)
+
+**Ch. 11: Fasteners and Springs**
+- [ ] `11.1` Screw Thread Fasteners, Terminology, Thread Forms & Simplified/Schematic/Detailed Representations (pp. 392–402)
+- [ ] `11.2` Unified & Metric Thread Notes, Measuring Threads & 2-D/3-D CADD Thread Applications (pp. 403–408)
+- [ ] `11.3` Threaded Fastener Selection, Design Guidelines, Lag/Wood/Self-Tapping Screws, Inserts & Screw Heads (pp. 408–417)
+- [ ] `11.4` Nuts, Washers, Dowel/Taper Pins, Retaining Rings, Keys/Keyways/Keyseats & Rivets (pp. 417–420)
+- [ ] `11.5` Designing and Drawing Springs, Spring Representations, Specifications & CADD Applications (pp. 421–438)
+
+**Ch. 12: Sections, Revolutions, and Conventional Breaks**
+- [ ] `12.1` Sectional Views, Cutting-Plane Lines & Section Line Material Conventions (pp. 439–443)
+- [ ] `12.2` Full, Half, Offset & Aligned Sections, Unsectioned Features & Intersections in Section (pp. 444–447)
+- [ ] `12.3` Conventional Revolutions, Broken-Out Sections, Auxiliary Sections & 2-D/3-D CADD Sections (pp. 447–451)
+- [ ] `12.4` Conventional Breaks, Revolved Sections, Removed Sections & Multi-Sheet Sectional Views (pp. 452–474)
+
+**Ch. 13: Geometric Dimensioning and Tolerancing**
+- [ ] `13.1` GD&T Overview, ASME Y14.5 Symbols, Datums, Datum Reference Frames & Datum Targets (pp. 475–491)
+- [ ] `13.2` Material Condition & Boundary Modifiers (MMC/LMC/RFS, MMB/LMB/RMB), Rule
+- [ ] `13.3` Feature Control Frames, Form Tolerances (Straightness, Flatness, Circularity, Cylindricity) & Orientation Tolerances (pp. 501–509)
+- [ ] `13.4` Location Tolerances: Position Tolerance Theory, MMC/LMC/RFS Positional Zones, Fastener Formulas, Coaxiality & Symmetry (pp. 509–531)
+- [ ] `13.5` Profile Tolerances (Line & Surface), Runout Tolerances (Circular & Total), Independency & CADD GD&T (pp. 532–561)
+
+**Ch. 14: Pictorial Drawings and Technical Illustrations**
+- [ ] `14.1` Pictorial Overview, Axonometric Projection & Isometric Construction Techniques (pp. 562–573)
+- [ ] `14.2` Dimetric, Trimetric, Exploded Pictorials & Oblique (Cavalier/Cabinet) Drawings (pp. 574–577)
+- [ ] `14.3` One-Point, Two-Point & Three-Point Perspective Projections & Perspective Curves (pp. 578–582)
+- [ ] `14.4` Technical Illustration Shading, Layout Techniques & 3-D CADD Pictorial Modeling (pp. 583–594)
+
+**Ch. 15: Working Drawings**
+- [ ] `15.1` Working Drawings Overview, Detail Drawings & 2-D/3-D CADD Detailing (pp. 596–602)
+- [ ] `15.2` Assembly Drawings, Types of Assemblies, Identification Numbers (Balloons), Parts Lists (BOM) & Purchased Parts (pp. 603–613)
+- [ ] `15.3` Engineering Changes (ECN/ECO), Revision History Blocks & 2-D/3-D CADD Assemblies (pp. 614–619)
+- [ ] `15.4` Drawing From a Prototype & Complete Working Drawing Set Analysis (pp. 620–677)
 
 </details>
 
