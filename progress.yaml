@@ -53,8 +53,8 @@ courses:
           completed_date: '2026-11-07'
         - id: '2.5'
           title: Continuity
-          completed: false
-          completed_date: null
+          completed: true
+          completed_date: '2026-11-07'
         - id: '2.6'
           title: Limits at Infinity; Horizontal Asymptotes
           completed: false
