@@ -9,24 +9,24 @@ Section-level study tracker and chapter-weighted completion forecaster generated
 | Metric | Current Value | Notes |
 | :--- | :--- | :--- |
 | **Active Course(s)** | **MATH 101** (Single Variable Calculus) | 0 / 58 courses completed; 4 additional courses unlocked |
-| **Study Timeline** | `2026-10-31` → `2026-11-07` | 8 active span days |
-| **Overall Velocity** | **1.75 sections/day** (12.2 sections/week) | 14 sections completed across 8 days |
-| **30-Day Rolling Velocity** | **1.75 sections/day** (12.2 sections/week) | 14 sections in trailing 8-day window |
-| **Assigned Units Completed** | **5.62 / 713** (`0.79%`) | Fractional chapter & appendix completion across 58 courses |
-| **Curriculum Sections Completed** | **14 / ~5,011** (`0.28%`) | Exact for TOC-loaded courses; 7.19 sec/ch estimate for unstarted courses |
-| **MATH 101 Completion Forecast** | **`2026-12-17`** (40d remaining) | 14 / 84 sections (`16.7%`) · Next: `2.6` (Limits at Infinity; Horizontal Asymptotes) |
-| **Tier 1 (100-Level) Forecast** | **`2028-01-19`** (438d remaining) | 14 / ~779 est. sections (`1.80%`) across 10 courses |
-| **Full Curriculum (Tiers 1–5) Forecast** | **`2034-09-02`** (2,856d / ~7.8 yrs) | 4,997 estimated sections remaining at 1.75 sec/day |
+| **Study Timeline** | `2026-10-31` → `2026-11-08` | 9 active span days |
+| **Overall Velocity** | **1.67 sections/day** (11.7 sections/week) | 15 sections completed across 9 days |
+| **30-Day Rolling Velocity** | **1.67 sections/day** (11.7 sections/week) | 15 sections in trailing 9-day window |
+| **Assigned Units Completed** | **5.75 / 713** (`0.81%`) | Fractional chapter & appendix completion across 58 courses |
+| **Curriculum Sections Completed** | **15 / ~5,011** (`0.30%`) | Exact for TOC-loaded courses; 7.19 sec/ch estimate for unstarted courses |
+| **MATH 101 Completion Forecast** | **`2026-12-20`** (42d remaining) | 15 / 84 sections (`17.9%`) · Next: `2.7` (Derivatives and Rates of Change) |
+| **Tier 1 (100-Level) Forecast** | **`2028-02-10`** (459d remaining) | 15 / ~779 est. sections (`1.93%`) across 10 courses |
+| **Full Curriculum (Tiers 1–5) Forecast** | **`2035-01-23`** (2,998d / ~8.2 yrs) | 4,996 estimated sections remaining at 1.67 sec/day |
 
 ### Pace Sensitivity Scenarios
 
 | Study Pace | Weekly Volume | MATH 101 ETA | Tier 1 (100-Level) ETA | Full Curriculum (58 Courses) ETA |
 | :--- | :--- | :--- | :--- | :--- |
-| **Current Pace (1.75 sec/day)** | 12.2 sec/wk | `2026-12-17` (40d) | `2028-01-19` (1.2y) | `2034-09-02` (7.8y) |
-| 1.00 section/day | 7.0 sec/wk | `2027-01-16` (70d) | `2028-12-11` (2.1y) | `2040-07-13` (13.7y) |
-| 1.50 sections/day | 10.5 sec/wk | `2026-12-24` (47d) | `2028-03-31` (1.4y) | `2035-12-22` (9.1y) |
-| 2.00 sections/day | 14.0 sec/wk | `2026-12-12` (35d) | `2027-11-25` (1.0y) | `2033-09-10` (6.8y) |
-| 3.00 sections/day | 21.0 sec/wk | `2026-12-01` (24d) | `2027-07-20` (0.7y) | `2031-05-31` (4.6y) |
+| **Current Pace (1.67 sec/day)** | 11.7 sec/wk | `2026-12-20` (42d) | `2028-02-10` (1.3y) | `2035-01-23` (8.2y) |
+| 1.00 section/day | 7.0 sec/wk | `2027-01-16` (69d) | `2028-12-11` (2.1y) | `2040-07-13` (13.7y) |
+| 1.50 sections/day | 10.5 sec/wk | `2026-12-24` (46d) | `2028-04-01` (1.4y) | `2035-12-22` (9.1y) |
+| 2.00 sections/day | 14.0 sec/wk | `2026-12-13` (35d) | `2027-11-25` (1.0y) | `2033-09-10` (6.8y) |
+| 3.00 sections/day | 21.0 sec/wk | `2026-12-01` (23d) | `2027-07-21` (0.7y) | `2031-06-01` (4.6y) |
 
 ---
 
@@ -34,11 +34,11 @@ Section-level study tracker and chapter-weighted completion forecaster generated
 
 | Tier | Level | Courses (Done / Active / Total) | Assigned Units | Sections (Done / Est.) | Progress | Cumulative ETA |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Tier 1** | 100-Level | 0 / 1 / 10 | 5.62 / 122 (`4.6%`) | 14 / ~779 | `█░░░░░░░░░` `1.8%` | `2028-01-19` |
-| **Tier 2** | 200-Level | 0 / 0 / 13 | 0.00 / 166 (`0.0%`) | 0 / ~1,195 | `░░░░░░░░░░` `0.0%` | `2029-12-01` |
-| **Tier 3** | 300-Level | 0 / 0 / 23 | 0.00 / 280 (`0.0%`) | 0 / ~2,013 | `░░░░░░░░░░` `0.0%` | `2033-01-25` |
-| **Tier 4** | 400-Level | 0 / 0 / 9 | 0.00 / 95 (`0.0%`) | 0 / ~665 | `░░░░░░░░░░` `0.0%` | `2034-02-09` |
-| **Tier 5** | 500-Level | 0 / 0 / 3 | 0.00 / 50 (`0.0%`) | 0 / ~359 | `░░░░░░░░░░` `0.0%` | `2034-09-02` |
+| **Tier 1** | 100-Level | 0 / 1 / 10 | 5.75 / 122 (`4.7%`) | 15 / ~779 | `█░░░░░░░░░` `1.9%` | `2028-02-10` |
+| **Tier 2** | 200-Level | 0 / 0 / 13 | 0.00 / 166 (`0.0%`) | 0 / ~1,195 | `░░░░░░░░░░` `0.0%` | `2030-01-27` |
+| **Tier 3** | 300-Level | 0 / 0 / 23 | 0.00 / 280 (`0.0%`) | 0 / ~2,013 | `░░░░░░░░░░` `0.0%` | `2033-05-19` |
+| **Tier 4** | 400-Level | 0 / 0 / 9 | 0.00 / 95 (`0.0%`) | 0 / ~665 | `░░░░░░░░░░` `0.0%` | `2034-06-22` |
+| **Tier 5** | 500-Level | 0 / 0 / 3 | 0.00 / 50 (`0.0%`) | 0 / ~359 | `░░░░░░░░░░` `0.0%` | `2035-01-23` |
 
 ---
 
@@ -47,17 +47,17 @@ Section-level study tracker and chapter-weighted completion forecaster generated
 ### MATH 101: Single Variable Calculus
 
 - **Status**: 🟨 In Progress
-- **Section Progress**: `███░░░░░░░░░░░░░` **14 / 84 sections** (`16.7%`)
-- **Chapter/Appendix Unit Progress**: **5.62 / 16 units** (`35.2%`)
-- **Next Section Up**: `2.6` — *Limits at Infinity; Horizontal Asymptotes* (Ch. 2)
-- **Projected Course Completion**: `2026-12-17` (40 days remaining at current pace)
+- **Section Progress**: `███░░░░░░░░░░░░░` **15 / 84 sections** (`17.9%`)
+- **Chapter/Appendix Unit Progress**: **5.75 / 16 units** (`35.9%`)
+- **Next Section Up**: `2.7` — *Derivatives and Rates of Change* (Ch. 2)
+- **Projected Course Completion**: `2026-12-20` (42 days remaining at current pace)
 
 #### James Stewart – *Calculus: Early Transcendentals*, 8th Edition
 
 | Unit | Title | Sections Done | Progress | Latest Completion |
 | :--- | :--- | :--- | :--- | :--- |
 | **Ch. 1** | Functions and Models | 5 / 5 | `██████████` `100%` | `2026-11-06` |
-| **Ch. 2** | Limits and Derivatives | 5 / 8 | `██████░░░░` `62%` | `2026-11-07` |
+| **Ch. 2** | Limits and Derivatives | 6 / 8 | `████████░░` `75%` | `2026-11-08` |
 | **Ch. 3** | Differentiation Rules | 0 / 11 | `░░░░░░░░░░` `0%` | — |
 | **Ch. 4** | Applications of Differentiation | 0 / 9 | `░░░░░░░░░░` `0%` | — |
 | **Ch. 5** | Integrals | 0 / 5 | `░░░░░░░░░░` `0%` | — |
@@ -74,7 +74,7 @@ Section-level study tracker and chapter-weighted completion forecaster generated
 | **App. E** | Sigma Notation | 0 / 1 | `░░░░░░░░░░` `0%` | — |
 
 <details>
-<summary><strong>View All 84 Sections for MATH 101 (14 completed)</strong></summary>
+<summary><strong>View All 84 Sections for MATH 101 (15 completed)</strong></summary>
 
 **Ch. 1: Functions and Models**
 - [x] `1.1` Four Ways to Represent a Function *(completed `2026-11-02`)*
@@ -89,7 +89,7 @@ Section-level study tracker and chapter-weighted completion forecaster generated
 - [x] `2.3` Calculating Limits Using the Limit Laws *(completed `2026-11-07`)*
 - [x] `2.4` The Precise Definition of a Limit *(completed `2026-11-07`)*
 - [x] `2.5` Continuity *(completed `2026-11-07`)*
-- [ ] `2.6` Limits at Infinity; Horizontal Asymptotes
+- [x] `2.6` Limits at Infinity; Horizontal Asymptotes *(completed `2026-11-08`)*
 - [ ] `2.7` Derivatives and Rates of Change
 - [ ] `2.8` The Derivative as a Function
 
@@ -200,7 +200,7 @@ Section-level study tracker and chapter-weighted completion forecaster generated
 - **Section Progress**: `░░░░░░░░░░░░░░░░` **0 / 39 sections** (`0.0%`)
 - **Chapter/Appendix Unit Progress**: **0.00 / 8 units** (`0.0%`)
 - **Next Section Up**: `12.1` — *Three-Dimensional Coordinate Systems* (Ch. 12)
-- **Projected Course Completion**: `2027-01-09` (~23 study days; 63 days from latest activity after prerequisites)
+- **Projected Course Completion**: `2027-01-12` (~24 study days; 65 days from latest activity after prerequisites)
 
 #### James Stewart – *Calculus: Early Transcendentals*, 8th Edition
 
@@ -281,6 +281,7 @@ Section-level study tracker and chapter-weighted completion forecaster generated
 
 | Date | Course | Unit | Section | Title |
 | :--- | :--- | :--- | :--- | :--- |
+| `2026-11-08` | **MATH 101** | Ch. 2 | `2.6` | Limits at Infinity; Horizontal Asymptotes |
 | `2026-11-07` | **MATH 101** | Ch. 2 | `2.5` | Continuity |
 | `2026-11-07` | **MATH 101** | Ch. 2 | `2.4` | The Precise Definition of a Limit |
 | `2026-11-07` | **MATH 101** | Ch. 2 | `2.3` | Calculating Limits Using the Limit Laws |
