@@ -591,17 +591,19 @@ courses:
         title: Introduction to Engineering Drawing and Design
         sections:
         - id: '1.1'
-          title: Engineering Design Application, History of Engineering Drawing & Drafting Fields (pp. 2–22)
-          completed: false
-          completed_date: null
+          title: Engineering Design Application, History of Engineering Drawing & Drafting Fields (pp.
+            2–22)
+          completed: true
+          completed_date: '2026-11-08'
         - id: '1.2'
           title: Education, Qualifications, Job Opportunities & Professional Organizations (pp. 22–29)
-          completed: false
-          completed_date: null
+          completed: true
+          completed_date: '2026-11-08'
         - id: '1.3'
-          title: Drafting Standards, Workplace Ethics, Copyrights, Trademarks & CADD Applications (pp. 29–38)
-          completed: false
-          completed_date: null
+          title: Drafting Standards, Workplace Ethics, Copyrights, Trademarks & CADD Applications (pp.
+            29–38)
+          completed: true
+          completed_date: '2026-11-08'
       - unit: Ch. 2
         title: Drafting Equipment, Media, and Reproduction Methods
         sections:
@@ -614,7 +616,8 @@ courses:
           completed: false
           completed_date: null
         - id: '2.3'
-          title: Drafting Media, ASME Sheet Sizes & Formats, Reproduction Methods & CADD Applications (pp. 50–68)
+          title: Drafting Media, ASME Sheet Sizes & Formats, Reproduction Methods & CADD Applications
+            (pp. 50–68)
           completed: false
           completed_date: null
       - unit: Ch. 3
@@ -648,11 +651,13 @@ courses:
           completed: false
           completed_date: null
         - id: '4.3'
-          title: Manufacturing Plastic Products, Thermosets, Composites, Rapid Prototyping & Tool Design (pp. 153–161)
+          title: Manufacturing Plastic Products, Thermosets, Composites, Rapid Prototyping & Tool Design
+            (pp. 153–161)
           completed: false
           completed_date: null
         - id: '4.4'
-          title: CIM, CAD/CAM Integration, Statistical Process Control (SPC) & 3-D CADD Applications (pp. 161–172)
+          title: CIM, CAD/CAM Integration, Statistical Process Control (SPC) & 3-D CADD Applications (pp.
+            161–172)
           completed: false
           completed_date: null
       - unit: Ch. 5
@@ -667,7 +672,8 @@ courses:
           completed: false
           completed_date: null
         - id: '5.3'
-          title: The Block Technique, Multiview Sketches, Isometric Sketches & 3-D CADD Applications (pp. 181–192)
+          title: The Block Technique, Multiview Sketches, Isometric Sketches & 3-D CADD Applications (pp.
+            181–192)
           completed: false
           completed_date: null
       - unit: Ch. 6
@@ -697,7 +703,8 @@ courses:
           completed: false
           completed_date: null
         - id: '7.3'
-          title: 'Constructing Regular Polygons: Triangles, Hexagons, Octagons & General Polygons (pp. 230–233)'
+          title: 'Constructing Regular Polygons: Triangles, Hexagons, Octagons & General Polygons (pp.
+            230–233)'
           completed: false
           completed_date: null
         - id: '7.4'
@@ -708,7 +715,8 @@ courses:
         title: Multiviews
         sections:
         - id: '8.1'
-          title: Orthographic Projection, Third-Angle vs. First-Angle Projection & View Selection (pp. 248–261)
+          title: Orthographic Projection, Third-Angle vs. First-Angle Projection & View Selection (pp.
+            248–261)
           completed: false
           completed_date: null
         - id: '8.2'
@@ -746,42 +754,51 @@ courses:
           completed: false
           completed_date: null
         - id: '10.2'
-          title: Dimensioning Systems (Unidirectional/Aligned, Rectangular/Tabular/Chain/Baseline) & Fundamentals (pp. 326–334)
+          title: Dimensioning Systems (Unidirectional/Aligned, Rectangular/Tabular/Chain/Baseline) & Fundamentals
+            (pp. 326–334)
           completed: false
           completed_date: null
         - id: '10.3'
-          title: Preferred Practices, Notes for Machined Features, Location Dimensions, Origin & General Notes (pp. 334–351)
+          title: Preferred Practices, Notes for Machined Features, Location Dimensions, Origin & General
+            Notes (pp. 334–351)
           completed: false
           completed_date: null
         - id: '10.4'
-          title: Tolerancing Applications, Plus-Minus/Limit Tolerances, Inch/Metric Limits and Fits & Tolerance Accumulation (pp. 351–361)
+          title: Tolerancing Applications, Plus-Minus/Limit Tolerances, Inch/Metric Limits and Fits &
+            Tolerance Accumulation (pp. 351–361)
           completed: false
           completed_date: null
         - id: '10.5'
-          title: Casting, Forging & Plastic Part Design/Drafting, Surface Texture Symbols & Tool Design (pp. 361–391)
+          title: Casting, Forging & Plastic Part Design/Drafting, Surface Texture Symbols & Tool Design
+            (pp. 361–391)
           completed: false
           completed_date: null
       - unit: Ch. 11
         title: Fasteners and Springs
         sections:
         - id: '11.1'
-          title: Screw Thread Fasteners, Terminology, Thread Forms & Simplified/Schematic/Detailed Representations (pp. 392–402)
+          title: Screw Thread Fasteners, Terminology, Thread Forms & Simplified/Schematic/Detailed Representations
+            (pp. 392–402)
           completed: false
           completed_date: null
         - id: '11.2'
-          title: Unified & Metric Thread Notes, Measuring Threads & 2-D/3-D CADD Thread Applications (pp. 403–408)
+          title: Unified & Metric Thread Notes, Measuring Threads & 2-D/3-D CADD Thread Applications (pp.
+            403–408)
           completed: false
           completed_date: null
         - id: '11.3'
-          title: Threaded Fastener Selection, Design Guidelines, Lag/Wood/Self-Tapping Screws, Inserts & Screw Heads (pp. 408–417)
+          title: Threaded Fastener Selection, Design Guidelines, Lag/Wood/Self-Tapping Screws, Inserts
+            & Screw Heads (pp. 408–417)
           completed: false
           completed_date: null
         - id: '11.4'
-          title: Nuts, Washers, Dowel/Taper Pins, Retaining Rings, Keys/Keyways/Keyseats & Rivets (pp. 417–420)
+          title: Nuts, Washers, Dowel/Taper Pins, Retaining Rings, Keys/Keyways/Keyseats & Rivets (pp.
+            417–420)
           completed: false
           completed_date: null
         - id: '11.5'
-          title: Designing and Drawing Springs, Spring Representations, Specifications & CADD Applications (pp. 421–438)
+          title: Designing and Drawing Springs, Spring Representations, Specifications & CADD Applications
+            (pp. 421–438)
           completed: false
           completed_date: null
       - unit: Ch. 12
@@ -792,38 +809,45 @@ courses:
           completed: false
           completed_date: null
         - id: '12.2'
-          title: Full, Half, Offset & Aligned Sections, Unsectioned Features & Intersections in Section (pp. 444–447)
+          title: Full, Half, Offset & Aligned Sections, Unsectioned Features & Intersections in Section
+            (pp. 444–447)
           completed: false
           completed_date: null
         - id: '12.3'
-          title: Conventional Revolutions, Broken-Out Sections, Auxiliary Sections & 2-D/3-D CADD Sections (pp. 447–451)
+          title: Conventional Revolutions, Broken-Out Sections, Auxiliary Sections & 2-D/3-D CADD Sections
+            (pp. 447–451)
           completed: false
           completed_date: null
         - id: '12.4'
-          title: Conventional Breaks, Revolved Sections, Removed Sections & Multi-Sheet Sectional Views (pp. 452–474)
+          title: Conventional Breaks, Revolved Sections, Removed Sections & Multi-Sheet Sectional Views
+            (pp. 452–474)
           completed: false
           completed_date: null
       - unit: Ch. 13
         title: Geometric Dimensioning and Tolerancing
         sections:
         - id: '13.1'
-          title: GD&T Overview, ASME Y14.5 Symbols, Datums, Datum Reference Frames & Datum Targets (pp. 475–491)
+          title: GD&T Overview, ASME Y14.5 Symbols, Datums, Datum Reference Frames & Datum Targets (pp.
+            475–491)
           completed: false
           completed_date: null
         - id: '13.2'
-          title: Material Condition & Boundary Modifiers (MMC/LMC/RFS, MMB/LMB/RMB), Rule #1 & Datum Precedence (pp. 492–500)
+          title: Material Condition & Boundary Modifiers (MMC/LMC/RFS, MMB/LMB/RMB), Rule
           completed: false
           completed_date: null
         - id: '13.3'
-          title: Feature Control Frames, Form Tolerances (Straightness, Flatness, Circularity, Cylindricity) & Orientation Tolerances (pp. 501–509)
+          title: Feature Control Frames, Form Tolerances (Straightness, Flatness, Circularity, Cylindricity)
+            & Orientation Tolerances (pp. 501–509)
           completed: false
           completed_date: null
         - id: '13.4'
-          title: 'Location Tolerances: Position Tolerance Theory, MMC/LMC/RFS Positional Zones, Fastener Formulas, Coaxiality & Symmetry (pp. 509–531)'
+          title: 'Location Tolerances: Position Tolerance Theory, MMC/LMC/RFS Positional Zones, Fastener
+            Formulas, Coaxiality & Symmetry (pp. 509–531)'
           completed: false
           completed_date: null
         - id: '13.5'
-          title: Profile Tolerances (Line & Surface), Runout Tolerances (Circular & Total), Independency & CADD GD&T (pp. 532–561)
+          title: Profile Tolerances (Line & Surface), Runout Tolerances (Circular & Total), Independency
+            & CADD GD&T (pp. 532–561)
           completed: false
           completed_date: null
       - unit: Ch. 14
@@ -838,11 +862,13 @@ courses:
           completed: false
           completed_date: null
         - id: '14.3'
-          title: One-Point, Two-Point & Three-Point Perspective Projections & Perspective Curves (pp. 578–582)
+          title: One-Point, Two-Point & Three-Point Perspective Projections & Perspective Curves (pp.
+            578–582)
           completed: false
           completed_date: null
         - id: '14.4'
-          title: Technical Illustration Shading, Layout Techniques & 3-D CADD Pictorial Modeling (pp. 583–594)
+          title: Technical Illustration Shading, Layout Techniques & 3-D CADD Pictorial Modeling (pp.
+            583–594)
           completed: false
           completed_date: null
       - unit: Ch. 15
@@ -853,15 +879,16 @@ courses:
           completed: false
           completed_date: null
         - id: '15.2'
-          title: Assembly Drawings, Types of Assemblies, Identification Numbers (Balloons), Parts Lists (BOM) & Purchased Parts (pp. 603–613)
+          title: Assembly Drawings, Types of Assemblies, Identification Numbers (Balloons), Parts Lists
+            (BOM) & Purchased Parts (pp. 603–613)
           completed: false
           completed_date: null
         - id: '15.3'
-          title: Engineering Changes (ECN/ECO), Revision History Blocks & 2-D/3-D CADD Assemblies (pp. 614–619)
+          title: Engineering Changes (ECN/ECO), Revision History Blocks & 2-D/3-D CADD Assemblies (pp.
+            614–619)
           completed: false
           completed_date: null
         - id: '15.4'
           title: Drawing From a Prototype & Complete Working Drawing Set Analysis (pp. 620–677)
           completed: false
           completed_date: null
-
