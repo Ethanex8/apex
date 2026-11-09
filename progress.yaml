@@ -665,17 +665,17 @@ courses:
         sections:
         - id: '5.1'
           title: Sketching Tools, Materials & Straight Lines (pp. 174–176)
-          completed: false
-          completed_date: null
+          completed: true
+          completed_date: '2026-11-09'
         - id: '5.2'
           title: Sketching Circular Lines, Arcs, Ellipses & Proportions (pp. 176–181)
-          completed: false
-          completed_date: null
+          completed: true
+          completed_date: '2026-11-09'
         - id: '5.3'
           title: The Block Technique, Multiview Sketches, Isometric Sketches & 3-D CADD Applications (pp.
             181–192)
-          completed: false
-          completed_date: null
+          completed: true
+          completed_date: '2026-11-09'
       - unit: Ch. 6
         title: Lines and Lettering
         sections:
