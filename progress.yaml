@@ -644,22 +644,22 @@ courses:
         sections:
         - id: '4.1'
           title: Engineering Materials, Metallurgy, Plastics/Polymers & Material Selection (pp. 121–134)
-          completed: false
-          completed_date: null
+          completed: true
+          completed_date: '2026-11-09'
         - id: '4.2'
           title: Casting, Forging, Machine Processes & Machined Feature Drawing Representations (pp. 135–153)
-          completed: false
-          completed_date: null
+          completed: true
+          completed_date: '2026-11-09'
         - id: '4.3'
           title: Manufacturing Plastic Products, Thermosets, Composites, Rapid Prototyping & Tool Design
             (pp. 153–161)
-          completed: false
-          completed_date: null
+          completed: true
+          completed_date: '2026-11-09'
         - id: '4.4'
           title: CIM, CAD/CAM Integration, Statistical Process Control (SPC) & 3-D CADD Applications (pp.
             161–172)
-          completed: false
-          completed_date: null
+          completed: true
+          completed_date: '2026-11-09'
       - unit: Ch. 5
         title: Sketching Applications
         sections:

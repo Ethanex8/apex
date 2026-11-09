@@ -10,24 +10,24 @@ Section-level study tracker and chapter-weighted completion forecaster generated
 | :--- | :--- | :--- |
 | **Active Course(s)** | **MATH 101** (Single Variable Calculus), **ENGR 101** (Parametric CAD, GD&T & Tolerance Analysis) | 0 / 58 courses completed; 3 additional courses unlocked |
 | **Study Timeline** | `2026-10-31` → `2026-11-09` | 10 active span days |
-| **Overall Velocity** | **2.70 sections/day** (18.9 sections/week) | 27 sections completed across 10 days |
-| **30-Day Rolling Velocity** | **2.70 sections/day** (18.9 sections/week) | 27 sections in trailing 10-day window |
-| **Assigned Units Completed** | **9.00 / 717** (`1.26%`) | Fractional chapter & appendix completion across 58 courses |
-| **Curriculum Sections Completed** | **27 / ~3,917** (`0.69%`) | Exact for TOC-loaded courses; 5.58 sec/ch estimate for unstarted courses |
-| **MATH 101 Completion Forecast** | **`2026-12-04`** (25d remaining) | 17 / 84 sections (`20.2%`) · Next: `3.1` (Derivatives of Polynomials and Exponential Functions) |
-| **ENGR 101 Completion Forecast** | **`2026-11-27`** (18d remaining) | 10 / 58 sections (`17.2%`) · Next: `4.1` (Engineering Materials, Metallurgy, Plastics/Polymers & Material Selection (pp. 121–134)) |
-| **Tier 1 (100-Level) Forecast** | **`2027-06-20`** (223d remaining) | 27 / ~629 est. sections (`4.29%`) across 10 courses |
-| **Full Curriculum (Tiers 1–5) Forecast** | **`2030-10-20`** (1,441d / ~3.9 yrs) | 3,890 estimated sections remaining at 2.70 sec/day |
+| **Overall Velocity** | **3.10 sections/day** (21.7 sections/week) | 31 sections completed across 10 days |
+| **30-Day Rolling Velocity** | **3.10 sections/day** (21.7 sections/week) | 31 sections in trailing 10-day window |
+| **Assigned Units Completed** | **10.00 / 717** (`1.39%`) | Fractional chapter & appendix completion across 58 courses |
+| **Curriculum Sections Completed** | **31 / ~3,917** (`0.79%`) | Exact for TOC-loaded courses; 5.58 sec/ch estimate for unstarted courses |
+| **MATH 101 Completion Forecast** | **`2026-12-01`** (22d remaining) | 17 / 84 sections (`20.2%`) · Next: `3.1` (Derivatives of Polynomials and Exponential Functions) |
+| **ENGR 101 Completion Forecast** | **`2026-11-24`** (15d remaining) | 14 / 58 sections (`24.1%`) · Next: `5.1` (Sketching Tools, Materials & Straight Lines (pp. 174–176)) |
+| **Tier 1 (100-Level) Forecast** | **`2027-05-21`** (193d remaining) | 31 / ~629 est. sections (`4.93%`) across 10 courses |
+| **Full Curriculum (Tiers 1–5) Forecast** | **`2030-04-16`** (1,254d / ~3.4 yrs) | 3,886 estimated sections remaining at 3.10 sec/day |
 
 ### Pace Sensitivity Scenarios
 
 | Study Pace | Weekly Volume | MATH 101 ETA | ENGR 101 ETA | Tier 1 (100-Level) ETA | Full Curriculum (58 Courses) ETA |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Current Pace (2.70 sec/day)** | 18.9 sec/wk | `2026-12-04` (25d) | `2026-11-27` (18d) | `2027-06-20` (0.6y) | `2030-10-20` (3.9y) |
-| 1.00 section/day | 7.0 sec/wk | `2027-01-15` (67d) | `2026-12-27` (48d) | `2028-07-03` (1.6y) | `2037-07-04` (10.7y) |
-| 1.50 sections/day | 10.5 sec/wk | `2026-12-24` (45d) | `2026-12-11` (32d) | `2027-12-16` (1.1y) | `2033-12-16` (7.1y) |
-| 2.00 sections/day | 14.0 sec/wk | `2026-12-13` (34d) | `2026-12-03` (24d) | `2027-09-06` (0.8y) | `2032-03-07` (5.3y) |
-| 3.00 sections/day | 21.0 sec/wk | `2026-12-02` (23d) | `2026-11-25` (16d) | `2027-05-29` (0.6y) | `2030-05-29` (3.6y) |
+| **Current Pace (3.10 sec/day)** | 21.7 sec/wk | `2026-12-01` (22d) | `2026-11-24` (15d) | `2027-05-21` (0.5y) | `2030-04-16` (3.4y) |
+| 1.00 section/day | 7.0 sec/wk | `2027-01-15` (67d) | `2026-12-23` (44d) | `2028-06-29` (1.6y) | `2037-06-30` (10.6y) |
+| 1.50 sections/day | 10.5 sec/wk | `2026-12-24` (45d) | `2026-12-09` (30d) | `2027-12-13` (1.1y) | `2033-12-13` (7.1y) |
+| 2.00 sections/day | 14.0 sec/wk | `2026-12-13` (34d) | `2026-12-01` (22d) | `2027-09-04` (0.8y) | `2032-03-05` (5.3y) |
+| 3.00 sections/day | 21.0 sec/wk | `2026-12-02` (23d) | `2026-11-24` (15d) | `2027-05-28` (0.5y) | `2030-05-28` (3.5y) |
 
 ---
 
@@ -35,11 +35,11 @@ Section-level study tracker and chapter-weighted completion forecaster generated
 
 | Tier | Level | Courses (Done / Active / Total) | Assigned Units | Sections (Done / Est.) | Progress | Cumulative ETA |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Tier 1** | 100-Level | 0 / 2 / 10 | 9.00 / 126 (`7.1%`) | 27 / ~629 | `█░░░░░░░░░` `4.3%` | `2027-06-20` |
-| **Tier 2** | 200-Level | 0 / 0 / 13 | 0.00 / 166 (`0.0%`) | 0 / ~926 | `░░░░░░░░░░` `0.0%` | `2028-05-28` |
-| **Tier 3** | 300-Level | 0 / 0 / 23 | 0.00 / 280 (`0.0%`) | 0 / ~1,566 | `░░░░░░░░░░` `0.0%` | `2029-12-29` |
-| **Tier 4** | 400-Level | 0 / 0 / 9 | 0.00 / 95 (`0.0%`) | 0 / ~517 | `░░░░░░░░░░` `0.0%` | `2030-07-09` |
-| **Tier 5** | 500-Level | 0 / 0 / 3 | 0.00 / 50 (`0.0%`) | 0 / ~279 | `░░░░░░░░░░` `0.0%` | `2030-10-20` |
+| **Tier 1** | 100-Level | 0 / 2 / 10 | 10.00 / 126 (`7.9%`) | 31 / ~629 | `█░░░░░░░░░` `4.9%` | `2027-05-21` |
+| **Tier 2** | 200-Level | 0 / 0 / 13 | 0.00 / 166 (`0.0%`) | 0 / ~926 | `░░░░░░░░░░` `0.0%` | `2028-03-15` |
+| **Tier 3** | 300-Level | 0 / 0 / 23 | 0.00 / 280 (`0.0%`) | 0 / ~1,566 | `░░░░░░░░░░` `0.0%` | `2029-08-02` |
+| **Tier 4** | 400-Level | 0 / 0 / 9 | 0.00 / 95 (`0.0%`) | 0 / ~517 | `░░░░░░░░░░` `0.0%` | `2030-01-16` |
+| **Tier 5** | 500-Level | 0 / 0 / 3 | 0.00 / 50 (`0.0%`) | 0 / ~279 | `░░░░░░░░░░` `0.0%` | `2030-04-16` |
 
 ---
 
@@ -51,7 +51,7 @@ Section-level study tracker and chapter-weighted completion forecaster generated
 - **Section Progress**: `███░░░░░░░░░░░░░` **17 / 84 sections** (`20.2%`)
 - **Chapter/Appendix Unit Progress**: **6.00 / 16 units** (`37.5%`)
 - **Next Section Up**: `3.1` — *Derivatives of Polynomials and Exponential Functions* (Ch. 3)
-- **Projected Course Completion**: `2026-12-04` (25 days remaining at current pace)
+- **Projected Course Completion**: `2026-12-01` (22 days remaining at current pace)
 
 #### James Stewart – *Calculus: Early Transcendentals*, 8th Edition
 
@@ -201,7 +201,7 @@ Section-level study tracker and chapter-weighted completion forecaster generated
 - **Section Progress**: `░░░░░░░░░░░░░░░░` **0 / 39 sections** (`0.0%`)
 - **Chapter/Appendix Unit Progress**: **0.00 / 8 units** (`0.0%`)
 - **Next Section Up**: `12.1` — *Three-Dimensional Coordinate Systems* (Ch. 12)
-- **Projected Course Completion**: `2027-01-06` (~15 study days; 58 days from latest activity after prerequisites)
+- **Projected Course Completion**: `2026-12-28` (~13 study days; 49 days from latest activity after prerequisites)
 
 #### James Stewart – *Calculus: Early Transcendentals*, 8th Edition
 
@@ -279,10 +279,10 @@ Section-level study tracker and chapter-weighted completion forecaster generated
 ### ENGR 101: Parametric CAD, GD&T & Tolerance Analysis
 
 - **Status**: 🟨 In Progress
-- **Section Progress**: `███░░░░░░░░░░░░░` **10 / 58 sections** (`17.2%`)
-- **Chapter/Appendix Unit Progress**: **3.00 / 15 units** (`20.0%`)
-- **Next Section Up**: `4.1` — *Engineering Materials, Metallurgy, Plastics/Polymers & Material Selection (pp. 121–134)* (Ch. 4)
-- **Projected Course Completion**: `2026-11-27` (18 days remaining at current pace)
+- **Section Progress**: `████░░░░░░░░░░░░` **14 / 58 sections** (`24.1%`)
+- **Chapter/Appendix Unit Progress**: **4.00 / 15 units** (`26.7%`)
+- **Next Section Up**: `5.1` — *Sketching Tools, Materials & Straight Lines (pp. 174–176)* (Ch. 5)
+- **Projected Course Completion**: `2026-11-24` (15 days remaining at current pace)
 
 #### David A. Madsen & David P. Madsen – *Engineering Drawing and Design*, 5th Edition
 
@@ -291,7 +291,7 @@ Section-level study tracker and chapter-weighted completion forecaster generated
 | **Ch. 1** | Introduction to Engineering Drawing and Design | 3 / 3 | `██████████` `100%` | `2026-11-08` |
 | **Ch. 2** | Drafting Equipment, Media, and Reproduction Methods | 3 / 3 | `██████████` `100%` | `2026-11-09` |
 | **Ch. 3** | Computer-Aided Design and Drafting (CADD) | 4 / 4 | `██████████` `100%` | `2026-11-09` |
-| **Ch. 4** | Manufacturing Materials and Processes | 0 / 4 | `░░░░░░░░░░` `0%` | — |
+| **Ch. 4** | Manufacturing Materials and Processes | 4 / 4 | `██████████` `100%` | `2026-11-09` |
 | **Ch. 5** | Sketching Applications | 0 / 3 | `░░░░░░░░░░` `0%` | — |
 | **Ch. 6** | Lines and Lettering | 0 / 3 | `░░░░░░░░░░` `0%` | — |
 | **Ch. 7** | Drafting Geometry | 0 / 4 | `░░░░░░░░░░` `0%` | — |
@@ -305,7 +305,7 @@ Section-level study tracker and chapter-weighted completion forecaster generated
 | **Ch. 15** | Working Drawings | 0 / 4 | `░░░░░░░░░░` `0%` | — |
 
 <details>
-<summary><strong>View All 58 Sections for ENGR 101 (10 completed)</strong></summary>
+<summary><strong>View All 58 Sections for ENGR 101 (14 completed)</strong></summary>
 
 **Ch. 1: Introduction to Engineering Drawing and Design**
 - [x] `1.1` Engineering Design Application, History of Engineering Drawing & Drafting Fields (pp. 2–22) *(completed `2026-11-08`)*
@@ -324,10 +324,10 @@ Section-level study tracker and chapter-weighted completion forecaster generated
 - [x] `3.4` CADD Standards, Productivity, File Management & Green Technology Applications (pp. 111–120) *(completed `2026-11-09`)*
 
 **Ch. 4: Manufacturing Materials and Processes**
-- [ ] `4.1` Engineering Materials, Metallurgy, Plastics/Polymers & Material Selection (pp. 121–134)
-- [ ] `4.2` Casting, Forging, Machine Processes & Machined Feature Drawing Representations (pp. 135–153)
-- [ ] `4.3` Manufacturing Plastic Products, Thermosets, Composites, Rapid Prototyping & Tool Design (pp. 153–161)
-- [ ] `4.4` CIM, CAD/CAM Integration, Statistical Process Control (SPC) & 3-D CADD Applications (pp. 161–172)
+- [x] `4.1` Engineering Materials, Metallurgy, Plastics/Polymers & Material Selection (pp. 121–134) *(completed `2026-11-09`)*
+- [x] `4.2` Casting, Forging, Machine Processes & Machined Feature Drawing Representations (pp. 135–153) *(completed `2026-11-09`)*
+- [x] `4.3` Manufacturing Plastic Products, Thermosets, Composites, Rapid Prototyping & Tool Design (pp. 153–161) *(completed `2026-11-09`)*
+- [x] `4.4` CIM, CAD/CAM Integration, Statistical Process Control (SPC) & 3-D CADD Applications (pp. 161–172) *(completed `2026-11-09`)*
 
 **Ch. 5: Sketching Applications**
 - [ ] `5.1` Sketching Tools, Materials & Straight Lines (pp. 174–176)
@@ -403,6 +403,10 @@ Section-level study tracker and chapter-weighted completion forecaster generated
 
 | Date | Course | Unit | Section | Title |
 | :--- | :--- | :--- | :--- | :--- |
+| `2026-11-09` | **ENGR 101** | Ch. 4 | `4.4` | CIM, CAD/CAM Integration, Statistical Process Control (SPC) & 3-D CADD Applications (pp. 161–172) |
+| `2026-11-09` | **ENGR 101** | Ch. 4 | `4.3` | Manufacturing Plastic Products, Thermosets, Composites, Rapid Prototyping & Tool Design (pp. 153–161) |
+| `2026-11-09` | **ENGR 101** | Ch. 4 | `4.2` | Casting, Forging, Machine Processes & Machined Feature Drawing Representations (pp. 135–153) |
+| `2026-11-09` | **ENGR 101** | Ch. 4 | `4.1` | Engineering Materials, Metallurgy, Plastics/Polymers & Material Selection (pp. 121–134) |
 | `2026-11-09` | **ENGR 101** | Ch. 3 | `3.4` | CADD Standards, Productivity, File Management & Green Technology Applications (pp. 111–120) |
 | `2026-11-09` | **ENGR 101** | Ch. 3 | `3.3` | Surface Modeling & Parametric Solid Modeling Techniques (pp. 102–111) |
 | `2026-11-09` | **ENGR 101** | Ch. 3 | `3.2` | 3-D CADD Applications, Virtual Reality & Basic 2-D CADD Techniques (pp. 89–102) |
