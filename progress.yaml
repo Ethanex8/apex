@@ -625,20 +625,20 @@ courses:
         sections:
         - id: '3.1'
           title: CADD Workstations, Software Products, File Formats & Industry Applications (pp. 69–89)
-          completed: false
-          completed_date: null
+          completed: true
+          completed_date: '2026-11-09'
         - id: '3.2'
           title: 3-D CADD Applications, Virtual Reality & Basic 2-D CADD Techniques (pp. 89–102)
-          completed: false
-          completed_date: null
+          completed: true
+          completed_date: '2026-11-09'
         - id: '3.3'
           title: Surface Modeling & Parametric Solid Modeling Techniques (pp. 102–111)
-          completed: false
-          completed_date: null
+          completed: true
+          completed_date: '2026-11-09'
         - id: '3.4'
           title: CADD Standards, Productivity, File Management & Green Technology Applications (pp. 111–120)
-          completed: false
-          completed_date: null
+          completed: true
+          completed_date: '2026-11-09'
       - unit: Ch. 4
         title: Manufacturing Materials and Processes
         sections:
