@@ -609,17 +609,17 @@ courses:
         sections:
         - id: '2.1'
           title: Manual Drafting Equipment, Pens, Templates & Drafting Machines (pp. 39–46)
-          completed: false
-          completed_date: null
+          completed: true
+          completed_date: '2026-11-09'
         - id: '2.2'
           title: Architect's, Engineer's, Mechanical & Metric Scales (pp. 46–50)
-          completed: false
-          completed_date: null
+          completed: true
+          completed_date: '2026-11-09'
         - id: '2.3'
           title: Drafting Media, ASME Sheet Sizes & Formats, Reproduction Methods & CADD Applications
             (pp. 50–68)
-          completed: false
-          completed_date: null
+          completed: true
+          completed_date: '2026-11-09'
       - unit: Ch. 3
         title: Computer-Aided Design and Drafting (CADD)
         sections:

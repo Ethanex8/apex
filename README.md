@@ -37,17 +37,17 @@
 
 ## Curriculum Progress
 
-Currently studying (2.22 sections/day overall velocity):
+Currently studying (2.30 sections/day overall velocity):
 - **MATH 101 (Single Variable Calculus)**: **17 / 84 sections** (`20.2%`, ETA `2026-12-09`)
-- **ENGR 101 (Parametric CAD, GD&T & Tolerance Analysis)**: **3 / 58 sections** (`5.2%`, ETA `2026-12-03`)
+- **ENGR 101 (Parametric CAD, GD&T & Tolerance Analysis)**: **6 / 58 sections** (`10.3%`, ETA `2026-12-02`)
 
 | Tier | Courses Done | Assigned Units | Sections (Done / Est.) | Progress | Cumulative ETA |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Tier 1 (100-Level)** | 0 / 10 | 7.00 / 126 | 20 / ~629 | `█░░░░░░░░░` `3.2%` | `2027-08-10` |
-| **Tier 2 (200-Level)** | 0 / 13 | 0.00 / 166 | 0 / ~926 | `░░░░░░░░░░` `0.0%` | `2028-09-29` |
-| **Tier 3 (300-Level)** | 0 / 23 | 0.00 / 280 | 0 / ~1,566 | `░░░░░░░░░░` `0.0%` | `2030-09-04` |
-| **Tier 4 (400-Level)** | 0 / 9 | 0.00 / 95 | 0 / ~517 | `░░░░░░░░░░` `0.0%` | `2031-04-25` |
-| **Tier 5 (500-Level)** | 0 / 3 | 0.00 / 50 | 0 / ~279 | `░░░░░░░░░░` `0.0%` | `2031-08-28` |
+| **Tier 1 (100-Level)** | 0 / 10 | 8.00 / 126 | 23 / ~629 | `█░░░░░░░░░` `3.7%` | `2027-07-31` |
+| **Tier 2 (200-Level)** | 0 / 13 | 0.00 / 166 | 0 / ~926 | `░░░░░░░░░░` `0.0%` | `2028-09-06` |
+| **Tier 3 (300-Level)** | 0 / 23 | 0.00 / 280 | 0 / ~1,566 | `░░░░░░░░░░` `0.0%` | `2030-07-18` |
+| **Tier 4 (400-Level)** | 0 / 9 | 0.00 / 95 | 0 / ~517 | `░░░░░░░░░░` `0.0%` | `2031-02-28` |
+| **Tier 5 (500-Level)** | 0 / 3 | 0.00 / 50 | 0 / ~279 | `░░░░░░░░░░` `0.0%` | `2031-06-30` |
 
 For section-by-section checklists, velocity trends, and pace scenarios, see [**PROGRESS.md**](./PROGRESS.md).
 
