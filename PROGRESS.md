@@ -10,24 +10,24 @@ Section-level study tracker and chapter-weighted completion forecaster generated
 | :--- | :--- | :--- |
 | **Active Course(s)** | **MATH 101** (Single Variable Calculus), **ENGR 101** (Parametric CAD, GD&T & Tolerance Analysis) | 0 / 58 courses completed; 3 additional courses unlocked |
 | **Study Timeline** | `2026-10-31` → `2026-11-10` | 11 active span days |
-| **Overall Velocity** | **3.36 sections/day** (23.5 sections/week) | 37 sections completed across 11 days |
-| **30-Day Rolling Velocity** | **3.36 sections/day** (23.5 sections/week) | 37 sections in trailing 11-day window |
-| **Assigned Units Completed** | **12.00 / 717** (`1.67%`) | Fractional chapter & appendix completion across 58 courses |
-| **Curriculum Sections Completed** | **37 / ~3,917** (`0.94%`) | Exact for TOC-loaded courses; 5.58 sec/ch estimate for unstarted courses |
-| **MATH 101 Completion Forecast** | **`2026-11-30`** (20d remaining) | 17 / 84 sections (`20.2%`) · Next: `3.1` (Derivatives of Polynomials and Exponential Functions) |
-| **ENGR 101 Completion Forecast** | **`2026-11-22`** (12d remaining) | 20 / 58 sections (`34.5%`) · Next: `7.1` (Drafting Geometry, Characteristics of Lines & Geometric Shapes (pp. 218–224)) |
-| **Tier 1 (100-Level) Forecast** | **`2027-05-05`** (176d remaining) | 37 / ~629 est. sections (`5.88%`) across 10 courses |
-| **Full Curriculum (Tiers 1–5) Forecast** | **`2030-01-07`** (1,154d / ~3.2 yrs) | 3,880 estimated sections remaining at 3.36 sec/day |
+| **Overall Velocity** | **3.55 sections/day** (24.8 sections/week) | 39 sections completed across 11 days |
+| **30-Day Rolling Velocity** | **3.55 sections/day** (24.8 sections/week) | 39 sections in trailing 11-day window |
+| **Assigned Units Completed** | **12.18 / 717** (`1.70%`) | Fractional chapter & appendix completion across 58 courses |
+| **Curriculum Sections Completed** | **39 / ~3,917** (`1.00%`) | Exact for TOC-loaded courses; 5.58 sec/ch estimate for unstarted courses |
+| **MATH 101 Completion Forecast** | **`2026-11-29`** (19d remaining) | 19 / 84 sections (`22.6%`) · Next: `3.3` (Derivatives of Trigonometric Functions) |
+| **ENGR 101 Completion Forecast** | **`2026-11-21`** (11d remaining) | 20 / 58 sections (`34.5%`) · Next: `7.1` (Drafting Geometry, Characteristics of Lines & Geometric Shapes (pp. 218–224)) |
+| **Tier 1 (100-Level) Forecast** | **`2027-04-26`** (167d remaining) | 39 / ~629 est. sections (`6.20%`) across 10 courses |
+| **Full Curriculum (Tiers 1–5) Forecast** | **`2029-11-08`** (1,094d / ~3.0 yrs) | 3,878 estimated sections remaining at 3.55 sec/day |
 
 ### Pace Sensitivity Scenarios
 
 | Study Pace | Weekly Volume | MATH 101 ETA | ENGR 101 ETA | Tier 1 (100-Level) ETA | Full Curriculum (58 Courses) ETA |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Current Pace (3.36 sec/day)** | 23.5 sec/wk | `2026-11-30` (20d) | `2026-11-22` (12d) | `2027-05-05` (0.5y) | `2030-01-07` (3.2y) |
-| 1.00 section/day | 7.0 sec/wk | `2027-01-16` (67d) | `2026-12-18` (38d) | `2028-06-24` (1.6y) | `2037-06-25` (10.6y) |
-| 1.50 sections/day | 10.5 sec/wk | `2026-12-25` (45d) | `2026-12-06` (26d) | `2027-12-10` (1.1y) | `2033-12-10` (7.1y) |
-| 2.00 sections/day | 14.0 sec/wk | `2026-12-14` (34d) | `2026-11-29` (19d) | `2027-09-02` (0.8y) | `2032-03-03` (5.3y) |
-| 3.00 sections/day | 21.0 sec/wk | `2026-12-03` (23d) | `2026-11-23` (13d) | `2027-05-27` (0.5y) | `2030-05-27` (3.5y) |
+| **Current Pace (3.55 sec/day)** | 24.8 sec/wk | `2026-11-29` (19d) | `2026-11-21` (11d) | `2027-04-26` (0.5y) | `2029-11-08` (3.0y) |
+| 1.00 section/day | 7.0 sec/wk | `2027-01-14` (65d) | `2026-12-18` (38d) | `2028-06-22` (1.6y) | `2037-06-23` (10.6y) |
+| 1.50 sections/day | 10.5 sec/wk | `2026-12-24` (44d) | `2026-12-06` (26d) | `2027-12-09` (1.1y) | `2033-12-09` (7.1y) |
+| 2.00 sections/day | 14.0 sec/wk | `2026-12-13` (33d) | `2026-11-29` (19d) | `2027-09-01` (0.8y) | `2032-03-02` (5.3y) |
+| 3.00 sections/day | 21.0 sec/wk | `2026-12-02` (22d) | `2026-11-23` (13d) | `2027-05-26` (0.5y) | `2030-05-26` (3.5y) |
 
 ---
 
@@ -35,11 +35,11 @@ Section-level study tracker and chapter-weighted completion forecaster generated
 
 | Tier | Level | Courses (Done / Active / Total) | Assigned Units | Sections (Done / Est.) | Progress | Cumulative ETA |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Tier 1** | 100-Level | 0 / 2 / 10 | 12.00 / 126 (`9.5%`) | 37 / ~629 | `█░░░░░░░░░` `5.9%` | `2027-05-05` |
-| **Tier 2** | 200-Level | 0 / 0 / 13 | 0.00 / 166 (`0.0%`) | 0 / ~926 | `░░░░░░░░░░` `0.0%` | `2028-02-05` |
-| **Tier 3** | 300-Level | 0 / 0 / 23 | 0.00 / 280 (`0.0%`) | 0 / ~1,566 | `░░░░░░░░░░` `0.0%` | `2029-05-15` |
-| **Tier 4** | 400-Level | 0 / 0 / 9 | 0.00 / 95 (`0.0%`) | 0 / ~517 | `░░░░░░░░░░` `0.0%` | `2029-10-16` |
-| **Tier 5** | 500-Level | 0 / 0 / 3 | 0.00 / 50 (`0.0%`) | 0 / ~279 | `░░░░░░░░░░` `0.0%` | `2030-01-07` |
+| **Tier 1** | 100-Level | 0 / 2 / 10 | 12.18 / 126 (`9.7%`) | 39 / ~629 | `█░░░░░░░░░` `6.2%` | `2027-04-26` |
+| **Tier 2** | 200-Level | 0 / 0 / 13 | 0.00 / 166 (`0.0%`) | 0 / ~926 | `░░░░░░░░░░` `0.0%` | `2028-01-12` |
+| **Tier 3** | 300-Level | 0 / 0 / 23 | 0.00 / 280 (`0.0%`) | 0 / ~1,566 | `░░░░░░░░░░` `0.0%` | `2029-03-29` |
+| **Tier 4** | 400-Level | 0 / 0 / 9 | 0.00 / 95 (`0.0%`) | 0 / ~517 | `░░░░░░░░░░` `0.0%` | `2029-08-22` |
+| **Tier 5** | 500-Level | 0 / 0 / 3 | 0.00 / 50 (`0.0%`) | 0 / ~279 | `░░░░░░░░░░` `0.0%` | `2029-11-08` |
 
 ---
 
@@ -48,10 +48,10 @@ Section-level study tracker and chapter-weighted completion forecaster generated
 ### MATH 101: Single Variable Calculus
 
 - **Status**: 🟨 In Progress
-- **Section Progress**: `███░░░░░░░░░░░░░` **17 / 84 sections** (`20.2%`)
-- **Chapter/Appendix Unit Progress**: **6.00 / 16 units** (`37.5%`)
-- **Next Section Up**: `3.1` — *Derivatives of Polynomials and Exponential Functions* (Ch. 3)
-- **Projected Course Completion**: `2026-11-30` (20 days remaining at current pace)
+- **Section Progress**: `████░░░░░░░░░░░░` **19 / 84 sections** (`22.6%`)
+- **Chapter/Appendix Unit Progress**: **6.18 / 16 units** (`38.6%`)
+- **Next Section Up**: `3.3` — *Derivatives of Trigonometric Functions* (Ch. 3)
+- **Projected Course Completion**: `2026-11-29` (19 days remaining at current pace)
 
 #### James Stewart – *Calculus: Early Transcendentals*, 8th Edition
 
@@ -59,7 +59,7 @@ Section-level study tracker and chapter-weighted completion forecaster generated
 | :--- | :--- | :--- | :--- | :--- |
 | **Ch. 1** | Functions and Models | 5 / 5 | `██████████` `100%` | `2026-11-06` |
 | **Ch. 2** | Limits and Derivatives | 8 / 8 | `██████████` `100%` | `2026-11-08` |
-| **Ch. 3** | Differentiation Rules | 0 / 11 | `░░░░░░░░░░` `0%` | — |
+| **Ch. 3** | Differentiation Rules | 2 / 11 | `██░░░░░░░░` `18%` | `2026-11-09` |
 | **Ch. 4** | Applications of Differentiation | 0 / 9 | `░░░░░░░░░░` `0%` | — |
 | **Ch. 5** | Integrals | 0 / 5 | `░░░░░░░░░░` `0%` | — |
 | **Ch. 6** | Applications of Integration | 0 / 5 | `░░░░░░░░░░` `0%` | — |
@@ -75,7 +75,7 @@ Section-level study tracker and chapter-weighted completion forecaster generated
 | **App. E** | Sigma Notation | 0 / 1 | `░░░░░░░░░░` `0%` | — |
 
 <details>
-<summary><strong>View All 84 Sections for MATH 101 (17 completed)</strong></summary>
+<summary><strong>View All 84 Sections for MATH 101 (19 completed)</strong></summary>
 
 **Ch. 1: Functions and Models**
 - [x] `1.1` Four Ways to Represent a Function *(completed `2026-11-02`)*
@@ -95,8 +95,8 @@ Section-level study tracker and chapter-weighted completion forecaster generated
 - [x] `2.8` The Derivative as a Function *(completed `2026-11-08`)*
 
 **Ch. 3: Differentiation Rules**
-- [ ] `3.1` Derivatives of Polynomials and Exponential Functions
-- [ ] `3.2` The Product and Quotient Rules
+- [x] `3.1` Derivatives of Polynomials and Exponential Functions *(completed `2026-11-09`)*
+- [x] `3.2` The Product and Quotient Rules *(completed `2026-11-09`)*
 - [ ] `3.3` Derivatives of Trigonometric Functions
 - [ ] `3.4` The Chain Rule
 - [ ] `3.5` Implicit Differentiation
@@ -201,7 +201,7 @@ Section-level study tracker and chapter-weighted completion forecaster generated
 - **Section Progress**: `░░░░░░░░░░░░░░░░` **0 / 39 sections** (`0.0%`)
 - **Chapter/Appendix Unit Progress**: **0.00 / 8 units** (`0.0%`)
 - **Next Section Up**: `12.1` — *Three-Dimensional Coordinate Systems* (Ch. 12)
-- **Projected Course Completion**: `2026-12-23` (~12 study days; 43 days from latest activity after prerequisites)
+- **Projected Course Completion**: `2026-12-21` (~11 study days; 41 days from latest activity after prerequisites)
 
 #### James Stewart – *Calculus: Early Transcendentals*, 8th Edition
 
@@ -282,7 +282,7 @@ Section-level study tracker and chapter-weighted completion forecaster generated
 - **Section Progress**: `██████░░░░░░░░░░` **20 / 58 sections** (`34.5%`)
 - **Chapter/Appendix Unit Progress**: **6.00 / 15 units** (`40.0%`)
 - **Next Section Up**: `7.1` — *Drafting Geometry, Characteristics of Lines & Geometric Shapes (pp. 218–224)* (Ch. 7)
-- **Projected Course Completion**: `2026-11-22` (12 days remaining at current pace)
+- **Projected Course Completion**: `2026-11-21` (11 days remaining at current pace)
 
 #### David A. Madsen & David P. Madsen – *Engineering Drawing and Design*, 5th Edition
 
@@ -406,6 +406,8 @@ Section-level study tracker and chapter-weighted completion forecaster generated
 | `2026-11-10` | **ENGR 101** | Ch. 6 | `6.3` | CADD Text & Annotation Applications in 2-D and 3-D (pp. 210–217) |
 | `2026-11-10` | **ENGR 101** | Ch. 6 | `6.2` | Single-Stroke Gothic Lettering, Numbers, Fractions & Legibility Standards (pp. 207–210) |
 | `2026-11-10` | **ENGR 101** | Ch. 6 | `6.1` | ASME Line Types, Conventions & 2-D CADD Line Applications (pp. 193–206) |
+| `2026-11-09` | **MATH 101** | Ch. 3 | `3.2` | The Product and Quotient Rules |
+| `2026-11-09` | **MATH 101** | Ch. 3 | `3.1` | Derivatives of Polynomials and Exponential Functions |
 | `2026-11-09` | **ENGR 101** | Ch. 5 | `5.3` | The Block Technique, Multiview Sketches, Isometric Sketches & 3-D CADD Applications (pp. 181–192) |
 | `2026-11-09` | **ENGR 101** | Ch. 5 | `5.2` | Sketching Circular Lines, Arcs, Ellipses & Proportions (pp. 176–181) |
 | `2026-11-09` | **ENGR 101** | Ch. 5 | `5.1` | Sketching Tools, Materials & Straight Lines (pp. 174–176) |

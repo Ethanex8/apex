@@ -72,12 +72,12 @@ courses:
         sections:
         - id: '3.1'
           title: Derivatives of Polynomials and Exponential Functions
-          completed: false
-          completed_date: null
+          completed: true
+          completed_date: '2026-11-09'
         - id: '3.2'
           title: The Product and Quotient Rules
-          completed: false
-          completed_date: null
+          completed: true
+          completed_date: '2026-11-09'
         - id: '3.3'
           title: Derivatives of Trigonometric Functions
           completed: false
