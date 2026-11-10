@@ -681,16 +681,16 @@ courses:
         sections:
         - id: '6.1'
           title: ASME Line Types, Conventions & 2-D CADD Line Applications (pp. 193–206)
-          completed: false
-          completed_date: null
+          completed: true
+          completed_date: '2026-11-10'
         - id: '6.2'
           title: Single-Stroke Gothic Lettering, Numbers, Fractions & Legibility Standards (pp. 207–210)
-          completed: false
-          completed_date: null
+          completed: true
+          completed_date: '2026-11-10'
         - id: '6.3'
           title: CADD Text & Annotation Applications in 2-D and 3-D (pp. 210–217)
-          completed: false
-          completed_date: null
+          completed: true
+          completed_date: '2026-11-10'
       - unit: Ch. 7
         title: Drafting Geometry
         sections:
