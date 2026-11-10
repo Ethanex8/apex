@@ -80,8 +80,8 @@ courses:
           completed_date: '2026-11-09'
         - id: '3.3'
           title: Derivatives of Trigonometric Functions
-          completed: false
-          completed_date: null
+          completed: true
+          completed_date: '2026-11-10'
         - id: '3.4'
           title: The Chain Rule
           completed: false
