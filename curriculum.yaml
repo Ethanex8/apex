@@ -31,7 +31,7 @@ tiers:
   mermaid_id: T1
   mermaid_label: 'Tier 1: 100-Level Freshman Foundation'
   readme_focus: Single & Multivariable Calculus, Mechanics, Electromagnetism, Modern Physics, Scientific Python, Discrete
-    Math, Materials Science & Lab, Engineering Statics, Parametric CAD & GD&T
+    Math, Materials Science & Lab, Engineering Statics
   mermaid_edge_order:
   - M102
   - P101
@@ -314,26 +314,6 @@ courses:
     and free-body diagrams, structural analysis of trusses (method of joints and sections), frames and machines, internal
     axial-force, shear-force, and bending-moment diagrams, centroids, distributed loads, area moments of inertia and parallel-axis
     theorem, dry Coulomb friction (wedges, screws, flat belts, bearings), and method of virtual work.
-- id: ENGR 101
-  node_id: ENGR101
-  title: Parametric CAD, GD&T & Tolerance Analysis
-  mermaid_title: Parametric CAD & GD&T
-  tier: 1
-  prerequisites: []
-  texts:
-  - authors: David A. Madsen & David P. Madsen
-    title: Engineering Drawing and Design
-    unit: Ch.
-    total_units: 25
-    assigned: 1-15
-    skipped: 16-25
-    covered_in:
-    - ME 301
-    scope: Ch. 1–15; skip Ch. 16–17 on mechanisms, gears, bearings, and belt/chain drives covered in ME 301 and Ch. 18–25 on
-      weldments, sheet metal, electrical, piping, structural, HVAC, civil drafting, and general design process
-  topics_label: Core Topics
-  core_topics: Master-model parametric part and assembly CAD, technical engineering drawings, ASME Y14.5 geometric dimensioning
-    and tolerancing (GD&T) datums and feature control frames, and 1D/3D worst-case and RSS statistical tolerance stack-ups.
 - id: MATH 201
   node_id: M201
   title: Linear Algebra & Matrix Theory
@@ -942,29 +922,29 @@ courses:
     drivers, and switching transient layout management.
 - id: ME 301
   node_id: ME301
-  title: Machine Component Design & Tribology
+  title: Machine Component Design, GD&T & Tribology
   mermaid_title: Machine Component Design
   tier: 3
   track: C
   prerequisites:
   - ME 201
   - ME 202
-  - ENGR 101
   texts:
   - authors: Richard G. Budynas & J. Keith Nisbett
     title: Shigley's Mechanical Engineering Design
     unit: Ch.
     total_units: 20
-    assigned: 1-18
-    skipped: 19-20
+    assigned: 1-18, 20
+    skipped: '19'
     covered_in:
     - ME 303
-    - ENGR 101
-    scope: Ch. 1–18; skip Ch. 19 on FEA covered in ME 303 and Ch. 20 on GD&T covered in ENGR 101
+    scope: Ch. 1–18 and 20; skip Ch. 19 on FEA covered in ME 303
   topics_label: Core Topics & Lab
-  core_topics: High-cycle fatigue life calculations (Goodman/Soderberg criteria), shaft and housing design, rolling-element
-    bearing selection and preload, planetary and cycloidal gear reduction mechanics, fastener mechanics, and structural loop
-    stiffness; home lab uses CoreXY PA-CF 3D printing and SendCutSend cloud CNC manufacturing.
+  core_topics: High-cycle fatigue life calculations (Goodman/Soderberg criteria), shaft and housing design, ISO limits and
+    fits, ASME Y14.5 geometric dimensioning and tolerancing (GD&T) datums and feature control frames, worst-case and RSS statistical
+    tolerance stack-ups, rolling-element bearing selection and preload, planetary and cycloidal gear reduction mechanics,
+    fastener mechanics, and structural loop stiffness; home lab uses Onshape 3D parametric CAD, CoreXY PA-CF 3D printing,
+    and SendCutSend cloud CNC manufacturing.
 - id: ME 302
   node_id: ME302
   title: Mechanical Vibrations & Modal Analysis

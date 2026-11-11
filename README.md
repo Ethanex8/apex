@@ -6,7 +6,7 @@
 
 ## Repository Structure
 
-- [`CURRICULUM.md`](./CURRICULUM.md) — The comprehensive 5-tier course syllabus (58 courses), textbook reading scopes, core topic breakdowns, 8 capstone engineering specifications, phased home-lab tooling blueprints, and residential safety protocols.
+- [`CURRICULUM.md`](./CURRICULUM.md) — The comprehensive 5-tier course syllabus (57 courses), textbook reading scopes, core topic breakdowns, 8 capstone engineering specifications, phased home-lab tooling blueprints, and residential safety protocols.
 - [`PROGRESS.md`](./PROGRESS.md) — Live section-level study progress dashboard, velocity analytics, and chapter-weighted completion forecasts across all 5 tiers.
 - [`curriculum.yaml`](./curriculum.yaml) — The declarative single source of truth defining all courses, prerequisite DAG edges, textbook chapter partitions, capstones, and home-lab specifications.
 - [`progress.yaml`](./progress.yaml) — Incremental textbook section Table of Contents and dated completion records.
@@ -27,7 +27,7 @@
 
 | Tier | Level | Focus Areas |
 | :--- | :--- | :--- |
-| **Tier 1** | **100-Level** | Single & Multivariable Calculus, Mechanics, Electromagnetism, Modern Physics, Scientific Python, Discrete Math, Materials Science & Lab, Engineering Statics, Parametric CAD & GD&T |
+| **Tier 1** | **100-Level** | Single & Multivariable Calculus, Mechanics, Electromagnetism, Modern Physics, Scientific Python, Discrete Math, Materials Science & Lab, Engineering Statics |
 | **Tier 2** | **200-Level** | Linear Algebra, ODEs & Transforms, Probability & Random Processes, Numerical Methods, PDEs & Complex Analysis, Data Structures & Algorithms, Systems Programming & Low-Level C, Linear Circuits & KiCad EDA, Signals & Systems, SystemVerilog RTL, Mechanics of Materials, 3D Analytical & Variational Dynamics, Engineering Thermodynamics |
 | **Tier 3** | **300-Level** | Specialized Tracks:<br>• **Track A**: Processor Microarchitecture, CMOS VLSI, Embedded RTOS, OS Kernels, Compilers, Networking & ROS 2<br>• **Track B**: Analog Devices, Sensors & Metrology, DSP, Applied Electromagnetics, RF & Microwave Engineering, Power Electronics<br>• **Track C**: Machine Component Design, Mechanical Vibrations, Finite Element Analysis (FEA), Fluid Mechanics, Heat Transfer, Rotorcraft Aerodynamics<br>• **Track D**: Lie Groups & Spatial Dynamics, Feedback Control, 3D Computer Vision, Factor-Graph SLAM, Digital Control & System ID |
 | **Tier 4** | **400-Level** | Systems Engineering & HIL, High-Speed PCB & EMC, Antenna & Phased Arrays, Digital Wireless & SDR, Battery Management Systems (BMS), Field-Oriented Servo Drives, Nonlinear & Geometric Control, Algorithmic Motion Planning, Optimal Control & MPC |
@@ -37,17 +37,15 @@
 
 ## Curriculum Progress
 
-Currently studying (3.64 sections/day overall velocity):
-- **MATH 101 (Single Variable Calculus)**: **20 / 84 sections** (`23.8%`, ETA `2026-11-28`)
-- **ENGR 101 (Parametric CAD, GD&T & Tolerance Analysis)**: **20 / 58 sections** (`34.5%`, ETA `2026-11-21`)
+Currently studying **MATH 101 (Single Variable Calculus)**: **20 / 84 sections** (`23.8%`, ETA `2026-12-16` at **1.82 sections/day**).
 
 | Tier | Courses Done | Assigned Units | Sections (Done / Est.) | Progress | Cumulative ETA |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Tier 1 (100-Level)** | 0 / 10 | 12.27 / 126 | 40 / ~629 | `█░░░░░░░░░` `6.4%` | `2027-04-21` |
-| **Tier 2 (200-Level)** | 0 / 13 | 0.00 / 166 | 0 / ~926 | `░░░░░░░░░░` `0.0%` | `2028-01-01` |
-| **Tier 3 (300-Level)** | 0 / 23 | 0.00 / 280 | 0 / ~1,566 | `░░░░░░░░░░` `0.0%` | `2029-03-07` |
-| **Tier 4 (400-Level)** | 0 / 9 | 0.00 / 95 | 0 / ~517 | `░░░░░░░░░░` `0.0%` | `2029-07-27` |
-| **Tier 5 (500-Level)** | 0 / 3 | 0.00 / 50 | 0 / ~279 | `░░░░░░░░░░` `0.0%` | `2029-10-12` |
+| **Tier 1 (100-Level)** | 0 / 9 | 6.27 / 111 | 20 / ~700 | `█░░░░░░░░░` `2.9%` | `2027-11-19` |
+| **Tier 2 (200-Level)** | 0 / 13 | 0.00 / 166 | 0 / ~1,195 | `░░░░░░░░░░` `0.0%` | `2029-09-07` |
+| **Tier 3 (300-Level)** | 0 / 23 | 0.00 / 281 | 0 / ~2,021 | `░░░░░░░░░░` `0.0%` | `2032-09-22` |
+| **Tier 4 (400-Level)** | 0 / 9 | 0.00 / 95 | 0 / ~665 | `░░░░░░░░░░` `0.0%` | `2033-09-23` |
+| **Tier 5 (500-Level)** | 0 / 3 | 0.00 / 50 | 0 / ~359 | `░░░░░░░░░░` `0.0%` | `2034-04-08` |
 
 For section-by-section checklists, velocity trends, and pace scenarios, see [**PROGRESS.md**](./PROGRESS.md).
 

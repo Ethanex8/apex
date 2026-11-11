@@ -37,7 +37,6 @@ flowchart TD
         CS102["CS 102: Discrete Mathematics"]
         MATS101["MATS 101: Materials Science"]
         ME101["ME 101: Engineering Statics"]
-        ENGR101["ENGR 101: Parametric CAD & GD&T"]
     end
 
     subgraph T2["Tier 2: 200-Level Sophomore Core"]
@@ -153,7 +152,7 @@ flowchart TD
     P102 & EE201 & M205 --> EE304
     EE304 & EE202 & EE301 --> EE305
     EE201 & EE202 & EE301 --> EE306
-    ME201 & ME202 & ENGR101 --> ME301
+    ME201 & ME202 --> ME301
     ME201 & ME202 & M202 & M205 --> ME302
     ME201 & ME302 & M204 --> ME303
     ME202 & ME203 & M205 --> ME304
@@ -191,7 +190,7 @@ flowchart TD
     classDef completed fill:#d4edda,stroke:#28a745,stroke-width:2px,color:#155724
     classDef in_progress fill:#fff3cd,stroke:#d39e00,stroke-width:2.5px,color:#856404
     classDef unlocked fill:#e7f3fe,stroke:#0d6efd,stroke-width:1.5px,color:#084298
-    class M101,ENGR101 in_progress
+    class M101 in_progress
     class P101,CS101,CS102 unlocked
 ```
 
@@ -243,11 +242,6 @@ flowchart TD
 - **Prerequisites**: PHYS 101, MATH 102
 - **Texts & Reading Scope**: Russell C. Hibbeler – *Engineering Mechanics: Statics* (Ch. 1–11 complete).
 - **Core Topics**: 3D force and moment vector systems, equivalent force-couple systems and wrenches, 3D rigid-body static equilibrium and free-body diagrams, structural analysis of trusses (method of joints and sections), frames and machines, internal axial-force, shear-force, and bending-moment diagrams, centroids, distributed loads, area moments of inertia and parallel-axis theorem, dry Coulomb friction (wedges, screws, flat belts, bearings), and method of virtual work.
-
-### ENGR 101: Parametric CAD, GD&T & Tolerance Analysis
-- **Prerequisites**: None
-- **Texts & Reading Scope**: David A. Madsen & David P. Madsen – *Engineering Drawing and Design* (Ch. 1–15; skip Ch. 16–17 on mechanisms, gears, bearings, and belt/chain drives covered in ME 301 and Ch. 18–25 on weldments, sheet metal, electrical, piping, structural, HVAC, civil drafting, and general design process).
-- **Core Topics**: Master-model parametric part and assembly CAD, technical engineering drawings, ASME Y14.5 geometric dimensioning and tolerancing (GD&T) datums and feature control frames, and 1D/3D worst-case and RSS statistical tolerance stack-ups.
 
 ---
 
@@ -392,10 +386,10 @@ flowchart TD
 
 ### Track C: Mechanical Design, Thermo-Fluids & Structural Analysis
 
-#### ME 301: Machine Component Design & Tribology
-- **Prerequisites**: ME 201, ME 202, ENGR 101
-- **Texts & Reading Scope**: Richard G. Budynas & J. Keith Nisbett – *Shigley's Mechanical Engineering Design* (Ch. 1–18; skip Ch. 19 on FEA covered in ME 303 and Ch. 20 on GD&T covered in ENGR 101).
-- **Core Topics & Lab**: High-cycle fatigue life calculations (Goodman/Soderberg criteria), shaft and housing design, rolling-element bearing selection and preload, planetary and cycloidal gear reduction mechanics, fastener mechanics, and structural loop stiffness; home lab uses CoreXY PA-CF 3D printing and SendCutSend cloud CNC manufacturing.
+#### ME 301: Machine Component Design, GD&T & Tribology
+- **Prerequisites**: ME 201, ME 202
+- **Texts & Reading Scope**: Richard G. Budynas & J. Keith Nisbett – *Shigley's Mechanical Engineering Design* (Ch. 1–18 and 20; skip Ch. 19 on FEA covered in ME 303).
+- **Core Topics & Lab**: High-cycle fatigue life calculations (Goodman/Soderberg criteria), shaft and housing design, ISO limits and fits, ASME Y14.5 geometric dimensioning and tolerancing (GD&T) datums and feature control frames, worst-case and RSS statistical tolerance stack-ups, rolling-element bearing selection and preload, planetary and cycloidal gear reduction mechanics, fastener mechanics, and structural loop stiffness; home lab uses Onshape 3D parametric CAD, CoreXY PA-CF 3D printing, and SendCutSend cloud CNC manufacturing.
 
 #### ME 302: Mechanical Vibrations & Modal Analysis
 - **Prerequisites**: ME 201, ME 202, MATH 202, MATH 205

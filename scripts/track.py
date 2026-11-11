@@ -256,7 +256,7 @@ def main() -> int:
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     p_start = sub.add_parser("start", help="Mark a course as in_progress")
-    p_start.add_argument("course", help="Course ID, e.g. 'ENGR 101'")
+    p_start.add_argument("course", help="Course ID, e.g. 'PHYS 101'")
     p_start.set_defaults(func=cmd_start)
 
     p_done = sub.add_parser("done", help="Mark one or more sections (or ranges like 1.1-1.4) as completed")

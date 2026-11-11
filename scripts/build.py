@@ -1075,7 +1075,7 @@ def render_progress_md(curriculum_data: dict, progress_data: dict, metrics: dict
     lines.append(
         f"| **Assigned Units Completed** | **{metrics['total_units_done']:.2f} / {metrics['total_units']}** "
         f"(`{metrics['pct_units']:.2f}%`) | "
-        "Fractional chapter & appendix completion across 58 courses |"
+        f"Fractional chapter & appendix completion across {metrics['total_courses']} courses |"
     )
     lines.append(
         f"| **Curriculum Sections Completed** | **{metrics['total_sec_done']} / ~{metrics['total_sec_estimated']:,}** "
@@ -1111,12 +1111,12 @@ def render_progress_md(curriculum_data: dict, progress_data: dict, metrics: dict
         active_sep = " | ".join(":---" for _ in active_cids)
         if active_hdrs:
             lines.append(
-                f"| Study Pace | Weekly Volume | {active_hdrs} | Tier 1 (100-Level) ETA | Full Curriculum (58 Courses) ETA |"
+                f"| Study Pace | Weekly Volume | {active_hdrs} | Tier 1 (100-Level) ETA | Full Curriculum ({metrics['total_courses']} Courses) ETA |"
             )
             lines.append(f"| :--- | :--- | {active_sep} | :--- | :--- |")
         else:
             lines.append(
-                "| Study Pace | Weekly Volume | Tier 1 (100-Level) ETA | Full Curriculum (58 Courses) ETA |"
+                f"| Study Pace | Weekly Volume | Tier 1 (100-Level) ETA | Full Curriculum ({metrics['total_courses']} Courses) ETA |"
             )
             lines.append("| :--- | :--- | :--- | :--- |")
         t1_rem = t1["cumulative_sec_remaining"]
