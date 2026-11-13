@@ -1,3 +1,15 @@
 __pycache__/
 *.py[cod]
 *$py.class
+.venv/
+.pytest_cache/
+.tools/
+sim_build/
+*.vcd
+*.fst
+*.vvp
+*.fs
+*.bin
+*.json.bak
+*-backups/
+results.xml
