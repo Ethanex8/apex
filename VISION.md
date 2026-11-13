@@ -1,42 +1,55 @@
-# Apex Vision: From Blank Silicon to an Autonomous Walking Robot
+# Apex Vision: From Blank Files to a Walking Robot Dog
 
-**Apex** is a project-first, **"Couch-to-Silicon"** engineering platform designed to take you from blank files to a **100% custom-engineered, autonomous `~2.5 kg` torque-controlled quadruped**—built one small, verifiable, mobile-reviewable step at a time.
+**Apex** is a project-first, **"Couch-to-Silicon"** engineering platform where you build every layer of a small, living-room-safe (`~2.5 kg`) autonomous walking robot dog—its computer chip, circuit boards, C compiler, real-time operating system, smart electric muscles, power protection board, and stereo-camera eyes—one small, mobile-reviewable step at a time.
 
-Instead of reading textbooks in isolation for years before touching hardware, every math equation, physics law, compiler pass, PCB trace, and control algorithm is learned **Just-In-Time** at the exact moment a real physical subsystem demands it.
+Instead of reading textbooks in isolation for years before touching hardware, every math equation, physics law, compiler pass, circuit trace, and control algorithm is learned **Just-In-Time** right when a real physical subsystem needs it.
+
+---
+
+## Hardware Shorthand in Plain English (For Software Engineers)
+
+If you come from software engineering, hardware terms often sound like an alphabet soup. Here is what the six systems actually mean in everyday language:
+
+1. **Custom CPU & Motherboard on Programmable Silicon (`brain`)**: You write your own open-source **RISC-V** processor (like designing your own tiny ARM/x86 chip) plus an AI multiply-add instruction (**MAC**) in hardware-description code (**SystemVerilog**), load it onto a reprogrammable **FPGA** chip, plug it into a custom **6-layer circuit board (PCB)** with 32 MB of RAM, and run your own **scratch C compiler** and strict-deadline **Real-Time OS (RTOS)** on it.
+2. **Force-Controlled Electric Muscles (`drive`)**: Cheap hobby servos blindly jam to a target angle and snap gears on uneven ground. We pair strong drone-style brushless motors with a custom **24V motor-driver board** that controls **exact electrical current = exact physical force** 20,000 times a second (**Field-Oriented Control / FOC**)—turning each joint into a programmable spring and shock absorber.
+3. **Surge Protector, Breaker & Fuel Gauge (`power`)**: Twelve motors powering up at once draw a massive surge of electricity that can spark connectors or brown out your CPU. Our **smart power spine** gently pre-charges the motor rail, acts as a microsecond electronic circuit breaker (**e-fuse**) with a big red **E-stop** button, and runs a smart statistical filter (**Kalman filter**) to estimate remaining battery charge.
+4. **One Hopping Leg (`limb`)**: Before building 12 joints, we bolt 3 muscles together into a single leg on a desk rail so it can feel gravity, absorb drops softly, and hop—and that exact leg becomes **Leg #1 of 4** with zero thrown-away parts.
+5. **Simulator-Trained Walking Robot Dog (`walker`)**: We bolt 4 legs onto a light carbon torso, train a neural walking policy inside a 3D physics simulator (**MuJoCo**), and transfer it directly onto your custom RISC-V CPU (**Sim-to-Real**).
+6. **Stereo Camera Eyes (`sight`)**: Two synchronized cameras (like left/right human eyes) measure 3D room depth, map furniture (**SLAM**), and send simple *"walk forward / turn left"* commands down to the spinal-cord CPU.
 
 ---
 
 ## 1. The 6 Zero-Throwaway Systems
 
-Every subsystem works as a rewarding standalone machine on your desk *and* bolts directly into the final autonomous quadruped with **zero wasted parts and zero board respins**:
+Every subsystem works as a rewarding standalone machine on your desk *and* bolts directly into the final autonomous robot dog with **zero wasted parts and zero circuit-board respins**:
 
 ```mermaid
 flowchart TD
-    SIGHT["6. sight — Visual Cortex Head<br/>(Global-Shutter Stereo + VIO SLAM + Local Planner)"]
-    BRAIN["1. brain — FPGA Cerebellum & Spine PCB<br/>(5-Stage RV32IM+MAC + Scratch SysC + RTOS + 6-Layer PCB)"]
-    POWER["3. power — Smart 24V Vascular Spine<br/>(6S LiFePO4 + Pre-Charge + Solid-State E-Fuse + EKF)"]
-    DRIVE["2. drive — Brushless FOC Muscle<br/>(20 kHz Inverter PCB + 8:1 QDD Actuator)"]
-    LIMB["4. limb — 3-DOF Leg & Hopper<br/>(PoE Kinematics + RNEA + Virtual Compliance — Leg #1)"]
-    WALKER["5. walker — 12-DOF Dynamic Quadruped<br/>(Convex MPC + Sim-to-Real Neural RL on brain)"]
+    SIGHT["6. sight — Stereo Camera Eyes<br/>(2x Global-Shutter Cameras + 3D Room Mapping + Path Planner)"]
+    BRAIN["1. brain — Custom CPU & Spinal Cord<br/>(Programmable FPGA CPU + AI Math Unit + Scratch Compiler + RTOS + 6-Layer Board)"]
+    POWER["3. power — Surge Protector & Breaker<br/>(Safe Battery + Soft Pre-Charge + Microsecond E-Fuse + Fuel Gauge)"]
+    DRIVE["2. drive — Force-Controlled Muscle<br/>(Brushless Motor Driver Board + 8:1 Low-Backlash Gearbox)"]
+    LIMB["4. limb — 3-Joint Hopping Leg<br/>(3D Leg Math + Soft Landing + Hopping — Becomes Leg #1)"]
+    WALKER["5. walker — 4-Legged Walking Robot<br/>(Physics-Sim Balance + Simulator-Trained Neural Walking on brain)"]
 
-    DRIVE -->|"3x actuators"| LIMB
-    BRAIN -->|"CAN-FD 1 kHz spine"| LIMB
-    POWER -->|"21.9V SELV + 5V logic"| LIMB
+    DRIVE -->|"3x muscles"| LIMB
+    BRAIN -->|"1,000 Hz motor bus"| LIMB
+    POWER -->|"Safe < 22V power + 5V logic"| LIMB
     LIMB -->|"becomes Leg #1 of 4"| WALKER
-    BRAIN -->|"runs 50 Hz RL policy + 1 kHz IMU"| WALKER
-    POWER -->|"protects 12x motors"| WALKER
-    SIGHT -->|"UART/SPI [vx, vy, wz] + FPGA sync"| BRAIN
+    BRAIN -->|"runs 50 Hz walking brain + balance"| WALKER
+    POWER -->|"protects all 12 muscles"| WALKER
+    SIGHT -->|"walk commands + FPGA camera sync"| BRAIN
     WALKER --> SIGHT
 ```
 
-| # | System | What You Build From Scratch | Standalone Graduation Demo | Role in Final Robot |
+| # | System | What You Build From Scratch (Plain English) | Standalone Desk Demo | Role in Final Robot |
 | :---: | :--- | :--- | :--- | :--- |
-| **1** | **`brain`** | 5-stage pipelined `RV32IM` + `Zicsr` + neural `MAC` CPU in SystemVerilog; 32 MB SDRAM & 16 MB QSPI controllers; dual CAN-FD + IMU + sync RTL; **6-layer controlled-impedance Spine PCB** with SMA TDR coupons; scratch **`SysC` compiler, assembler, linker & preemptive RTOS** | Boots `ash` shell from QSPI into 32 MB SDRAM, runs `< 2 µs`-jitter 1 kHz IMU/PID loop + 500+ Hz neural walking MLP inference | Real-time cerebellum & 12-motor CAN-FD spinal cord |
-| **2** | **`drive`** | 4-layer 24V 30A 3-phase inverter PCB, 20 kHz bare-metal Field-Oriented Control (`FOC`) + `SVPWM` firmware, parametric 8:1 low-backlash planetary/cycloidal gearbox + FEA | Virtual spring/damper haptic wheel & step-torque dynamometer test driven over CAN-FD by `brain` | Single joint actuator (`12x` used across 4 legs) |
-| **3** | **`power`** | 4-layer heavy-copper Power & Safety Spine PCB with active pre-charge, `< 5 µs` solid-state bidirectional e-fuse, regen clamp, 5V buck, E-stop loop & online `EKF` SoC estimator | Survives 12-motor capacitive inrush & dead-short fault injection; tracks true cell state on a 150W DC load | Battery & safety distribution spine (`< 22V` SELV) |
-| **4** | **`limb`** | 3-DOF belt/linkage leg CAD + impact FEA, 3D kinematics (`SE(3)` PoE), foot Jacobian ($\tau = J^\top F$), momentum contact detection & Raibert hopping controller compiled in `SysC` onto `brain` | Gravity-compensated feather-touch compliance & autonomous cyclic hopping on a tabletop 2020 linear rail | Leg #1 of 4 (plus reusable kinematics/control library) |
-| **5** | **`walker`** | 12-DOF torso chassis CAD + wire harnesses, floating-base `ESKF` state estimator, Convex Centroidal `MPC`, and GPU-trained `PPO` Sim-to-Real RL policy quantized to `INT16` for `brain`'s `MAC` unit | Stands up, trots untethered, recovers from shoves, and walks rough terrain running your custom `SysC` RTOS + RL policy on `brain` | Full dynamic locomotion platform (`~2.5 kg` desktop scale) |
-| **6** | **`sight`** | Dual global-shutter stereo (`OV9281`) + companion SBC/NPU head wired to `brain`'s sub-µs FPGA sync pulse, manifold `VIO` SLAM, 2.5D obstacle grid, `A*`/`RRT*` planner & semantic detector | Handheld room SLAM, then bolts onto `walker` for autonomous point-to-point obstacle-avoiding navigation | High-level visual cortex & path planner |
+| **1** | **`brain`** | Your own 5-stage **RISC-V** processor + AI multiply-add unit in SystemVerilog; memory controllers for 32 MB RAM & 16 MB Flash; motor/sensor ports; a **6-layer circuit board** with trace-echo test jacks; and your own **C compiler, assembler, linker & real-time OS** | Boots an interactive terminal (`ash`), runs a rock-steady 1,000 Hz tilt/PID loop (`< 2 µs` jitter), and runs a neural walking network in `< 0.6 ms` | Real-time cerebellum & 12-motor spinal cord |
+| **2** | **`drive`** | Custom 4-layer brushless motor-driver board (`24V`, `30A`), bare-metal 20 kHz force-control firmware (`FOC`), and an `8:1` gearbox designed and stress-tested in 3D CAD | A haptic wheel that feels like a programmable spring/damper in your fingers, driven live by `brain` | One joint muscle (`12x` used across 4 legs) |
+| **3** | **`power`** | Custom heavy-copper power board with gentle startup pre-charge, `< 5 µs` solid-state circuit breaker (`e-fuse`), physical red E-stop, clean `5V` computer rail & battery fuel-gauge filter | Survives massive startup surges and intentional dead-shorts while accurately tracking remaining battery charge under a 150W load | Safe battery & surge-protection spine (`< 22V`) |
+| **4** | **`limb`** | 3-joint carbon/nylon leg hardware, 3D geometry & force math, impact-absorbing soft landing control, and a vertical hopping controller written in your own C language on `brain` | Floats weightlessly when lifted by hand and hops smoothly up and down on a compact desk rail | Front-Left Leg #1 (moves straight onto the robot) |
+| **5** | **`walker`** | Light `~2.5 kg` torso frame + wire harnesses, body motion estimator, predictive balance solver (`MPC`), and a neural walking policy trained in a 3D physics simulator and compiled onto `brain` | Stands up on its own, recovers from shoves, and trots untethered across carpet using your custom chip and compiler | The complete dynamic walking robot |
+| **6** | **`sight`** | Two synchronized stereo cameras + compact vision computer wired to `brain`'s camera-flash sync pulse, building live 3D room obstacle maps and planning safe paths | Maps a room while carried by hand, then bolts onto `walker` to walk around chairs and obstacles on its own | High-level vision & navigation head |
 
 ---
 

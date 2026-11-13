@@ -1,168 +1,168 @@
 repository:
-  title: 'Apex: Autonomous Walking Robot — From Blank Silicon to Full Autonomy'
-  tagline: 'A Couch-to-Silicon, zero-throwaway engineering platform: build a custom RISC-V+MAC SoC, 6-layer PCB, scratch C compiler, preemptive RTOS, brushless FOC actuators, smart power spine, and Sim-to-Real stereo-navigated quadruped—one small, mobile-reviewable step at a time.'
-  robot_class: '~2.5 kg Desktop Research Class (~35 cm body length, < 22V SELV, < 2.5 N·m backdrivable joints)'
-  estimated_total_bom_usd: '~$1,495 robot BOM across ~12 months (~$125/mo), plus ~$310–$540 reusable bench tools if needed'
+  title: 'Apex: Building a Walking Robot Dog From Scratch'
+  tagline: 'Build every layer of a safe, living-room-sized (~2.5 kg) autonomous robot dog from blank files—your own FPGA CPU & 6-layer circuit board (`brain`), force-controlled electric muscles (`drive`), smart power/breaker spine (`power`), single hopping leg (`limb`), simulator-trained 4-legged walker (`walker`), and stereo camera eyes (`sight`)—one small, phone-reviewable step at a time.'
+  robot_class: '~2.5 kg Desktop Research Class (~35 cm long, < 22V touch-safe power, < 2.5 N·m finger-safe joints)'
+  estimated_total_bom_usd: '~$1,495 robot parts across ~12 months (~$125/mo), plus ~$310–$540 reusable bench tools if needed'
 
 safety_guardrails:
   - name: Touch-Safe Voltage (< 22V DC)
-    description: Powered by a 6S LiFePO4 battery pack (19.2V nominal, 21.9V max), well below the 60V DC Safe Extra-Low Voltage shock limit.
-  - name: Non-Volatile Chemistry & PSU-First Bring-Up
-    description: LiFePO4 cells resist cobalt thermal runaway, and 95% of indoor bring-up runs off a current-limited bench power supply before any battery is connected.
-  - name: Finger-Safe Backdrivable Mechanics (< 2.5 N·m)
-    description: Desktop ~2.5 kg scale allows hand-backdrivable joints, quiet operation on carpet, and testing inside a compact tabletop 2020 aluminum gantry (no ceiling or doorway drilling).
-  - name: Zero-Fume Turnkey Fabrication
-    description: JLCPCB turnkey SMT board assembly and industrial MJF Nylon (PA12) + CNC aluminum eliminate indoor solder-paste reflow and high-temp polymer fumes.
+    description: Powered by a 6-cell LiFePO4 battery pack (19.2V nominal, 21.9V max), well below the 60V DC shock threshold.
+  - name: Non-Volatile Battery Chemistry & Bench-Power Testing
+    description: LiFePO4 cells resist fire/thermal runaway, and 95% of indoor testing runs off a current-limited desk power supply before any battery is plugged in.
+  - name: Finger-Safe Backdrivable Joints (< 2.5 N·m)
+    description: At ~2.5 kg total weight, every joint can be easily moved by hand, runs quietly on carpet, and tests inside a compact tabletop aluminum frame (no ceiling or doorway drilling).
+  - name: Zero-Fume Turnkey Manufacturing
+    description: External factories handle circuit-board soldering and nylon/aluminum printing & milling, eliminating solder-paste and high-temp plastic fumes indoors.
 
 phased_procurement:
   - stage: 'System 1: brain (Months 1–3)'
     est_cost_usd: '$290'
-    items: 'Tang Primer 20K Dock + SOM ($45), 8-ch USB logic analyzer ($15), 2x turnkey 6-layer Spine PCBs ($115), LiteVNA 64 + SOL cal kit ($115)'
+    items: 'Tang Primer 20K FPGA board + plug-in compute module ($45), 8-ch USB logic analyzer ($15), 2x assembled 6-layer circuit boards ($115), LiteVNA 64 cable/trace tester ($115)'
   - stage: 'Core Bench Instruments (Month 4, 1x if needed)'
     est_cost_usd: '$310–$540'
-    items: '4-ch 70–100 MHz oscilloscope ($160–$390), 30V/10A current-limited bench PSU ($55), Pinecil USB-C iron + multimeter + JST/Molex crimpers ($95)'
+    items: '4-ch 70–100 MHz oscilloscope ($160–$390), 30V/10A current-limited bench power supply ($55), USB-C soldering iron + multimeter + wire crimpers ($95)'
   - stage: 'System 2: drive (Months 4–5)'
     est_cost_usd: '$130'
-    items: '1x 3508/4006 pancake BLDC motor, AS5047P encoder, thin-section bearings, MJF/CNC housing, 2x turnkey 4-layer FOC PCBs'
+    items: '1x pancake brushless motor, magnetic angle sensor, bearings, nylon/aluminum housing, 2x assembled 4-layer motor-driver boards'
   - stage: 'System 3: power (Month 6)'
     est_cost_usd: '$150'
-    items: '2x turnkey 4-layer Power/E-Fuse PCBs, physical mushroom E-stop, 6S LiFePO4 pack + charger + fire-safe storage bag'
+    items: '2x assembled 4-layer power/breaker boards, big red E-stop button, 6S LiFePO4 battery + charger + fire-safe bag'
   - stage: 'System 4: limb (Months 7–8)'
     est_cost_usd: '$185'
-    items: '2x motors + housings + CF leg tubes + belts/pulleys + tabletop 2020 linear-rail test stand'
+    items: '2x extra motors + housings + carbon-fiber leg tubes + belts + tabletop aluminum linear-rail stand'
   - stage: 'System 5: walker (Months 9–10)'
     est_cost_usd: '$520'
-    items: '9x motors ($200), 10x batch FOC PCBs ($140), CF tubes/bearings/CNC torso + tabletop 2020 bungee gantry ($180)'
+    items: '9x motors ($200), 10x batch motor-driver boards ($140), carbon tubes/bearings/milled torso + tabletop bungee safety frame ($180)'
   - stage: 'System 6: sight (Months 11–12)'
     est_cost_usd: '$220'
-    items: 'Dual OV9281 global-shutter stereo cameras + companion SBC/NPU head + MJF enclosure'
+    items: '2x synchronized monochrome stereo cameras + compact vision computer + 3D-printed head mount'
 
 systems:
   - id: brain
     order: 1
-    name: 'Custom RISC-V+MAC SoC, 6-Layer Spine PCB, Compiler & Real-Time OS'
-    role: 'Real-time cerebellum & 12-motor CAN-FD spinal cord (standalone FPGA computer first)'
+    name: 'Custom CPU on FPGA, 6-Layer Circuit Board, C Compiler & Real-Time OS'
+    role: 'Robot spinal cord & neural brain (also works standalone as a custom FPGA computer)'
     workspace: ./systems/brain/
     depends_on: []
     est_weeks: '10–12 weeks (8–12 hr/wk)'
-    graduation_demo: 'Boot from QSPI Flash into 32 MB SDRAM on your custom 6-layer Spine PCB running your scratch SysC-compiled RTOS: interactive ash shell, < 2 µs-jitter 1 kHz IMU attitude/PID loop, and < 0.6 ms quantized quadruped walking MLP inference via custom mac instruction.'
+    graduation_demo: 'Boots from Flash into 32 MB RAM on your custom 6-layer board running your own C compiler and Real-Time OS: interactive terminal, rock-steady 1,000 Hz tilt/balance loop (< 2 µs jitter), and < 0.6 ms neural walking inference using a custom AI multiply-add instruction.'
     phases:
       - id: brain-P1
-        name: 'Phase 1: Simulation Harness, Golden Oracle & Digital Building Blocks'
+        name: 'Phase 1: Simulator Tools, Reference CPU & Digital Building Blocks'
       - id: brain-P2
-        name: 'Phase 2: Single-Cycle RV32IM + Custom Neural MAC & Privileged Traps'
+        name: 'Phase 2: Basic RISC-V CPU, AI Multiplier & Interrupt Handling'
       - id: brain-P3
         name: 'Phase 3: 5-Stage Pipelined Processor & FPGA Timing Closure'
       - id: brain-P4
-        name: 'Phase 4: Future-Proofed 6-Layer Spine PCB & Fab Launch'
+        name: 'Phase 4: 6-Layer Circuit Board Design & Factory Launch'
       - id: brain-P5
-        name: 'Phase 5: Memory Controllers, Robot Spine I/O & Full SoC'
+        name: 'Phase 5: External RAM/Flash Controllers & Robot Motor/Sensor Ports'
       - id: brain-P6
-        name: 'Phase 6: Scratch SysC Compiler, Assembler & Linker'
+        name: 'Phase 6: From-Scratch C Compiler, Assembler & Linker'
       - id: brain-P7
-        name: 'Phase 7: Preemptive Real-Time OS & Neural Cerebellum Workload'
+        name: 'Phase 7: Strict-Deadline Real-Time OS & Neural Walking Workload'
       - id: brain-P8
-        name: 'Phase 8: Custom 6-Layer Spine PCB Bring-Up, TDR Metrology & Graduation'
+        name: 'Phase 8: Custom 6-Layer Board Smoke Test, Trace-Echo Sweep & Graduation'
 
   - id: drive
     order: 2
-    name: '24V Brushless FOC Servo PCB & Quasi-Direct-Drive Actuator'
-    role: 'Single torque-controlled joint (< 2.5 N·m backdrivable; 12x used in final robot)'
+    name: 'Force-Controlled Brushless Motor Driver & 8:1 Gearbox (Electric Muscle)'
+    role: 'One finger-safe, backdrivable robotic joint (< 2.5 N·m; 12x used in final robot)'
     workspace: ./systems/drive/
     depends_on:
       - brain
     est_weeks: '7–8 weeks'
-    graduation_demo: 'Virtual spring/damper haptic wheel and step-torque dynamometer test driven at 1 kHz over CAN-FD by brain.'
+    graduation_demo: 'A haptic wheel that feels like a programmable spring and shock absorber in your fingers, commanded 1,000 times per second by brain.'
     phases:
       - id: drive-P1
-        name: 'Phase 1: Brushless Physics, dq0 FOC & SVPWM Simulation'
+        name: 'Phase 1: Brushless Motor Physics & Force-Control Simulation'
       - id: drive-P2
-        name: 'Phase 2: 4-Layer 24V 30A 3-Phase Inverter PCB & Fab Launch'
+        name: 'Phase 2: 4-Layer 24V Motor-Driver Circuit Board & Factory Launch'
       - id: drive-P3
-        name: 'Phase 3: Bare-Metal 20 kHz FOC Firmware & CAN-FD Protocol'
+        name: 'Phase 3: Bare-Metal 20 kHz Current/Force Firmware & Motor Bus Protocol'
       - id: drive-P4
-        name: 'Phase 4: Parametric 8:1 Gearbox CAD, Contact FEA & Fab Launch'
+        name: 'Phase 4: 8:1 Gearbox 3D CAD, Stress Analysis & Factory Launch'
       - id: drive-P5
-        name: 'Phase 5: Inverter Bring-Up, Actuator Assembly & Torque Bench Verification'
+        name: 'Phase 5: Driver Smoke Test, Gearbox Assembly & Torque Bench Verification'
 
   - id: power
     order: 3
-    name: '24V Smart Power Distribution, Pre-Charge & Solid-State E-Stop'
-    role: 'Vascular & hardware-safety spine protecting brain, sight, and 12x drives'
+    name: 'Smart Power Distribution, Soft Startup & Electronic Breaker Spine'
+    role: 'Surge protector, microsecond circuit breaker & battery fuel gauge protecting all electronics'
     workspace: ./systems/power/
     depends_on:
       - drive
     est_weeks: '5–6 weeks'
-    graduation_demo: 'Survives 12-motor capacitive inrush and dead-short fault injection with < 5 µs E-fuse trip while streaming real-time EKF battery SoC over CAN-FD.'
+    graduation_demo: 'Survives massive 12-motor startup surges and intentional dead-shorts in < 5 µs while accurately estimating remaining battery charge under load.'
     phases:
       - id: power-P1
-        name: 'Phase 1: LiFePO4 Equivalent-Circuit Modeling, Inrush & EKF Estimation'
+        name: 'Phase 1: Battery Modeling, Startup Surge Math & Fuel-Gauge Filter'
       - id: power-P2
-        name: 'Phase 2: 4-Layer Power & Solid-State E-Fuse PCB & Fab Launch'
+        name: 'Phase 2: 4-Layer Power & Electronic Breaker Board & Factory Launch'
       - id: power-P3
-        name: 'Phase 3: Supervisor Protection Firmware & EKF Execution'
+        name: 'Phase 3: Safety Protection Firmware & Live Battery Estimator'
       - id: power-P4
         name: 'Phase 4: Fault-Injection Bring-Up, 150W Load & E-Stop Verification'
 
   - id: limb
     order: 4
-    name: '3-DOF Torque-Controlled Leg & Vertical Jumping Hopper'
-    role: 'Masters 3D leg dynamics & compliance on a tabletop rail; becomes Leg #1 of 4'
+    name: '3-Joint Force-Controlled Leg & Tabletop Hopping Stand'
+    role: 'Masters 3D leg motion & soft impact landings on a desk rail; becomes Front-Left Leg #1'
     workspace: ./systems/limb/
     depends_on:
       - drive
       - power
     est_weeks: '6–7 weeks'
-    graduation_demo: 'Leg #1 mounted on a tabletop 2020 linear rail executes gravity-compensated feather-touch compliance and cyclic Raibert hopping driven in SysC on brain.'
+    graduation_demo: 'Leg #1 mounted on a compact desk rail floats weightlessly in your hand and hops smoothly on its own, driven by code compiled in your C compiler on brain.'
     phases:
       - id: limb-P1
-        name: 'Phase 1: 3D Kinematics, Foot Jacobian & Inverse Dynamics'
+        name: 'Phase 1: 3D Leg Geometry, Force-Torque Mapping & Gravity Compensation'
       - id: limb-P2
-        name: 'Phase 2: MuJoCo Vertical Hopper Simulation & Contact Observer'
+        name: 'Phase 2: Physics-Simulator Hopping & Foot-Contact Detection'
       - id: limb-P3
-        name: 'Phase 3: Low-Inertia Leg CAD, Landing FEA & Batch Fab'
+        name: 'Phase 3: Lightweight Leg 3D CAD, Impact Stress Check & Parts Order'
       - id: limb-P4
-        name: 'Phase 4: SysC Port on brain, Rail Assembly & Live Hopping'
+        name: 'Phase 4: Porting Code to brain, Rail Assembly & Live Hopping'
 
   - id: walker
     order: 5
-    name: '12-DOF Dynamic Quadruped with Convex MPC & Sim-to-Real RL'
-    role: 'Integrates brain + power + 4x limb into an untethered walking robot'
+    name: '4-Legged Walking Robot Dog (Physics Balance + Simulator-Trained AI)'
+    role: 'Combines brain + power + 4 legs into an untethered ~2.5 kg dynamic walker'
     workspace: ./systems/walker/
     depends_on:
       - limb
     est_weeks: '8–10 weeks'
-    graduation_demo: 'Untethered ~2.5 kg quadruped executes smooth stand-up, push recovery, and rough-terrain trotting using a GPU-trained Sim-to-Real RL policy compiled onto brain.'
+    graduation_demo: 'Untethered ~2.5 kg robot dog stands up, recovers from shoves, and trots across carpet using a neural policy trained in simulation and running natively on brain.'
     phases:
       - id: walker-P1
-        name: 'Phase 1: Full 12-DOF MuJoCo Model & Floating-Base State Estimator'
+        name: 'Phase 1: Full 12-Joint Robot Simulation & Body Speed Estimator'
       - id: walker-P2
-        name: 'Phase 2: Centroidal Dynamics & Convex MPC Trotting in Sim'
+        name: 'Phase 2: Predictive Whole-Body Balance & Trotting in Simulation'
       - id: walker-P3
-        name: 'Phase 3: Parallel GPU Sim-to-Real RL & INT16 Deployment to brain'
+        name: 'Phase 3: Parallel Physics RL Training & Exporting Weights to brain'
       - id: walker-P4
-        name: 'Phase 4: Torso Chassis CAD, Harnesses & Batch Build of Legs #2–#4'
+        name: 'Phase 4: Torso Frame CAD, Wire Harnesses & Building Legs #2–#4'
       - id: walker-P5
-        name: 'Phase 5: Gantry Integration, Live RL Walking & Untethered Field Tests'
+        name: 'Phase 5: Safety-Frame Bring-Up, Live Neural Walking & Untethered Field Tests'
 
   - id: sight
     order: 6
-    name: 'Hardware-Synced Stereo-Inertial SLAM & Navigation Head'
-    role: 'High-level visual cortex commanding autonomous obstacle-avoiding navigation'
+    name: 'Synchronized Stereo Camera Eyes, 3D Room Mapping & Navigation Head'
+    role: 'High-level vision computer that maps furniture and steers walker around obstacles'
     workspace: ./systems/sight/
     depends_on:
       - walker
     est_weeks: '6–8 weeks'
-    graduation_demo: 'Hardware-synced stereo SLAM pod bolts onto walker and navigates autonomously around indoor obstacles using framed [vx, vy, wz] velocity commands.'
+    graduation_demo: 'Hardware-synced stereo camera pod maps a room in 3D, bolts onto walker, and steers it autonomously around furniture to a target spot.'
     phases:
       - id: sight-P1
-        name: 'Phase 1: Stereo Camera Geometry, Calibration & Epipolar Depth'
+        name: 'Phase 1: Camera Geometry, Calibration & 2-Camera Stereo Depth'
       - id: sight-P2
-        name: 'Phase 2: Manifold Visual-Inertial Odometry (VIO) & 3D Occupancy Grid'
+        name: 'Phase 2: Camera + Motion-Sensor Tracking & 3D Room Obstacle Grid'
       - id: sight-P3
-        name: 'Phase 3: Path Planning, Quantized Perception & brain Sync Protocol'
+        name: 'Phase 3: Path Planning, Person/Obstacle Detection & brain Sync Link'
       - id: sight-P4
-        name: 'Phase 4: Stereo Pod Hardware, Handheld SLAM & Autonomous Robot Navigation'
+        name: 'Phase 4: Stereo Camera Pod Build, Room Mapping & Autonomous Walking'
 
 steps:
   # ============================================================================

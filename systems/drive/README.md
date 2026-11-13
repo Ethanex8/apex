@@ -1,6 +1,6 @@
-# System 2: `drive` — 24V Brushless FOC Servo PCB & Quasi-Direct-Drive Actuator
+# System 2: `drive` — Force-Controlled Brushless Motor Driver & 8:1 Gearbox (Electric Muscle)
 
-**Role**: Single torque-controlled robotic joint (`< 2.5 N·m` finger-safe backdrivable torque at `~2.5 kg` quadruped scale). `1x` built and tested here; `2x` more built in `limb` (Leg #1); `9x` batch-built in `walker` (`12x` total, zero throwaway hardware).
+**In Plain English**: Cheap hobby servos blindly jam to an angle and snap gears. Here we pair a strong drone-style brushless motor with our own 24V motor-driver board that regulates exact current (= exact physical force) 20,000 times a second, turning each joint into a finger-safe (`< 2.5 N·m`) programmable spring and shock absorber. One unit is built here; 12 identical units power the full robot.
 
 ## Locked Interface Contracts
 - **Power Input**: `19.2V` nominal (`21.9V` max `6S LiFePO4` SELV) via XT30/Molex Micro-Fit daisy-chain bus.

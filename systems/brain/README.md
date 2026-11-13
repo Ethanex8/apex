@@ -1,6 +1,6 @@
-# System 1: `brain` — Custom RISC-V+MAC SoC, 6-Layer Spine PCB, Compiler & Real-Time OS
+# System 1: `brain` — Custom CPU on FPGA, 6-Layer Circuit Board, C Compiler & Real-Time OS
 
-**Role**: The real-time cerebellum and 12-motor CAN-FD spinal cord of the quadruped, plus a standalone custom-silicon computer built 100% from blank files (save for the FPGA fabric on the Sipeed Tang Primer 20K SOM).
+**In Plain English**: You design your own processor chip (RISC-V + a neural multiply-add instruction) in code, load it onto a reprogrammable FPGA chip, plug it into a custom 6-layer circuit board with 32 MB of RAM, and run your own from-scratch C compiler and strict-deadline Real-Time OS. It works standalone as a custom computer and becomes the spinal cord + walking brain of the final robot.
 
 ## Target Architecture & Memory Map
 

@@ -5,8 +5,9 @@
 - **Locked Interface Contracts**: All electrical rails (`21.9V` max `6S LiFePO4` SELV bus, regulated `5V`/`3.3V` logic rails), communication frames (dual `5 Mbps` CAN-FD actuator protocol, `sight <-> brain` framed velocity link, sub-microsecond FPGA camera sync pulse), and mechanical mounting patterns are canonically specified in `VISION.md` and `systems/*/README.md`.
 - **Home-Safe by Design**: Physical hardware targets `~2.5 kg` total mass, `< 22V` touch-safe `LiFePO4` power, `< 2.5 N·m` hand-backdrivable joints, current-limited PSU-first bring-up, physical E-stop cutoffs, and turnkey PCBA/MJF/CNC manufacturing to avoid indoor solder-paste or high-temp polymer fumes.
 
-## 2. Zero Academic Jargon & Plain-English First Principles
+## 2. Plain-English First Principles (Zero Unexplained Jargon)
 - **Engineering Naming Only**: Use plain-English subsystem IDs (`brain`, `drive`, `power`, `limb`, `walker`, `sight`) and sequential step IDs (`<system>-NN`). Never introduce academic course codes, credit tiers, or opaque capstone numbers.
+- **Intuition First, Acronyms Second**: Never drop unexplained hardware shorthand (`FOC`, `SVPWM`, `ESKF`, `Zicsr`, `TDR`, `SDRAM`) as a barrier. Lead with plain English and concrete analogies (e.g., mapping CPU registers, circuit breakers, or spring-dampers to software concepts), then introduce the industry term and exact math right alongside it.
 - **Self-Contained Derivations**: Every step explains the exact math, physics, timing, or CS mechanics needed right there in plain language, paired with optional deeper book pointers (`reference_reading`) for curious readers.
 
 ## 3. Declarative Single Source of Truth (`roadmap.yaml` & `scripts/build.py`)

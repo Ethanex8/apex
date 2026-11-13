@@ -1,6 +1,6 @@
-# System 5: `walker` — 12-DOF Dynamic Quadruped with Convex MPC & Sim-to-Real Neural Locomotion
+# System 5: `walker` — 4-Legged Walking Robot Dog (Physics Balance + Simulator-Trained AI)
 
-**Role**: Full-system integration of `brain` + `power` + `4x limb` (`12x drive`) into a `~2.5 kg` desktop torque-controlled quadruped capable of standing, trotting, push recovery, and rough-terrain walking—running its GPU-trained neural walking policy natively on your custom `brain` RISC-V+`MAC` SoC.
+**In Plain English**: We combine `brain` + `power` + 4 legs (`12x` `drive` muscles) into a `~2.5 kg` living-room-safe robot dog. We train a neural walking policy inside a 3D physics simulator (`MuJoCo`) across thousands of randomized floors and shoves, then compile that neural brain directly onto your custom RISC-V+MAC processor so it stands, recovers from pushes, and trots untethered.
 
 ## Locked Interface Contracts
 - **Compute**: `brain` runs the floating-base `ESKF` state estimator (`1 kHz` IMU + 12-joint kinematics), dual 5 Mbps CAN-FD spine (`1 kHz`), safety joint envelopes, and the `INT16`-quantized `48 -> 128 -> 128 -> 12` walking MLP (`50 Hz`, `< 0.6 ms` via `mac` instruction).

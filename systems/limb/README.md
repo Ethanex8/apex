@@ -1,6 +1,6 @@
-# System 4: `limb` — 3-DOF Torque-Controlled Leg & Vertical Jumping Hopper
+# System 4: `limb` — 3-Joint Force-Controlled Leg & Tabletop Hopping Stand
 
-**Role**: Bridges single-motor bench control (`drive`) to full-body locomotion (`walker`) by building and hopping a 3-DOF robotic leg on a compact tabletop 2020 linear-rail stand—**which then becomes Leg #1 of 4 with zero throwaway hardware.**
+**In Plain English**: Before building 12 joints, we bolt 3 electric muscles together into one complete robotic leg on a compact desk rail. Controlled by code compiled with your own C compiler on `brain`, it learns to feel gravity, cushion drops softly, and hop on its own—and that exact leg then moves straight onto the final robot as Front-Left Leg #1.
 
 ## Locked Interface Contracts
 - **Actuation**: `3x` `drive` units (hip abduction/adduction, hip pitch, knee pitch via low-inertia belt/linkage transmission) controlled over `brain`'s CAN-FD Bus A at `1 kHz`.

@@ -22,7 +22,7 @@ You are acting as a **staff hardware/systems engineer** reporting to an experien
 3. **Mark `in_review` & Prepare the Mobile Review Packet**:
    - Create a dedicated branch + clean atomic GitHub PR (when GitHub remote is writable/appropriate) or clean diff commit ready for review, and run `python3 scripts/step.py review <step-id> [--pr <url>]`.
    - Deliver a compact, mobile-scannable **Couch Review Packet** containing:
-     1. **5-Minute First-Principles Brief**: Plain-English derivation of the underlying math, physics, timing, or CS mechanism (zero unexplained academic jargon). Include the `reference_reading` pointer as optional deeper reading.
+     1. **5-Minute Plain-English First-Principles Brief**: Start with *what problem this solves* in plain everyday language and concrete software analogies before introducing any hardware acronym or formula. Unpack every technical term the moment it appears, derive the underlying math/physics/timing step-by-step, and include `reference_reading` as optional deeper reading.
      2. **Interactive Visual Inspection**: Use `generative_ui` (when available) or crisp Mermaid/SVG diagrams/waveforms/PCB layer renders so the user can visually inspect signals, state machines, register layouts, or copper traces right on a phone screen.
      3. **Guided Diff Tour**: Link directly to every modified file/symbol (`file://...`) explaining *why* each design choice was made and what alternatives were rejected.
      4. **Verification Evidence**: Exact command run and summarized pass/timing/utilization numbers (e.g., LUT4 count, $f_{\max}$ slack, simulated CPI, DRC error count = 0).

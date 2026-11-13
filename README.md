@@ -1,9 +1,9 @@
-# Apex: Autonomous Walking Robot — From Blank Silicon to Full Autonomy
+# Apex: Building a Walking Robot Dog From Scratch
 
-A Couch-to-Silicon, zero-throwaway engineering platform: build a custom RISC-V+MAC SoC, 6-layer PCB, scratch C compiler, preemptive RTOS, brushless FOC actuators, smart power spine, and Sim-to-Real stereo-navigated quadruped—one small, mobile-reviewable step at a time.
+Build every layer of a safe, living-room-sized (~2.5 kg) autonomous robot dog from blank files—your own FPGA CPU & 6-layer circuit board (`brain`), force-controlled electric muscles (`drive`), smart power/breaker spine (`power`), single hopping leg (`limb`), simulator-trained 4-legged walker (`walker`), and stereo camera eyes (`sight`)—one small, phone-reviewable step at a time.
 
-- **Target Machine**: ~2.5 kg Desktop Research Class (~35 cm body length, < 22V SELV, < 2.5 N·m backdrivable joints)
-- **Estimated Cost**: ~$1,495 robot BOM across ~12 months (~$125/mo), plus ~$310–$540 reusable bench tools if needed
+- **Target Machine**: ~2.5 kg Desktop Research Class (~35 cm long, < 22V touch-safe power, < 2.5 N·m finger-safe joints)
+- **Estimated Cost**: ~$1,495 robot parts across ~12 months (~$125/mo), plus ~$310–$540 reusable bench tools if needed
 - **Workflow**: **154 / 186 steps (`83%`)** executed by AI agents & verified in simulation/DRC for mobile **couch review**, paired with **32 batched weekend bench gates**.
 
 ---
@@ -27,12 +27,12 @@ python3 scripts/build.py --check        # Validate roadmap invariants & zero doc
 
 | # | System | What It Builds | Steps (Done / Total) | Couch / Bench | Timeline |
 | :---: | :--- | :--- | :---: | :---: | :---: |
-| **1** | [**`brain`**](./systems/brain/) | Custom RISC-V+MAC SoC, 6-Layer Spine PCB, Compiler & Real-Time OS | `░░░░░░░░` **0 / 42** | 36 / 6 | 10–12 weeks (8–12 hr/wk) |
-| **2** | [**`drive`**](./systems/drive/) | 24V Brushless FOC Servo PCB & Quasi-Direct-Drive Actuator | `░░░░░░░░` **0 / 30** | 24 / 6 | 7–8 weeks |
-| **3** | [**`power`**](./systems/power/) | 24V Smart Power Distribution, Pre-Charge & Solid-State E-Stop | `░░░░░░░░` **0 / 24** | 19 / 5 | 5–6 weeks |
-| **4** | [**`limb`**](./systems/limb/) | 3-DOF Torque-Controlled Leg & Vertical Jumping Hopper | `░░░░░░░░` **0 / 28** | 23 / 5 | 6–7 weeks |
-| **5** | [**`walker`**](./systems/walker/) | 12-DOF Dynamic Quadruped with Convex MPC & Sim-to-Real RL | `░░░░░░░░` **0 / 34** | 28 / 6 | 8–10 weeks |
-| **6** | [**`sight`**](./systems/sight/) | Hardware-Synced Stereo-Inertial SLAM & Navigation Head | `░░░░░░░░` **0 / 28** | 24 / 4 | 6–8 weeks |
+| **1** | [**`brain`**](./systems/brain/) | Custom CPU on FPGA, 6-Layer Circuit Board, C Compiler & Real-Time OS | `░░░░░░░░` **0 / 42** | 36 / 6 | 10–12 weeks (8–12 hr/wk) |
+| **2** | [**`drive`**](./systems/drive/) | Force-Controlled Brushless Motor Driver & 8:1 Gearbox (Electric Muscle) | `░░░░░░░░` **0 / 30** | 24 / 6 | 7–8 weeks |
+| **3** | [**`power`**](./systems/power/) | Smart Power Distribution, Soft Startup & Electronic Breaker Spine | `░░░░░░░░` **0 / 24** | 19 / 5 | 5–6 weeks |
+| **4** | [**`limb`**](./systems/limb/) | 3-Joint Force-Controlled Leg & Tabletop Hopping Stand | `░░░░░░░░` **0 / 28** | 23 / 5 | 6–7 weeks |
+| **5** | [**`walker`**](./systems/walker/) | 4-Legged Walking Robot Dog (Physics Balance + Simulator-Trained AI) | `░░░░░░░░` **0 / 34** | 28 / 6 | 8–10 weeks |
+| **6** | [**`sight`**](./systems/sight/) | Synchronized Stereo Camera Eyes, 3D Room Mapping & Navigation Head | `░░░░░░░░` **0 / 28** | 24 / 4 | 6–8 weeks |
 
 ---
 
