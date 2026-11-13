@@ -1,9 +1,9 @@
 # Apex: Building a Walking Robot Dog From Scratch
 
-Build every layer of a safe, living-room-sized (~2.5 kg) autonomous robot dog from blank files—your own programmable-silicon CPU & 6-layer circuit board (`brain`), force-controlled electric muscles (`drive`), smart surge/breaker power board (`power`), single hopping leg (`limb`), simulator-trained 4-legged walker (`walker`), and stereo camera eyes (`sight`)—one small, phone-reviewable step at a time.
+Build every layer of a safe, living-room-sized (about 2.5 kg) autonomous robot dog from blank files—your own programmable-silicon CPU & 6-layer circuit board (`brain`), force-controlled electric muscles (`drive`), smart surge/breaker power board (`power`), single hopping leg (`limb`), simulator-trained 4-legged walker (`walker`), and stereo camera eyes (`sight`)—one small, phone-reviewable step at a time.
 
-- **Target Machine**: ~2.5 kg Desktop Research Class (~35 cm long, < 22V touch-safe power, < 2.5 N·m finger-safe joints)
-- **Estimated Cost**: ~$1,495 robot parts across ~12 months (~$125/mo), plus ~$310–$540 reusable bench tools if needed
+- **Target Machine**: About 2.5 kg Desktop Research Class (roughly 35 cm long, < 22V touch-safe power, < 2.5 N·m finger-safe joints)
+- **Estimated Cost**: About \$1,495 for robot parts across roughly 12 months (about \$125/mo), plus about \$310–\$540 for reusable bench tools if needed
 - **Workflow**: **154 / 186 steps (`83%`)** built by AI agents & verified in simulation or automated board checks for mobile **couch review**, paired with **32 batched weekend bench sessions**.
 
 ---
@@ -48,6 +48,6 @@ python3 scripts/build.py --check        # Validate roadmap invariants & zero doc
 
 ## How Couch-to-Silicon Works
 
-1. **Agent Implements & Verifies One Atomic Step (`~50–150 LOC`)**: Runs real `Verilator` digital simulations, `Yosys`/`nextpnr` FPGA builds, KiCad circuit-board checks (`ERC`/`DRC`), trace-impedance solvers, `MuJoCo` physics, or `pytest` inside the VM.
+1. **Agent Implements & Verifies One Atomic Step (roughly 50–150 LOC)**: Runs real `Verilator` digital simulations, `Yosys`/`nextpnr` FPGA builds, KiCad circuit-board checks (`ERC`/`DRC`), trace-impedance solvers, `MuJoCo` physics, or `pytest` inside the VM.
 2. **You Review From Your Phone**: Inspect a 5-minute Textbook First-Principles Brief, interactive visual diagrams/waveforms/copper-layer renders, a guided PR diff, and 2–3 intuition checks.
-3. **Ask Why, Then `LGTM`**: Interrogate any derivation or trade-off; the agent is blocked from starting Step $N+1$ until you approve Step $N$.
+3. **Ask Why, Then `LGTM`**: Interrogate any derivation or trade-off; the agent is blocked from starting Step `N+1` until you approve Step `N`.

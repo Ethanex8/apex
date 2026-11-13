@@ -466,9 +466,9 @@ def render_readme_md(data: dict, metrics: dict) -> str:
     lines.append("")
     lines.append("## How Couch-to-Silicon Works")
     lines.append("")
-    lines.append("1. **Agent Implements & Verifies One Atomic Step (`~50–150 LOC`)**: Runs real `Verilator` digital simulations, `Yosys`/`nextpnr` FPGA builds, KiCad circuit-board checks (`ERC`/`DRC`), trace-impedance solvers, `MuJoCo` physics, or `pytest` inside the VM.")
+    lines.append("1. **Agent Implements & Verifies One Atomic Step (roughly 50–150 LOC)**: Runs real `Verilator` digital simulations, `Yosys`/`nextpnr` FPGA builds, KiCad circuit-board checks (`ERC`/`DRC`), trace-impedance solvers, `MuJoCo` physics, or `pytest` inside the VM.")
     lines.append("2. **You Review From Your Phone**: Inspect a 5-minute Textbook First-Principles Brief, interactive visual diagrams/waveforms/copper-layer renders, a guided PR diff, and 2–3 intuition checks.")
-    lines.append("3. **Ask Why, Then `LGTM`**: Interrogate any derivation or trade-off; the agent is blocked from starting Step $N+1$ until you approve Step $N$.")
+    lines.append("3. **Ask Why, Then `LGTM`**: Interrogate any derivation or trade-off; the agent is blocked from starting Step `N+1` until you approve Step `N`.")
     return "\n".join(lines).rstrip() + "\n"
 
 
