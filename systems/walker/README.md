@@ -1,15 +1,15 @@
 # System 5: `walker` — 4-Legged Walking Robot Dog (Physics Balance + Simulator-Trained AI)
 
-**In Plain English**: We combine `brain` + `power` + 4 legs (`12x` `drive` muscles) into a `~2.5 kg` living-room-safe robot dog. We train a neural walking policy inside a 3D physics simulator (`MuJoCo`) across thousands of randomized floors and shoves, then compile that neural brain directly onto your custom RISC-V+MAC processor so it stands, recovers from pushes, and trots untethered.
+**In Plain English**: We combine `brain` + `power` + 4 legs (`12×` `drive` muscles) into a `~2.5 kg` living-room-safe robot dog. We first build a model-based predictive balance controller, then train a resilient neural walking policy inside a 3D physics simulator (`MuJoCo`) across thousands of randomized floors and shoves, and finally compile that neural policy directly onto your custom `RISC-V + MAC` processor so the robot stands, recovers from pushes, and trots untethered.
 
 ## Locked Interface Contracts
-- **Compute**: `brain` runs the floating-base `ESKF` state estimator (`1 kHz` IMU + 12-joint kinematics), dual 5 Mbps CAN-FD spine (`1 kHz`), safety joint envelopes, and the `INT16`-quantized `48 -> 128 -> 128 -> 12` walking MLP (`50 Hz`, `< 0.6 ms` via `mac` instruction).
-- **Safety Rig**: Tabletop 2020 aluminum bungee gantry + physical mushroom E-stop + PSU-first bring-up before untethered `6S LiFePO4` battery walking.
+- **Compute**: `brain` runs the body velocity/height estimator (**floating-base Error-State Kalman Filter / ESKF**, fusing `1,000 Hz` motion-sensor accelerations with planted-foot geometry), dual `5 Mbps` `CAN-FD` leg buses (`1,000 Hz`), joint safety envelopes, and the 16-bit integer-quantized `48 -> 128 -> 128 -> 12` walking network (`50 Hz`, `< 0.6 ms` via your custom `mac` instruction).
+- **Safety Rig**: Tabletop `20×20 mm` aluminum overhead bungee gantry + physical mushroom `E-stop` + current-limited bench power-supply testing before untethered `6S LiFePO4` battery walking.
 
 ## Directory Layout
-- `sim/` — Full 12-DOF URDF/MuJoCo model, floating-base `ESKF`, Convex Centroidal `MPC` & `MJX` `PPO` RL training pipeline
-- `cad/` — Lightweight carbon/aluminum torso bay housing `brain`, `power`, battery & 4x `limb` mounts + wire harnesses
-- `firmware/` — `SysC` `ESKF`, quantized neural policy weights/runner & closed-loop `Verilator` co-simulation harness
+- `sim/` — Full 12-joint (`12-DOF`) standard robot description (`URDF`/`MuJoCo`) model, floating-base `ESKF` estimator, receding-horizon force optimizer (**Convex Centroidal MPC**), and GPU-parallel reinforcement learning (**MJX PPO**) training pipeline
+- `cad/` — Lightweight carbon/aluminum torso bay housing `brain`, `power`, battery & `4×` `limb` mounts + wire harnesses
+- `firmware/` — `SysC` `ESKF` estimator, quantized neural policy weights/runner & closed-loop `Verilator` hardware-to-physics co-simulation harness
 
 ## Optional Reference Reading
 - Russ Tedrake, *Underactuated Robotics*, Ch. 1–10

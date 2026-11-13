@@ -1,18 +1,18 @@
 # System 2: `drive` — Force-Controlled Brushless Motor Driver & 8:1 Gearbox (Electric Muscle)
 
-**In Plain English**: Cheap hobby servos blindly jam to an angle and snap gears. Here we pair a strong drone-style brushless motor with our own 24V motor-driver board that regulates exact current (= exact physical force) 20,000 times a second, turning each joint into a finger-safe (`< 2.5 N·m`) programmable spring and shock absorber. One unit is built here; 12 identical units power the full robot.
+**In Plain English**: Cheap hobby servos blindly jam toward a target angle and snap plastic gears on uneven ground. Here we pair a strong drone-style brushless motor with our own 24V motor-driver board that regulates exact coil current (= exact physical torque) 20,000 times a second (**Field-Oriented Control / FOC**), turning each joint into a finger-safe (`< 2.5 N·m`) programmable spring and shock absorber. You build one unit here; 12 identical units power the full robot.
 
 ## Locked Interface Contracts
-- **Power Input**: `19.2V` nominal (`21.9V` max `6S LiFePO4` SELV) via XT30/Molex Micro-Fit daisy-chain bus.
-- **Control Bus**: `5 Mbps` CAN-FD matching `brain` framing (`q_des`, `dq_des`, `kp`, `kd`, `tau_ff` $\leftrightarrow$ `q`, `dq`, `i_q`, `temp`, `fault` at `1 kHz` per leg bus).
-- **Mechanics**: `3508`/`4006` pancake BLDC + `8:1` low-backlash planetary/cycloidal gearbox in industrial MJF Nylon (`PA12`) + CNC aluminum carrier + `AS5047P` 14-bit magnetic encoder.
+- **Power Input**: `19.2V` nominal (`21.9V` max, 6-cell `LiFePO4` touch-safe **SELV** battery bus) via daisy-chained XT30/Micro-Fit power connectors.
+- **Control Bus**: `5 Mbps` noise-immune differential motor bus (**CAN-FD**) matching `brain`'s packet layout (`q_des`, `dq_des`, spring gain `kp`, damper gain `kd`, feedforward torque `tau_ff` $\leftrightarrow$ measured angle `q`, speed `dq`, torque current `i_q`, temperature `temp`, and `fault` flags at `1,000 Hz` per leg bus).
+- **Mechanics**: `3508`/`4006` flat pancake brushless motor (**BLDC**) + `8:1` low-friction, low-play (**low-backlash**) planetary or cycloidal gearbox printed in industrial powder-fused nylon (`MJF PA12`) + milled (`CNC`) aluminum motor carrier + `14-bit` contactless magnetic angle chip (`AS5047P`). Keeping the gear ratio modest (`8:1`) means a foot hitting the floor pushes straight back through the gears so the motor can *feel* contact forces without fragile foot force sensors (**quasi-direct-drive / QDD**).
 
 ## Directory Layout
-- `sim/` — PMSM $dq0$ motor model, SVPWM modulator & 20 kHz FOC loop simulator
-- `pcb/` — 4-layer 24V 30A 3-phase inverter schematic, layout & BOM (`STM32G4` + `TCAN1044V` + current sense)
-- `firmware/` — Bare-metal 20 kHz ADC-injected FOC, encoder linearization, anticogging & CAN-FD handler
-- `cad/` — Parametric 8:1 gearbox geometry, structural/contact FEA (`CalculiX`) & manufacturing STEP/STL exports
+- `sim/` — Brushless motor differential equations in rotating magnetic coordinates ($dq0$), hexagonal switching modulator (**Space-Vector PWM / SVPWM**), and `20 kHz` current-loop simulator
+- `pcb/` — 4-layer `24V / 30A` 3-phase transistor bridge (**inverter**) schematic, copper layout & parts list (`STM32G4` microcontroller + `TCAN1044V` bus driver + precision current-sense amplifiers)
+- `firmware/` — Bare-metal `20 kHz` interrupt firmware synchronized to switching valleys (**ADC-injected FOC**), magnetic encoder error lookup table, magnetic-notch smoothing (**anticogging**), and `CAN-FD` packet handler
+- `cad/` — Parametric `8:1` gearbox 3D geometry, structural Finite Element Analysis (**FEA** via `CalculiX`), and factory-ready `STEP`/`STL` CAD exports
 
 ## Optional Reference Reading
 - Sang-Hoon Kim, *Electric Motor Control: DC, AC, and BLDC Motors*, Ch. 1–10
-- Budynas & Nisbett, *Shigley's Mechanical Engineering Design* (gear stress, bearings, fits)
+- Budynas & Nisbett, *Shigley's Mechanical Engineering Design* (gear tooth stress, bearings, mechanical fits)

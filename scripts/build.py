@@ -412,8 +412,8 @@ def render_readme_md(data: dict, metrics: dict) -> str:
     lines.append(f"- **Estimated Cost**: {repo['estimated_total_bom_usd']}")
     lines.append(
         f"- **Workflow**: **{metrics['total_couch']} / {metrics['total_steps']} steps (`{metrics['pct_couch']:.0f}%`)** "
-        f"executed by AI agents & verified in simulation/DRC for mobile **couch review**, paired with "
-        f"**{metrics['total_bench']} batched weekend bench gates**."
+        f"built by AI agents & verified in simulation or automated board checks for mobile **couch review**, paired with "
+        f"**{metrics['total_bench']} batched weekend bench sessions**."
     )
     lines.append("")
     lines.append("---")
@@ -456,8 +456,8 @@ def render_readme_md(data: dict, metrics: dict) -> str:
     lines.append("")
     lines.append("## Repository Guide")
     lines.append("")
-    lines.append("- [**`VISION.md`**](./VISION.md) — Two-Brain architecture, locked hardware/protocol interfaces, home safety & budget.")
-    lines.append("- [**`ROADMAP.md`**](./ROADMAP.md) — Full phase breakdowns, procurement schedule & all 186 step checklists.")
+    lines.append("- [**`VISION.md`**](./VISION.md) — Two-Brain architecture, locked hardware/protocol interfaces, home safety & parts budget.")
+    lines.append("- [**`ROADMAP.md`**](./ROADMAP.md) — Full phase breakdowns, ordering schedule & all 186 step checklists.")
     lines.append("- [**`roadmap.yaml`**](./roadmap.yaml) — Canonical declarative source of truth for systems, steps & review state.")
     lines.append("- [**`systems/`**](./systems/brain/README.md) — Subsystem workspaces (`brain`, `drive`, `power`, `limb`, `walker`, `sight`).")
     lines.append("- [**`scripts/step.py`**](./scripts/step.py) & [**`scripts/build.py`**](./scripts/build.py) — Step lifecycle CLI, invariant validator & Markdown generator.")
@@ -466,8 +466,8 @@ def render_readme_md(data: dict, metrics: dict) -> str:
     lines.append("")
     lines.append("## How Couch-to-Silicon Works")
     lines.append("")
-    lines.append("1. **Agent Implements & Verifies One Atomic Step (`~50–150 LOC`)**: Runs real `Verilator`, `Yosys`/`nextpnr`, KiCad ERC/DRC, impedance solvers, MuJoCo physics, or `pytest` inside the VM.")
-    lines.append("2. **You Review From Your Phone**: Inspect a 5-minute First-Principles Brief, interactive visual diagrams/waveforms/PCB renders, a guided PR diff, and 2–3 intuition checks.")
+    lines.append("1. **Agent Implements & Verifies One Atomic Step (`~50–150 LOC`)**: Runs real `Verilator` digital simulations, `Yosys`/`nextpnr` FPGA builds, KiCad circuit-board checks (`ERC`/`DRC`), trace-impedance solvers, `MuJoCo` physics, or `pytest` inside the VM.")
+    lines.append("2. **You Review From Your Phone**: Inspect a 5-minute Textbook First-Principles Brief, interactive visual diagrams/waveforms/copper-layer renders, a guided PR diff, and 2–3 intuition checks.")
     lines.append("3. **Ask Why, Then `LGTM`**: Interrogate any derivation or trade-off; the agent is blocked from starting Step $N+1$ until you approve Step $N$.")
     return "\n".join(lines).rstrip() + "\n"
 

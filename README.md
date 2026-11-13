@@ -1,18 +1,18 @@
 # Apex: Building a Walking Robot Dog From Scratch
 
-Build every layer of a safe, living-room-sized (~2.5 kg) autonomous robot dog from blank files—your own FPGA CPU & 6-layer circuit board (`brain`), force-controlled electric muscles (`drive`), smart power/breaker spine (`power`), single hopping leg (`limb`), simulator-trained 4-legged walker (`walker`), and stereo camera eyes (`sight`)—one small, phone-reviewable step at a time.
+Build every layer of a safe, living-room-sized (~2.5 kg) autonomous robot dog from blank files—your own programmable-silicon CPU & 6-layer circuit board (`brain`), force-controlled electric muscles (`drive`), smart surge/breaker power board (`power`), single hopping leg (`limb`), simulator-trained 4-legged walker (`walker`), and stereo camera eyes (`sight`)—one small, phone-reviewable step at a time.
 
 - **Target Machine**: ~2.5 kg Desktop Research Class (~35 cm long, < 22V touch-safe power, < 2.5 N·m finger-safe joints)
 - **Estimated Cost**: ~$1,495 robot parts across ~12 months (~$125/mo), plus ~$310–$540 reusable bench tools if needed
-- **Workflow**: **154 / 186 steps (`83%`)** executed by AI agents & verified in simulation/DRC for mobile **couch review**, paired with **32 batched weekend bench gates**.
+- **Workflow**: **154 / 186 steps (`83%`)** built by AI agents & verified in simulation or automated board checks for mobile **couch review**, paired with **32 batched weekend bench sessions**.
 
 ---
 
 ## Active Step Queue
 
-**Current Focus**: **`brain-01`** (🛋️ Couch · ⬜ Pending) — **RTL/FPGA User-Space Toolchain & Golden RV32IM+Zicsr+MAC Reference Oracle**
+**Current Focus**: **`brain-01`** (🛋️ Couch · ⬜ Pending) — **Hardware Simulator Toolchain & Golden RISC-V Reference Emulator**
 
-- **First Principles**: Instruction bit-field encoding, architectural state (PC + 32 GPRs + CSRs), two's complement arithmetic & differential verification
+- **First Principles**: Instruction bit-field decoding, architectural CPU state (Program Counter + 32 registers + Control/Status Registers), two's complement arithmetic & comparing real hardware against a golden software oracle
 - **Verification Gate**: `uv run --with pytest pytest systems/brain/tb/test_oracle.py && which verilator yosys nextpnr-himbaechel`
 
 ```bash
@@ -38,8 +38,8 @@ python3 scripts/build.py --check        # Validate roadmap invariants & zero doc
 
 ## Repository Guide
 
-- [**`VISION.md`**](./VISION.md) — Two-Brain architecture, locked hardware/protocol interfaces, home safety & budget.
-- [**`ROADMAP.md`**](./ROADMAP.md) — Full phase breakdowns, procurement schedule & all 186 step checklists.
+- [**`VISION.md`**](./VISION.md) — Two-Brain architecture, locked hardware/protocol interfaces, home safety & parts budget.
+- [**`ROADMAP.md`**](./ROADMAP.md) — Full phase breakdowns, ordering schedule & all 186 step checklists.
 - [**`roadmap.yaml`**](./roadmap.yaml) — Canonical declarative source of truth for systems, steps & review state.
 - [**`systems/`**](./systems/brain/README.md) — Subsystem workspaces (`brain`, `drive`, `power`, `limb`, `walker`, `sight`).
 - [**`scripts/step.py`**](./scripts/step.py) & [**`scripts/build.py`**](./scripts/build.py) — Step lifecycle CLI, invariant validator & Markdown generator.
@@ -48,6 +48,6 @@ python3 scripts/build.py --check        # Validate roadmap invariants & zero doc
 
 ## How Couch-to-Silicon Works
 
-1. **Agent Implements & Verifies One Atomic Step (`~50–150 LOC`)**: Runs real `Verilator`, `Yosys`/`nextpnr`, KiCad ERC/DRC, impedance solvers, MuJoCo physics, or `pytest` inside the VM.
-2. **You Review From Your Phone**: Inspect a 5-minute First-Principles Brief, interactive visual diagrams/waveforms/PCB renders, a guided PR diff, and 2–3 intuition checks.
+1. **Agent Implements & Verifies One Atomic Step (`~50–150 LOC`)**: Runs real `Verilator` digital simulations, `Yosys`/`nextpnr` FPGA builds, KiCad circuit-board checks (`ERC`/`DRC`), trace-impedance solvers, `MuJoCo` physics, or `pytest` inside the VM.
+2. **You Review From Your Phone**: Inspect a 5-minute Textbook First-Principles Brief, interactive visual diagrams/waveforms/copper-layer renders, a guided PR diff, and 2–3 intuition checks.
 3. **Ask Why, Then `LGTM`**: Interrogate any derivation or trade-off; the agent is blocked from starting Step $N+1$ until you approve Step $N$.

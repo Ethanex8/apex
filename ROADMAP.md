@@ -8,13 +8,13 @@ Generated from [`roadmap.yaml`](./roadmap.yaml). Tracks **6 integrated systems**
 
 - **Total Completion**: `░░░░░░░░░░░░░░░░` **0 / 186 steps** (`0.0%`)
 - **Couch Steps**: **0 / 154** · **Bench Sessions**: **0 / 32**
-- **Active Step**: **`brain-01`** (🛋️ Couch, ⬜ Pending) — RTL/FPGA User-Space Toolchain & Golden RV32IM+Zicsr+MAC Reference Oracle
+- **Active Step**: **`brain-01`** (🛋️ Couch, ⬜ Pending) — Hardware Simulator Toolchain & Golden RISC-V Reference Emulator
 
 | # | System | Role | Progress | Couch / Bench | Est. Timeline | Workspace |
 | :---: | :--- | :--- | :--- | :---: | :---: | :--- |
-| **1** | [`brain`](#brain-custom-cpu-on-fpga-6-layer-circuit-board-c-compiler--real-time-os) — Custom CPU on FPGA, 6-Layer Circuit Board, C Compiler & Real-Time OS | Robot spinal cord & neural brain (also works standalone as a custom FPGA computer) | `░░░░░░░░░░` 0/42 (`0%`) | 36 / 6 | 10–12 weeks (8–12 hr/wk) | [./systems/brain/](./systems/brain/) |
-| **2** | [`drive`](#drive-force-controlled-brushless-motor-driver--81-gearbox-electric-muscle) — Force-Controlled Brushless Motor Driver & 8:1 Gearbox (Electric Muscle) | One finger-safe, backdrivable robotic joint (< 2.5 N·m; 12x used in final robot) | `░░░░░░░░░░` 0/30 (`0%`) | 24 / 6 | 7–8 weeks | [./systems/drive/](./systems/drive/) |
-| **3** | [`power`](#power-smart-power-distribution-soft-startup--electronic-breaker-spine) — Smart Power Distribution, Soft Startup & Electronic Breaker Spine | Surge protector, microsecond circuit breaker & battery fuel gauge protecting all electronics | `░░░░░░░░░░` 0/24 (`0%`) | 19 / 5 | 5–6 weeks | [./systems/power/](./systems/power/) |
+| **1** | [`brain`](#brain-custom-cpu-on-fpga-6-layer-circuit-board-c-compiler--real-time-os) — Custom CPU on FPGA, 6-Layer Circuit Board, C Compiler & Real-Time OS | Robot spinal cord & walking brain (also works standalone as a custom programmable-chip computer) | `░░░░░░░░░░` 0/42 (`0%`) | 36 / 6 | 10–12 weeks (8–12 hr/wk) | [./systems/brain/](./systems/brain/) |
+| **2** | [`drive`](#drive-force-controlled-brushless-motor-driver--81-gearbox-electric-muscle) — Force-Controlled Brushless Motor Driver & 8:1 Gearbox (Electric Muscle) | One finger-safe, hand-backdrivable robotic joint (< 2.5 N·m; 12x used in final robot) | `░░░░░░░░░░` 0/30 (`0%`) | 24 / 6 | 7–8 weeks | [./systems/drive/](./systems/drive/) |
+| **3** | [`power`](#power-smart-power-distribution-soft-startup--electronic-breaker-spine) — Smart Power Distribution, Soft Startup & Electronic Breaker Spine | Surge protector, microsecond electronic circuit breaker & battery fuel gauge protecting all electronics | `░░░░░░░░░░` 0/24 (`0%`) | 19 / 5 | 5–6 weeks | [./systems/power/](./systems/power/) |
 | **4** | [`limb`](#limb-3-joint-force-controlled-leg--tabletop-hopping-stand) — 3-Joint Force-Controlled Leg & Tabletop Hopping Stand | Masters 3D leg motion & soft impact landings on a desk rail; becomes Front-Left Leg #1 | `░░░░░░░░░░` 0/28 (`0%`) | 23 / 5 | 6–7 weeks | [./systems/limb/](./systems/limb/) |
 | **5** | [`walker`](#walker-4-legged-walking-robot-dog-physics-balance--simulator-trained-ai) — 4-Legged Walking Robot Dog (Physics Balance + Simulator-Trained AI) | Combines brain + power + 4 legs into an untethered ~2.5 kg dynamic walker | `░░░░░░░░░░` 0/34 (`0%`) | 28 / 6 | 8–10 weeks | [./systems/walker/](./systems/walker/) |
 | **6** | [`sight`](#sight-synchronized-stereo-camera-eyes-3d-room-mapping--navigation-head) — Synchronized Stereo Camera Eyes, 3D Room Mapping & Navigation Head | High-level vision computer that maps furniture and steers walker around obstacles | `░░░░░░░░░░` 0/28 (`0%`) | 24 / 4 | 6–8 weeks | [./systems/sight/](./systems/sight/) |
@@ -43,20 +43,20 @@ flowchart LR
 
 ## Home Safety & Phased Procurement
 
-- **Touch-Safe Voltage (< 22V DC)**: Powered by a 6-cell LiFePO4 battery pack (19.2V nominal, 21.9V max), well below the 60V DC shock threshold.
-- **Non-Volatile Battery Chemistry & Bench-Power Testing**: LiFePO4 cells resist fire/thermal runaway, and 95% of indoor testing runs off a current-limited desk power supply before any battery is plugged in.
-- **Finger-Safe Backdrivable Joints (< 2.5 N·m)**: At ~2.5 kg total weight, every joint can be easily moved by hand, runs quietly on carpet, and tests inside a compact tabletop aluminum frame (no ceiling or doorway drilling).
-- **Zero-Fume Turnkey Manufacturing**: External factories handle circuit-board soldering and nylon/aluminum printing & milling, eliminating solder-paste and high-temp plastic fumes indoors.
+- **Touch-Safe Voltage (< 22V DC)**: Powered by a 6-cell series lithium-iron-phosphate battery pack (6S LiFePO4: 19.2V nominal, 21.9V max), well below the 60V DC shock threshold.
+- **Stable Battery Chemistry & Current-Limited Bench Power**: Lithium-iron-phosphate (LiFePO4) cells resist fire and thermal runaway, and 95% of indoor testing runs off a current-limited desk power supply before any battery is ever plugged in.
+- **Finger-Safe Backdrivable Joints (< 2.5 N·m)**: At ~2.5 kg total weight, every joint can be easily moved by hand when unpowered or compliant, runs quietly on carpet, and tests inside a compact tabletop slotted-aluminum frame (no ceiling or doorway drilling).
+- **Zero-Fume Factory Fabrication**: External factories handle circuit-board surface-mount soldering (turnkey PCBA) and industrial nylon/aluminum printing & milling (MJF/CNC), eliminating solder-paste and high-temp plastic fumes indoors.
 
 | Stage | Est. Cost | What You Order |
 | :--- | :---: | :--- |
-| **System 1: brain (Months 1–3)** | **$290** | Tang Primer 20K FPGA board + plug-in compute module ($45), 8-ch USB logic analyzer ($15), 2x assembled 6-layer circuit boards ($115), LiteVNA 64 cable/trace tester ($115) |
-| **Core Bench Instruments (Month 4, 1x if needed)** | **$310–$540** | 4-ch 70–100 MHz oscilloscope ($160–$390), 30V/10A current-limited bench power supply ($55), USB-C soldering iron + multimeter + wire crimpers ($95) |
-| **System 2: drive (Months 4–5)** | **$130** | 1x pancake brushless motor, magnetic angle sensor, bearings, nylon/aluminum housing, 2x assembled 4-layer motor-driver boards |
-| **System 3: power (Month 6)** | **$150** | 2x assembled 4-layer power/breaker boards, big red E-stop button, 6S LiFePO4 battery + charger + fire-safe bag |
-| **System 4: limb (Months 7–8)** | **$185** | 2x extra motors + housings + carbon-fiber leg tubes + belts + tabletop aluminum linear-rail stand |
-| **System 5: walker (Months 9–10)** | **$520** | 9x motors ($200), 10x batch motor-driver boards ($140), carbon tubes/bearings/milled torso + tabletop bungee safety frame ($180) |
-| **System 6: sight (Months 11–12)** | **$220** | 2x synchronized monochrome stereo cameras + compact vision computer + 3D-printed head mount |
+| **System 1: brain (Months 1–3)** | **$290** | Tang Primer 20K programmable-logic board + snap-in FPGA module ($45), 8-channel USB waveform analyzer ($15), 2x factory-assembled 6-layer Spine boards ($115), LiteVNA 64 radar-like cable/trace tester ($115) |
+| **Core Bench Instruments (Month 4, 1x if needed)** | **$310–$540** | 4-channel 70–100 MHz oscilloscope for fast voltage waveforms ($160–$390), 30V/10A current-limited bench power supply ($55), USB-C soldering iron + multimeter + wire crimpers ($95) |
+| **System 2: drive (Months 4–5)** | **$130** | 1x flat pancake brushless motor, contactless magnetic angle chip, bearings, nylon/aluminum gearbox housing, 2x factory-assembled 4-layer motor-driver boards |
+| **System 3: power (Month 6)** | **$150** | 2x factory-assembled 4-layer power/breaker boards, big red mushroom E-stop button, 6-cell LiFePO4 battery + smart charger + fire-safe storage bag |
+| **System 4: limb (Months 7–8)** | **$185** | 2x extra motors + housings + carbon-fiber leg tubes + timing belts + tabletop slotted-aluminum linear-rail stand |
+| **System 5: walker (Months 9–10)** | **$520** | 9x motors ($200), 10x batch motor-driver boards ($140), carbon tubes/bearings/milled torso plates + tabletop bungee safety frame ($180) |
+| **System 6: sight (Months 11–12)** | **$220** | 2x synchronized simultaneous-exposure stereo cameras + compact Linux/neural vision computer + 3D-printed head mount |
 
 ---
 
@@ -64,10 +64,10 @@ flowchart LR
 
 ### 1. `brain` — Custom CPU on FPGA, 6-Layer Circuit Board, C Compiler & Real-Time OS
 
-- **Role**: Robot spinal cord & neural brain (also works standalone as a custom FPGA computer)
+- **Role**: Robot spinal cord & walking brain (also works standalone as a custom programmable-chip computer)
 - **Workspace**: [`./systems/brain/`](./systems/brain/)
 - **Builds On**: None (Start Here)
-- **Graduation Demo**: Boots from Flash into 32 MB RAM on your custom 6-layer board running your own C compiler and Real-Time OS: interactive terminal, rock-steady 1,000 Hz tilt/balance loop (< 2 µs jitter), and < 0.6 ms neural walking inference using a custom AI multiply-add instruction.
+- **Graduation Demo**: Boots from persistent Flash into 32 MB dynamic RAM on your custom 6-layer board running your own C compiler and Real-Time OS: interactive terminal, rock-steady 1,000 Hz tilt/balance loop (< 2 µs jitter), and < 0.6 ms neural walking inference using a custom AI multiply-add instruction.
 - **Progress**: `░░░░░░░░░░░░` **0 / 42** (`36` couch / `6` bench)
 
 | Phase | Steps Done | Couch / Bench | Progress |
@@ -86,201 +86,201 @@ flowchart LR
 
 #### Phase 1: Simulator Tools, Reference CPU & Digital Building Blocks
 
-- [ ] **`brain-01`** — **RTL/FPGA User-Space Toolchain & Golden RV32IM+Zicsr+MAC Reference Oracle** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/brain/scripts/setup_tools.sh (installs Verilator, Yosys, nextpnr-himbaechel, Icarus, pytest/cocotb in .tools/)`; `systems/brain/sim/rv32_oracle.py (cycle-accurate reference emulator for RV32IM, Machine-Mode CSRs, CLINT timer, UART & custom mac opcode)`; `systems/brain/tb/test_oracle.py (unit tests covering arithmetic, branches, loads/stores, traps & custom mac)`
+- [ ] **`brain-01`** — **Hardware Simulator Toolchain & Golden RISC-V Reference Emulator** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/brain/scripts/setup_tools.sh (installs Verilator digital simulator, Yosys/nextpnr FPGA compiler, Icarus, and pytest/cocotb in .tools/)`; `systems/brain/sim/rv32_oracle.py (instruction-by-instruction Python reference CPU emulator supporting RV32IM integer/multiply, machine-mode control registers Zicsr, CLINT timer, UART console & custom mac instruction)`; `systems/brain/tb/test_oracle.py (unit tests covering arithmetic, branches, memory loads/stores, interrupt traps & custom mac)`
   - **Verify**: `uv run --with pytest pytest systems/brain/tb/test_oracle.py && which verilator yosys nextpnr-himbaechel`
-  - **First Principles**: Instruction bit-field encoding, architectural state (PC + 32 GPRs + CSRs), two's complement arithmetic & differential verification *(Harris & Harris (RISC-V Ed.), Ch. 6)*
-- [ ] **`brain-02`** — **32-Bit Combinational ALU & Single-Cycle Barrel Shifter** *(🛋️ Couch · ⬜ Pending)*
+  - **First Principles**: Instruction bit-field decoding, architectural CPU state (Program Counter + 32 registers + Control/Status Registers), two's complement arithmetic & comparing real hardware against a golden software oracle *(Harris & Harris (RISC-V Ed.), Ch. 6)*
+- [ ] **`brain-02`** — **32-Bit Combinational Arithmetic Logic Unit (ALU) & Single-Cycle Bit Shifter** *(🛋️ Couch · ⬜ Pending)*
   - **Deliverables**: `systems/brain/rtl/core/alu.sv`; `systems/brain/tb/test_alu.py (Cocotb + Verilator exhaustive edge-case & randomized property testbench)`
   - **Verify**: `make -C systems/brain/tb MODULE=test_alu`
-  - **First Principles**: Ripple-carry vs. carry-lookahead addition, arithmetic vs. logical right shifts, signed (SLT) vs. unsigned (SLTU) flags, and combinational always_comb synthesis rules *(Harris & Harris (RISC-V Ed.), Ch. 1–2 & 5)*
-- [ ] **`brain-03`** — **32x32 Register File & Immediate Sign-Extender** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/brain/rtl/core/regfile.sv (dual combinational/sync read, synchronous write, x0 hardwired zero)`; `systems/brain/rtl/core/imm_gen.sv (I, S, B, U, J RISC-V immediate bit-shuffling)`; `systems/brain/tb/test_regfile_imm.py`
+  - **First Principles**: Ripple-carry vs. carry-lookahead addition, arithmetic (sign-preserving) vs. logical right shifts, signed (SLT) vs. unsigned (SLTU) comparisons, and stateless always_comb logic-gate synthesis rules *(Harris & Harris (RISC-V Ed.), Ch. 1–2 & 5)*
+- [ ] **`brain-03`** — **32x32 CPU Register File & Instruction Constant Sign-Extender** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/brain/rtl/core/regfile.sv (dual-port read, clocked write, x0 hardwired zero register)`; `systems/brain/rtl/core/imm_gen.sv (extracts and sign-extends RISC-V I/S/B/U/J constant bit-fields)`; `systems/brain/tb/test_regfile_imm.py`
   - **Verify**: `make -C systems/brain/tb MODULE=test_regfile_imm`
-  - **First Principles**: Edge-triggered flip-flops, non-blocking (<=) sequential semantics, setup/hold timing equation (T_clk >= t_pcq + t_pd + t_setup), and LUTRAM vs. register inference *(Harris & Harris (RISC-V Ed.), Ch. 3–4)*
-- [ ] **`brain-04`** — **Clock-Domain Synchronizer, Reset Conditioner & 16x-Oversampled UART** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/brain/rtl/periph/cdc_sync.sv (2-FF metastability synchronizer + reset bridge)`; `systems/brain/rtl/periph/uart.sv (115200/2M baud TX/RX with 16x oversampling & small FIFO)`; `systems/brain/rtl/uart_echo_top.sv (standalone bitstream wrapper for Tang Primer 20K)`; `systems/brain/tb/test_uart.py`
+  - **First Principles**: Clock-edge flip-flop storage, non-blocking (<=) synchronous assignment, why signal propagation must beat the clock period (T_clk >= t_pcq + t_pd + t_setup), and FPGA lookup-table RAM vs. flip-flop synthesis *(Harris & Harris (RISC-V Ed.), Ch. 3–4)*
+- [ ] **`brain-04`** — **Cross-Clock Synchronizer, Clean Reset & 16x-Oversampled Serial Console (UART)** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/brain/rtl/periph/cdc_sync.sv (two-flip-flop synchronizer preventing half-voltage glitches across unsynchronized wires + clean reset bridge)`; `systems/brain/rtl/periph/uart.sv (115200/2M baud serial transmitter/receiver with 16x oversampling & small byte FIFO buffers)`; `systems/brain/rtl/uart_echo_top.sv (standalone FPGA bitstream wrapper for Tang Primer 20K)`; `systems/brain/tb/test_uart.py`
   - **Verify**: `make -C systems/brain/tb MODULE=test_uart && yosys -p "synth_gowin -top uart_echo_top" systems/brain/rtl/uart_echo_top.sv systems/brain/rtl/periph/*.sv`
-  - **First Principles**: Metastability Mean Time Between Failures (MTBF), asynchronous serial start/stop framing, and 16x center-bit clock drift tolerance *(Harris & Harris (RISC-V Ed.), Ch. 3.5 (Timing & Metastability))*
-- [ ] **`brain-05`** — **Bench 1: Order Tang Primer 20K + Logic Analyzer & Flash UART Echo** *(🔧 Bench · ⬜ Pending)*
-  - **Deliverables**: `Procure Sipeed Tang Primer 20K Dock + Core SOM ($45) and 8-ch USB logic analyzer ($15)`; `Flash uart_echo_top bitstream onto Tang Primer 20K and capture live serial frames in PulseView`
+  - **First Principles**: Why reading an asynchronous pin can leave a flip-flop undecided (metastability MTBF), serial start/stop byte framing, and sampling each bit 16x to tolerate clock drift *(Harris & Harris (RISC-V Ed.), Ch. 3.5 (Timing & Metastability))*
+- [ ] **`brain-05`** — **Bench 1: Order Tang Primer 20K FPGA + Logic Analyzer & Flash Serial Echo** *(🔧 Bench · ⬜ Pending)*
+  - **Deliverables**: `Order Sipeed Tang Primer 20K Dock + Core plug-in FPGA module ($45) and 8-ch USB digital waveform analyzer ($15)`; `Flash uart_echo_top bitstream onto Tang Primer 20K and capture live serial frames in PulseView`
   - **Verify**: `Serial terminal echoes typed characters cleanly at 115200 baud and logic analyzer decodes valid 8N1 UART timing`
-  - **First Principles**: Connecting virtual RTL timing waveforms to physical 3.3V logic voltages and baud clock accuracy *(systems/brain/pcb/BOM.md (Order 1))*
+  - **First Principles**: Connecting simulated logic-gate waveforms to physical 3.3V copper pins and baud clock accuracy *(systems/brain/pcb/BOM.md (Order 1))*
 
 #### Phase 2: Basic RISC-V CPU, AI Multiplier & Interrupt Handling
 
-- [ ] **`brain-06`** — **Instruction Decoder & Branch Condition Comparator** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/brain/rtl/core/decoder.sv (decodes RV32IM, Zicsr, and custom-0 mac into typed control bundle)`; `systems/brain/rtl/core/branch_unit.sv (beq/bne/blt/bge/bltu/bgeu)`; `systems/brain/tb/test_decoder.py`
+- [ ] **`brain-06`** — **Instruction Decoder & Conditional Branch Comparator** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/brain/rtl/core/decoder.sv (translates RV32IM, Zicsr, and custom-0 mac opcodes into typed control signals)`; `systems/brain/rtl/core/branch_unit.sv (evaluates beq/bne/blt/bge/bltu/bgeu branch conditions)`; `systems/brain/tb/test_decoder.py`
   - **Verify**: `make -C systems/brain/tb MODULE=test_decoder`
-  - **First Principles**: Control-path truth tables, illegal-instruction trap detection, and PC+4 vs. branch/JAL/JALR target muxing *(Harris & Harris (RISC-V Ed.), Ch. 7.2)*
-- [ ] **`brain-07`** — **Byte/Halfword/Word Load-Store Aligner & Synchronous BRAM** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/brain/rtl/core/lsu.sv (lb/lbu/lh/lhu/lw/sb/sh/sw lane shifting & byte-enable strobes)`; `systems/brain/rtl/mem/bram_32k.sv (FPGA block-RAM inference)`; `systems/brain/tb/test_lsu.py`
+  - **First Principles**: Control-path decoding truth tables, catching invalid machine instructions as hardware traps, and choosing next PC (PC+4 vs. branch/jump target) *(Harris & Harris (RISC-V Ed.), Ch. 7.2)*
+- [ ] **`brain-07`** — **Byte/Halfword/Word Memory Aligner & On-Chip Block RAM (BRAM)** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/brain/rtl/core/lsu.sv (Load-Store Unit handling lb/lbu/lh/lhu/lw/sb/sh/sw lane alignment & byte-write masks)`; `systems/brain/rtl/mem/bram_32k.sv (inferred fast on-chip FPGA Block RAM)`; `systems/brain/tb/test_lsu.py`
   - **Verify**: `make -C systems/brain/tb MODULE=test_lsu`
-  - **First Principles**: Little-endian byte addressing, 4-bit write-enable masks, sign- vs. zero-extension on loads, and misaligned-access detection *(Harris & Harris (RISC-V Ed.), Ch. 6.2 & 7.3)*
-- [ ] **`brain-08`** — **Single-Cycle RV32I Core & 10k-Instruction Lockstep Differential Test** *(🛋️ Couch · ⬜ Pending)*
+  - **First Principles**: Little-endian byte ordering inside 32-bit memory words, 4-bit partial-word write masks, sign- vs. zero-extension on loads, and misaligned-address trap detection *(Harris & Harris (RISC-V Ed.), Ch. 6.2 & 7.3)*
+- [ ] **`brain-08`** — **Single-Cycle RISC-V Core & 10k-Instruction Lockstep Verification** *(🛋️ Couch · ⬜ Pending)*
   - **Deliverables**: `systems/brain/rtl/core/cpu_single_cycle.sv`; `systems/brain/tb/test_single_cycle.py (runs 10,000 random & directed RV32I instructions lockstep against rv32_oracle.py)`
   - **Verify**: `make -C systems/brain/tb MODULE=test_single_cycle`
-  - **First Principles**: Single-cycle datapath composition and understanding why memory-read -> ALU -> regfile limits clock frequency *(Harris & Harris (RISC-V Ed.), Ch. 7.3)*
-- [ ] **`brain-09`** — **Sequential Hardware Multiplier & Divider (RV32M)** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/brain/rtl/core/muldiv.sv (32-cycle radix-2 mul/mulh/mulhsu/mulhu/div/divu/rem/remu with valid/ready handshake)`; `systems/brain/tb/test_muldiv.py (corner cases: INT_MIN / -1, div-by-zero per RISC-V spec, signed/unsigned cross-products)`
+  - **First Principles**: Composing fetch -> decode -> execute -> memory -> writeback in one clock tick and understanding why that long chain caps clock frequency *(Harris & Harris (RISC-V Ed.), Ch. 7.3)*
+- [ ] **`brain-09`** — **Multi-Cycle Hardware Multiplier & Divider (RV32M)** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/brain/rtl/core/muldiv.sv (32-cycle shift-and-add multiplier & divider with valid/ready backpressure handshake)`; `systems/brain/tb/test_muldiv.py (corner cases: INT_MIN / -1, divide-by-zero per RISC-V spec, signed/unsigned cross-products)`
   - **Verify**: `make -C systems/brain/tb MODULE=test_muldiv`
-  - **First Principles**: Shift-and-add multiplication vs. restoring binary division, and multi-cycle busy/ready backpressure *(Harris & Harris (RISC-V Ed.), Ch. 5.2)*
+  - **First Principles**: Binary shift-and-add multiplication vs. restoring division, and stalling the CPU via valid/ready handshakes when an operation takes multiple clock ticks *(Harris & Harris (RISC-V Ed.), Ch. 5.2)*
 - [ ] **`brain-10`** — **Custom Neural Fixed-Point Dot-Product Unit (Xapex mac Instruction)** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/brain/rtl/core/mac_unit.sv (packed dual-int16 SIMD multiply-accumulate into 32-bit/64-bit accumulator using Gowin DSP blocks)`; `systems/brain/tb/test_mac_unit.py (verifies quantized MLP layer dot-products vs. NumPy int16 reference)`
+  - **Deliverables**: `systems/brain/rtl/core/mac_unit.sv (packed dual-int16 SIMD multiply-accumulate into 32/64-bit accumulator mapped onto FPGA hardware DSP multiplier blocks)`; `systems/brain/tb/test_mac_unit.py (verifies quantized neural-layer dot-products bit-for-bit vs. NumPy int16 reference)`
   - **Verify**: `make -C systems/brain/tb MODULE=test_mac_unit`
-  - **First Principles**: Hardware-software co-design: why a single SIMD MAC instruction cuts neural quadruped inference from ~25 ms to < 0.6 ms *(Harris & Harris (RISC-V Ed.), Ch. 5.5 (DSP Blocks))*
-- [ ] **`brain-11`** — **Machine-Mode Privileged CSRs & 64-Bit CLINT Timer** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/brain/rtl/core/csr_file.sv (mstatus, mie, mip, mtvec, mepc, mcause, mtval, mscratch, mcycle, minstret)`; `systems/brain/rtl/periph/clint.sv (64-bit mtime & mtimecmp memory-mapped timer interrupt)`; `systems/brain/tb/test_csr_clint.py`
+  - **First Principles**: Hardware-software co-design: why packing two 16-bit multiply-adds into one custom instruction cuts walking-network runtime from ~25 ms to < 0.6 ms *(Harris & Harris (RISC-V Ed.), Ch. 5.5 (DSP Blocks))*
+- [ ] **`brain-11`** — **Privileged Control/Status Registers (CSRs) & 64-Bit Cycle Timer (CLINT)** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/brain/rtl/core/csr_file.sv (machine-mode registers: mstatus, mie, mip, mtvec, mepc, mcause, mtval, mscratch, mcycle, minstret)`; `systems/brain/rtl/periph/clint.sv (64-bit mtime & mtimecmp memory-mapped timer interrupt alarm)`; `systems/brain/tb/test_csr_clint.py`
   - **Verify**: `make -C systems/brain/tb MODULE=test_csr_clint`
-  - **First Principles**: Atomic CSR read-modify-write semantics, interrupt vectoring (mtvec), mret privilege restoration, and hardware IPC counters *(RISC-V Privileged Spec Vol. II, Ch. 3 (Machine-Level ISA))*
+  - **First Principles**: Atomic control-register read-modify-write semantics, jumping to trap handlers (mtvec), returning via mret, and hardware performance counters (mcycle/minstret) *(RISC-V Privileged Spec Vol. II, Ch. 3 (Machine-Level ISA))*
 
 #### Phase 3: 5-Stage Pipelined Processor & FPGA Timing Closure
 
-- [ ] **`brain-12`** — **5-Stage Pipeline Registers (IF/ID, ID/EX, EX/MEM, MEM/WB)** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/brain/rtl/core/cpu_pipelined.sv (base 5-stage datapath skeleton with per-stage stall/flush ports)`; `systems/brain/tb/test_pipeline_nop.py (verifies instruction flow with NOP spacing)`
+- [ ] **`brain-12`** — **5-Stage Pipelined CPU Skeleton (IF/ID, ID/EX, EX/MEM, MEM/WB)** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/brain/rtl/core/cpu_pipelined.sv (5-stage instruction assembly line with per-stage stall and flush controls)`; `systems/brain/tb/test_pipeline_nop.py (verifies instruction flow with NOP spacing)`
   - **Verify**: `make -C systems/brain/tb MODULE=test_pipeline_nop`
-  - **First Principles**: Pipelining throughput vs. latency, balancing combinational delay across 5 clock stages, and synchronous bubble insertion *(Harris & Harris (RISC-V Ed.), Ch. 7.5)*
-- [ ] **`brain-13`** — **Data Forwarding Network (EX/MEM & MEM/WB Bypass Muxes)** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/brain/rtl/core/forwarding_unit.sv`; `Wire bypass muxes into systems/brain/rtl/core/cpu_pipelined.sv`; `systems/brain/tb/test_forwarding.py (back-to-back ALU-to-ALU, ALU-to-store & double-hazard priority tests)`
+  - **First Principles**: Throughput vs. latency in a 5-stage CPU pipeline, slicing combinational logic delay evenly across clock cycles, and inserting harmless bubbles *(Harris & Harris (RISC-V Ed.), Ch. 7.5)*
+- [ ] **`brain-13`** — **Pipeline Data Forwarding Network (Bypass Muxes)** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/brain/rtl/core/forwarding_unit.sv`; `Wire bypass multiplexers into systems/brain/rtl/core/cpu_pipelined.sv`; `systems/brain/tb/test_forwarding.py (back-to-back ALU-to-ALU, ALU-to-store & double-hazard priority tests)`
   - **Verify**: `make -C systems/brain/tb MODULE=test_forwarding`
-  - **First Principles**: Read-After-Write (RAW) data hazards and why EX/MEM must take priority over MEM/WB when both write the same register *(Harris & Harris (RISC-V Ed.), Ch. 7.5.3)*
-- [ ] **`brain-14`** — **Hazard Controller (Load-Use Stall, Multi-Cycle Busy & Trap/Branch Flush)** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/brain/rtl/core/hazard_unit.sv`; `Integrate load-use, muldiv/bus stall, branch flush, and precise CSR interrupt/trap flush in cpu_pipelined.sv`; `systems/brain/tb/test_hazards.py`
+  - **First Principles**: Read-After-Write (RAW) data dependencies across adjacent instructions and why newer EX/MEM results must override older MEM/WB results *(Harris & Harris (RISC-V Ed.), Ch. 7.5.3)*
+- [ ] **`brain-14`** — **Pipeline Hazard Controller (Load-Use Stalls, Multi-Cycle Busy & Trap Flushes)** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/brain/rtl/core/hazard_unit.sv`; `Integrate load-use, multiplier/bus wait-state stalls, branch flush, and precise CSR interrupt/trap flush in cpu_pipelined.sv`; `systems/brain/tb/test_hazards.py`
   - **Verify**: `make -C systems/brain/tb MODULE=test_hazards`
-  - **First Principles**: Why a load-use dependency requires a 1-cycle bubble even with forwarding, and how precise exceptions flush younger instructions cleanly *(Harris & Harris (RISC-V Ed.), Ch. 7.5.3–7.5.4)*
-- [ ] **`brain-15`** — **100k-Instruction Randomized Hazard & Async Interrupt Torture Test** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/brain/tb/test_cpu_torture.py (100k randomized RV32IM+MAC instructions + async CLINT interrupts + bus wait states vs. rv32_oracle.py)`
+  - **First Principles**: Why reading from memory followed immediately by using that register needs a 1-cycle stall even with bypass wires, and cleanly canceling speculatively fetched instructions on branches or interrupts *(Harris & Harris (RISC-V Ed.), Ch. 7.5.3–7.5.4)*
+- [ ] **`brain-15`** — **100k-Instruction Randomized Hazard & Async Interrupt Stress Test** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/brain/tb/test_cpu_torture.py (100k randomized RV32IM+MAC instructions + async timer interrupts + random bus wait states vs. rv32_oracle.py)`
   - **Verify**: `make -C systems/brain/tb MODULE=test_cpu_torture`
-  - **First Principles**: Retire-commit lockstep differential verification, measuring effective CPI = 1 + stalls/instruction, and catching subtle trap-vs-branch races *(Harris & Harris (RISC-V Ed.), Ch. 7.5)*
-- [ ] **`brain-16`** — **FPGA Synthesis, Resource Utilization & Static Timing Closure (GW2A-18)** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/brain/scripts/synth_core.sh (Yosys + nextpnr-himbaechel timing-driven P&R for Tang Primer 20K)`; `Critical-path optimization pass in RTL if f_max < 50 MHz`
+  - **First Principles**: Instruction-retirement lockstep comparison, measuring effective Cycles Per Instruction (CPI = 1 + stalls/instruction), and catching subtle interrupt-vs-branch race conditions *(Harris & Harris (RISC-V Ed.), Ch. 7.5)*
+- [ ] **`brain-16`** — **FPGA Logic Compilation (Synthesis), Chip Utilization & 50 MHz Timing Closure** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/brain/scripts/synth_core.sh (Yosys logic synthesis + nextpnr-himbaechel timing-driven placement/routing for Tang Primer 20K GW2A-18)`; `Critical-path optimization pass in RTL if max clock speed f_max < 50 MHz`
   - **Verify**: `bash systems/brain/scripts/synth_core.sh (achieves f_max >= 50 MHz with positive timing slack and <= 65% LUT4 utilization)`
-  - **First Principles**: LUT4/DFF mapping, routing delay vs. logic delay, static timing slack reports, and CMOS dynamic switching power P = alpha * C * V^2 * f *(Harris & Harris (RISC-V Ed.), Ch. 5.6)*
+  - **First Principles**: How SystemVerilog compiles into 4-input lookup tables (LUT4s) and flip-flops, wire routing delay vs. logic delay, timing margin (slack), and dynamic chip power P = alpha * C * V^2 * f *(Harris & Harris (RISC-V Ed.), Ch. 5.6)*
 
 #### Phase 4: 6-Layer Circuit Board Design & Factory Launch
 
-- [ ] **`brain-17`** — **Spine Carrier Pinout Freeze & Buck Power-Tree Design** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/brain/pcb/pinout_gw2a.csv (locked SODIMM-204 pin assignments for SDRAM, QSPI, Dual CAN-FD, SPI IMU, Sync, UART, Logic Header)`; `systems/brain/pcb/power_budget.py (computes TPS563201 inductor ripple, output cap ESR/capacitance, USB-C CC resistors & 5V/3.3V thermal dissipation)`
+- [ ] **`brain-17`** — **Spine Board Pin Assignments & Step-Down (Buck) Power Regulator Design** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/brain/pcb/pinout_gw2a.csv (locked 204-pin SOM edge-socket pinout for SDRAM, QSPI Flash, Dual CAN-FD, SPI motion sensor, camera sync, UART & debug header)`; `systems/brain/pcb/power_budget.py (sizes TPS563201 3.3V step-down buck inductor ripple, output capacitor internal resistance/ESR, USB-C 5V negotiation resistors & heat dissipation)`
   - **Verify**: `python3 systems/brain/pcb/power_budget.py --verify`
-  - **First Principles**: Inductor volt-second balance (V = L dI/dt), capacitor ripple (I = C dV/dt), synchronous buck efficiency, and USB-C 5.1k pull-down negotiation *(Erickson & Maksimovic, Ch. 2; Alexander & Sadiku, Ch. 6–7)*
-- [ ] **`brain-18`** — **6-Layer JLC06161H-3313 Stackup & Signal-Integrity / PDN Solver** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/brain/pcb/calc_si_pdn.py (computes 50-ohm microstrip/stripline trace widths, critical rise-time length, reflection coeff Gamma, and decoupling target impedance)`
+  - **First Principles**: How fast transistor switching smoothed by an inductor and capacitor steps 5V down to 3.3V efficiently (V = L dI/dt, I = C dV/dt), plus USB-C 5.1 kOhm power negotiation *(Erickson & Maksimovic, Ch. 2; Alexander & Sadiku, Ch. 6–7)*
+- [ ] **`brain-18`** — **6-Layer Circuit Board Stackup, Signal-Integrity & Power-Cache (PDN) Solver** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/brain/pcb/calc_si_pdn.py (computes 50-ohm copper trace widths, critical rise-time length before reflections occur, echo coefficient Gamma, and decoupling capacitor network impedance)`
   - **Verify**: `python3 systems/brain/pcb/calc_si_pdn.py --verify`
-  - **First Principles**: Transmission line impedance Z0 = sqrt(L'/C'), critical length l_crit = t_r / (2*t_pd), reflection Gamma = (ZL - Z0)/(ZL + Z0), and via loop inductance *(Clayton Paul, Introduction to Electromagnetic Compatibility, Ch. 4–5)*
-- [ ] **`brain-19`** — **Programmatic KiCad Schematic 1: Power Rails, Decoupling & SOM Socket** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/brain/pcb/gen_sch_power_som.py (generates USB-C + 5V spine ORing, TPS563201 3.3V buck, decoupling caps & SODIMM-204 SOM schematic sheets + SVG preview)`
+  - **First Principles**: Why fast digital edges travel along copper traces as electromagnetic waves (Z0 = sqrt(L'/C')), reflections at mismatched ends Gamma = (ZL - Z0)/(ZL + Z0), and why local capacitors act as an L1 charge cache *(Clayton Paul, Introduction to Electromagnetic Compatibility, Ch. 4–5)*
+- [ ] **`brain-19`** — **Programmatic KiCad Schematic 1: Power Rails, Charge-Cache Caps & FPGA Socket** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/brain/pcb/gen_sch_power_som.py (generates USB-C + 5V spine power-ORing, TPS563201 3.3V buck regulator, decoupling capacitors & 204-pin FPGA SOM socket schematic + SVG preview)`
   - **Verify**: `python3 systems/brain/pcb/gen_sch_power_som.py && kicad-cli sch erc --exit-code-violations systems/brain/pcb/brain_carrier.kicad_sch`
-  - **First Principles**: Return-current paths for high-speed digital ICs, multi-decade MLCC decoupling, and Kelvin-sensed buck feedback layout *(Clayton Paul, Ch. 6 & 9; Dalmaris, KiCad Like a Pro)*
-- [ ] **`brain-20`** — **Programmatic KiCad Schematic 2: SDRAM, QSPI, Dual CAN-FD, IMU & TDR Coupons** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/brain/pcb/gen_sch_periph.py (adds W9825G6KH SDRAM, W25Q128 QSPI, Dual TCAN1044V CAN-FD w/ 120-ohm termination, ICM-42688-P IMU, camera sync buffer, USB-UART & dual SMA TDR coupons)`
+  - **First Principles**: High-frequency current return paths under chips, multi-decade ceramic capacitor charge caches (MLCC decoupling), and zero-current voltage-sense routing (Kelvin feedback) *(Clayton Paul, Ch. 6 & 9; Dalmaris, KiCad Like a Pro)*
+- [ ] **`brain-20`** — **Programmatic KiCad Schematic 2: RAM, Flash, Dual CAN-FD, IMU & Trace-Echo Coupons** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/brain/pcb/gen_sch_periph.py (adds W9825G6KH 32MB SDRAM, W25Q128 16MB QSPI Flash, dual TCAN1044V CAN-FD drivers w/ 120-ohm termination, ICM-42688-P motion sensor, camera sync buffer, USB-UART & dual SMA coax test coupons)`
   - **Verify**: `python3 systems/brain/pcb/gen_sch_periph.py && kicad-cli sch erc --exit-code-violations systems/brain/pcb/brain_carrier.kicad_sch`
-  - **First Principles**: Source-series damping resistors, differential CAN termination, SPI signal loading, and how a deliberate ground-slot test coupon visualizes return-path inductance *(Clayton Paul, Ch. 5 & 11)*
-- [ ] **`brain-21`** — **6-Layer Controlled-Impedance PCB Layout, Length Matching & Layer SVGs** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/brain/pcb/gen_layout.py (places components, enforces unbroken L2/L6 GND planes, routes length-matched 50-ohm SDRAM/QSPI, 120-ohm CAN pairs & dual SMA TDR coupons, exports per-layer SVGs)`
+  - **First Principles**: Series damping resistors that tame signal ringing, 120-ohm differential bus echo termination, and building an intentional ground-slot test coupon to visualize return-path inductance *(Clayton Paul, Ch. 5 & 11)*
+- [ ] **`brain-21`** — **6-Layer Controlled-Impedance Copper Layout, Length Matching & Layer SVGs** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/brain/pcb/gen_layout.py (places chips, enforces unbroken L2/L6 ground reference planes, routes length-matched 50-ohm SDRAM/QSPI traces, 120-ohm CAN pairs & SMA test coupons, exports per-layer SVGs)`
   - **Verify**: `python3 systems/brain/pcb/gen_layout.py --verify-lengths`
-  - **First Principles**: Stackup symmetry (Sig/GND/Sig/Sig/PWR/GND), crosstalk 3W spacing rules, clock-to-DQ skew budgets, and stitching vias near layer transitions *(Clayton Paul, Ch. 9 & 11)*
-- [ ] **`brain-22`** — **Automated KiCad DRC, JLCPCB PCBA Exports & 35-Point Pre-Fab Audit** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/brain/pcb/REVIEW_CHECKLIST.md (completed 35-point schematic/layout audit)`; `systems/brain/pcb/export_fab.sh (runs KiCad DRC, generates Gerbers, drill files, JLC BOM & CPL pick-and-place CSV)`
+  - **First Principles**: 6-layer stackup symmetry (Signal/Ground/Signal/Signal/Power/Ground), 3x-trace-width spacing to prevent crosstalk, clock-to-data skew budgets, and return-path stitching vias at layer jumps *(Clayton Paul, Ch. 9 & 11)*
+- [ ] **`brain-22`** — **Automated Board Design-Rule Check (DRC), Factory Exports & 35-Point Audit** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/brain/pcb/REVIEW_CHECKLIST.md (completed 35-point schematic and copper-layout audit)`; `systems/brain/pcb/export_fab.sh (runs KiCad DRC, generates Gerber copper/mask layers, drill files, JLCPCB parts BOM & pick-and-place CPL rotation CSV)`
   - **Verify**: `kicad-cli pcb drc --exit-code-violations systems/brain/pcb/brain_carrier.kicad_pcb && bash systems/brain/pcb/export_fab.sh`
-  - **First Principles**: Design-for-Manufacturing (DFM) clearances, solder-mask dams, thermal reliefs, and turnkey PCBA rotation/polarity verification *(Dalmaris, KiCad Like a Pro, Part 7–8)*
-- [ ] **`brain-23`** — **Bench 2 (Fab Trigger): Order 6-Layer JLCPCB Spine PCBA & LiteVNA 64** *(🔧 Bench · ⬜ Pending)*
-  - **Deliverables**: `Upload fab zip + BOM + CPL to JLCPCB selecting JLC06161H-3313 6-layer controlled-impedance stackup`; `Order LiteVNA 64 + SMA Open/Short/Load calibration kit (fabricates/ships while Phases 5–7 run on the couch)`
-  - **Verify**: `JLCPCB DFM preview passes with verified component polarities and controlled-impedance confirmation`
-  - **First Principles**: Supply-chain critical-path pipelining and real-world fab engineering tolerances *(systems/brain/pcb/BOM.md (Order 2))*
+  - **First Principles**: Design-for-Manufacturing (DFM) copper clearances, solder-mask bridges preventing shorts between tight pins, thermal-relief spokes, and verifying chip Pin-1 orientation before factory assembly *(Dalmaris, KiCad Like a Pro, Part 7–8)*
+- [ ] **`brain-23`** — **Bench 2 (Fab Trigger): Order 6-Layer Factory Spine Boards & LiteVNA 64** *(🔧 Bench · ⬜ Pending)*
+  - **Deliverables**: `Upload fab zip + parts BOM + placement CPL to JLCPCB selecting the JLC06161H-3313 6-layer controlled-impedance stackup`; `Order LiteVNA 64 network analyzer + SMA Open/Short/Load calibration plugs (board manufactures/ships while Phases 5–7 run in simulation)`
+  - **Verify**: `JLCPCB online 3D/DFM preview passes with verified chip Pin-1 polarities and controlled-impedance confirmation`
+  - **First Principles**: Pipelining hardware manufacturing lead time alongside virtual simulation & compiler work *(systems/brain/pcb/BOM.md (Order 2))*
 
 #### Phase 5: External RAM/Flash Controllers & Robot Motor/Sensor Ports
 
-- [ ] **`brain-24`** — **Memory-Mapped SoC Crossbar & Bus Arbitrator** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/brain/rtl/soc/soc_bus.sv (valid/ready wait-state bus routing Boot ROM, BRAM, SDRAM, QSPI, CLINT, UART, SPI-IMU, Dual CAN-FD, Sync & GPIO)`; `systems/brain/tb/test_soc_bus.py`
+- [ ] **`brain-24`** — **Memory-Mapped System Bus Crossbar & Wait-State Arbitrator** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/brain/rtl/soc/soc_bus.sv (valid/ready wait-state interconnect routing Boot ROM, BRAM, SDRAM, QSPI Flash, CLINT timer, UART, SPI IMU, Dual CAN-FD, Sync & GPIO)`; `systems/brain/tb/test_soc_bus.py`
   - **Verify**: `make -C systems/brain/tb MODULE=test_soc_bus`
-  - **First Principles**: Address-map decoding, split-cycle wait states for slow external peripherals, and bus deadlock prevention *(Harris & Harris (RISC-V Ed.), Ch. 8.5)*
-- [ ] **`brain-25`** — **QSPI NOR Flash Controller & Behavioral Flash Model** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/brain/rtl/mem/qspi_ctrl.sv (memory-mapped Quad-SPI read/XIP & command engine)`; `systems/brain/tb/models/w25q128_model.sv & systems/brain/tb/test_qspi.py`
+  - **First Principles**: Address-range decoding (turning pointer addresses into chip selects), multi-cycle wait states for slow off-chip peripherals, and preventing bus protocol deadlocks *(Harris & Harris (RISC-V Ed.), Ch. 8.5)*
+- [ ] **`brain-25`** — **Quad-SPI (QSPI) Persistent Flash Controller & Behavioral Chip Model** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/brain/rtl/mem/qspi_ctrl.sv (memory-mapped 4-wire-parallel Flash read/Execute-In-Place & command engine)`; `systems/brain/tb/models/w25q128_model.sv & systems/brain/tb/test_qspi.py`
   - **Verify**: `make -C systems/brain/tb MODULE=test_qspi`
-  - **First Principles**: Quad-I/O bidirectional tristate turnaround cycles, SPI Mode 0/3 clock phase, and Flash-to-RAM copy bootloading *(W25Q128JV Datasheet Timing Diagrams)*
-- [ ] **`brain-26`** — **16-Bit SDR SDRAM Controller & Behavioral SDRAM Model** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/brain/rtl/mem/sdram_ctrl.sv (100 us init, auto-precharge, row-hit/miss bank state machine, 32-bit 2-beat bursts & 64 ms refresh scheduler)`; `systems/brain/tb/models/sdr_sdram_model.sv & systems/brain/tb/test_sdram.py`
+  - **First Principles**: Bidirectional 4-bit serial I/O pin direction turnaround cycles, SPI clock-phase conventions, and copying persistent Flash programs into fast RAM on boot *(W25Q128JV Datasheet Timing Diagrams)*
+- [ ] **`brain-26`** — **16-Bit External Dynamic RAM (SDRAM) Controller & Behavioral Chip Model** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/brain/rtl/mem/sdram_ctrl.sv (100 us power-on init, auto-precharge, bank/row state machine, 32-bit 2-beat bursts & 64 ms refresh scheduler)`; `systems/brain/tb/models/sdr_sdram_model.sv & systems/brain/tb/test_sdram.py`
   - **Verify**: `make -C systems/brain/tb MODULE=test_sdram`
-  - **First Principles**: Why DRAM cells leak charge and require 8192 refreshes per 64 ms, row activation (t_RCD), CAS latency, and precharge (t_RP) timing *(W9825G6KH-6 Datasheet State Diagram & Timing Spec)*
-- [ ] **`brain-27`** — **Robot Spine Peripherals: SPI IMU Master, Sub-us Sync Trigger & CAN-FD Engine** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/brain/rtl/periph/spi_master.sv (for 1 kHz ICM-42688-P bursts)`; `systems/brain/rtl/periph/sync_trigger.sv (sub-microsecond camera exposure pulse + mtime latching)`; `systems/brain/rtl/periph/can_ctrl.sv (lightweight CAN/CAN-FD TX/RX frame engine with bit-stuffing & CRC-15/17)`; `systems/brain/tb/test_spine_periphs.py`
+  - **First Principles**: Why DRAM capacitor cells leak charge and require 8,192 refreshes every 64 ms, row-opening latency (t_RCD), column CAS latency, and closing rows (t_RP) *(W9825G6KH-6 Datasheet State Diagram & Timing Spec)*
+- [ ] **`brain-27`** — **Robot Spine Peripherals: Motion Sensor SPI, Sub-µs Camera Sync & CAN-FD Engine** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/brain/rtl/periph/spi_master.sv (for 1 kHz ICM-42688-P motion-sensor bursts)`; `systems/brain/rtl/periph/sync_trigger.sv (sub-microsecond camera exposure pulse + exact mtime clock latch)`; `systems/brain/rtl/periph/can_ctrl.sv (lightweight CAN/CAN-FD TX/RX packet engine with bit-stuffing & CRC-15/17 error checks)`; `systems/brain/tb/test_spine_periphs.py`
   - **Verify**: `make -C systems/brain/tb MODULE=test_spine_periphs`
-  - **First Principles**: Cyclic redundancy checks (polynomial division over GF(2)), NRZ bit-stuffing & resynchronization, and deterministic sensor timestamping *(Bosch CAN-FD Specification & ICM-42688-P SPI Timing)*
-- [ ] **`brain-28`** — **Full SoC Top Integration, PLL Clocking & QSPI-to-SDRAM Boot Simulation** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/brain/rtl/soc_top.sv (connects pipelined RV32IM+MAC core, PLL phase-shifted SDRAM clock, Boot ROM & all peripherals)`; `systems/brain/tb/test_soc_boot.py (simulates power-on reset -> Boot ROM -> QSPI read -> SDRAM execute -> UART print)`
+  - **First Principles**: Cyclic redundancy checks (polynomial division mod 2), automatic edge injection (bit-stuffing) to keep receiver clocks locked without a separate clock wire, and hardware sensor timestamping *(Bosch CAN-FD Specification & ICM-42688-P SPI Timing)*
+- [ ] **`brain-28`** — **Full System-on-Chip (SoC) Integration, PLL Clocking & Flash-to-RAM Boot Sim** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/brain/rtl/soc_top.sv (connects pipelined RV32IM+MAC core, PLL phase-shifted SDRAM clock, Boot ROM & all peripherals)`; `systems/brain/tb/test_soc_boot.py (simulates power-on reset -> Boot ROM -> QSPI Flash read -> SDRAM execute -> UART print)`
   - **Verify**: `make -C systems/brain/tb MODULE=test_soc_boot && bash systems/brain/scripts/synth_soc.sh`
-  - **First Principles**: Phase-shifted SDRAM clock generation to center data valid windows inside FPGA input setup/hold limits *(Harris & Harris (RISC-V Ed.), Ch. 8)*
-- [ ] **`brain-29`** — **Bench 3: Synthesize & Boot Full SoC (BRAM Mode) on Tang Primer 20K Dock** *(🔧 Bench · ⬜ Pending)*
-  - **Deliverables**: `Flash soc_top bitstream (BRAM boot mode) to Tang Primer 20K Dock`; `Verify UART banner, CLINT timer tick & hardware mcycle/minstret IPC readout`
-  - **Verify**: `Dock boots over USB-UART printing live IPC counter values and passing interactive serial echo`
-  - **First Principles**: Observing real FPGA clock frequency and peripheral behavior on physical hardware before custom PCB arrival *(systems/brain/README.md)*
+  - **First Principles**: Using a Phase-Locked Loop (PLL) to phase-shift the external SDRAM clock so data transitions land cleanly in the center of the FPGA's capture window *(Harris & Harris (RISC-V Ed.), Ch. 8)*
+- [ ] **`brain-29`** — **Bench 3: Compile & Boot Full System-on-Chip (On-Chip RAM) on Starter FPGA Dock** *(🔧 Bench · ⬜ Pending)*
+  - **Deliverables**: `Flash soc_top bitstream (on-chip BRAM boot mode) to Tang Primer 20K Dock`; `Verify USB serial banner, CLINT timer tick & hardware mcycle/minstret instructions-per-cycle readout`
+  - **Verify**: `Dock boots over USB serial printing live hardware IPC counter values and passing interactive serial echo`
+  - **First Principles**: Observing real FPGA clock speed and peripheral behavior on physical silicon before the custom 6-layer board arrives *(systems/brain/README.md)*
 
 #### Phase 6: From-Scratch C Compiler, Assembler & Linker
 
-- [ ] **`brain-30`** — **Custom Two-Pass RV32IM+Zicsr+MAC Assembler & Memory-Map Linker** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/brain/toolchain/asm_link.py (supports RV32IM, CSR ops, mac instruction, %hi/%lo relocations, .text/.rodata/.data/.bss sections & flat ROM/RAM images)`; `systems/brain/tb/test_asm_link.py`
+- [ ] **`brain-30`** — **From-Scratch Two-Pass RISC-V+MAC Assembler & Memory-Map Linker** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/brain/toolchain/asm_link.py (supports RV32IM, CSR ops, custom mac instruction, %hi/%lo address relocations, .text/.rodata/.data/.bss sections & flat ROM/RAM binaries)`; `systems/brain/tb/test_asm_link.py`
   - **Verify**: `uv run --with pytest pytest systems/brain/tb/test_asm_link.py`
-  - **First Principles**: Two-pass symbol resolution, PC-relative branch/JAL encoding limits, AUIPC+ADDI %hi/%lo splitting, and LMA-to-VMA data initialization *(Cooper & Torczon, Engineering a Compiler, Ch. 11–12)*
+  - **First Principles**: Two-pass forward label resolution, PC-relative branch jump-range encoding, splitting 32-bit addresses across AUIPC+ADDI (%hi/%lo), and copying initialized globals from Flash (LMA) to RAM (VMA) *(Cooper & Torczon, Engineering a Compiler, Ch. 11–12)*
 - [ ] **`brain-31`** — **SysC Lexer, Recursive-Descent Parser & Static Type Checker** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/brain/toolchain/sysc_lex_parse.py (supports int/uint/char/void, pointers, arrays, structs, volatile MMIO, while/for/if, functions, __mac_i16)`; `systems/brain/tb/test_sysc_parser.py`
+  - **Deliverables**: `systems/brain/toolchain/sysc_lex_parse.py (supports int/uint/char/void, pointers, arrays, structs, volatile hardware-register pointers, while/for/if, functions, __mac_i16)`; `systems/brain/tb/test_sysc_parser.py`
   - **Verify**: `uv run --with pytest pytest systems/brain/tb/test_sysc_parser.py`
-  - **First Principles**: Lexical DFAs, recursive-descent + Pratt operator precedence parsing, symbol scopes, and C pointer type compatibility *(Cooper & Torczon, Ch. 2–4)*
-- [ ] **`brain-32`** — **AST-to-Three-Address IR & Control-Flow Graph Lowering** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/brain/toolchain/sysc_ir.py (lowers AST to 3-address SSA-lite basic blocks, pointer stride arithmetic, struct field offsets & short-circuit branches)`; `systems/brain/tb/test_sysc_ir.py`
+  - **First Principles**: Tokenizing state machines (DFAs), recursive-descent + Pratt operator-precedence parsing, lexical symbol scopes, and C pointer type rules *(Cooper & Torczon, Ch. 2–4)*
+- [ ] **`brain-32`** — **AST-to-Three-Address Intermediate Representation (IR) & Control-Flow Graph** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/brain/toolchain/sysc_ir.py (lowers AST to 3-address SSA-lite basic blocks, pointer stride scaling, struct field offsets & short-circuit branches)`; `systems/brain/tb/test_sysc_ir.py`
   - **Verify**: `uv run --with pytest pytest systems/brain/tb/test_sysc_ir.py`
-  - **First Principles**: Basic blocks, control-flow graphs (CFGs), pointer scaling (p + i -> addr + i*sizeof(*p)), and stack-slot vs. virtual-register lowering *(Cooper & Torczon, Ch. 5 & 7)*
-- [ ] **`brain-33`** — **IR Optimization Passes (Constant Folding, Algebraic Simp & DCE)** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/brain/toolchain/sysc_opt.py (constant folding, strength reduction to shifts, copy propagation & dead-code elimination preserving volatile MMIO)`; `systems/brain/tb/test_sysc_opt.py`
+  - **First Principles**: Basic blocks, Control-Flow Graphs (CFGs), scaling pointer math (p + i -> addr + i*sizeof(*p)), and stack slots vs. virtual registers *(Cooper & Torczon, Ch. 5 & 7)*
+- [ ] **`brain-33`** — **Compiler Optimization Passes (Constant Folding, Strength Reduction & DCE)** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/brain/toolchain/sysc_opt.py (constant folding, multiply-to-shift strength reduction, copy propagation & dead-code elimination that respects volatile hardware I/O)`; `systems/brain/tb/test_sysc_opt.py`
   - **Verify**: `uv run --with pytest pytest systems/brain/tb/test_sysc_opt.py`
-  - **First Principles**: Iterative data-flow fixed points and why volatile memory accesses act as optimization barriers *(Cooper & Torczon, Ch. 8–10)*
+  - **First Principles**: Iterative data-flow fixed-point analysis and why volatile Memory-Mapped I/O reads/writes must act as unmovable optimization barriers *(Cooper & Torczon, Ch. 8–10)*
 - [ ] **`brain-34`** — **Liveness Analysis, Register Allocator & RV32IM+MAC Code Generator** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/brain/toolchain/sysc_codegen.py (backward liveness, linear-scan/graph allocator over t0–t6/s0–s11/a0–a7, prologue/epilogue stack frames & mac emission)`; `systems/brain/tb/test_sysc_codegen.py`
+  - **Deliverables**: `systems/brain/toolchain/sysc_codegen.py (backward liveness, linear-scan register allocator over t0–t6/s0–s11/a0–a7, stack-frame prologue/epilogue & mac instruction emission)`; `systems/brain/tb/test_sysc_codegen.py`
   - **Verify**: `uv run --with pytest pytest systems/brain/tb/test_sysc_codegen.py`
-  - **First Principles**: Live-range intervals, caller-saved vs. callee-saved ABI contracts, and spilling under register pressure *(Cooper & Torczon, Ch. 13)*
-- [ ] **`brain-35`** — **End-to-End Differential Compiler Torture Suite vs. Golden Oracle & Verilator** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/brain/toolchain/sysc.py (unified CLI driver)`; `systems/brain/tb/test_sysc_e2e.py (compiles recursion, structs, function pointers, MMIO drivers & mac dot-products; asserts bit-identical execution on Oracle and Verilator soc_top)`
+  - **First Principles**: Variable live-range intervals, caller-saved vs. callee-saved calling conventions (ABI), and spilling variables to stack RAM when registers run out *(Cooper & Torczon, Ch. 13)*
+- [ ] **`brain-35`** — **End-to-End Compiler Verification vs. Golden Emulator & Verilator Hardware** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/brain/toolchain/sysc.py (unified CLI compiler driver)`; `systems/brain/tb/test_sysc_e2e.py (compiles recursion, structs, function pointers, MMIO drivers & mac dot-products; asserts bit-identical execution on Python Oracle and Verilator soc_top)`
   - **Verify**: `uv run --with pytest pytest systems/brain/tb/test_sysc_e2e.py`
-  - **First Principles**: Translation validation: proving custom compiler semantics match hardware RTL bit-for-bit *(Cooper & Torczon, Ch. 12–13)*
+  - **First Principles**: Translation validation: proving custom compiler output runs bit-for-bit identically on both the software oracle and simulated SystemVerilog silicon *(Cooper & Torczon, Ch. 12–13)*
 
 #### Phase 7: Strict-Deadline Real-Time OS & Neural Walking Workload
 
-- [ ] **`brain-36`** — **Bare-Metal crt0 Startup, QSPI-to-SDRAM Bootloader & 31-Reg Trap Context Switcher** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/brain/rtos/crt0.S & systems/brain/rtos/boot_qspi.c (copies .data, zeroes .bss, loads RTOS image from QSPI to SDRAM)`; `systems/brain/rtos/trap.S (atomic 31-register + mepc save/restore via mscratch for preemptive scheduling)`; `systems/brain/tb/test_trap_switch.py`
+- [ ] **`brain-36`** — **Bare-Metal Startup (crt0), Flash-to-RAM Bootloader & 31-Reg Context Switcher** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/brain/rtos/crt0.S & systems/brain/rtos/boot_qspi.c (copies .data, zeroes .bss, loads RTOS image from QSPI Flash to 32MB SDRAM)`; `systems/brain/rtos/trap.S (atomic 31-register + mepc return-address save/restore via mscratch for preemptive multitasking)`; `systems/brain/tb/test_trap_switch.py`
   - **Verify**: `make -C systems/brain/tb MODULE=test_trap_switch`
-  - **First Principles**: Why every caller/callee register must be preserved across asynchronous preemption and how mscratch enables re-entrant stack swapping *(xv6-riscv, Ch. 4 (Traps and System Calls))*
-- [ ] **`brain-37`** — **Preemptive Priority Scheduler, Inheritance Mutexes & SPSC Ring Buffers in SysC** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/brain/rtos/kernel.c & rtos.h (fixed-priority + round-robin scheduler, mtimecmp tick sleep, priority-inheritance mutexes, lock-free SPSC UART/CAN ring buffers)`; `systems/brain/tb/test_rtos_scheduler.py`
+  - **First Principles**: Why every CPU register must be saved verbatim across asynchronous interrupts and how mscratch enables re-entrant kernel stack swapping *(xv6-riscv, Ch. 4 (Traps and System Calls))*
+- [ ] **`brain-37`** — **Preemptive Priority Scheduler, Priority-Inheritance Mutexes & Ring Buffers** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/brain/rtos/kernel.c & rtos.h (fixed-priority + round-robin scheduler, mtimecmp timer sleep, priority-inheritance mutexes, lock-free single-producer/single-consumer UART/CAN ring buffers)`; `systems/brain/tb/test_rtos_scheduler.py`
   - **Verify**: `make -C systems/brain/tb MODULE=test_rtos_scheduler`
-  - **First Principles**: Priority inversion and why priority inheritance restores bounded real-time latency, plus single-producer/single-consumer ring buffer ordering *(Valvano, Real-Time Operating Systems, Ch. 4 & 8; xv6 Ch. 6–7)*
-- [ ] **`brain-38`** — **Interactive ash Shell & 1 kHz Fixed-Point IMU Attitude / PID Loop** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/brain/apps/ash_shell.c (commands: ps, jitter, ipc, memtest, imu, can, peek, poke)`; `systems/brain/apps/task_imu_pid.c (1 kHz Q16.16 Mahony/complementary attitude filter + PID loop + mcycle jitter histogram)`; `systems/brain/tb/test_rtos_imu_pid.py`
+  - **First Principles**: Priority inversion (a low-priority task blocking a critical control task) and how priority inheritance + lock-free ring buffers guarantee bounded latency *(Valvano, Real-Time Operating Systems, Ch. 4 & 8; xv6 Ch. 6–7)*
+- [ ] **`brain-38`** — **Interactive ash Debug Shell & 1 kHz Motion-Sensor Tilt / PID Control Loop** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/brain/apps/ash_shell.c (commands: ps, jitter, ipc, memtest, imu, can, peek, poke)`; `systems/brain/apps/task_imu_pid.c (1 kHz fixed-point Q16.16 Mahony/complementary tilt filter + PID loop + cycle-counter jitter histogram)`; `systems/brain/tb/test_rtos_imu_pid.py`
   - **Verify**: `make -C systems/brain/tb MODULE=test_rtos_imu_pid`
-  - **First Principles**: Fixed-point Q16.16 scaling, fusing fast-drifting gyroscope rates with noisy gravity vectors, and profiling interrupt latency histograms *(Lyons, Understanding Digital Signal Processing, Ch. 12)*
-- [ ] **`brain-39`** — **Quantized Neural Walking MLP (mac Accelerated) & Full Verilator Soak Test** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/brain/apps/task_neural_mlp.c (48 -> 128 -> 128 -> 12 INT16/ReLU MLP compiled with SysC __mac_i16)`; `systems/brain/tb/test_brain_graduation_sim.py (full Verilator soak test running all 3 concurrent tasks from QSPI->SDRAM, proving < 0.6 ms MLP runtime & < 2 µs 1 kHz jitter)`
+  - **First Principles**: Integer Q16.16 fractional math, fusing fast-drifting gyroscope rates with noisy accelerometer gravity vectors, and profiling interrupt latency histograms *(Lyons, Understanding Digital Signal Processing, Ch. 12)*
+- [ ] **`brain-39`** — **Quantized Neural Walking Network (mac Accelerated) & Full SoC Soak Test** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/brain/apps/task_neural_mlp.c (48 -> 128 -> 128 -> 12 INT16/ReLU neural network compiled with SysC __mac_i16)`; `systems/brain/tb/test_brain_graduation_sim.py (full Verilator soak test running all 3 concurrent tasks from QSPI->SDRAM, proving < 0.6 ms MLP runtime & < 2 µs 1 kHz jitter)`
   - **Verify**: `make -C systems/brain/tb MODULE=test_brain_graduation_sim`
-  - **First Principles**: INT16 activation/weight quantization without accuracy collapse, and verifying hard real-time preemption under sustained memory bus traffic *(systems/brain/README.md)*
+  - **First Principles**: 16-bit integer neural weight/activation quantization without accuracy collapse, and verifying strict real-time deadlines under heavy external RAM traffic *(systems/brain/README.md)*
 
 #### Phase 8: Custom 6-Layer Board Smoke Test, Trace-Echo Sweep & Graduation
 
-- [ ] **`brain-40`** — **Bench 4: Current-Limited Smoke Test, Power Ripple & Peripheral Loopback** *(🔧 Bench · ⬜ Pending)*
-  - **Deliverables**: `Power arrived 6-layer Spine PCB via current-limited 5V/1A bench supply before seating SOM`; `Measure 3.3V buck startup & ripple; verify ICM-42688-P WHO_AM_I & CAN-FD bus loopback`
+- [ ] **`brain-40`** — **Bench 4: Current-Limited Smoke Test, Power Ripple & Chip Loopback** *(🔧 Bench · ⬜ Pending)*
+  - **Deliverables**: `Power arrived 6-layer Spine board via current-limited 5V/1A bench supply before snapping in the FPGA SOM`; `Measure 3.3V buck regulator startup & voltage ripple; verify ICM-42688-P WHO_AM_I chip ID & CAN-FD bus loopback`
   - **Verify**: `Idle rail currents within budget, 3.3V ripple < 30 mVpp, IMU WHO_AM_I = 0x47, CAN-FD loopback clean`
-  - **First Principles**: Safe disciplined hardware bring-up: power rails first, clocks second, digital I/O third *(systems/brain/pcb/REVIEW_CHECKLIST.md)*
-- [ ] **`brain-41`** — **Bench 5: LiteVNA 64 Calibration & TDR Impedance Sweep on SMA Coupons** *(🔧 Bench · ⬜ Pending)*
-  - **Deliverables**: `Run SMA Open/Short/Load calibration on LiteVNA 64 and capture IFFT Time-Domain Reflectometry plots`; `Compare clean 50-ohm SMA microstrip coupon against intentional ground-slot coupon and compare to brain-18 predictions`
-  - **Verify**: `Clean trace measures 50 +/- 5 Ohm along its span; ground-slot coupon clearly displays inductive impedance spike at the slot coordinate`
-  - **First Principles**: Connecting Maxwell/transmission-line impedance theory directly to physical copper trace geometry in time-domain reflectometry *(Clayton Paul, Ch. 4–5)*
-- [ ] **`brain-42`** — **Bench 6 (brain Graduation): Boot SysC RTOS from QSPI/SDRAM & Capture < 2 µs Jitter** *(🔧 Bench · ⬜ Pending)*
-  - **Deliverables**: `Seat Tang Primer 20K SOM on 6-layer Spine PCB, flash QSPI NOR with SysC-compiled RTOS image, and run memtest + ash shell`; `Tilt board to watch live 1 kHz IMU attitude + 50 Hz neural MLP output frames on CAN-FD and capture < 2 µs task jitter on logic analyzer`
+  - **First Principles**: Disciplined hardware bring-up order: verify power rails first, clocks second, and digital data links third before plugging in expensive compute *(systems/brain/pcb/REVIEW_CHECKLIST.md)*
+- [ ] **`brain-41`** — **Bench 5: LiteVNA 64 Calibration & Radar-Like Trace-Echo (TDR) Sweep** *(🔧 Bench · ⬜ Pending)*
+  - **Deliverables**: `Run SMA Open/Short/Load calibration on LiteVNA 64 and capture Inverse-FFT Time-Domain Reflectometry (TDR) echo plots`; `Compare clean 50-ohm SMA coax test trace against intentional ground-slot coupon and check against brain-18 solver predictions`
+  - **Verify**: `Clean trace measures 50 +/- 5 Ohm along its span; ground-slot coupon clearly displays an inductive impedance spike right at the slot coordinate`
+  - **First Principles**: Seeing transmission-line impedance physics come alive in real copper: why interrupting a ground return plane creates a measurable radar echo *(Clayton Paul, Ch. 4–5)*
+- [ ] **`brain-42`** — **Bench 6 (brain Graduation): Boot SysC RTOS from Flash/RAM & Capture < 2 µs Jitter** *(🔧 Bench · ⬜ Pending)*
+  - **Deliverables**: `Snap Tang Primer 20K SOM into 6-layer Spine board, flash QSPI NOR with SysC-compiled RTOS image, and run memtest + ash shell`; `Tilt board to watch live 1 kHz motion-sensor attitude + 50 Hz neural network output frames on CAN-FD and capture < 2 µs task jitter on logic analyzer`
   - **Verify**: `32 MB SDRAM memtest passes 100%, ash shell reports < 0.6 ms MLP inference, and logic analyzer confirms < 2 µs 1 kHz control loop jitter`
-  - **First Principles**: Full-stack convergence: custom RTL + custom 6-layer PCB + custom compiler + custom RTOS operating together as a deterministic physical machine *(VISION.md)*
+  - **First Principles**: Full-stack convergence: blank SystemVerilog -> custom 6-layer PCB -> custom C compiler -> custom RTOS operating together as one deterministic physical machine *(VISION.md)*
 
 </details>
 
 ### 2. `drive` — Force-Controlled Brushless Motor Driver & 8:1 Gearbox (Electric Muscle)
 
-- **Role**: One finger-safe, backdrivable robotic joint (< 2.5 N·m; 12x used in final robot)
+- **Role**: One finger-safe, hand-backdrivable robotic joint (< 2.5 N·m; 12x used in final robot)
 - **Workspace**: [`./systems/drive/`](./systems/drive/)
 - **Builds On**: `brain`
 - **Graduation Demo**: A haptic wheel that feels like a programmable spring and shock absorber in your fingers, commanded 1,000 times per second by brain.
@@ -299,135 +299,135 @@ flowchart LR
 
 #### Phase 1: Brushless Motor Physics & Force-Control Simulation
 
-- [ ] **`drive-01`** — **Permanent-Magnet Synchronous Motor (PMSM) Physics & ODE Simulator** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/drive/sim/pmsm_model.py (3-phase back-EMF, phase resistance/inductance, torque constant K_t & rotor inertia simulator)`; `systems/drive/tb/test_pmsm_model.py`
+- [ ] **`drive-01`** — **Brushless Motor Physics & Differential-Equation (ODE) Simulator** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/drive/sim/pmsm_model.py (models 3-phase spinning-magnet back-voltage, coil resistance/inductance, torque constant K_t & rotor inertia)`; `systems/drive/tb/test_pmsm_model.py`
   - **Verify**: `uv run --with pytest pytest systems/drive/tb/test_pmsm_model.py`
-  - **First Principles**: Lorentz torque generation (tau = K_t * i_q), Faraday back-EMF, and electromechanical energy balance *(Sang-Hoon Kim, Electric Motor Control, Ch. 1–3)*
-- [ ] **`drive-02`** — **Clarke & Park (abc -> alpha-beta -> dq0) Reference Frame Transforms** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/drive/sim/foc_transforms.py (power-invariant/amplitude-invariant Clarke & Park transforms and inverses)`; `systems/drive/tb/test_foc_transforms.py`
+  - **First Principles**: Why magnetic force is proportional to coil current (tau = K_t * i_q), why spinning magnets push voltage back against the battery (back-EMF), and electrical-to-mechanical energy conservation *(Sang-Hoon Kim, Electric Motor Control, Ch. 1–3)*
+- [ ] **`drive-02`** — **Rotating Motor Coordinate Transforms (Clarke & Park: abc -> alpha-beta -> dq0)** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/drive/sim/foc_transforms.py (amplitude-preserving Clarke & Park coordinate rotations and inverses)`; `systems/drive/tb/test_foc_transforms.py`
   - **Verify**: `uv run --with pytest pytest systems/drive/tb/test_foc_transforms.py`
-  - **First Principles**: Why rotating reference frames convert sinusoidal 3-phase AC currents into DC torque (i_q) and flux (i_d) vectors controllable by simple PI loops *(Sang-Hoon Kim, Ch. 4–5)*
-- [ ] **`drive-03`** — **Space-Vector PWM (SVPWM) Modulator & Dead-Time Distortion Analysis** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/drive/sim/svpwm.py (min-max zero-sequence injection achieving 15.5% higher bus voltage utilization + dead-time compensation)`; `systems/drive/tb/test_svpwm.py`
+  - **First Principles**: How changing into a rotor-locked rotating coordinate frame turns 3 oscillating AC sine-wave currents into two constant DC numbers—pure torque (i_q) and wasted radial squeeze (i_d)—for simple PI control *(Sang-Hoon Kim, Ch. 4–5)*
+- [ ] **`drive-03`** — **Hexagonal Switching Modulator (Space-Vector PWM) & Dead-Time Ripple** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/drive/sim/svpwm.py (min-max common-mode centering achieving 15.5% higher voltage headroom from the same battery + dead-time distortion compensation)`; `systems/drive/tb/test_svpwm.py`
   - **Verify**: `uv run --with pytest pytest systems/drive/tb/test_svpwm.py`
-  - **First Principles**: Inverter switching vectors on the hexagon, zero-sequence injection, and why shoot-through dead-time creates low-speed torque ripple *(Sang-Hoon Kim, Ch. 6)*
-- [ ] **`drive-04`** — **20 kHz Cascaded Current (PI) & Joint Impedance (kp/kd) Loop Simulation** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/drive/sim/foc_sim.py (closed-loop 20 kHz i_d/i_q control + 1 kHz MIT-style tau = kp*(q_des - q) + kd*(dq_des - dq) + tau_ff)`; `systems/drive/tb/test_foc_sim.py`
+  - **First Principles**: Representing 8 three-phase transistor states as vectors on a hexagon, centering waveforms to squeeze 15.5% more voltage from a 20V bus, and why brief switch-off gaps (dead-time) cause low-speed ripple *(Sang-Hoon Kim, Ch. 6)*
+- [ ] **`drive-04`** — **20 kHz Coil-Current Loop & 1 kHz Virtual Spring-Damper (Impedance) Sim** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/drive/sim/foc_sim.py (nested 20 kHz i_d/i_q Field-Oriented Control loop + 1 kHz joint spring-damper law tau = kp*(q_des - q) + kd*(dq_des - dq) + tau_ff)`; `systems/drive/tb/test_foc_sim.py`
   - **Verify**: `uv run --with pytest pytest systems/drive/tb/test_foc_sim.py`
-  - **First Principles**: Pole-zero cancellation current tuning (K_p = omega_c * L, K_i = omega_c * R) and how virtual spring/damper impedance enables compliant impact landings *(Sang-Hoon Kim, Ch. 7–8)*
-- [ ] **`drive-05`** — **Low-Side vs. Inline Phase Current Sensing & ADC Sampling Window Math** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/drive/sim/current_sense_budget.py (shunt power dissipation, INA240/op-amp bandwidth, ADC SNR & PWM zero-vector trigger alignment)`
+  - **First Principles**: Tuning inner current loops by canceling motor coil RL poles (K_p = omega_c * L, K_i = omega_c * R) and making a rigid motor behave like a programmable spring and shock absorber *(Sang-Hoon Kim, Ch. 7–8)*
+- [ ] **`drive-05`** — **Measuring Motor Coil Current: Precision Sense Resistors & ADC Timing Math** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/drive/sim/current_sense_budget.py (shunt resistor heat loss, INA240 amplifier bandwidth, ADC signal-to-noise ratio & switching-valley sample timing)`
   - **Verify**: `python3 systems/drive/sim/current_sense_budget.py --verify`
-  - **First Principles**: Why low-side shunts only conduct when bottom FETs are ON and how center-aligned PWM triggers ADC sampling during quiet zero-vectors *(Pallàs-Areny & Webster, Sensors and Signal Conditioning, Ch. 3)*
-- [ ] **`drive-06`** — **CAN-FD Actuator Protocol & Q-Format Telemetry Framing Spec** *(🛋️ Couch · ⬜ Pending)*
+  - **First Principles**: Reading Ohm's-law millivolt drops across tiny sense resistors (shunts), why bottom-leg shunts only see current when lower switches are ON, and triggering Analog-to-Digital (ADC) reads during quiet PWM valleys *(Pallàs-Areny & Webster, Sensors and Signal Conditioning, Ch. 3)*
+- [ ] **`drive-06`** — **Motor Bus (CAN-FD) Packet Layout & Fixed-Point Integer (Q-Format) Spec** *(🛋️ Couch · ⬜ Pending)*
   - **Deliverables**: `systems/drive/firmware/can_proto.h & systems/drive/sim/test_can_proto.py (shared bit-exact packed frames between brain and drive)`
   - **Verify**: `uv run --with pytest pytest systems/drive/sim/test_can_proto.py`
-  - **First Principles**: Fixed-point packing of position, velocity, kp, kd, and torque into deterministic 8/16-byte CAN-FD frames without floating-point overhead *(VISION.md (Locked Interface Contracts))*
+  - **First Principles**: Packing angle, speed, spring/damper gains, and torque into tight 8/16-byte bus packets using integer scaling (Q-format) without floating-point overhead *(VISION.md (Locked Interface Contracts))*
 
 #### Phase 2: 4-Layer 24V Motor-Driver Circuit Board & Factory Launch
 
-- [ ] **`drive-07`** — **Gate Driver Bootstrap, Switching Loss & Thermal Budget Solver** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/drive/pcb/inverter_calc.py (DFN5x6/3x3 MOSFET conduction + switching loss, gate charge Q_g, bootstrap cap sizing & snubber calculation)`
+- [ ] **`drive-07`** — **Transistor Switch Losses, High-Side Charge Pump (Bootstrap) & Heat Budget** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/drive/pcb/inverter_calc.py (DFN5x6/3x3 MOSFET conduction + switching heat, gate charge Q_g, high-side bootstrap capacitor sizing & spike snubber math)`
   - **Verify**: `python3 systems/drive/pcb/inverter_calc.py --verify`
-  - **First Principles**: MOSFET R_ds(on) I^2 losses vs. gate-charge switching energy, and why high-side N-FETs need a bootstrap charge pump *(Erickson & Maksimovic, Ch. 4)*
-- [ ] **`drive-08`** — **KiCad Schematic 1: 3-Phase 24V Half-Bridges, Gate Driver & Current Sense** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/drive/pcb/gen_sch_powerstage.py (generates power stage, bulk DC-link caps, 3x half-bridges, current sense amps + SVG preview)`
+  - **First Principles**: Comparing steady I^2*R resistance heat against switching transition energy, and why upper N-channel switches need a flying capacitor charge pump (bootstrap) to turn fully ON above 20V *(Erickson & Maksimovic, Ch. 4)*
+- [ ] **`drive-08`** — **KiCad Schematic 1: 3-Phase 24V Transistor Bridges, Gate Drivers & Current Sense** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/drive/pcb/gen_sch_powerstage.py (generates power input, bulk DC-link capacitors, 3x transistor half-bridges, current-sense amplifiers + SVG preview)`
   - **Verify**: `python3 systems/drive/pcb/gen_sch_powerstage.py && kicad-cli sch erc --exit-code-violations systems/drive/pcb/drive_foc.kicad_sch`
-  - **First Principles**: Minimizing high-di/dt half-bridge commutation loop area and Kelvin-connecting shunt sense traces *(Clayton Paul, Ch. 6)*
-- [ ] **`drive-09`** — **KiCad Schematic 2: STM32G4 MCU, AS5047P Magnetic Encoder & TCAN1044V CAN-FD** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/drive/pcb/gen_sch_ctrl.py (adds STM32G431, 10V/3.3V LDO/buck, SWD, SPI magnetic encoder, NTC thermistor & CAN-FD transceiver + ERC)`
+  - **First Principles**: Shrinking high-speed current-switching (di/dt) loop area to prevent inductive voltage spikes and routing zero-current sense lines (Kelvin connections) straight to shunt pads *(Clayton Paul, Ch. 6)*
+- [ ] **`drive-09`** — **KiCad Schematic 2: Motor MCU (STM32G4), Magnetic Angle Chip & CAN-FD Driver** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/drive/pcb/gen_sch_ctrl.py (adds STM32G431 microcontroller, 10V/3.3V regulators, SWD debug header, AS5047P magnetic encoder, temp thermistor & TCAN1044V CAN-FD chip + ERC)`
   - **Verify**: `python3 systems/drive/pcb/gen_sch_ctrl.py && kicad-cli sch erc --exit-code-violations systems/drive/pcb/drive_foc.kicad_sch`
-  - **First Principles**: Analog-to-digital ground partitioning, hardware ADC overcurrent comparator trip paths, and daisy-chain CAN-FD stub limits *(STM32G431 Datasheet & Hardware Design Guide)*
-- [ ] **`drive-10`** — **Compact 4-Layer Circular/Motor-Back Motor-Driver PCB Layout** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/drive/pcb/gen_layout.py (4-layer 2oz-outer copper motor-back form factor, separated quiet analog zone & stitched thermal vias + layer SVGs)`
+  - **First Principles**: Separating noisy motor-power ground currents from sensitive millivolt ADC ground references, hardware overcurrent shutoff comparators, and daisy-chain CAN-FD stub limits *(STM32G431 Datasheet & Hardware Design Guide)*
+- [ ] **`drive-10`** — **Compact 4-Layer Circular Motor-Back Circuit Board Layout** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/drive/pcb/gen_layout.py (4-layer thick 2oz-outer copper motor-back circle, isolated quiet analog island & heat-draining thermal vias + layer SVGs)`
   - **Verify**: `python3 systems/drive/pcb/gen_layout.py --verify`
-  - **First Principles**: High-current copper plane ampacity, thermal vias into inner planes, and keeping gate-drive loops short to avoid ringing *(IPC-2152 Current-Carrying Capacity & Clayton Paul, Ch. 11)*
-- [ ] **`drive-11`** — **Inverter PCB DRC, Fabrication Exports & Safety Sign-Off** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/drive/pcb/export_fab.sh (runs KiCad DRC and outputs JLCPCB 4-layer Gerbers, BOM & CPL)`
+  - **First Principles**: Sizing thick copper pours for 30A peaks without overheating, drilling copper thermal-via arrays to spread transistor heat, and keeping gate-drive loops tiny to prevent ringing *(IPC-2152 Current-Carrying Capacity & Clayton Paul, Ch. 11)*
+- [ ] **`drive-11`** — **Motor-Driver Board Rule Check (DRC), Factory Exports & Safety Sign-Off** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/drive/pcb/export_fab.sh (runs KiCad DRC and outputs JLCPCB 4-layer Gerbers, parts BOM & placement CPL)`
   - **Verify**: `kicad-cli pcb drc --exit-code-violations systems/drive/pcb/drive_foc.kicad_pcb && bash systems/drive/pcb/export_fab.sh`
-  - **First Principles**: Clearance margins for 24V transient inductive spikes and stencil/solder-paste thermal pads *(systems/drive/README.md)*
-- [ ] **`drive-12`** — **SPICE Half-Bridge Switching Transient & Gate-Resistor Damping Sim** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/drive/sim/half_bridge_spice.py (Ngspice transient check of gate resistor R_g vs. V_ds overshoot and dV/dt)`
+  - **First Principles**: Copper spacing margins for 24V motor switching transients and stencil solder-paste apertures for bottom thermal pads *(systems/drive/README.md)*
+- [ ] **`drive-12`** — **Analog Circuit Simulation (SPICE) of Switch Ringing & Gate-Resistor Damping** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/drive/sim/half_bridge_spice.py (Ngspice transient sweep of gate resistor R_g vs. switch voltage overshoot and edge speed dV/dt)`
   - **Verify**: `python3 systems/drive/sim/half_bridge_spice.py --verify`
-  - **First Principles**: Parasitic trace inductance + MOSFET C_oss resonance (f = 1 / 2pi sqrt(LC)) and trading switching loss for clean EMI edges *(Erickson & Maksimovic, Ch. 4)*
-- [ ] **`drive-13`** — **FOC Firmware Scaffold & Host Unit-Test Harness (C/CMake)** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/drive/firmware/foc_math.c & systems/drive/tb/test_foc_c.py (compiled with host gcc/pytest to verify fixed-point Q-math FOC core before flashing MCU)`
+  - **First Principles**: How stray trace inductance + transistor capacitance ring like an LC bell (f = 1 / 2pi sqrt(LC)) and choosing a gate resistor that damps spikes without overheating the switch *(Erickson & Maksimovic, Ch. 4)*
+- [ ] **`drive-13`** — **Motor Firmware Scaffold & Host GCC Unit-Test Harness** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/drive/firmware/foc_math.c & systems/drive/tb/test_foc_c.py (compiled with host gcc/pytest to verify fixed-point Q-math FOC core before flashing microcontroller)`
   - **Verify**: `uv run --with pytest pytest systems/drive/tb/test_foc_c.py`
-  - **First Principles**: Integer CORDIC/LUT sin/cos approximation and overflow-safe Q15/Q31 fixed-point math inside a 50 µs interrupt budget *(Lyons, Ch. 13 (CORDIC))*
-- [ ] **`drive-14`** — **Bench 7 (Fab Trigger): Order 2x Turnkey 4-Layer FOC PCBs + 1x Motor/Encoder** *(🔧 Bench · ⬜ Pending)*
-  - **Deliverables**: `Order 2x turnkey-assembled 4-layer FOC PCBs from JLCPCB`; `Order 1x 3508/4006 BLDC motor, AS5047P diametric magnet, thin-section bearings & M3 hardware`
-  - **Verify**: `JLCPCB placement check clean and motor/encoder BOM matched`
-  - **First Principles**: Mechanical-electrical concentricity tolerances for magnetic encoders *(systems/drive/README.md)*
+  - **First Principles**: Fast integer CORDIC/lookup-table trigonometry and overflow-safe Q15/Q31 fixed-point math inside a strict 50 µs interrupt budget *(Lyons, Ch. 13 (CORDIC))*
+- [ ] **`drive-14`** — **Bench 7 (Fab Trigger): Order 2x Factory 4-Layer Motor Boards + 1x Motor/Magnet** *(🔧 Bench · ⬜ Pending)*
+  - **Deliverables**: `Order 2x factory-assembled 4-layer FOC motor-driver boards from JLCPCB`; `Order 1x 3508/4006 flat brushless motor, AS5047P diametric magnet, thin-section bearings & M3 hardware`
+  - **Verify**: `JLCPCB placement preview clean and motor/encoder parts list matched`
+  - **First Principles**: Centering tolerances between a rotating diametric magnet and the stationary magnetic-field sensor chip *(systems/drive/README.md)*
 
 #### Phase 3: Bare-Metal 20 kHz Current/Force Firmware & Motor Bus Protocol
 
-- [ ] **`drive-15`** — **STM32G4 Bare-Metal Startup, Clocks & 20 kHz Center-Aligned PWM + ADC Trigger** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/drive/firmware/hal_pwm_adc.c (TIM1 20 kHz center-aligned PWM + TRGO ADC1/2 injected phase-current sampling)`
+- [ ] **`drive-15`** — **Microcontroller Startup, Clocks & Hardware-Synced 20 kHz PWM + ADC Trigger** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/drive/firmware/hal_pwm_adc.c (TIM1 20 kHz triangle-wave PWM + hardware trigger firing ADC1/2 phase-current reads right in the quiet switching valley)`
   - **Verify**: `arm-none-eabi-gcc build cleanly compiles with zero warnings & timing calculation verified`
-  - **First Principles**: Hardware timer synchronization: eliminating software jitter between PWM valley and ADC sample-and-hold *(STM32G4 Reference Manual (TIM1 & ADC Triggering))*
-- [ ] **`drive-16`** — **High-Speed SPI AS5047P Encoder Driver & Velocity Observer** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/drive/firmware/encoder.c (14-bit SPI read, parity check, multi-turn unwrapping & PLL angle/velocity tracking observer)`; `systems/drive/tb/test_encoder_pll.py`
+  - **First Principles**: Timer-to-ADC hardware synchronization: eliminating CPU interrupt latency so current is always sampled mid-pulse away from switching noise *(STM32G4 Reference Manual (TIM1 & ADC Triggering))*
+- [ ] **`drive-16`** — **High-Speed Magnetic Angle Sensor (AS5047P) Driver & Smooth Speed Observer** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/drive/firmware/encoder.c (14-bit SPI angle read, parity check, multi-turn wraparound tracking & 2nd-order PLL speed observer)`; `systems/drive/tb/test_encoder_pll.py`
   - **Verify**: `uv run --with pytest pytest systems/drive/tb/test_encoder_pll.py`
-  - **First Principles**: Why finite-difference velocity (dq/dt) amplifies encoder quantization noise at 20 kHz, and how a 2nd-order PLL observer solves it *(Franklin, Powell & Emami-Naeini, Feedback Control, Ch. 7)*
-- [ ] **`drive-17`** — **Auto-Calibration Routine: Phase R/L ID, Pole-Pair Count & Encoder Offset LUT** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/drive/firmware/calibrate.c (step-voltage R/L measurement, open-loop d-axis sweep for encoder zero & eccentricity LUT)`; `systems/drive/tb/test_calibrate.py`
+  - **First Principles**: Why naive finite-difference speed (dq/dt) turns 14-bit quantization steps into huge spikes at 20 kHz, and how a tracking Phase-Locked Loop (PLL) yields clean velocity *(Franklin, Powell & Emami-Naeini, Feedback Control, Ch. 7)*
+- [ ] **`drive-17`** — **Auto-Calibration: Coil R/L Measurement, Pole Count & Magnet Eccentricity Table** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/drive/firmware/calibrate.c (voltage-step R/L measurement, slow open-loop sweep finding magnetic zero offset & off-center distortion lookup table)`; `systems/drive/tb/test_calibrate.py`
   - **Verify**: `uv run --with pytest pytest systems/drive/tb/test_calibrate.py`
-  - **First Principles**: First-order RL step response (i(t) = (V/R)(1 - e^{-Rt/L})) and compensating off-axis magnet mounting harmonics *(Sang-Hoon Kim, Ch. 7)*
-- [ ] **`drive-18`** — **20 kHz Hard Real-Time FOC ISR & Anticogging Compensation** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/drive/firmware/foc_isr.c (Clarke/Park -> PI current -> SVPWM -> hardware current/temp/watchdogs)`
+  - **First Principles**: Measuring first-order coil step rise i(t) = (V/R)(1 - e^{-Rt/L}) to auto-tune current gains, and mapping out off-axis magnet mounting wobble *(Sang-Hoon Kim, Ch. 7)*
+- [ ] **`drive-18`** — **20 kHz Hard Real-Time Force-Control Interrupt (ISR) & Magnetic Notch Smoothing** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/drive/firmware/foc_isr.c (Clarke/Park -> PI coil current -> SVPWM -> hardware current/temp/communication watchdogs + anticogging LUT)`
   - **Verify**: `Cycle-count budget audit confirms ISR executes in < 18 µs inside 50 µs period; host sim passes`
-  - **First Principles**: Why watchdog timeouts must zero motor torque immediately if CAN-FD frames from brain pause > 50 ms *(Sang-Hoon Kim, Ch. 8)*
-- [ ] **`drive-19`** — **STM32G4 FDCAN Driver & 1 kHz brain Command/Telemetry Handler** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/drive/firmware/fdcan_node.c (5 Mbps CAN-FD filter, unpacks q_des/dq_des/kp/kd/tau_ff, replies with packed state)`; `systems/drive/tb/test_fdcan_codec.py`
+  - **First Principles**: Canceling permanent-magnet stator-slot bumpiness (anticogging) and zeroing motor torque immediately if CAN-FD messages from brain pause > 50 ms *(Sang-Hoon Kim, Ch. 8)*
+- [ ] **`drive-19`** — **5 Mbps CAN-FD Bus Driver & 1 kHz brain Command/Telemetry Handler** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/drive/firmware/fdcan_node.c (hardware ID filter, unpacks q_des/dq_des/kp/kd/tau_ff, replies with packed state at 5 Mbps)`; `systems/drive/tb/test_fdcan_codec.py`
   - **Verify**: `uv run --with pytest pytest systems/drive/tb/test_fdcan_codec.py`
-  - **First Principles**: CAN-FD bit-rate switching (arbitration @ 1 Mbps, data payload @ 5 Mbps) and deterministic bus scheduling across 6 joints per bus *(Bosch CAN-FD Spec)*
-- [ ] **`drive-20`** — **Hardware-in-the-Loop Firmware Regression & Watchdog Safety Suite** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/drive/tb/test_drive_safety.py (tests overcurrent trip, thermal derating, CAN loss timeout & torque clamp)`
+  - **First Principles**: Dual-rate CAN-FD packets (1 Mbps collision-arbitration header + 5 Mbps data payload) and packing 6 joints cleanly into each 1 ms bus tick *(Bosch CAN-FD Spec)*
+- [ ] **`drive-20`** — **Firmware Fault-Protection Regression & Watchdog Safety Suite** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/drive/tb/test_drive_safety.py (tests overcurrent trip, thermal power rollback, CAN silence timeout & finger-safe torque clamp)`
   - **Verify**: `uv run --with pytest pytest systems/drive/tb/test_drive_safety.py`
-  - **First Principles**: Defense-in-depth safety limits at the actuator edge so software bugs upstream cannot damage joints or fingers *(systems/drive/README.md)*
-- [ ] **`drive-21`** — **Firmware Binary Build & SWD Flash Tooling Verification** *(🛋️ Couch · ⬜ Pending)*
+  - **First Principles**: Defense-in-depth limits right inside the motor driver so an upstream software bug can never overheat coils or snap a joint *(systems/drive/README.md)*
+- [ ] **`drive-21`** — **Motor Firmware Release Build & Debug-Probe Flash Tooling Check** *(🛋️ Couch · ⬜ Pending)*
   - **Deliverables**: `systems/drive/firmware/Makefile & flash.sh (compiles release .elf/.bin for STM32G431 and verifies static RAM/Flash footprint)`
   - **Verify**: `make -C systems/drive/firmware all size`
-  - **First Principles**: Linker memory layout for placing time-critical 20 kHz FOC ISR and LUTs in zero-wait-state CCM-SRAM *(STM32G4 Memory Architecture)*
+  - **First Principles**: Using linker scripts to pin the 20 kHz control interrupt and trig lookup tables inside zero-wait-state fast SRAM (CCM-SRAM) *(STM32G4 Memory Architecture)*
 
 #### Phase 4: 8:1 Gearbox 3D CAD, Stress Analysis & Factory Launch
 
-- [ ] **`drive-22`** — **Parametric 8:1 Planetary/Cycloidal Gearbox Geometry & Involute/Trochoid Math** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/drive/cad/gen_gearbox_profile.py (computes backlash-controlled involute/cycloidal tooth profiles, pin circles & bearing seats)`; `systems/drive/tb/test_gearbox_geom.py`
+- [ ] **`drive-22`** — **Parametric 8:1 Gearbox Geometry & Tooth Profile Math** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/drive/cad/gen_gearbox_profile.py (computes play-controlled involute/cycloidal tooth curves, pin circles & bearing seats)`; `systems/drive/tb/test_gearbox_geom.py`
   - **Verify**: `uv run --with pytest pytest systems/drive/tb/test_gearbox_geom.py`
-  - **First Principles**: Why ~8:1 quasi-direct-drive ratios balance high torque density with low reflected inertia (N^2 * J_rotor) and silent backdrivability *(Budynas & Nisbett, Shigley's Mechanical Engineering Design, Ch. 13)*
+  - **First Principles**: Why an ~8:1 quasi-direct-drive (QDD) ratio gives strong joint torque while keeping reflected rotor inertia (N^2 * J_rotor) small enough to feel floor impacts back through the gears *(Budynas & Nisbett, Shigley's Mechanical Engineering Design, Ch. 13)*
 - [ ] **`drive-23`** — **Parametric 3D Actuator CAD (Rotor Bell Adapter, Housing & Output Flange)** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/drive/cad/actuator_cad.py (CadQuery/build123d parametric STEP/STL assembly integrating motor, 8:1 stage, thin-section bearings & rear FOC PCB mount)`
+  - **Deliverables**: `systems/drive/cad/actuator_cad.py (CadQuery/build123d parametric STEP/STL 3D assembly integrating motor, 8:1 stage, thin bearings & rear driver board mount)`
   - **Verify**: `python3 systems/drive/cad/actuator_cad.py --check-clearances`
-  - **First Principles**: ISO clearance/transition fits for thin-section bearings and concentric magnet-to-IC air-gap tolerance *(Shigley's, Ch. 7 & 11)*
-- [ ] **`drive-24`** — **Gear Tooth & Housing Structural FEA (CalculiX)** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/drive/cad/run_fea.sh (runs CalculiX static stress/deflection analysis under 3x peak stall torque = 7.5 N·m)`
+  - **First Principles**: Choosing shaft/hole mechanical tolerances (ISO clearance/transition fits) for thin-section bearings and concentric magnet air-gaps *(Shigley's, Ch. 7 & 11)*
+- [ ] **`drive-24`** — **Gear Tooth & Housing Structural Stress Simulation (FEA via CalculiX)** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/drive/cad/run_fea.sh (runs CalculiX finite-element stress & flex analysis under 3x peak stall torque = 7.5 N·m)`
   - **Verify**: `bash systems/drive/cad/run_fea.sh (safety factor >= 2.5 in PA12/7075-T6 and radial deflection < 0.05 mm)`
-  - **First Principles**: Von Mises stress, Hertzian contact stress on gear teeth/pins, and stiffness-to-weight scaling *(Logan, First Course in Finite Element Method, Ch. 1–3)*
-- [ ] **`drive-25`** — **GD&T Drawings, Tolerance Stack-Up & MJF/CNC Manufacturing Package** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/drive/cad/tolerance_stack.py & exported STEP/STL fab archive`
+  - **First Principles**: Combined shear/bending stress (Von Mises), pinpoint gear-tooth contact pressure (Hertzian stress), and stiffness-to-weight scaling *(Logan, First Course in Finite Element Method, Ch. 1–3)*
+- [ ] **`drive-25`** — **Manufacturing Tolerances (GD&T), Stack-Up Math & 3D Parts Export** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/drive/cad/tolerance_stack.py & exported STEP/STL factory archive`
   - **Verify**: `python3 systems/drive/cad/tolerance_stack.py --verify`
-  - **First Principles**: Worst-case vs. RSS statistical axial preload stack-up so thin-section bearings neither bind nor rattle *(Shigley's, Ch. 20 (GD&T))*
-- [ ] **`drive-26`** — **Bench 8: Order Industrial MJF PA12 / CNC Actuator Parts** *(🔧 Bench · ⬜ Pending)*
-  - **Deliverables**: `Upload actuator STEP/STL exports to JLCPCB 3D/CNC service`
-  - **Verify**: `Order confirmed with zero thin-wall DFM flags`
-  - **First Principles**: Design for additive (MJF Nylon PA12) vs. CNC milling without indoor resin/nylon fumes *(systems/drive/README.md)*
+  - **First Principles**: Worst-case vs. statistical (RSS) tolerance stack-up math so stacked manufacturing variances neither pinch bearings tight nor leave loose axial rattle *(Shigley's, Ch. 20 (GD&T))*
+- [ ] **`drive-26`** — **Bench 8: Order Industrial Nylon (MJF PA12) & Milled Aluminum Actuator Parts** *(🔧 Bench · ⬜ Pending)*
+  - **Deliverables**: `Upload actuator STEP/STL exports to JLCPCB 3D-printing and CNC-milling service`
+  - **Verify**: `Order confirmed with zero thin-wall manufacturability flags`
+  - **First Principles**: Designing parts for industrial powder-fused nylon (MJF PA12) vs. aluminum CNC milling with zero indoor plastic fumes *(systems/drive/README.md)*
 
 #### Phase 5: Driver Smoke Test, Gearbox Assembly & Torque Bench Verification
 
-- [ ] **`drive-27`** — **Bench 9: Current-Limited Inverter Smoke Test & Gate-Drive Scope Check** *(🔧 Bench · ⬜ Pending)*
-  - **Deliverables**: `Power FOC PCB from current-limited bench PSU (20V / 0.5A limit), flash STM32G4 & probe 3-phase PWM edges + dead-time on oscilloscope`
-  - **Verify**: `Clean 3.3V/10V rails, crisp complementary PWM dead-time with zero shoot-through spikes`
-  - **First Principles**: Observing real switching waveforms and validating your gate-resistor SPICE prediction on copper *(systems/drive/README.md)*
-- [ ] **`drive-28`** — **Bench 10: Motor R/L Auto-ID, Encoder Offset Calibration & Open-Loop Spin** *(🔧 Bench · ⬜ Pending)*
-  - **Deliverables**: `Mount diametric magnet, spin bare motor on bench, run auto-calibration and inspect d/q current step response`
-  - **Verify**: `Measured R/L matches datasheet +/-10%; q-axis current tracks 1 kHz step cleanly with zero cogging buzz`
-  - **First Principles**: Aligning physical permanent-magnet rotor flux with software Park transformation angle *(Sang-Hoon Kim, Ch. 7)*
-- [ ] **`drive-29`** — **Bench 11: Assemble 8:1 QDD Actuator & Measure Backdrive Friction** *(🔧 Bench · ⬜ Pending)*
-  - **Deliverables**: `Assemble bearings, 8:1 gearbox, motor & rear FOC PCB; measure static backdrive torque and backlash`
+- [ ] **`drive-27`** — **Bench 9: Current-Limited Motor-Driver Smoke Test & Scope Switching Check** *(🔧 Bench · ⬜ Pending)*
+  - **Deliverables**: `Power FOC PCB from current-limited bench PSU (20V / 0.5A cap), flash STM32G4 & probe 3-phase PWM edges + dead-time on oscilloscope`
+  - **Verify**: `Clean 3.3V/10V rails, crisp complementary PWM dead-time with zero switch shoot-through voltage spikes`
+  - **First Principles**: Comparing real transistor switching edges on an oscilloscope directly against your drive-12 SPICE simulation *(systems/drive/README.md)*
+- [ ] **`drive-28`** — **Bench 10: Motor R/L Auto-ID, Magnetic Zeroing & Open-Loop Bench Spin** *(🔧 Bench · ⬜ Pending)*
+  - **Deliverables**: `Mount diametric magnet, spin bare motor on desk, run auto-calibration and inspect d/q current step response`
+  - **Verify**: `Measured R/L matches datasheet +/-10%; q-axis current tracks 1 kHz step cleanly with zero magnetic cogging buzz`
+  - **First Principles**: Aligning physical permanent-magnet rotor north pole with the software Park rotation angle *(Sang-Hoon Kim, Ch. 7)*
+- [ ] **`drive-29`** — **Bench 11: Assemble 8:1 Gearbox Actuator & Measure Hand-Backdrive Friction** *(🔧 Bench · ⬜ Pending)*
+  - **Deliverables**: `Assemble bearings, 8:1 gearbox, motor & rear driver PCB; measure static backdrive torque and tooth play (backlash)`
   - **Verify**: `Smooth manual backdrivability (< 0.12 N·m friction) and backlash < 0.3 deg`
-  - **First Principles**: Why low reflected inertia and minimal gearbox friction enable torque estimation directly from phase current without foot load cells *(systems/drive/README.md)*
-- [ ] **`drive-30`** — **Bench 12 (drive Graduation): brain-Driven CAN-FD Haptic Wheel & Torque Step Test** *(🔧 Bench · ⬜ Pending)*
+  - **First Principles**: Seeing firsthand how low reflected inertia and low friction turn motor coil current into a clean torque sensor *(systems/drive/README.md)*
+- [ ] **`drive-30`** — **Bench 12 (drive Graduation): brain-Driven Haptic Wheel & Torque Step Test** *(🔧 Bench · ⬜ Pending)*
   - **Deliverables**: `Connect drive to brain CAN-FD Bus A; run SysC haptic virtual-spring/damper demo and verify 2.5 N·m step torque`
   - **Verify**: `1 kHz closed-loop CAN-FD telemetry runs drop-free while fingers feel crisp programmable stiffness and damping`
   - **First Principles**: Closing the first physical robotic muscle loop across your custom RISC-V SoC and custom brushless FOC drive *(VISION.md)*
@@ -436,7 +436,7 @@ flowchart LR
 
 ### 3. `power` — Smart Power Distribution, Soft Startup & Electronic Breaker Spine
 
-- **Role**: Surge protector, microsecond circuit breaker & battery fuel gauge protecting all electronics
+- **Role**: Surge protector, microsecond electronic circuit breaker & battery fuel gauge protecting all electronics
 - **Workspace**: [`./systems/power/`](./systems/power/)
 - **Builds On**: `drive`
 - **Graduation Demo**: Survives massive 12-motor startup surges and intentional dead-shorts in < 5 µs while accurately estimating remaining battery charge under load.
@@ -454,111 +454,111 @@ flowchart LR
 
 #### Phase 1: Battery Modeling, Startup Surge Math & Fuel-Gauge Filter
 
-- [ ] **`power-01`** — **6S LiFePO4 Equivalent-Circuit Cell Model & Open-Circuit Voltage Curve** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/power/sim/cell_randles_model.py (1-RC Randles model capturing series resistance R_0 and polarization RC branch)`; `systems/power/tb/test_cell_model.py`
+- [ ] **`power-01`** — **6-Cell LiFePO4 Battery Circuit Model & Resting Voltage Curve** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/power/sim/cell_randles_model.py (1-RC Randles equivalent circuit modeling internal resistance R_0 and slow chemical recovery RC branch)`; `systems/power/tb/test_cell_model.py`
   - **Verify**: `uv run --with pytest pytest systems/power/tb/test_cell_model.py`
-  - **First Principles**: Why battery terminal voltage sags under load (V_term = OCV(z) - I*R_0 - V_rc) and why LiFePO4's flat voltage plateau defeats naive voltage-only fuel gauges *(Plett, Battery Management Systems Vol. II, Ch. 2)*
-- [ ] **`power-02`** — **Capacitive Inrush & Regenerative Braking Energy Physics Solver** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/power/sim/inrush_regen_sim.py (models 12x inverter DC-link capacitance charging, pre-charge resistor heating E = 0.5*C*V^2 & regen bus clamp)`
+  - **First Principles**: Why battery voltage sags under load (V_term = OCV(z) - I*R_0 - V_rc) and why LiFePO4's nearly flat resting-voltage (OCV) plateau breaks naive voltage-only battery gauges *(Plett, Battery Management Systems Vol. II, Ch. 2)*
+- [ ] **`power-02`** — **Startup Capacitor Surge (Inrush) & Motor Braking Energy Physics Solver** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/power/sim/inrush_regen_sim.py (models 12x motor-driver capacitors charging on power-up, pre-charge resistor heating E = 0.5*C*V^2 & braking energy clamp)`
   - **Verify**: `python3 systems/power/sim/inrush_regen_sim.py --verify`
-  - **First Principles**: Why connecting 21.9V directly into 2,400 uF of low-ESR bulk caps creates > 200A weld arcs without staged pre-charge, and where motor braking energy goes *(Alexander & Sadiku, Fundamentals of Electric Circuits, Ch. 7)*
-- [ ] **`power-03`** — **Online Extended Kalman Filter (EKF) State-of-Charge & Resistance Estimator** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/power/sim/soc_ekf.py (linearized Jacobian EKF fusing Coulomb counting with Randles terminal voltage feedback)`; `systems/power/tb/test_soc_ekf.py`
+  - **First Principles**: Why plugging 21.9V straight into 2,400 uF of empty low-resistance capacitors pulls > 200A weld sparks without a soft pre-charge resistor, and where regenerative braking energy goes *(Alexander & Sadiku, Fundamentals of Electric Circuits, Ch. 7)*
+- [ ] **`power-03`** — **Real-Time Extended Kalman Filter (EKF) Battery Fuel-Gauge Estimator** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/power/sim/soc_ekf.py (linearized EKF fusing current-integration Coulomb counting with Randles terminal voltage feedback to estimate State of Charge)`; `systems/power/tb/test_soc_ekf.py`
   - **Verify**: `uv run --with pytest pytest systems/power/tb/test_soc_ekf.py`
-  - **First Principles**: Predicting state via Ampere-hour integration while correcting drift with nonlinear OCV(SoC) measurement updates *(Plett, Battery Management Systems Vol. II, Ch. 3)*
-- [ ] **`power-04`** — **Solid-State Bidirectional E-Fuse & Hardware Short-Circuit Trip Math** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/power/sim/efuse_spice.py (Ngspice sim of back-to-back N-MOSFET switch, gate charge pump, shunt comparator & < 5 µs TVS-clamped turn-off)`
+  - **First Principles**: Integrating outgoing amps over time (Coulomb counting) while correcting accumulated drift using the battery's nonlinear resting-voltage curve *(Plett, Battery Management Systems Vol. II, Ch. 3)*
+- [ ] **`power-04`** — **Microsecond Electronic Circuit Breaker (Solid-State E-Fuse) & Surge Math** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/power/sim/efuse_spice.py (Ngspice analog simulation of back-to-back N-MOSFET switch, gate charge pump, shunt trip comparator & < 5 µs surge-clamped cutoff)`
   - **Verify**: `python3 systems/power/sim/efuse_spice.py --verify`
-  - **First Principles**: Inductive kickback V = L * dI/dt when interrupting 40A in microseconds and clamping stored harness energy with TVS diodes *(Erickson & Maksimovic, Ch. 4)*
-- [ ] **`power-05`** — **High-Efficiency 22V -> 5.0V / 4A Logic Buck Converter Loop Design** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/power/sim/buck_5v_loop.py (computes inductor saturation, Type-II/III compensation phase margin >= 55 deg for brain + sight logic rail)`
+  - **First Principles**: Why snapping off 40A in microseconds causes wire inductance to kick back with a high-voltage spike (V = L dI/dt), and how fast Transient Voltage Suppression (TVS) diodes safely clamp it *(Erickson & Maksimovic, Ch. 4)*
+- [ ] **`power-05`** — **Stable 22V -> 5.0V / 4A Step-Down (Buck) Logic Regulator Loop Design** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/power/sim/buck_5v_loop.py (sizes inductor saturation current and Type-II/III feedback compensation holding >= 55 deg phase margin for brain + sight)`
   - **Verify**: `python3 systems/power/sim/buck_5v_loop.py --verify`
-  - **First Principles**: Small-signal averaged switch transfer function, Bode phase margin, and preventing 12-motor voltage dips from browning out the CPU *(Erickson & Maksimovic, Ch. 7 & 9)*
+  - **First Principles**: Control-theory Bode stability for switching regulators: keeping >= 55 deg phase margin so 12-motor voltage dips never ring or brown out the 5V computer rail *(Erickson & Maksimovic, Ch. 7 & 9)*
 - [ ] **`power-06`** — **Power Spine Telemetry Protocol & Safety State-Machine Spec** *(🛋️ Couch · ⬜ Pending)*
   - **Deliverables**: `systems/power/firmware/power_proto.h & systems/power/tb/test_power_fsm.py (PRECHARGE -> RUN -> ESTOP_LATCHED -> FAULT state invariants)`
   - **Verify**: `uv run --with pytest pytest systems/power/tb/test_power_fsm.py`
-  - **First Principles**: Fail-safe latch semantics: why a physical mushroom E-stop must kill MOSFET gate power in hardware regardless of firmware state *(systems/power/README.md)*
+  - **First Principles**: Fail-safe hardware latching: why pressing the physical red mushroom E-stop must kill transistor gate power in hardware even if firmware hangs *(systems/power/README.md)*
 
 #### Phase 2: 4-Layer Power & Electronic Breaker Board & Factory Launch
 
-- [ ] **`power-07`** — **KiCad Schematic 1: Back-to-Back E-Fuse, Pre-Charge & Physical Mushroom E-Stop** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/power/pcb/gen_sch_power_path.py (XT60 battery in, active pre-charge FET, back-to-back N-MOSFET e-fuse, hardware overcurrent latch & E-stop loop + SVG)`
+- [ ] **`power-07`** — **KiCad Schematic 1: Two-Way E-Fuse, Pre-Charge & Physical Mushroom E-Stop** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/power/pcb/gen_sch_power_path.py (XT60 battery plug, soft pre-charge FET, back-to-back N-MOSFET breaker, hardware short-circuit latch & E-stop loop + SVG)`
   - **Verify**: `python3 systems/power/pcb/gen_sch_power_path.py && kicad-cli sch erc --exit-code-violations systems/power/pcb/power_spine.kicad_sch`
-  - **First Principles**: Why single MOSFETs conduct backward through their body diode unless placed back-to-back in common-source topology *(systems/power/README.md)*
-- [ ] **`power-08`** — **KiCad Schematic 2: 4x Leg Bus Channels, 5V Buck, Sensing & Supervisor MCU** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/power/pcb/gen_sch_ctrl.py (adds per-leg current/voltage INA monitoring, 5V/4A buck, regen TVS bank, STM32 supervisor & CAN-FD + ERC)`
+  - **First Principles**: Why a single MOSFET leaks current backward through its built-in body diode, requiring two transistors wired back-to-back to block current in both directions *(systems/power/README.md)*
+- [ ] **`power-08`** — **KiCad Schematic 2: 4x Leg Bus Channels, 5V Buck, Current Sense & Supervisor** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/power/pcb/gen_sch_ctrl.py (adds per-leg INA current/voltage monitors, 5V/4A buck regulator, braking surge TVS bank, STM32 supervisor & CAN-FD + ERC)`
   - **Verify**: `python3 systems/power/pcb/gen_sch_ctrl.py && kicad-cli sch erc --exit-code-violations systems/power/pcb/power_spine.kicad_sch`
-  - **First Principles**: Isolating high-current motor transients from sensitive ADC millivolt shunt traces *(Clayton Paul, Ch. 6)*
-- [ ] **`power-09`** — **4-Layer Heavy-Copper Power Spine PCB Layout & Thermal Via Grid** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/power/pcb/gen_layout.py (2oz copper bus pours, star-ground Kelvin sensing, TVS placement & layer SVGs)`
+  - **First Principles**: Isolating 30A motor switching transients away from tiny millivolt sense-resistor measurement traces *(Clayton Paul, Ch. 6)*
+- [ ] **`power-09`** — **4-Layer Thick-Copper Power Spine PCB Layout & Thermal Via Grid** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/power/pcb/gen_layout.py (2oz thick copper bus pours, star-ground zero-current Kelvin sensing, surge-clamp diode placement & layer SVGs)`
   - **Verify**: `python3 systems/power/pcb/gen_layout.py --verify`
-  - **First Principles**: Minimizing I^2 R voltage drop and copper trace temperature rise at 30A continuous / 60A peak *(IPC-2152 Copper Trace Thermal Curves)*
-- [ ] **`power-10`** — **Thermal & Parasitic Inductance Audit on Power Bus** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/power/pcb/audit_thermal_inductance.py (computes copper pour resistance, MOSFET steady-state delta-T & inductive turn-off overshoot)`
+  - **First Principles**: Minimizing I^2*R voltage drop and copper trace temperature rise under 30A continuous / 60A peak walking loads *(IPC-2152 Copper Trace Thermal Curves)*
+- [ ] **`power-10`** — **Thermal Resistance & Stray Wire Inductance Audit on Power Bus** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/power/pcb/audit_thermal_inductance.py (computes copper pour resistance, steady-state transistor temperature rise delta-T & turn-off voltage overshoot)`
   - **Verify**: `python3 systems/power/pcb/audit_thermal_inductance.py --verify`
-  - **First Principles**: First-principles thermal resistance networks (R_thetaJA) without needing physical thermal guesswork *(Incropera & DeWitt, Heat Transfer, Ch. 3)*
-- [ ] **`power-11`** — **Power Spine PCB DRC, Fabrication Exports & Safety Review Checklist** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/power/pcb/export_fab.sh (runs KiCad DRC and outputs JLCPCB 4-layer Gerbers, BOM & CPL)`
+  - **First Principles**: Modeling heat flow like an electric circuit using thermal resistance (R_thetaJA) to verify chips stay cool without physical guesswork *(Incropera & DeWitt, Heat Transfer, Ch. 3)*
+- [ ] **`power-11`** — **Power Spine Board Rule Check (DRC), Factory Exports & Safety Audit** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/power/pcb/export_fab.sh (runs KiCad DRC and outputs JLCPCB 4-layer Gerbers, parts BOM & placement CPL)`
   - **Verify**: `kicad-cli pcb drc --exit-code-violations systems/power/pcb/power_spine.kicad_pcb && bash systems/power/pcb/export_fab.sh`
-  - **First Principles**: Creepage/clearance rules and verifying polarity/orientation of power MOSFETs, TVS diodes & shunts *(systems/power/README.md)*
-- [ ] **`power-12`** — **Supervisor Firmware Scaffold & Fixed-Point EKF Host Test Harness** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/power/firmware/ekf_soc.c & systems/power/tb/test_ekf_c.py (verifies C EKF matches Python reference to < 0.2% SoC)`
+  - **First Principles**: High-current copper clearance margins and checking physical orientation/polarity of power MOSFETs, TVS clamp diodes & shunt resistors *(systems/power/README.md)*
+- [ ] **`power-12`** — **Supervisor Firmware Scaffold & Fixed-Point Fuel-Gauge Host Test Harness** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/power/firmware/ekf_soc.c & systems/power/tb/test_ekf_c.py (verifies C EKF fuel gauge matches Python reference to < 0.2% State of Charge)`
   - **Verify**: `uv run --with pytest pytest systems/power/tb/test_ekf_c.py`
-  - **First Principles**: Numerical stability of 2x2 covariance matrix updates in embedded C *(Plett, Vol. II, Ch. 3)*
-- [ ] **`power-13`** — **Fault-Latching Black-Box Event Ring & CAN Telemetry Encoder** *(🛋️ Couch · ⬜ Pending)*
+  - **First Principles**: Keeping 2x2 covariance matrix updates numerically positive and drift-free in embedded C *(Plett, Vol. II, Ch. 3)*
+- [ ] **`power-13`** — **Fault-Latching Black-Box Event Ring & CAN Telemetry Broadcaster** *(🛋️ Couch · ⬜ Pending)*
   - **Deliverables**: `systems/power/firmware/fault_log.c & systems/power/tb/test_fault_log.py`
   - **Verify**: `uv run --with pytest pytest systems/power/tb/test_fault_log.py`
-  - **First Principles**: Capturing the last 50 ms of bus voltage/current samples before an overcurrent trip for root-cause post-mortem *(systems/power/README.md)*
-- [ ] **`power-14`** — **Bench 13 (Fab Trigger): Order 2x Turnkey Power PCBs + 6S LiFePO4 Pack + E-Stop** *(🔧 Bench · ⬜ Pending)*
-  - **Deliverables**: `Order 2x turnkey 4-layer Power Spine PCBs from JLCPCB`; `Order physical mushroom E-stop switch, 6S LiFePO4 battery pack, smart charger & fiberglass fire-safe storage bag`
-  - **Verify**: `PCBA DFM verified and LiFePO4 pack rated <= 21.9V max with cell balancing leads`
-  - **First Principles**: Why LiFePO4 phosphate cathodes prevent thermal runaway compared to standard LiPo packs *(VISION.md (Home Safety Guardrails))*
+  - **First Principles**: Saving a circular flight-recorder buffer of the last 50 ms of voltage/current samples before an overcurrent trip for root-cause post-mortem *(systems/power/README.md)*
+- [ ] **`power-14`** — **Bench 13 (Fab Trigger): Order 2x Factory Power Boards + 6S LiFePO4 Pack + E-Stop** *(🔧 Bench · ⬜ Pending)*
+  - **Deliverables**: `Order 2x factory-assembled 4-layer Power Spine boards from JLCPCB`; `Order physical mushroom E-stop switch, 6-cell LiFePO4 battery pack, smart balance charger & fiberglass fire-safe storage bag`
+  - **Verify**: `PCBA manufacturability verified and LiFePO4 pack rated <= 21.9V max with individual cell balance leads`
+  - **First Principles**: Why lithium-iron-phosphate (LiFePO4) cathodes resist thermal runaway compared to standard lithium-polymer (LiPo) drone packs *(VISION.md (Home Safety Guardrails))*
 
 #### Phase 3: Safety Protection Firmware & Live Battery Estimator
 
-- [ ] **`power-15`** — **Pre-Charge Ramp, Inrush Timeout & Overcurrent Supervisor State Machine** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/power/firmware/power_fsm.c (verifies bus voltage reaches 95% V_bat within 50 ms before closing main MOSFETs; aborts on short)`; `systems/power/tb/test_power_fsm_c.py`
+- [ ] **`power-15`** — **Soft Pre-Charge Ramp, Inrush Timeout & Short-Circuit Guard State Machine** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/power/firmware/power_fsm.c (checks that bus voltage reaches 95% of battery voltage within 50 ms before closing main MOSFETs; aborts on short)`; `systems/power/tb/test_power_fsm_c.py`
   - **Verify**: `uv run --with pytest pytest systems/power/tb/test_power_fsm_c.py`
-  - **First Principles**: Detecting a dead short during low-current pre-charge before ever energizing the 30A main switches *(systems/power/README.md)*
-- [ ] **`power-16`** — **ADC DMA Voltage/Current/NTC Acquisition & Calibration Math** *(🛋️ Couch · ⬜ Pending)*
+  - **First Principles**: Catching a dead short safely through the high-resistance pre-charge path before ever turning on the 30A main switches *(systems/power/README.md)*
+- [ ] **`power-16`** — **DMA Analog-to-Digital (ADC) Voltage/Current/Temp Sampling & Calibration** *(🛋️ Couch · ⬜ Pending)*
   - **Deliverables**: `systems/power/firmware/telemetry_adc.c & systems/power/tb/test_adc_cal.py`
   - **Verify**: `uv run --with pytest pytest systems/power/tb/test_adc_cal.py`
-  - **First Principles**: Steinhart-Hart thermistor linearization and oversampling SNR improvement *(Pallàs-Areny & Webster, Ch. 2 & 8)*
-- [ ] **`power-17`** — **CAN-FD Power Telemetry Broadcaster & brain Watchdog Integration** *(🛋️ Couch · ⬜ Pending)*
+  - **First Principles**: Converting nonlinear temperature-sensor resistance (NTC thermistor) via Steinhart-Hart curves and boosting ADC precision by oversampling *(Pallàs-Areny & Webster, Ch. 2 & 8)*
+- [ ] **`power-17`** — **CAN-FD Power Telemetry Broadcaster & brain Brownout Warning Integration** *(🛋️ Couch · ⬜ Pending)*
   - **Deliverables**: `systems/power/firmware/can_power.c & systems/brain/apps/power_monitor.c`; `systems/power/tb/test_can_power.py`
   - **Verify**: `uv run --with pytest pytest systems/power/tb/test_can_power.py`
-  - **First Principles**: Coordinated graceful brownout shutdown: warning brain to lower leg stiffness before undervoltage cutoff *(VISION.md)*
-- [ ] **`power-18`** — **Firmware Image Build & Complete Fault-Scenario Unit Suite** *(🛋️ Couch · ⬜ Pending)*
+  - **First Principles**: Graceful brownout protocol: warning brain to lower leg stiffness cleanly before battery undervoltage cutoff triggers *(VISION.md)*
+- [ ] **`power-18`** — **Power Firmware Build & Complete Fault-Scenario Unit Test Suite** *(🛋️ Couch · ⬜ Pending)*
   - **Deliverables**: `systems/power/firmware/Makefile & systems/power/tb/test_fault_scenarios.py`
   - **Verify**: `make -C systems/power/firmware all && uv run --with pytest pytest systems/power/tb/test_fault_scenarios.py`
-  - **First Principles**: Testing every failure mode (short-circuit pre-charge, overcurrent, undervoltage, E-stop bounce) deterministically *(systems/power/README.md)*
-- [ ] **`power-19`** — **24V Bench Bring-Up & Fault-Injection Protocol Document** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/power/pcb/BRINGUP_PROTOCOL.md (step-by-step current-limited test matrix, scope probe points & expected E-fuse trip times)`
+  - **First Principles**: Simulating every failure mode (shorted pre-charge, overcurrent spike, low battery, E-stop switch bounce) deterministically *(systems/power/README.md)*
+- [ ] **`power-19`** — **24V Current-Limited Bench Bring-Up & Fault-Injection Test Protocol** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/power/pcb/BRINGUP_PROTOCOL.md (step-by-step current-limited test matrix, oscilloscope probe points & expected e-fuse trip times)`
   - **Verify**: `All test matrix acceptance bounds cross-checked against simulated SPICE/EKF numbers`
-  - **First Principles**: Verification planning before applying energy to power electronics *(systems/power/README.md)*
+  - **First Principles**: Writing a rigorous verification test plan before applying real energy to high-current power electronics *(systems/power/README.md)*
 
 #### Phase 4: Fault-Injection Bring-Up, 150W Load & E-Stop Verification
 
-- [ ] **`power-20`** — **Host Telemetry Dashboard & Automated 150W Load Profile Script** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/power/sim/bench_ekf_eval.py (plots real vs. EKF SoC and captures UART/CAN fault frames during bench testing)`
+- [ ] **`power-20`** — **Host Battery Telemetry Plotter & Automated 150W Pulse Load Script** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/power/sim/bench_ekf_eval.py (plots real vs. EKF battery State of Charge and captures UART/CAN fault frames during bench testing)`
   - **Verify**: `uv run --with pytest pytest systems/power/tb/test_bench_eval.py`
-  - **First Principles**: Quantifying SoC estimation RMSE across realistic dynamic quadruped current pulses *(Plett, Vol. II, Ch. 3)*
+  - **First Principles**: Quantifying State-of-Charge estimation root-mean-square error across realistic walking current pulses *(Plett, Vol. II, Ch. 3)*
 - [ ] **`power-21`** — **Bench 14: Current-Limited Power Spine Bring-Up & 5V Rail Load Test** *(🔧 Bench · ⬜ Pending)*
-  - **Deliverables**: `Power Power Spine PCB from 20V / 0.5A current-limited bench PSU, flash supervisor MCU & measure 5V buck ripple under 3A load`
-  - **Verify**: `5.0V +/- 2% regulation with < 40 mVpp ripple and clean pre-charge ramp into capacitive dummy load`
-  - **First Principles**: Validating transient load regulation on physical switching power stages *(systems/power/pcb/BRINGUP_PROTOCOL.md)*
-- [ ] **`power-22`** — **Bench 15: Mushroom E-Stop & Hard-Short E-Fuse Scope Capture** *(🔧 Bench · ⬜ Pending)*
-  - **Deliverables**: `Trigger physical mushroom E-stop and controlled resistive/electronic fault; capture < 5 µs bus turn-off & TVS clamp on oscilloscope`
-  - **Verify**: `E-fuse disconnects fault within < 5 µs with peak V_ds overshoot safely < 32V`
-  - **First Principles**: Observing real inductive energy clamping and verifying hardware safety cutoffs before connecting live battery *(systems/power/pcb/BRINGUP_PROTOCOL.md)*
-- [ ] **`power-23`** — **Bench 16: Live 6S LiFePO4 Discharge & Online EKF Validation** *(🔧 Bench · ⬜ Pending)*
-  - **Deliverables**: `Connect 6S LiFePO4 pack through series E-stop, run dynamic pulse load & evaluate real-time EKF SoC error`
-  - **Verify**: `Online EKF tracks true Coulomb-counted SoC within < 2% error despite LiFePO4 flat voltage plateau`
-  - **First Principles**: Kalman filtering in practice on real electrochemical cell noise *(Plett, Vol. II, Ch. 3)*
+  - **Deliverables**: `Power Power Spine PCB from 20V / 0.5A current-limited bench PSU, flash supervisor MCU & measure 5V buck voltage ripple under 3A load`
+  - **Verify**: `5.0V +/- 2% regulation with < 40 mVpp ripple and clean soft pre-charge ramp into capacitive dummy load`
+  - **First Principles**: Validating transient step-load voltage stability on physical switching regulators *(systems/power/pcb/BRINGUP_PROTOCOL.md)*
+- [ ] **`power-22`** — **Bench 15: Mushroom E-Stop & Hard-Short E-Fuse Oscilloscope Capture** *(🔧 Bench · ⬜ Pending)*
+  - **Deliverables**: `Press physical mushroom E-stop and trigger controlled electronic short; capture < 5 µs bus cutoff & TVS surge clamp on oscilloscope`
+  - **Verify**: `E-fuse disconnects fault within < 5 µs with peak switch overshoot safely < 32V`
+  - **First Principles**: Observing real inductive voltage clamping on scope traces and verifying hardware safety cutoffs before connecting a live battery *(systems/power/pcb/BRINGUP_PROTOCOL.md)*
+- [ ] **`power-23`** — **Bench 16: Live 6S LiFePO4 Discharge & Online Fuel-Gauge Validation** *(🔧 Bench · ⬜ Pending)*
+  - **Deliverables**: `Connect 6S LiFePO4 pack through series E-stop, run dynamic pulse load & evaluate real-time EKF battery State-of-Charge error`
+  - **Verify**: `Online EKF tracks true Coulomb-counted State of Charge within < 2% error despite LiFePO4 flat voltage plateau`
+  - **First Principles**: Seeing Kalman filtering overcome noisy voltage spikes on real electrochemical battery cells *(Plett, Vol. II, Ch. 3)*
 - [ ] **`power-24`** — **Bench 17 (power Graduation): Integrated brain + power + drive Harness Test** *(🔧 Bench · ⬜ Pending)*
   - **Deliverables**: `Power brain (from 5V rail) and drive (from 19.2V bus) off power spine; run rapid torque reversals without 5V brownout`
-  - **Verify**: `brain runs uninterrupted 1 kHz CAN-FD telemetry and ash shell while drive pulls peak torque pulses and regen currents`
-  - **First Principles**: Proving clean separation of high-power actuator transients and low-noise silicon compute *(VISION.md)*
+  - **Verify**: `brain runs uninterrupted 1 kHz CAN-FD telemetry and ash shell while drive pulls peak torque pulses and braking currents`
+  - **First Principles**: Proving clean electrical isolation between high-power motor transients and low-noise digital compute *(VISION.md)*
 
 </details>
 
@@ -582,127 +582,127 @@ flowchart LR
 
 #### Phase 1: 3D Leg Geometry, Force-Torque Mapping & Gravity Compensation
 
-- [ ] **`limb-01`** — **3D Rotations (SO(3)), Homogeneous Transforms (SE(3)) & Exponential Coordinates** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/limb/sim/se3_math.py (skew-symmetric matrices, Rodrigues rotation formula, matrix exp/log & adjoint transforms)`; `systems/limb/tb/test_se3_math.py`
+- [ ] **`limb-01`** — **3D Rotation Matrices (SO(3)), Rigid-Body Transforms (SE(3)) & Screw Motion** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/limb/sim/se3_math.py (skew-symmetric cross-product matrices, Rodrigues rotation formula, matrix exp/log & velocity frame maps)`; `systems/limb/tb/test_se3_math.py`
   - **Verify**: `uv run --with pytest pytest systems/limb/tb/test_se3_math.py`
-  - **First Principles**: Why rotation matrices live on the curved SO(3) manifold instead of Euler angles (no gimbal lock) and how twists represent 3D motion *(Lynch & Park, Modern Robotics, Ch. 3)*
-- [ ] **`limb-02`** — **Product-of-Exponentials (PoE) Forward Kinematics for 3-DOF Quadruped Leg** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/limb/sim/leg_kinematics.py (PoE forward kinematics mapping [q_abad, q_hip, q_knee] -> 3D foot position p_foot)`; `systems/limb/tb/test_leg_kinematics.py`
+  - **First Principles**: Why 3x3 orthogonal rotation matrices on the curved SO(3) group avoid Euler-angle axis collapse (gimbal lock) and how 6D velocity vectors (twists) cleanly unify 3D spin and translation *(Lynch & Park, Modern Robotics, Ch. 3)*
+- [ ] **`limb-02`** — **Product-of-Exponentials (PoE) Forward Kinematics for a 3-Joint Leg** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/limb/sim/leg_kinematics.py (chains 3 joint rotations from hip to foot [q_abad, q_hip, q_knee] -> 3D foot position p_foot)`; `systems/limb/tb/test_leg_kinematics.py`
   - **Verify**: `uv run --with pytest pytest systems/limb/tb/test_leg_kinematics.py`
-  - **First Principles**: Describing a multi-joint robotic limb purely from zero-position screw axes without coordinate frame confusion *(Lynch & Park, Ch. 4)*
-- [ ] **`limb-03`** — **Closed-Form Analytical Inverse Kinematics & Knee-Bend Singularity Handling** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/limb/sim/leg_ik.py (analytical IK with workspace clamping and branch selection)`; `systems/limb/tb/test_leg_ik.py`
+  - **First Principles**: Computing where the foot sits in 3D space purely from each joint hinge axis at rest (Product-of-Exponentials), avoiding tangled local coordinate frame conventions *(Lynch & Park, Ch. 4)*
+- [ ] **`limb-03`** — **Closed-Form Inverse Kinematics (IK) & Straight-Knee Singularity Guard** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/limb/sim/leg_ik.py (solves joint angles for a target 3D foot coordinate with reachable-workspace clamping and knee-bend branch selection)`; `systems/limb/tb/test_leg_ik.py`
   - **Verify**: `uv run --with pytest pytest systems/limb/tb/test_leg_ik.py`
-  - **First Principles**: Law-of-cosines leg geometry and graceful singularity saturation near full leg extension *(Lynch & Park, Ch. 6)*
-- [ ] **`limb-04`** — **Geometric Foot Jacobian & Virtual Force-Torque Duality (tau = J^T F)** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/limb/sim/leg_jacobian.py (analytical 3x3 foot Jacobian J(q), manipulability ellipsoids & joint-torque mapping)`; `systems/limb/tb/test_leg_jacobian.py`
+  - **First Principles**: Using law-of-cosines triangle geometry to map a desired foot point back to joint angles while smoothly clamping near full leg extension where velocity math blows up (singularity) *(Lynch & Park, Ch. 6)*
+- [ ] **`limb-04`** — **Foot Velocity Jacobian & Force-Torque Duality (tau = J^T F)** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/limb/sim/leg_jacobian.py (analytical 3x3 velocity sensitivity matrix J(q), directional force-leverage ellipsoids & joint-torque map)`; `systems/limb/tb/test_leg_jacobian.py`
   - **Verify**: `uv run --with pytest pytest systems/limb/tb/test_leg_jacobian.py`
-  - **First Principles**: Virtual work conservation: why the transpose of the velocity Jacobian directly converts desired 3D foot ground force into joint torques *(Lynch & Park, Ch. 5)*
-- [ ] **`limb-05`** — **Recursive Newton-Euler (RNEA) Inverse Dynamics & Gravity Compensation** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/limb/sim/leg_rnea.py (computes exact inertial, Coriolis/centrifugal & gravity feedforward torques)`; `systems/limb/tb/test_leg_rnea.py`
+  - **First Principles**: Conservation of virtual work: why transposing the matrix that maps joint speeds to foot velocity (J^T) turns a desired 3D foot push force F directly into exact motor torques *(Lynch & Park, Ch. 5)*
+- [ ] **`limb-05`** — **Recursive Newton-Euler (RNEA) Inverse Dynamics & Gravity Cancellation** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/limb/sim/leg_rnea.py (computes exact leg-acceleration inertia, swinging Coriolis/centrifugal & gravity feedforward torques)`; `systems/limb/tb/test_leg_rnea.py`
   - **Verify**: `uv run --with pytest pytest systems/limb/tb/test_leg_rnea.py`
-  - **First Principles**: Propagating spatial velocities/accelerations outward from the hip and wrench forces inward from the foot in O(N) time *(Lynch & Park, Ch. 8)*
-- [ ] **`limb-06`** — **Cartesian Virtual Spring-Damper Impedance Controller** *(🛋️ Couch · ⬜ Pending)*
+  - **First Principles**: Sweeping joint speeds and accelerations outward from hip to foot, then sweeping reaction forces inward from foot to hip in O(N) time to predict exact motion torques *(Lynch & Park, Ch. 8)*
+- [ ] **`limb-06`** — **3D Virtual Spring-Damper Foot Controller (Cartesian Impedance)** *(🛋️ Couch · ⬜ Pending)*
   - **Deliverables**: `systems/limb/sim/cartesian_impedance.py (tau = J^T * (K_cart*(p_des - p) + D_cart*(v_des - v)) + tau_grav)`; `systems/limb/tb/test_cartesian_impedance.py`
   - **Verify**: `uv run --with pytest pytest systems/limb/tb/test_cartesian_impedance.py`
-  - **First Principles**: Making a rigid aluminum/carbon leg behave like a programmable 3D mechanical shock absorber at the foot *(Slotine & Li, Applied Nonlinear Control, Ch. 9)*
-- [ ] **`limb-07`** — **3-DOF Leg URDF & MuJoCo Vertical Linear-Rail Hopper Model** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/limb/sim/leg_hopper.xml (MuJoCo model matching mass, link lengths & 8:1 actuator reflection inertia)`; `systems/limb/tb/test_mujoco_leg.py`
+  - **First Principles**: Programming a rigid carbon-and-aluminum leg to behave like a software-tunable 3D spring and hydraulic shock absorber at the foot tip *(Slotine & Li, Applied Nonlinear Control, Ch. 9)*
+- [ ] **`limb-07`** — **3-Joint Leg Model (URDF) & MuJoCo Vertical Rail Physics Simulator** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/limb/sim/leg_hopper.xml (MuJoCo rigid-body model matching link masses, lengths & 8:1 gearbox rotor inertia)`; `systems/limb/tb/test_mujoco_leg.py`
   - **Verify**: `uv run --with pytest pytest systems/limb/tb/test_mujoco_leg.py`
-  - **First Principles**: Validating analytical RNEA and Jacobian equations independently against a full rigid-body contact physics engine *(Lynch & Park, Ch. 8)*
+  - **First Principles**: Checking our analytical RNEA and Jacobian equations against an independent 3D rigid-body contact simulator (MuJoCo), including how an 8:1 gearbox magnifies motor rotor inertia by 64x *(Lynch & Park, Ch. 8)*
 
 #### Phase 2: Physics-Simulator Hopping & Foot-Contact Detection
 
-- [ ] **`limb-08`** — **Zero-Sensor Momentum-Based Ground Contact Observer** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/limb/sim/contact_observer.py (estimates 3D ground reaction force F_ext from motor currents and joint dynamics without fragile foot switches)`; `systems/limb/tb/test_contact_observer.py`
+- [ ] **`limb-08`** — **Sensorless Momentum-Based Ground Contact Estimator** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/limb/sim/contact_observer.py (estimates 3D ground reaction force F_ext from motor currents and joint motion without fragile foot switches)`; `systems/limb/tb/test_contact_observer.py`
   - **Verify**: `uv run --with pytest pytest systems/limb/tb/test_contact_observer.py`
-  - **First Principles**: Generalized momentum residuals: isolating true impact contact forces from link accelerations without noisy joint-velocity derivatives *(systems/limb/README.md)*
-- [ ] **`limb-09`** — **Smooth Bézier Swing-Foot Trajectory & Impact-Cushioning State Machine** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/limb/sim/swing_trajectory.py (zero-velocity-touchdown C2 Bézier foot curves)`; `systems/limb/tb/test_swing_trajectory.py`
+  - **First Principles**: Generalized momentum observer: comparing expected leg momentum against measured joint speeds to isolate ground-impact force without noisy velocity differentiation *(systems/limb/README.md)*
+- [ ] **`limb-09`** — **Smooth Polynomial Swing-Foot Curve (Bézier) & Soft Touchdown Logic** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/limb/sim/swing_trajectory.py (smooth acceleration-continuous C2 Bézier foot arcs reaching zero vertical impact velocity at touchdown)`; `systems/limb/tb/test_swing_trajectory.py`
   - **Verify**: `uv run --with pytest pytest systems/limb/tb/test_swing_trajectory.py`
-  - **First Principles**: Shaping foot velocity and acceleration profiles to prevent mechanical impact spikes on touchdown *(Lynch & Park, Ch. 9)*
-- [ ] **`limb-10`** — **Spring-Loaded Inverted Pendulum (SLIP) & Raibert Hopping Controller in MuJoCo** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/limb/sim/hopper_ctrl.py (stance thrust energy regulation + aerial retraction + soft landing compliance)`; `systems/limb/tb/test_hopper_sim.py (proves sustained cyclic hopping to target apex height in MuJoCo)`
+  - **First Principles**: Shaping swing-foot velocity and acceleration profiles with polynomial splines so the foot meets the floor gently instead of hammering the gearbox *(Lynch & Park, Ch. 9)*
+- [ ] **`limb-10`** — **Spring-Pogo Model (SLIP) & Raibert Hopping Controller in MuJoCo** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/limb/sim/hopper_ctrl.py (stance push-off energy regulation + mid-air leg tuck + soft landing compliance)`; `systems/limb/tb/test_hopper_sim.py (proves sustained cyclic hopping to target apex height in MuJoCo)`
   - **Verify**: `uv run --with pytest pytest systems/limb/tb/test_hopper_sim.py`
-  - **First Principles**: Conservation of mechanical energy across stance compression and flight apex, and regulating energy injection against surface losses *(Tedrake, Underactuated Robotics, Ch. 4)*
-- [ ] **`limb-11`** — **Fixed-Point Q16.16 Leg Kinematics & Impedance Library for brain (SysC)** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/limb/firmware/leg_ctrl.c & systems/limb/tb/test_leg_sysc.py (compiles with scratch SysC and verifies bit-accurate torque match vs. Python float)`
+  - **First Principles**: Treating a hopping leg like a pogo stick (Spring-Loaded Inverted Pendulum / SLIP) and topping up mechanical energy each bounce to cancel ground damping losses *(Tedrake, Underactuated Robotics, Ch. 4)*
+- [ ] **`limb-11`** — **Fixed-Point (Q16.16) Leg Kinematics & Spring Library for brain (SysC)** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/limb/firmware/leg_ctrl.c & systems/limb/tb/test_leg_sysc.py (compiles with our scratch SysC compiler and verifies bit-accurate torque match vs. Python floats)`
   - **Verify**: `uv run --with pytest pytest systems/limb/tb/test_leg_sysc.py`
-  - **First Principles**: Evaluating trig/matrix operations in Q16.16 fixed point on custom RISC-V hardware within a 1 kHz control tick *(systems/brain/README.md)*
-- [ ] **`limb-12`** — **SysC + Verilator Closed-Loop Co-Simulation Driving MuJoCo Leg** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/limb/tb/test_verilator_mujoco_leg.py (brain Verilator RTL running SysC firmware exchanges 1 kHz frames with live MuJoCo leg)`
+  - **First Principles**: Encoding decimal fractions inside 32-bit integers (16 integer bits, 16 fractional bits / Q16.16) so custom integer-only RISC-V silicon solves trig and matrices inside a 1 ms tick *(systems/brain/README.md)*
+- [ ] **`limb-12`** — **SysC + Verilator Chip-to-Physics Co-Simulation Driving MuJoCo Leg** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/limb/tb/test_verilator_mujoco_leg.py (simulated brain chip running compiled SysC firmware exchanges 1 kHz motor frames with a live MuJoCo leg)`
   - **Verify**: `uv run --with pytest pytest systems/limb/tb/test_verilator_mujoco_leg.py`
-  - **First Principles**: Hardware-in-the-loop silicon-to-physics co-simulation catching fixed-point quantization or timing bugs before cutting metal *(VISION.md)*
-- [ ] **`limb-13`** — **Belt/Linkage Knee Transmission Geometry & Distal Inertia Budget** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/limb/cad/transmission_math.py (computes coaxial hip-knee drive geometry, belt center distance & reflected distal leg inertia)`
+  - **First Principles**: Hardware-in-the-loop silicon-to-physics co-simulation catching integer overflow or bus-timing bugs before machining any metal *(VISION.md)*
+- [ ] **`limb-13`** — **Hip-Mounted Knee Belt/Linkage Geometry & Lower-Leg Inertia Budget** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/limb/cad/transmission_math.py (computes coaxial hip-knee pulley spacing, belt center distance & swinging leg inertia)`
   - **Verify**: `python3 systems/limb/cad/transmission_math.py --verify`
-  - **First Principles**: Why mounting the heavy knee motor at the hip cuts lower-leg rotational inertia by > 5x for fast agile swings *(Shigley's, Ch. 17 (Belts))*
-- [ ] **`limb-14`** — **Drop-Test & Impact Fatigue Sizing for 2.5 kg Leg Structure** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/limb/cad/impact_sizing.py (peak landing impulse force, CF tube Euler buckling & bending safety factors)`
+  - **First Principles**: Why bolting the heavy knee motor at the hip and driving the knee via a toothed belt cuts lower-leg rotational inertia by > 5x for fast, agile foot swings *(Shigley's, Ch. 17 (Belts))*
+- [ ] **`limb-14`** — **Drop-Test Shock & Carbon-Tube Buckling Sizing for 2.5 kg Leg** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/limb/cad/impact_sizing.py (peak landing impulse force, carbon-fiber tube column buckling & bending safety factors)`
   - **Verify**: `python3 systems/limb/cad/impact_sizing.py --verify`
-  - **First Principles**: Impulse-momentum deceleration over stance travel and Euler column buckling loads on slender carbon tubes *(Hibbeler, Mechanics of Materials, Ch. 13)*
+  - **First Principles**: Calculating landing deceleration forces from impulse-momentum conservation and checking slender carbon tubes against sudden sideways collapse (Euler column buckling) *(Hibbeler, Mechanics of Materials, Ch. 13)*
 
 #### Phase 3: Lightweight Leg 3D CAD, Impact Stress Check & Parts Order
 
-- [ ] **`limb-15`** — **Hip Ab/Ad + Hip Pitch Structural Block CAD (Leg #1 Modular Mount)** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/limb/cad/hip_assembly_cad.py (CadQuery parametric hip bracketry bolted identically to both tabletop rail and future walker torso)`
+- [ ] **`limb-15`** — **Modular Hip Side-Swing + Forward-Pitch Bracket CAD (Shared Leg #1 Mount)** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/limb/cad/hip_assembly_cad.py (code-driven 3D CAD hip bracketry bolted identically to both the desk test rail and future quadruped torso)`
   - **Verify**: `python3 systems/limb/cad/hip_assembly_cad.py --check-clearances`
-  - **First Principles**: Designing a modular bolt pattern from Day 1 so Leg #1 transfers directly onto the quadruped torso without modification *(VISION.md)*
-- [ ] **`limb-16`** — **Upper Femur, Lower Tibia, Coaxial Knee & TPU Sphere Foot CAD** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/limb/cad/leg_links_cad.py (CF tube clamps, belt/4-bar linkage, internal wire channel & compliant TPU foot)`
+  - **First Principles**: Standardizing one shared mechanical bolt interface from Day 1 so Leg #1 unbolts from the desk stand and drops straight onto the 4-legged torso *(VISION.md)*
+- [ ] **`limb-16`** — **Upper Leg (Femur), Lower Leg (Tibia), Coaxial Knee & Rubberized Foot CAD** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/limb/cad/leg_links_cad.py (carbon-fiber tube clamps, belt/4-bar knee drive, protected internal wire channel & compliant TPU rubberized foot)`
   - **Verify**: `python3 systems/limb/cad/leg_links_cad.py --check-clearances`
-  - **First Principles**: Strain-relieving moving joint harnesses along the neutral bending axis to avoid wire fatigue *(systems/limb/README.md)*
-- [ ] **`limb-17`** — **3-DOF Leg Landing Impact Structural FEA (CalculiX)** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/limb/cad/run_leg_fea.sh (simulates 4g landing impact load across hip/femur/knee brackets)`
-  - **Verify**: `bash systems/limb/cad/run_leg_fea.sh (safety factor >= 2.5 across all printed/CNC brackets)`
-  - **First Principles**: Identifying stress concentrations at fillets and fastener bosses before fabrication *(Logan, FEA, Ch. 6–8)*
-- [ ] **`limb-18`** — **Tabletop 2020 Aluminum Vertical Linear-Rail Test Stand CAD** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/limb/cad/rail_stand_cad.py (compact desk-sized 2020 extrusion stand + MGN12 linear carriage + physical hard-stop bumpers)`
+  - **First Principles**: Routing moving joint cables along the hinge bending centerline (neutral axis) so thousands of knee flexes never snap copper wire strands *(systems/limb/README.md)*
+- [ ] **`limb-17`** — **3-Joint Leg Landing Impact Stress Simulation (CalculiX FEA)** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/limb/cad/run_leg_fea.sh (simulates 4g landing shock load across hip, upper-leg & knee brackets)`
+  - **Verify**: `bash systems/limb/cad/run_leg_fea.sh (safety factor >= 2.5 across all printed/milled brackets)`
+  - **First Principles**: Using Finite Element Analysis (FEA) stress meshes to spot sharp-corner tear hotspots at rounded fillets and bolt bosses before ordering parts *(Logan, FEA, Ch. 6–8)*
+- [ ] **`limb-18`** — **Tabletop Slotted-Aluminum (2020) Vertical Linear-Rail Test Stand CAD** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/limb/cad/rail_stand_cad.py (compact desk 2020 aluminum rail frame + MGN12 precision ball-bearing carriage + rubber hard-stop bumpers)`
   - **Verify**: `python3 systems/limb/cad/rail_stand_cad.py --check-clearances`
-  - **First Principles**: Constraining 3D pitch/roll safely onto a low-friction 1D vertical axis during single-leg hopping experiments *(systems/limb/README.md)*
-- [ ] **`limb-19`** — **Leg Mechanical & Batch Actuator Manufacturing Archive** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/limb/cad/export_fab.sh & BOM for 2x additional drive actuators, CF tubes, belts, bearings & 2020 rail parts`
+  - **First Principles**: Locking out unwanted 3D tipping onto one low-friction vertical guide rail so single-leg hopping experiments stay safe on a desk *(systems/limb/README.md)*
+- [ ] **`limb-19`** — **Leg Fabrication Export & Exact Hardware Parts List (BOM)** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/limb/cad/export_fab.sh & BOM for 2x additional drive actuators, carbon tubes, belts, bearings & 2020 rail parts`
   - **Verify**: `bash systems/limb/cad/export_fab.sh`
-  - **First Principles**: Exact BOM reconciliation across fasteners, heat-set inserts, and bearing shims *(systems/limb/README.md)*
-- [ ] **`limb-20`** — **Soft-Limit Joint Envelope & Impact Current Clamp Firmware** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/limb/firmware/leg_safety.c & systems/limb/tb/test_leg_safety.py (enforces joint angle soft walls, velocity limits & instant fault cutoff)`
+  - **First Principles**: Cross-checking every bolt length, brass heat-set threaded insert, and bearing spacer shim before placing factory manufacturing orders *(systems/limb/README.md)*
+- [ ] **`limb-20`** — **Software Joint Travel Walls & Impact Current Clamp Firmware** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/limb/firmware/leg_safety.c & systems/limb/tb/test_leg_safety.py (enforces soft virtual joint walls, speed caps & instant fault cutoff)`
   - **Verify**: `uv run --with pytest pytest systems/limb/tb/test_leg_safety.py`
-  - **First Principles**: Software mechanical end-stops in torque space so a controller bug never slams links into physical brackets *(VISION.md)*
-- [ ] **`limb-21`** — **Bench 18: Order 2x Additional Motors/FOC Parts, Leg MJF/CNC Parts & 2020 Rail** *(🔧 Bench · ⬜ Pending)*
-  - **Deliverables**: `Order Leg #1 MJF/CNC brackets, CF tubes, TPU foot, MGN12 rail parts + 2x extra drive motor kits`
-  - **Verify**: `Orders confirmed with matched belt pitch/length and bearing sizes`
-  - **First Principles**: Batch procurement workflow for scaling from 1 actuator to 1 full leg *(systems/limb/README.md)*
+  - **First Principles**: Adding springy software end-stops inside torque space so an errant control command brakes smoothly before slamming metal brackets together *(VISION.md)*
+- [ ] **`limb-21`** — **Bench 18: Order 2x More Motor Kits, Printed/Milled Leg Parts & 2020 Rail** *(🔧 Bench · ⬜ Pending)*
+  - **Deliverables**: `Order Leg #1 powder-fused nylon (MJF) / milled aluminum (CNC) brackets, carbon tubes, TPU foot, MGN12 rail parts + 2x extra drive motor kits`
+  - **Verify**: `Orders confirmed with matched toothed-belt pitch/length and ball-bearing sizes`
+  - **First Principles**: Batch procurement workflow for scaling cleanly from 1 benchtop actuator to 1 complete 3-joint leg *(systems/limb/README.md)*
 
 #### Phase 4: Porting Code to brain, Rail Assembly & Live Hopping
 
-- [ ] **`limb-22`** — **SysC 1 kHz Leg Impedance & Hopping Application on brain** *(🛋️ Couch · ⬜ Pending)*
+- [ ] **`limb-22`** — **SysC 1 kHz Leg Compliance & Hopping Application on brain** *(🛋️ Couch · ⬜ Pending)*
   - **Deliverables**: `systems/brain/apps/app_leg_hopper.c (integrates leg_ctrl, contact observer & CAN-FD Bus A 3-joint loop in SysC)`; `systems/limb/tb/test_app_leg_hopper.py`
   - **Verify**: `uv run --with pytest pytest systems/limb/tb/test_app_leg_hopper.py`
-  - **First Principles**: Deterministic 1 kHz timing across 3 bidirectional CAN-FD joints without dropping ash telemetry *(systems/brain/README.md)*
-- [ ] **`limb-23`** — **Live Foot-Trajectory & Contact-Force Telemetry Plotter** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/limb/sim/plot_leg_telemetry.py (parses brain UART stream to visualize commanded vs. actual foot height, torque & impact force)`
+  - **First Principles**: Scheduling 3 bidirectional 1 kHz CAN-FD motor messages reliably inside each 1 ms tick without dropping interactive ash shell logs *(systems/brain/README.md)*
+- [ ] **`limb-23`** — **Live Foot-Trajectory & Ground-Force Telemetry Plotter** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/limb/sim/plot_leg_telemetry.py (parses brain serial stream to plot commanded vs. actual foot height, torque & impact force)`
   - **Verify**: `uv run --with pytest pytest systems/limb/tb/test_telemetry_parser.py`
-  - **First Principles**: Closing the debug loop: measuring sim-to-real discrepancies in damping and friction from physical step plots *(systems/limb/README.md)*
-- [ ] **`limb-24`** — **Bench 19: Build 2x More drives & Assemble Leg #1 on Tabletop 2020 Rail** *(🔧 Bench · ⬜ Pending)*
-  - **Deliverables**: `Calibrate 2x additional drive actuators, assemble 3-DOF Leg #1 & mount onto 2020 linear rail stand`
-  - **Verify**: `All 3 joints move smoothly by hand with zero belt rub and clean CAN-FD IDs 1, 2, 3`
-  - **First Principles**: Mechanical zeroing and verifying coaxial belt tension *(systems/limb/README.md)*
-- [ ] **`limb-25`** — **Zero-Offset Calibration Routine & Joint Sign-Convention Test Suite** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/limb/firmware/leg_zero.c & systems/limb/tb/test_leg_zero.py (verifies right-hand rule signs across hip/knee joints vs. URDF)`
+  - **First Principles**: Closing the hardware debug loop by measuring real joint friction and belt stretch directly from step-response plots vs. simulation *(systems/limb/README.md)*
+- [ ] **`limb-24`** — **Bench 19: Build 2x More drives & Assemble Leg #1 on Tabletop Rail** *(🔧 Bench · ⬜ Pending)*
+  - **Deliverables**: `Calibrate 2x additional drive actuators, assemble 3-joint Leg #1 & bolt onto 2020 vertical linear rail stand`
+  - **Verify**: `All 3 joints swing smoothly by hand with zero belt rub and clean CAN-FD IDs 1, 2, 3`
+  - **First Principles**: Mechanical zeroing and setting proper coaxial belt tension without overloading motor bearings *(systems/limb/README.md)*
+- [ ] **`limb-25`** — **Joint Zero-Offset Calibration & Right-Hand Sign Convention Test Suite** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/limb/firmware/leg_zero.c & systems/limb/tb/test_leg_zero.py (verifies right-hand rule rotation signs across hip/knee joints vs. URDF)`
   - **Verify**: `uv run --with pytest pytest systems/limb/tb/test_leg_zero.py`
-  - **First Principles**: Why a single sign flip in one joint transforms compliant damping into explosive positive feedback *(Lynch & Park, Ch. 4)*
-- [ ] **`limb-26`** — **Bench 20: Gravity-Compensated Feather-Touch & 3D Virtual Spring Compliance** *(🔧 Bench · ⬜ Pending)*
-  - **Deliverables**: `Run SysC leg_ctrl on brain (powered by current-limited PSU through power spine); verify zero-gravity floating & programmable 3D foot stiffness`
+  - **First Principles**: Why flipping a single minus sign in one joint angle turns gentle spring damping into runaway positive feedback *(Lynch & Park, Ch. 4)*
+- [ ] **`limb-26`** — **Bench 20: Weightless Gravity Compensation & 3D Virtual Foot Spring Test** *(🔧 Bench · ⬜ Pending)*
+  - **Deliverables**: `Run SysC leg_ctrl on brain (powered by current-limited bench PSU through power spine); verify floating leg feel & programmable 3D foot stiffness`
   - **Verify**: `Leg floats effortlessly wherever placed by hand and snaps smoothly back to virtual equilibrium when deflected`
-  - **First Principles**: Seeing tau = J^T F and RNEA gravity compensation turn rigid actuators into compliant biological muscle *(systems/limb/README.md)*
-- [ ] **`limb-27`** — **Bench 21: Single-Drop Soft Landing & Momentum Contact Detection** *(🔧 Bench · ⬜ Pending)*
-  - **Deliverables**: `Drop rail carriage from 15 cm onto tabletop mat; verify contact observer catches touchdown and virtual damper absorbs bounce cleanly`
+  - **First Principles**: Experiencing tau = J^T F and RNEA gravity cancellation firsthand as rigid electric motors behave like compliant biological muscle *(systems/limb/README.md)*
+- [ ] **`limb-27`** — **Bench 21: Single-Drop Soft Landing & Momentum Touchdown Detection** *(🔧 Bench · ⬜ Pending)*
+  - **Deliverables**: `Drop rail carriage from 15 cm onto tabletop mat; verify contact observer catches floor impact and virtual damper absorbs bounce cleanly`
   - **Verify**: `Measured ground-impact overshoot settles within < 150 ms without hard bottoming out`
-  - **First Principles**: Comparing simulated MuJoCo impact damping against real hardware friction and belt compliance *(systems/limb/README.md)*
-- [ ] **`limb-28`** — **Bench 22 (limb Graduation): Autonomous Cyclic Raibert Hopping on Tabletop Rail** *(🔧 Bench · ⬜ Pending)*
+  - **First Principles**: Comparing simulated MuJoCo landing damping against real-world gearbox friction and belt compliance *(systems/limb/README.md)*
+- [ ] **`limb-28`** — **Bench 22 (limb Graduation): Autonomous Cyclic Hopping on Tabletop Rail** *(🔧 Bench · ⬜ Pending)*
   - **Deliverables**: `Execute continuous autonomous hopping driven in SysC on brain while logging apex height & motor current telemetry`
   - **Verify**: `Leg sustains >= 30 consecutive stable hops with consistent apex height and safe joint temperatures`
-  - **First Principles**: Leg #1 (front-left) is hardware- and software-proven—ready to replicate x4 into walker *(VISION.md)*
+  - **First Principles**: Leg #1 (front-left) is hardware- and software-proven—ready to replicate x4 directly into walker *(VISION.md)*
 
 </details>
 
@@ -718,7 +718,7 @@ flowchart LR
 | :--- | :---: | :---: | :--- |
 | **Phase 1: Full 12-Joint Robot Simulation & Body Speed Estimator** | 0 / 7 | 7 / 0 | `░░░░░░░░░░` `0%` |
 | **Phase 2: Predictive Whole-Body Balance & Trotting in Simulation** | 0 / 7 | 7 / 0 | `░░░░░░░░░░` `0%` |
-| **Phase 3: Parallel Physics RL Training & Exporting Weights to brain** | 0 / 8 | 8 / 0 | `░░░░░░░░░░` `0%` |
+| **Phase 3: Parallel Physics AI Training & Exporting Weights to brain** | 0 / 8 | 8 / 0 | `░░░░░░░░░░` `0%` |
 | **Phase 4: Torso Frame CAD, Wire Harnesses & Building Legs #2–#4** | 0 / 6 | 5 / 1 | `░░░░░░░░░░` `0%` |
 | **Phase 5: Safety-Frame Bring-Up, Live Neural Walking & Untethered Field Tests** | 0 / 6 | 1 / 5 | `░░░░░░░░░░` `0%` |
 
@@ -727,154 +727,154 @@ flowchart LR
 
 #### Phase 1: Full 12-Joint Robot Simulation & Body Speed Estimator
 
-- [ ] **`walker-01`** — **Full 12-DOF ~2.5 kg Quadruped URDF & MuJoCo Physics Model** *(🛋️ Couch · ⬜ Pending)*
+- [ ] **`walker-01`** — **Full 12-Joint ~2.5 kg Quadruped Model (URDF) & MuJoCo Physics Assembly** *(🛋️ Couch · ⬜ Pending)*
   - **Deliverables**: `systems/walker/sim/quadruped.xml (accurate torso, battery, brain/power mass inertia & 4x identical limb assemblies)`; `systems/walker/tb/test_quadruped_model.py`
   - **Verify**: `uv run --with pytest pytest systems/walker/tb/test_quadruped_model.py`
-  - **First Principles**: Floating-base generalized coordinates (6 torso DOF + 12 joint DOF = 18 DOF) and diagonal composite inertia tensors *(Lynch & Park, Ch. 8)*
-- [ ] **`walker-02`** — **Floating-Base Error-State Kalman Filter (ESKF) Body Velocity & Height Estimator** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/walker/sim/state_eskf.py (fuses 1 kHz IMU accel/gyro with stance-foot kinematics to estimate linear velocity v and body height without GPS)`; `systems/walker/tb/test_state_eskf.py`
+  - **First Principles**: Representing an unanchored floating body (6 free torso pose axes + 12 motor angles = 18 degrees of freedom / DOF) and combining torso, battery, and circuit-board masses into a composite inertia matrix *(Lynch & Park, Ch. 8)*
+- [ ] **`walker-02`** — **Floating-Base Error-State Kalman Filter (ESKF) Speed & Height Estimator** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/walker/sim/state_eskf.py (fuses 1 kHz motion sensor accel/gyro with planted-foot geometry to estimate torso speed v and height without GPS)`; `systems/walker/tb/test_state_eskf.py`
   - **Verify**: `uv run --with pytest pytest systems/walker/tb/test_state_eskf.py`
-  - **First Principles**: Integrating IMU accelerations while resetting velocity drift every millisecond a foot is planted in stance *(Barfoot, State Estimation for Robotics, Ch. 7)*
-- [ ] **`walker-03`** — **Smooth Stand-Up Trajectory & Quasi-Static Posture Controller** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/walker/sim/standup_ctrl.py (interpolates crouched rest pose -> standing height with even weight distribution)`; `systems/walker/tb/test_standup_sim.py`
+  - **First Principles**: Why integrating noisy acceleration alone drifts within seconds—and how pinning velocity to zero relative to whichever feet are planted on the floor cancels drift every millisecond *(Barfoot, State Estimation for Robotics, Ch. 7)*
+- [ ] **`walker-03`** — **Smooth Stand-Up Trajectory & Static Balance Posture Controller** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/walker/sim/standup_ctrl.py (interpolates crouched rest pose -> standing height with even weight sharing across 4 legs)`; `systems/walker/tb/test_standup_sim.py`
   - **Verify**: `uv run --with pytest pytest systems/walker/tb/test_standup_sim.py`
-  - **First Principles**: Support polygon stability and equalizing vertical ground reaction forces across all 4 stance feet *(Tedrake, Ch. 11)*
-- [ ] **`walker-04`** — **Whole-Body Roll/Pitch/Height Balance & Compliance Controller in MuJoCo** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/walker/sim/balance_qp.py (solves optimal ground reaction forces F_1..F_4 within friction cones to hold body orientation under shoves)`; `systems/walker/tb/test_balance_qp.py`
+  - **First Principles**: Keeping the center of mass inside the support polygon formed by the four feet while splitting torso weight evenly across stance legs *(Tedrake, Ch. 11)*
+- [ ] **`walker-04`** — **Whole-Body Roll/Pitch/Height Balance Solver (Quadratic Program) in MuJoCo** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/walker/sim/balance_qp.py (solves optimal foot push forces F_1..F_4 inside traction limits to hold body level under shoves)`; `systems/walker/tb/test_balance_qp.py`
   - **Verify**: `uv run --with pytest pytest systems/walker/tb/test_balance_qp.py`
-  - **First Principles**: Formulating multi-contact balance as a tiny Quadratic Program (QP) with unilateral pushing (f_z >= 0) and friction pyramids (|f_xy| <= mu*f_z) *(Tedrake, Ch. 11)*
-- [ ] **`walker-05`** — **Gait Phase Scheduler & Raibert Footstep Placement Planner** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/walker/sim/gait_scheduler.py (trot/crawl phase offsets, duty factor & velocity-proportional capture-point footholds)`; `systems/walker/tb/test_gait_scheduler.py`
+  - **First Principles**: Framing 4-leg balance as a tiny constrained Quadratic Program (QP): feet can only push down (f_z >= 0, never pull) and sideways force must stay inside the static friction cone (|f_xy| <= mu*f_z) so feet never slip *(Tedrake, Ch. 11)*
+- [ ] **`walker-05`** — **Gait Step-Timing Scheduler & Raibert Capture-Point Foothold Planner** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/walker/sim/gait_scheduler.py (diagonal trot/crawl leg offsets, stance duty factor & speed-proportional foothold targets)`; `systems/walker/tb/test_gait_scheduler.py`
   - **Verify**: `uv run --with pytest pytest systems/walker/tb/test_gait_scheduler.py`
-  - **First Principles**: Why placing swing feet ahead of the center of mass by v * T_stance/2 + k*(v - v_cmd) stabilizes dynamic trotting *(Tedrake, Ch. 4 & 11)*
-- [ ] **`walker-06`** — **Actuator Torque-Speed Envelope & Reflected-Inertia Sim Realism Layer** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/walker/sim/actuator_realism.py (models 21.9V back-EMF voltage ceiling, CAN latency & rotor inertia in MuJoCo)`; `systems/walker/tb/test_actuator_realism.py`
+  - **First Principles**: Why placing each swinging foot ahead of the body center by v * T_stance/2 + k*(v - v_cmd) catches forward tipping momentum to stabilize dynamic trotting *(Tedrake, Ch. 4 & 11)*
+- [ ] **`walker-06`** — **Motor Speed-Torque Ceiling & Bus-Delay Simulator Realism Layer** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/walker/sim/actuator_realism.py (models 21.9V generator back-EMF ceiling, CAN-FD delay & geared rotor inertia in MuJoCo)`; `systems/walker/tb/test_actuator_realism.py`
   - **Verify**: `uv run --with pytest pytest systems/walker/tb/test_actuator_realism.py`
-  - **First Principles**: Closing the classic Sim-to-Real gap: why an idealized MuJoCo motor cheats unless bus voltage & communication delay are modeled *(systems/walker/README.md)*
-- [ ] **`walker-07`** — **Teleoperation Input & Safety Fall-Detection Supervisor** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/walker/sim/safety_supervisor.py (roll/pitch > 50 deg fall detection, velocity ramp limits & soft torque damping mode)`; `systems/walker/tb/test_safety_supervisor.py`
+  - **First Principles**: Closing the Sim-to-Real gap early: why an idealized simulator cheats unless fast-spinning motor back-EMF voltage limits and communication latency are modeled *(systems/walker/README.md)*
+- [ ] **`walker-07`** — **Manual Remote-Control Input & Fall-Protection Supervisor** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/walker/sim/safety_supervisor.py (roll/pitch > 50 deg fall detection, speed ramp limits & soft torque damping mode)`; `systems/walker/tb/test_safety_supervisor.py`
   - **Verify**: `uv run --with pytest pytest systems/walker/tb/test_safety_supervisor.py`
-  - **First Principles**: Graceful collapse damping instead of fighting a tipping fall with max motor torque *(VISION.md)*
+  - **First Principles**: Switching to gentle viscous damping during an unrecoverable tip-over instead of thrashing full motor torque against the floor *(VISION.md)*
 
 #### Phase 2: Predictive Whole-Body Balance & Trotting in Simulation
 
 - [ ] **`walker-08`** — **Single-Rigid-Body Centroidal Dynamics Linearization** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/walker/sim/centroidal_model.py (discrete linear state-space matrices A_d, B_d mapping 4 foot forces to body pose & angular momentum)`; `systems/walker/tb/test_centroidal_model.py`
+  - **Deliverables**: `systems/walker/sim/centroidal_model.py (discrete linear state-space matrices A_d, B_d mapping 4 foot forces to torso pose & spin momentum)`; `systems/walker/tb/test_centroidal_model.py`
   - **Verify**: `uv run --with pytest pytest systems/walker/tb/test_centroidal_model.py`
-  - **First Principles**: Approximating a 12-DOF quadruped as one rigid torso pushed by 4 massless legs so MPC runs in sub-millisecond time *(Rawlings, Mayne & Diehl, Model Predictive Control, Ch. 1–2)*
-- [ ] **`walker-09`** — **Receding-Horizon Convex MPC QP Formulation (OSQP)** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/walker/sim/convex_mpc.py (10-step horizon QP over future contact schedule with friction-cone inequality constraints)`; `systems/walker/tb/test_convex_mpc.py`
+  - **First Principles**: Approximating a 12-joint quadruped as one rigid brick pushed by 4 massless legs so predictive balance math turns linear and solves in under a millisecond *(Rawlings, Mayne & Diehl, Model Predictive Control, Ch. 1–2)*
+- [ ] **`walker-09`** — **Look-Ahead Convex Model Predictive Control (MPC via OSQP)** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/walker/sim/convex_mpc.py (10-step 200 ms horizon QP over upcoming stance/swing contact schedule with friction-cone bounds)`; `systems/walker/tb/test_convex_mpc.py`
   - **Verify**: `uv run --with pytest pytest systems/walker/tb/test_convex_mpc.py`
-  - **First Principles**: Why planning 200 ms into the future over upcoming foot liftoffs/touchdowns prevents tipping during fast trotting *(Rawlings, Mayne & Diehl, Ch. 1–2 & 8)*
-- [ ] **`walker-10`** — **Swing-Leg Cartesian PD + Stance-MPC Integrated Trot in MuJoCo** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/walker/sim/mpc_trot_sim.py (combines ESKF + MPC stance forces + Bezier swing legs; verifies omni-directional trot & push recovery in sim)`; `systems/walker/tb/test_mpc_trot_sim.py`
+  - **First Principles**: Why planning foot push forces 200 ms into the future across upcoming liftoffs and touchdowns keeps the torso balanced during brisk trotting *(Rawlings, Mayne & Diehl, Ch. 1–2 & 8)*
+- [ ] **`walker-10`** — **Stance-Force MPC + Swing-Foot Tracking Integrated Trot in MuJoCo** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/walker/sim/mpc_trot_sim.py (combines ESKF state + MPC stance forces + Bezier swing legs; verifies omni-directional trot & push recovery in sim)`; `systems/walker/tb/test_mpc_trot_sim.py`
   - **Verify**: `uv run --with pytest pytest systems/walker/tb/test_mpc_trot_sim.py`
-  - **First Principles**: Dual-controller coordination: MPC regulates whole-body momentum via stance feet while PD+RNEA guides swing feet *(Tedrake, Ch. 11)*
-- [ ] **`walker-11`** — **Uneven Terrain & External Push-Recovery Stress Benchmark (MPC)** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/walker/tb/test_mpc_disturbances.py (lateral impulses + 3 cm step obstacles in MuJoCo; logs baseline survival rate & energy efficiency)`
+  - **First Principles**: Coordinating two complementary controllers: MPC optimizes whole-body momentum through planted stance feet while Cartesian PD+RNEA guides swinging feet cleanly to the next foothold *(Tedrake, Ch. 11)*
+- [ ] **`walker-11`** — **Uneven-Step & Shove-Recovery Stress Benchmark (MPC Baseline)** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/walker/tb/test_mpc_disturbances.py (lateral push impulses + 3 cm step obstacles in MuJoCo; logs baseline survival rate & energy use)`
   - **Verify**: `uv run --with pytest pytest systems/walker/tb/test_mpc_disturbances.py`
-  - **First Principles**: Measuring exact mechanical cost-of-transport and lateral impulse rejection limits as our baseline for RL comparison *(systems/walker/README.md)*
+  - **First Principles**: Measuring energy efficiency per distance moved (mechanical cost-of-transport) and maximum push survival as a quantitative baseline for RL comparison *(systems/walker/README.md)*
 - [ ] **`walker-12`** — **Automatic Foot-Slip Detection & Compliant Recovery Reflex** *(🛋️ Couch · ⬜ Pending)*
   - **Deliverables**: `systems/walker/sim/slip_reflex.py & systems/walker/tb/test_slip_reflex.py`
   - **Verify**: `uv run --with pytest pytest systems/walker/tb/test_slip_reflex.py`
-  - **First Principles**: Detecting sudden horizontal stance foot velocity and tightening friction-cone limits before the leg washes out *(systems/walker/README.md)*
-- [ ] **`walker-13`** — **Telemetry Replay & Automated Gait-Stability Regression Suite** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/walker/sim/gait_metrics.py (automated tracking RMSE, body pitch/roll oscillation & torque saturation metrics)`
+  - **First Principles**: Spotting sudden sideways foot sliding during stance and tightening the friction-cone limit immediately before the leg washes out *(systems/walker/README.md)*
+- [ ] **`walker-13`** — **Telemetry Replay & Automated Gait-Stability Grading Suite** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/walker/sim/gait_metrics.py (computes velocity tracking RMSE, torso pitch/roll wobble & motor torque saturation metrics)`
   - **Verify**: `uv run --with pytest pytest systems/walker/tb/test_gait_metrics.py`
-  - **First Principles**: Quantitative controller grading across velocity tracking, attitude flatness, and peak phase currents *(systems/walker/README.md)*
-- [ ] **`walker-14`** — **Controller Ablation Report: Pure Kinematic Trot vs. Convex MPC** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/walker/sim/compare_mpc_vs_kinematic.py (generates side-by-side push-recovery plots and energy budgets)`
+  - **First Principles**: Grading gait controllers objectively across speed-tracking error, torso steadiness, and peak motor phase current *(systems/walker/README.md)*
+- [ ] **`walker-14`** — **Side-by-Side Comparison: Fixed-Path Playback Trot vs. Predictive Force (MPC)** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/walker/sim/compare_mpc_vs_kinematic.py (generates side-by-side shove-recovery plots and energy-consumption budgets)`
   - **Verify**: `python3 systems/walker/sim/compare_mpc_vs_kinematic.py --verify`
-  - **First Principles**: Visualizing why dynamic force optimization vastly outperforms naive position-playback gaits *(Tedrake, Ch. 11)*
+  - **First Principles**: Visualizing why dynamic force optimization stays upright under sideways shoves where blind position-playback gaits immediately tip over *(Tedrake, Ch. 11)*
 
-#### Phase 3: Parallel Physics RL Training & Exporting Weights to brain
+#### Phase 3: Parallel Physics AI Training & Exporting Weights to brain
 
-- [ ] **`walker-15`** — **Markov Decision Process (MDP) & 48-Dim Observation / 12-Dim Action Space** *(🛋️ Couch · ⬜ Pending)*
+- [ ] **`walker-15`** — **Reinforcement Learning Environment (MDP): 48 Sensor Inputs & 12 Joint Actions** *(🛋️ Couch · ⬜ Pending)*
   - **Deliverables**: `systems/walker/sim/rl_env.py (vectorized gym environment matching exact brain IMU + 12-encoder inputs and joint target outputs)`; `systems/walker/tb/test_rl_env.py`
   - **Verify**: `uv run --with pytest pytest systems/walker/tb/test_rl_env.py`
-  - **First Principles**: Formulating locomotion as a partially observable MDP without cheating with simulation-only ground-truth states *(Sutton & Barto, Reinforcement Learning, Ch. 3)*
-- [ ] **`walker-16`** — **From-Scratch PPO Actor-Critic & Generalized Advantage Estimation (GAE)** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/walker/sim/ppo_trainer.py (clipped surrogate PPO objective, value critic, GAE lambda-returns & compact 48->128->128->12 actor MLP)`; `systems/walker/tb/test_ppo_math.py`
+  - **First Principles**: Formulating walking as a partially observable Markov Decision Process (MDP) using only real onboard IMU and encoder readings—never hidden simulator ground truth *(Sutton & Barto, Reinforcement Learning, Ch. 3)*
+- [ ] **`walker-16`** — **From-Scratch PPO Policy Trainer & Generalized Advantage Estimation (GAE)** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/walker/sim/ppo_trainer.py (clipped surrogate PPO objective, value critic, GAE lambda-returns & compact 48->128->128->12 actor network)`; `systems/walker/tb/test_ppo_math.py`
   - **Verify**: `uv run --with pytest pytest systems/walker/tb/test_ppo_math.py`
-  - **First Principles**: Policy gradient theorem, why trust-region clipping prevents policy collapse, and bias-variance trade-off in GAE *(Sutton & Barto, Ch. 13)*
-- [ ] **`walker-17`** — **Domain Randomization, Rough-Terrain Curriculum & Smoothness Reward Shaping** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/walker/sim/domain_rand.py (randomizes payload mass, joint friction, link COM, ground restitution, CAN latency & push impulses)`; `systems/walker/tb/test_domain_rand.py`
+  - **First Principles**: Policy gradient updates with trust-region ratio clipping (Proximal Policy Optimization / PPO) so large weight steps never destroy a working gait, paired with bias-variance tuning via GAE *(Sutton & Barto, Ch. 13)*
+- [ ] **`walker-17`** — **Domain Randomization, Rough-Step Curriculum & Smooth-Motion Reward Shaping** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/walker/sim/domain_rand.py (randomizes payload mass, joint friction, link center-of-mass, floor bounce, CAN-FD latency & push impulses)`; `systems/walker/tb/test_domain_rand.py`
   - **Verify**: `uv run --with pytest pytest systems/walker/tb/test_domain_rand.py`
-  - **First Principles**: Teaching one neural policy to succeed across a distribution of physical inaccuracies rather than overfitting to an ideal simulator *(systems/walker/README.md)*
-- [ ] **`walker-18`** — **Train 50 Hz Locomotion Policy in Parallel MuJoCo / MJX & Evaluate Velocity Tracking** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/walker/sim/train_walk.py & saved float32 policy checkpoint passing omni-directional velocity & step-terrain eval`
+  - **First Principles**: Training one neural policy across thousands of slightly imperfect simulated robots so it walks reliably on real hardware instead of memorizing one idealized simulator *(systems/walker/README.md)*
+- [ ] **`walker-18`** — **Train 50 Hz Walking Policy in GPU-Parallel MuJoCo (MJX) & Evaluate Tracking** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/walker/sim/train_walk.py & saved float32 policy checkpoint passing omni-directional speed & step-terrain eval`
   - **Verify**: `python3 systems/walker/sim/train_walk.py --eval-only (achieves < 8% velocity error across +/- 0.8 m/s & uneven tiles)`
-  - **First Principles**: Monitoring policy entropy, critic explained variance, and mechanical smoothness penalties during parallel RL rollouts *(Sutton & Barto, Ch. 13)*
-- [ ] **`walker-19`** — **Quantization-Aware INT16 Export to brain SysC Weights & mac Intrinsics** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/walker/sim/export_sysc_mlp.py (quantizes weights/activations to Q-format INT16 C arrays ready for brain's custom mac unit)`; `systems/walker/tb/test_quantized_mlp.py (verifies < 1% action drift between float32 PyTorch/NumPy and INT16 SysC)`
+  - **First Principles**: Tracking exploration randomness (entropy), value-network fit (explained variance), and joint-jerk penalties across thousands of parallel GPU physics rollouts *(Sutton & Barto, Ch. 13)*
+- [ ] **`walker-19`** — **Fixed-Point INT16 Neural Export to brain SysC Arrays & mac Intrinsics** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/walker/sim/export_sysc_mlp.py (quantizes weights/activations to scaled 16-bit integer Q-format C arrays ready for brain's custom mac unit)`; `systems/walker/tb/test_quantized_mlp.py (verifies < 1% action drift between float32 PyTorch/NumPy and INT16 SysC)`
   - **Verify**: `uv run --with pytest pytest systems/walker/tb/test_quantized_mlp.py`
-  - **First Principles**: Symmetric per-layer INT16 scaling and saturating arithmetic so quantized neural weights preserve smooth gait balance *(systems/brain/README.md)*
-- [ ] **`walker-20`** — **Closed-Loop Silicon-to-MuJoCo Verification (brain Verilator Walks the Quadruped!)** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/walker/tb/test_brain_walks_mujoco.py (compiled SysC ESKF + 50 Hz RL MLP running inside Verilator RTL walks the 12-DOF MuJoCo robot)`
+  - **First Principles**: Symmetric per-layer INT16 scaling and clamping (saturating) arithmetic so integer-only custom silicon matches float32 walking behavior within 1% *(systems/brain/README.md)*
+- [ ] **`walker-20`** — **Closed-Loop Silicon-to-Physics Test (Verilator brain Walks the MuJoCo Dog!)** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/walker/tb/test_brain_walks_mujoco.py (compiled SysC ESKF + 50 Hz RL neural network running inside Verilator chip sim walks the 12-joint MuJoCo robot)`
   - **Verify**: `uv run --with pytest pytest systems/walker/tb/test_brain_walks_mujoco.py`
-  - **First Principles**: End-to-end verification that your custom CPU, custom compiler, custom RTOS, and custom neural policy actually walk a physics model before touching physical legs *(VISION.md)*
-- [ ] **`walker-21`** — **On-Robot SysC 12-Joint CAN-FD Spine Scheduler & Safety Envelope** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/brain/apps/app_walker_spine.c (1 kHz dual-bus CAN-FD dispatcher + ESKF + 50 Hz RL task + sight command listener)`; `systems/walker/tb/test_walker_spine_sim.py`
+  - **First Principles**: Proving end-to-end that your custom CPU, custom C compiler, custom RTOS, and quantized neural network actually walk a physics robot before powering real legs *(VISION.md)*
+- [ ] **`walker-21`** — **On-Robot SysC 12-Joint Dual CAN-FD Spine Scheduler & Safety Envelope** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/brain/apps/app_walker_spine.c (1 kHz dual-bus CAN-FD dispatcher + ESKF + 50 Hz RL task + sight velocity listener)`; `systems/walker/tb/test_walker_spine_sim.py`
   - **Verify**: `uv run --with pytest pytest systems/walker/tb/test_walker_spine_sim.py`
-  - **First Principles**: Interleaving 6 joints on Bus A and 6 joints on Bus B cleanly within a 1 ms real-time budget *(VISION.md)*
+  - **First Principles**: Interleaving 6 joints on Bus A and 6 joints on Bus B cleanly inside a strict 1 ms real-time budget with zero deadline misses *(VISION.md)*
 - [ ] **`walker-22`** — **Emergency Fall-Detection & Watchdog Integration Test in Verilator** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/walker/tb/test_walker_faults_verilator.py (simulates dropped CAN joint, tilted body > 50 deg & power brownout)`
+  - **Deliverables**: `systems/walker/tb/test_walker_faults_verilator.py (simulates dropped CAN-FD joint, tilted body > 50 deg & power brownout)`
   - **Verify**: `uv run --with pytest pytest systems/walker/tb/test_walker_faults_verilator.py`
-  - **First Principles**: Verifying every fault reflex on simulated silicon before powering 12 actuators in your living room *(VISION.md)*
+  - **First Principles**: Stress-testing every safety reflex inside simulated chip silicon before energizing 12 physical brushless actuators in your living room *(VISION.md)*
 
 #### Phase 4: Torso Frame CAD, Wire Harnesses & Building Legs #2–#4
 
-- [ ] **`walker-23`** — **Lightweight ~2.5 kg Torso Chassis CAD (4x Limb Mounts, Brain, Power & Battery Bay)** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/walker/cad/torso_cad.py (carbon top/bottom sandwich plates, MJF/CNC spine ribs, brain + power mounts, E-stop bracket & 6S LiFePO4 bay)`
+- [ ] **`walker-23`** — **Lightweight ~2.5 kg Torso Chassis CAD (4x Leg Mounts, Brain, Power & Battery Bay)** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/walker/cad/torso_cad.py (carbon top/bottom sandwich plates, MJF/CNC spine ribs, brain + power mounts, E-stop bracket & 6-cell LiFePO4 bay)`
   - **Verify**: `python3 systems/walker/cad/torso_cad.py --check-clearances`
-  - **First Principles**: Placing the battery and compute near the torso geometric center to keep body inertia predictable *(systems/walker/README.md)*
-- [ ] **`walker-24`** — **Torso Torsion & Drop-Impact Structural FEA (CalculiX)** *(🛋️ Couch · ⬜ Pending)*
+  - **First Principles**: Packing the heavy battery and circuit boards near the torso center of mass to keep rotational inertia tight and predictable *(systems/walker/README.md)*
+- [ ] **`walker-24`** — **Torso Twist & Drop-Impact Structural Stress Simulation (CalculiX FEA)** *(🛋️ Couch · ⬜ Pending)*
   - **Deliverables**: `systems/walker/cad/run_torso_fea.sh (verifies stiffness under diagonal-trot twisting moments and 4g landing loads)`
   - **Verify**: `bash systems/walker/cad/run_torso_fea.sh (safety factor >= 2.5 and hip-to-hip torsional twist < 0.5 deg)`
-  - **First Principles**: Why rigid torso coupling between front and rear hips prevents leg-kinematics estimation errors during diagonal trotting *(Hibbeler, Mechanics of Materials, Ch. 5; Logan, FEA)*
-- [ ] **`walker-25`** — **High-Flex Wire Harness Interface Control Document (Power + Dual CAN-FD)** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/walker/cad/HARNESS_ICD.md (exact wire gauges, XT30/Molex Micro-Fit/JST-GH pinouts, lengths & strain-relief loops for all 4 legs)`
+  - **First Principles**: Why a torsionally stiff torso linking front and rear hips prevents frame flex from corrupting leg-kinematics height estimates during diagonal trotting *(Hibbeler, Mechanics of Materials, Ch. 5; Logan, FEA)*
+- [ ] **`walker-25`** — **High-Flex Wire Harness Spec (Power + Dual CAN-FD Pinouts & Routing)** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/walker/cad/HARNESS_ICD.md (exact wire gauges, XT30 power & Molex Micro-Fit/JST-GH locking plug pinouts, lengths & flex loops for all 4 legs)`
   - **Verify**: `All connector pinouts cross-checked 1:1 against brain, power, and drive schematics`
-  - **First Principles**: Minimizing EMI crosstalk by routing twisted CAN-FD data pairs cleanly away from switching 24V motor power leads *(Clayton Paul, Ch. 6 & 9)*
-- [ ] **`walker-26`** — **Tabletop 2020 Aluminum Bungee Safety Gantry CAD** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/walker/cad/gantry_cad.py (compact portable 2020 aluminum overhead frame with elastic bungee sling for indoor gait bring-up)`
+  - **First Principles**: Keeping electromagnetic switching noise (EMI crosstalk) out of data wires by twisting CAN-FD signal pairs and routing them away from 24V motor power leads *(Clayton Paul, Ch. 6 & 9)*
+- [ ] **`walker-26`** — **Tabletop Slotted-Aluminum (2020) Bungee Safety Gantry CAD** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/walker/cad/gantry_cad.py (compact portable 2020 aluminum overhead frame with elastic bungee sling for indoor walking bring-up)`
   - **Verify**: `python3 systems/walker/cad/gantry_cad.py --check-clearances`
-  - **First Principles**: Catching falls smoothly in mid-air during initial gait tuning without pulling upwards during normal standing *(VISION.md (Home Safety Guardrails))*
-- [ ] **`walker-27`** — **Batch Manufacturing & Procurement Package for Legs #2–#4 + Torso** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/walker/cad/export_fab.sh & complete batch BOM (9x motors, 10x FOC PCBAs, CF tubes, bearings, CNC torso plates & harness connectors)`
+  - **First Principles**: Catching falls gently in mid-air during early walking trials using a slack bungee tether that applies zero upward pull while standing *(VISION.md (Home Safety Guardrails))*
+- [ ] **`walker-27`** — **Batch Fabrication & Parts Package for Legs #2–#4 + Torso** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/walker/cad/export_fab.sh & complete batch BOM (9x motors, 10x FOC driver PCBAs, carbon tubes, bearings, milled torso plates & harness plugs)`
   - **Verify**: `bash systems/walker/cad/export_fab.sh`
-  - **First Principles**: Ordering exact spares (+1 motor/FOC PCB) to avoid multi-week waits if a solder joint or bearing needs swapping *(systems/walker/README.md)*
-- [ ] **`walker-28`** — **Bench 23: Order Batch of 9x Motors, 10x FOC PCBAs, CNC Torso & Legs #2–#4** *(🔧 Bench · ⬜ Pending)*
-  - **Deliverables**: `Place batch orders for remaining 9 actuators, CNC/CF torso plates, harness connectors & tabletop 2020 gantry`
-  - **Verify**: `Batch PCBA DFM and mechanical BOM quantities confirmed`
+  - **First Principles**: Ordering exact spares (+1 motor and +1 driver board) alongside production parts so one damaged solder joint or bearing never stalls assembly for weeks *(systems/walker/README.md)*
+- [ ] **`walker-28`** — **Bench 23: Order Batch of 9x Motors, 10x FOC Driver Boards, Milled Torso & Legs #2–#4** *(🔧 Bench · ⬜ Pending)*
+  - **Deliverables**: `Place batch orders for remaining 9 actuators, milled aluminum / carbon-fiber torso plates, harness connectors & tabletop 2020 gantry`
+  - **Verify**: `Batch PCBA manufacturability (DFM) and mechanical parts-list (BOM) quantities confirmed`
   - **First Principles**: Production batch discipline and spare-part planning *(systems/walker/README.md)*
 
 #### Phase 5: Safety-Frame Bring-Up, Live Neural Walking & Untethered Field Tests
 
-- [ ] **`walker-29`** — **Bench 24: Assemble 9x drives, Legs #2–#4, Torso Chassis & Wire Harnesses** *(🔧 Bench · ⬜ Pending)*
+- [ ] **`walker-29`** — **Bench 24: Assemble 9x drives, Legs #2–#4, Torso Frame & Wire Harnesses** *(🔧 Bench · ⬜ Pending)*
   - **Deliverables**: `Flash/calibrate 9x FOC drives, assemble Legs #2–#4, bolt Leg #1 + Legs #2–#4 + brain + power onto torso & crimp harnesses`
   - **Verify**: `Total mass ~2.5 kg, all 12 joints move smoothly, zero wire pinch across full workspace`
-  - **First Principles**: Clean mechanical integration where Leg #1 and brain/power drop straight into place *(systems/walker/cad/HARNESS_ICD.md)*
-- [ ] **`walker-30`** — **Bench 25: 12-Joint Dual CAN-FD Enumeration, Zeroing & PSU-First Bring-Up** *(🔧 Bench · ⬜ Pending)*
-  - **Deliverables**: `Power robot via bench PSU + mushroom E-stop; verify 1 kHz dual CAN-FD loop & right-hand zero offsets across all 12 joints`
-  - **Verify**: `brain reports 0 dropped CAN frames over 60 seconds and smooth joint gravity compensation on all 4 legs`
-  - **First Principles**: Validating full-spine deterministic bus timing on physical silicon and 12 motor drives *(systems/walker/README.md)*
-- [ ] **`walker-31`** — **Bench 26: Suspended Gantry Stand-Up & Compliant Body-Pose Tracking** *(🔧 Bench · ⬜ Pending)*
+  - **First Principles**: Clean modular integration where desktop Leg #1, brain, and power drop straight onto the chassis with zero throwaway parts *(systems/walker/cad/HARNESS_ICD.md)*
+- [ ] **`walker-30`** — **Bench 25: 12-Joint Dual CAN-FD Bus Enumeration, Zeroing & Bench-PSU Bring-Up** *(🔧 Bench · ⬜ Pending)*
+  - **Deliverables**: `Power robot via current-limited bench PSU + mushroom E-stop; verify 1 kHz dual CAN-FD loop & right-hand zero offsets across all 12 joints`
+  - **Verify**: `brain reports 0 dropped CAN-FD frames over 60 seconds and smooth joint gravity compensation on all 4 legs`
+  - **First Principles**: Validating full-spine deterministic bus timing across physical FPGA silicon and 12 motor drives *(systems/walker/README.md)*
+- [ ] **`walker-31`** — **Bench 26: Suspended Gantry Stand-Up & Push-Compliant Squat Test** *(🔧 Bench · ⬜ Pending)*
   - **Deliverables**: `Suspend walker under tabletop 2020 bungee gantry; execute smooth stand-up and interactive roll/pitch/height squats`
   - **Verify**: `Robot smoothly rises to standing height and maintains level body posture while manually pushed`
-  - **First Principles**: Testing multi-leg closed-chain force distribution safely on a bench PSU before dynamic stepping *(systems/walker/README.md)*
+  - **First Principles**: Testing closed-chain 4-leg force sharing safely on a current-limited bench power supply before dynamic stepping *(systems/walker/README.md)*
 - [ ] **`walker-32`** — **Bench 27: First Live Sim-to-Real RL Policy Trot on brain (Gantry Tethered)** *(🔧 Bench · ⬜ Pending)*
   - **Deliverables**: `Deploy INT16 PPO walking policy on brain under slack bungee safety sling; record live gait telemetry & IMU attitude`
-  - **Verify**: `Robot executes steady in-place and forward/lateral trotting on carpet powered by your custom RISC-V+MAC SoC`
-  - **First Principles**: Observing your GPU-trained RL policy run natively via custom mac instructions on your own FPGA silicon *(VISION.md)*
-- [ ] **`walker-33`** — **Real-World Telemetry Diff & Domain-Randomization Policy Fine-Tune** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/walker/sim/analyze_real_gait.py (compares logged joint/IMU trajectories vs. MuJoCo and tightens sim motor damping/latency if needed)`
+  - **Verify**: `Robot executes steady in-place and forward/lateral trotting on carpet powered by your custom RISC-V+MAC System-on-Chip`
+  - **First Principles**: Watching your GPU-trained RL policy execute natively via custom mac instructions on your own FPGA silicon *(VISION.md)*
+- [ ] **`walker-33`** — **Real-World Telemetry Diff & Simulator Physics Fine-Tune** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/walker/sim/analyze_real_gait.py (compares logged physical joint/IMU trajectories vs. MuJoCo and tightens sim motor damping/latency if needed)`
   - **Verify**: `Updated quantized SysC weights re-verified in Verilator co-simulation`
-  - **First Principles**: Data-driven system identification: shrinking residual Sim-to-Real mismatch systematically rather than guessing gains *(systems/walker/README.md)*
-- [ ] **`walker-34`** — **Bench 28 (walker Graduation): Untethered 6S LiFePO4 Walking & Push Recovery** *(🔧 Bench · ⬜ Pending)*
-  - **Deliverables**: `Install 6S LiFePO4 battery pack, remove umbilical PSU cable, and run untethered omni-directional walking + shove recovery + small threshold climbs`
+  - **First Principles**: Data-driven system identification: shrinking remaining Sim-to-Real mismatch from real sensor logs rather than guessing gains *(systems/walker/README.md)*
+- [ ] **`walker-34`** — **Bench 28 (walker Graduation): Untethered 6-Cell LiFePO4 Walking & Shove Recovery** *(🔧 Bench · ⬜ Pending)*
+  - **Deliverables**: `Install 6-cell LiFePO4 battery pack, remove umbilical PSU cable, and run untethered omni-directional walking + shove recovery + small threshold climbs`
   - **Verify**: `Stable untethered trotting, rapid recovery from lateral shoves, and healthy EKF battery telemetry`
-  - **First Principles**: A complete self-contained walking robot built from blank RTL, custom PCBs, custom compiler, custom RTOS, custom FOC drives & custom RL *(VISION.md)*
+  - **First Principles**: A complete self-contained walking robot built from blank RTL, custom circuit boards, custom compiler, custom RTOS, custom FOC drives & custom RL *(VISION.md)*
 
 </details>
 
@@ -898,126 +898,126 @@ flowchart LR
 
 #### Phase 1: Camera Geometry, Calibration & 2-Camera Stereo Depth
 
-- [ ] **`sight-01`** — **Pinhole Camera Projection & Radial/Tangential Lens Distortion Model** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/sight/sim/camera_model.py (intrinsics K, Brown-Conrady distortion/undistortion & Jacobian)`; `systems/sight/tb/test_camera_model.py`
+- [ ] **`sight-01`** — **Pinhole Camera Geometry & Radial/Tangential Lens Distortion Model** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/sight/sim/camera_model.py (camera intrinsics matrix K, Brown-Conrady barrel/tilt distortion inversion & pixel Jacobian)`; `systems/sight/tb/test_camera_model.py`
   - **Verify**: `uv run --with pytest pytest systems/sight/tb/test_camera_model.py`
-  - **First Principles**: Projecting 3D camera-frame coordinates onto 2D pixels and inverting barrel distortion from wide-angle lenses *(Corke, Robotics, Vision and Control, Ch. 13)*
-- [ ] **`sight-02`** — **Stereo Epipolar Geometry, Rectification & Dense Disparity Depth Math** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/sight/sim/stereo_depth.py (Essential/Fundamental matrices, stereo rectification & Z = f*B / d depth triangulation)`; `systems/sight/tb/test_stereo_depth.py`
+  - **First Principles**: Mapping 3D points in front of a lens onto 2D image pixels (pinhole projection) and mathematically flattening wide-angle lens curvature (Brown-Conrady distortion) *(Corke, Robotics, Vision and Control, Ch. 13)*
+- [ ] **`sight-02`** — **Stereo Row Alignment (Epipolar Rectification) & Disparity Depth Triangulation** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/sight/sim/stereo_depth.py (Essential/Fundamental camera-pair matrices, stereo image rectification & Z = f*B / d depth formula)`; `systems/sight/tb/test_stereo_depth.py`
   - **Verify**: `uv run --with pytest pytest systems/sight/tb/test_stereo_depth.py`
-  - **First Principles**: Why horizontal epipolar alignment turns 2D stereo correspondence into a 1D scanline search and why depth error grows quadratically with range *(Corke, Ch. 14)*
-- [ ] **`sight-03`** — **Keypoint Extraction, Optical Flow Tracking & RANSAC Outlier Rejection** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/sight/sim/feature_tracker.py (FAST/Shi-Tomasi corners, KLT optical flow & 5-point RANSAC essential-matrix pose estimation)`; `systems/sight/tb/test_feature_tracker.py`
+  - **First Principles**: Warping left/right frames onto matching horizontal rows (epipolar rectification) so 3D depth reduces to a 1D pixel-shift search, and why depth uncertainty grows with range squared *(Corke, Ch. 14)*
+- [ ] **`sight-03`** — **Corner Tracking, Optical Flow & Random-Consensus Outlier Rejection (RANSAC)** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/sight/sim/feature_tracker.py (FAST/Shi-Tomasi corner points, KLT frame-to-frame optical flow & 5-point RANSAC motion solver)`; `systems/sight/tb/test_feature_tracker.py`
   - **Verify**: `uv run --with pytest pytest systems/sight/tb/test_feature_tracker.py`
-  - **First Principles**: Rejecting moving objects or false matches geometrically via probabilistic RANSAC consensus *(Corke, Ch. 14)*
-- [ ] **`sight-04`** — **IMU Pre-Integration Between Asynchronous Camera Keyframes** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/sight/sim/imu_preint.py (manifold delta-R, delta-v, delta-p pre-integration on SO(3) with bias Jacobians)`; `systems/sight/tb/test_imu_preint.py`
+  - **First Principles**: Using fast random minimal sampling (RANSAC) to filter out false pixel matches and moving pets so only rigid room geometry drives camera motion estimates *(Corke, Ch. 14)*
+- [ ] **`sight-04`** — **Motion-Sensor (IMU) Pre-Integration Between 30 Hz Camera Frames** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/sight/sim/imu_preint.py (bundles delta-R, delta-v, delta-p motion increments on SO(3) with bias correction derivatives)`; `systems/sight/tb/test_imu_preint.py`
   - **Verify**: `uv run --with pytest pytest systems/sight/tb/test_imu_preint.py`
-  - **First Principles**: Summarizing 30+ high-rate 1 kHz IMU samples between 30 Hz camera frames without re-integrating from scratch on every optimization step *(Barfoot, State Estimation for Robotics, Ch. 7–8)*
-- [ ] **`sight-05`** — **Camera-IMU Spatial-Temporal Calibration Math (Extrinsics & Sync Offset)** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/sight/sim/calib_cam_imu.py (estimates 6-DOF T_cam_imu transform and verifies < 50 µs clock skew using brain hardware sync)`; `systems/sight/tb/test_calib_cam_imu.py`
+  - **First Principles**: Compressing 30+ high-rate 1 kHz accelerometer/gyro samples between camera snapshots into one reusable summary step so optimization never re-integrates raw ticks from scratch *(Barfoot, State Estimation for Robotics, Ch. 7–8)*
+- [ ] **`sight-05`** — **Camera-to-IMU Physical Offset (Extrinsics) & < 50 µs Clock-Sync Calibration** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/sight/sim/calib_cam_imu.py (solves 6-axis T_cam_imu mount transform and verifies < 50 µs clock skew using brain hardware pulse)`; `systems/sight/tb/test_calib_cam_imu.py`
   - **Verify**: `uv run --with pytest pytest systems/sight/tb/test_calib_cam_imu.py`
-  - **First Principles**: Why even 5 ms of uncalibrated camera-to-IMU clock skew breaks VIO during fast quadruped foot impacts—and how brain's FPGA trigger solves it *(Barfoot, Ch. 8)*
+  - **First Principles**: Why even 5 ms of clock mismatch between shutter exposure and IMU readings breaks visual-inertial tracking during sharp footsteps—solved by brain's hardware FPGA trigger pulse *(Barfoot, Ch. 8)*
 - [ ] **`sight-06`** — **Synthetic Stereo-IMU Benchmark Dataset Generator** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/sight/sim/synth_vio_dataset.py (generates ground-truth 3D room trajectories, stereo feature projections & noisy 1 kHz IMU traces)`
+  - **Deliverables**: `systems/sight/sim/synth_vio_dataset.py (generates ground-truth 3D room paths, stereo pixel tracks & realistic noisy 1 kHz IMU logs)`
   - **Verify**: `uv run --with pytest pytest systems/sight/tb/test_synth_vio_dataset.py`
-  - **First Principles**: Creating noise-controlled synthetic ground truth to verify estimator accuracy before touching physical cameras *(systems/sight/README.md)*
+  - **First Principles**: Building a controlled synthetic test dataset with exact ground-truth poses to measure estimator drift before assembling physical cameras *(systems/sight/README.md)*
 
 #### Phase 2: Camera + Motion-Sensor Tracking & 3D Room Obstacle Grid
 
-- [ ] **`sight-07`** — **Manifold Error-State Kalman Filter (ESKF) Visual-Inertial Odometry** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/sight/sim/vio_eskf.py (tightly coupled stereo feature reprojection updates + IMU propagation on SE(3))`; `systems/sight/tb/test_vio_eskf.py`
+- [ ] **`sight-07`** — **Manifold Error-State Kalman Filter (ESKF) Visual-Inertial Odometry (VIO)** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/sight/sim/vio_eskf.py (tightly fuses stereo landmark pixel errors with IMU propagation on SE(3))`; `systems/sight/tb/test_vio_eskf.py`
   - **Verify**: `uv run --with pytest pytest systems/sight/tb/test_vio_eskf.py`
-  - **First Principles**: Perturbing orientation in the tiny 3D Lie algebra tangent space so covariance matrices never lose orthogonality *(Barfoot, Ch. 7 & 10)*
-- [ ] **`sight-08`** — **Sliding-Window Gauss-Newton Factor-Graph Smoother** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/sight/sim/factor_graph_vio.py (sparse Levenberg-Marquardt bundle adjustment over keyframes + IMU factors)`; `systems/sight/tb/test_factor_graph_vio.py`
+  - **First Principles**: Representing tiny 3D orientation corrections in the flat 3-axis tangent space (Lie algebra) so Kalman covariance matrices never drift out of valid rotation form *(Barfoot, Ch. 7 & 10)*
+- [ ] **`sight-08`** — **Sliding-Window Nonlinear Factor-Graph Smoother (Bundle Adjustment)** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/sight/sim/factor_graph_vio.py (sparse Levenberg-Marquardt / Gauss-Newton optimizer jointly refining recent camera poses & 3D landmarks)`; `systems/sight/tb/test_factor_graph_vio.py`
   - **Verify**: `uv run --with pytest pytest systems/sight/tb/test_factor_graph_vio.py`
-  - **First Principles**: Exploiting the sparse block structure (Schur complement) of SLAM Hessians for real-time nonlinear optimization *(Barfoot, Ch. 8 & 10)*
-- [ ] **`sight-09`** — **Visual Place Recognition & Pose-Graph Loop Closure** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/sight/sim/loop_closure.py (descriptor bag-of-words matching + SE(3) pose-graph relaxation eliminating accumulated drift)`; `systems/sight/tb/test_loop_closure.py`
+  - **First Principles**: Exploiting the sparse block structure of landmark-to-camera equations via Gaussian elimination (Schur complement) so multi-frame optimization finishes in real time *(Barfoot, Ch. 8 & 10)*
+- [ ] **`sight-09`** — **Visual Place Recognition & Loop-Closure Trajectory Correction** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/sight/sim/loop_closure.py (visual feature bag-of-words matching + SE(3) pose-graph relaxation eliminating accumulated map drift)`; `systems/sight/tb/test_loop_closure.py`
   - **Verify**: `uv run --with pytest pytest systems/sight/tb/test_loop_closure.py`
-  - **First Principles**: Recognizing a previously visited room corner and distributing accumulated odometry drift smoothly across the trajectory *(Barfoot, Ch. 10)*
+  - **First Principles**: Recognizing a previously visited room corner from visual descriptors and distributing accumulated walking drift smoothly back around the loop *(Barfoot, Ch. 10)*
 - [ ] **`sight-10`** — **Real-Time Log-Odds 2.5D Elevation & 3D Obstacle Occupancy Grid** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/sight/sim/occupancy_map.py (projects stereo depth clouds into a rolling robot-centric 2.5D step-height & obstacle costmap)`; `systems/sight/tb/test_occupancy_map.py`
+  - **Deliverables**: `systems/sight/sim/occupancy_map.py (projects stereo depth points into a rolling robot-centered 2.5D step-height & obstacle costmap)`; `systems/sight/tb/test_occupancy_map.py`
   - **Verify**: `uv run --with pytest pytest systems/sight/tb/test_occupancy_map.py`
-  - **First Principles**: Bayesian log-odds voxel fusion so transient stereo noise vanishes while real table legs and thresholds solidify *(systems/sight/README.md)*
+  - **First Principles**: Adding Bayesian log-odds probabilities (log(p/(1-p))) in each 3D grid cell so fleeting stereo noise cancels out while real chair legs and door thresholds solidify *(systems/sight/README.md)*
 - [ ] **`sight-11`** — **CPU/NPU Benchmark & Fixed-Rate Pipeline Profiling (30 Hz Stereo + 200 Hz Pose)** *(🛋️ Couch · ⬜ Pending)*
   - **Deliverables**: `systems/sight/perception/pipeline_bench.py (measures end-to-end latency across stereo rectification, tracking, VIO & map update)`
   - **Verify**: `uv run --with pytest pytest systems/sight/tb/test_pipeline_bench.py`
-  - **First Principles**: Bounding perception tail latency so obstacle avoidance reacts well inside the robot's stopping distance *(systems/sight/README.md)*
-- [ ] **`sight-12`** — **Simulated Room SLAM Drift & Scale-Consistency Verification** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/sight/tb/test_vio_accuracy.py (asserts < 1% ATE trajectory drift across closed indoor loops)`
+  - **First Principles**: Bounding worst-case perception processing delay (tail latency) so obstacle avoidance reacts well inside the robot's physical stopping distance *(systems/sight/README.md)*
+- [ ] **`sight-12`** — **Simulated Room SLAM Drift & Metric Scale Verification** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/sight/tb/test_vio_accuracy.py (asserts < 1% Absolute Trajectory Error / ATE drift across closed indoor loops)`
   - **Verify**: `uv run --with pytest pytest systems/sight/tb/test_vio_accuracy.py`
-  - **First Principles**: Metric scale observability from calibrated stereo baseline + IMU acceleration *(Barfoot, Ch. 10)*
-- [ ] **`sight-13`** — **brain <-> sight Framed Link Driver & Sub-us Sync Timestamp Bridge** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/sight/perception/brain_link.py & systems/brain/apps/sight_link.c (CRC-16 [vx, vy, wz] commands + FPGA frame_seq timestamp alignment)`; `systems/sight/tb/test_brain_link.py`
+  - **First Principles**: Locking in true metric meters (rather than arbitrary scale) by fusing known stereo camera spacing B with Earth's gravity vector from the IMU *(Barfoot, Ch. 10)*
+- [ ] **`sight-13`** — **brain <-> sight Framed Velocity Link & Sub-Microsecond Sync Bridge** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/sight/perception/brain_link.py & systems/brain/apps/sight_link.c (CRC-16 [vx, vy, wz] packets + FPGA frame_seq timestamp pairing)`; `systems/sight/tb/test_brain_link.py`
   - **Verify**: `uv run --with pytest pytest systems/sight/tb/test_brain_link.py`
-  - **First Principles**: Pairing hardware exposure trigger sequence numbers with incoming IMU packets to achieve sub-millisecond sensor fusion *(VISION.md (Locked Interface Contracts))*
+  - **First Principles**: Tagging every camera frame with brain's hardware exposure sequence ID so vision snapshots align to exact millisecond IMU readings without OS clock jitter *(VISION.md (Locked Interface Contracts))*
 
 #### Phase 3: Path Planning, Person/Obstacle Detection & brain Sync Link
 
-- [ ] **`sight-14`** — **Configuration-Space Obstacle Inflation & A* / RRT* Path Planner** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/sight/perception/planner.py (inflates obstacles by quadruped footprint radius and plans collision-free global paths)`; `systems/sight/tb/test_planner.py`
+- [ ] **`sight-14`** — **Obstacle Padding (Configuration-Space Inflation) & A* / RRT* Path Planner** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/sight/perception/planner.py (expands obstacles by quadruped body radius and plans collision-free global paths)`; `systems/sight/tb/test_planner.py`
   - **Verify**: `uv run --with pytest pytest systems/sight/tb/test_planner.py`
-  - **First Principles**: Reducing a 3D walking robot to a point navigating a Minkowksi-inflated configuration-space costmap *(LaValle, Planning Algorithms, Ch. 2 & 5)*
-- [ ] **`sight-15`** — **Smooth Local Velocity-Command ([vx, vy, wz]) Dynamic Window Tracker** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/sight/perception/local_follower.py (pure-pursuit + dynamic-window obstacle clearance outputting smooth bounded velocity commands)`; `systems/sight/tb/test_local_follower.py`
+  - **First Principles**: Expanding every furniture obstacle by the robot's footprint radius (Minkowski inflation) so the 3D robot shrinks mathematically to a point in Configuration Space (C-space) *(LaValle, Planning Algorithms, Ch. 2 & 5)*
+- [ ] **`sight-15`** — **Smooth Velocity-Command ([vx, vy, wz]) Dynamic-Window Path Tracker** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/sight/perception/local_follower.py (pure-pursuit lookahead + dynamic-window clearance filter outputting smooth bounded speeds)`; `systems/sight/tb/test_local_follower.py`
   - **Verify**: `uv run --with pytest pytest systems/sight/tb/test_local_follower.py`
-  - **First Principles**: Respecting quadruped acceleration and lateral-speed constraints when turning around furniture corners *(LaValle, Ch. 14)*
-- [ ] **`sight-16`** — **Quantized Lightweight Semantic Obstacle & Person Detector** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/sight/perception/semantic_det.py (INT8 depth-aware bounding box detector flagging moving people/pets for extra safety clearance)`; `systems/sight/tb/test_semantic_det.py`
+  - **First Principles**: Evaluating short-horizon forward/sideways/turn velocity candidates (Dynamic Window) that obey quadruped acceleration limits around furniture corners *(LaValle, Ch. 14)*
+- [ ] **`sight-16`** — **Quantized (INT8) Neural Person & Moving-Obstacle Detector** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/sight/perception/semantic_det.py (8-bit integer INT8 depth-aware detector flagging people/pets for extra safety clearance on NPU)`; `systems/sight/tb/test_semantic_det.py`
   - **Verify**: `uv run --with pytest pytest systems/sight/tb/test_semantic_det.py`
-  - **First Principles**: Fusing 2D semantic detections with stereo depth to dynamically expand safety radii around humans and pets *(Prince, Understanding Deep Learning, Ch. 10)*
-- [ ] **`sight-17`** — **Watchdog Fallback & Autonomous Recovery Behavior State Machine** *(🛋️ Couch · ⬜ Pending)*
+  - **First Principles**: Projecting 2D INT8 neural bounding boxes onto stereo depth clouds so the planner widens safety bubbles dynamically around moving humans and pets *(Prince, Understanding Deep Learning, Ch. 10)*
+- [ ] **`sight-17`** — **Watchdog Timeout & Autonomous Safe-Stop Behavior State Machine** *(🛋️ Couch · ⬜ Pending)*
   - **Deliverables**: `systems/sight/perception/nav_fsm.py (IDLE -> NAVIGATE -> OBSTACLE_WAIT -> SAFE_STOP with 150 ms brain link timeout)`; `systems/sight/tb/test_nav_fsm.py`
   - **Verify**: `uv run --with pytest pytest systems/sight/tb/test_nav_fsm.py`
-  - **First Principles**: Ensuring a crashed high-level vision process causes brain to smoothly halt walker in place within 150 ms *(VISION.md)*
+  - **First Principles**: Guaranteeing that if the high-level vision process ever crashes or stalls, brain's real-time watchdog halts the robot smoothly in place within 150 ms *(VISION.md)*
 - [ ] **`sight-18`** — **Full Closed-Loop Navigation Simulation (sight -> brain -> MuJoCo walker)** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/sight/tb/test_full_autonomy_sim.py (navigates walker autonomously through cluttered virtual apartment room around dynamic obstacles)`
+  - **Deliverables**: `systems/sight/tb/test_full_autonomy_sim.py (navigates walker autonomously through cluttered virtual room around moving obstacles)`
   - **Verify**: `uv run --with pytest pytest systems/sight/tb/test_full_autonomy_sim.py`
-  - **First Principles**: Closing the complete perception-planning-locomotion loop in simulation before mounting hardware onto the robot *(VISION.md)*
-- [ ] **`sight-19`** — **Dual OV9281 Stereo Baseline Sizing & Field-of-View Geometry Check** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/sight/cad/stereo_baseline_calc.py (optimizes baseline B vs. 0.3 m – 4.0 m indoor depth accuracy and foot-view downward pitch)`
+  - **First Principles**: Closing the full perception-planning-locomotion loop in physics simulation before bolting stereo cameras onto the physical dog *(VISION.md)*
+- [ ] **`sight-19`** — **Dual OV9281 Simultaneous-Shutter Stereo Spacing & Field-of-View Sizing** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/sight/cad/stereo_baseline_calc.py (optimizes camera separation B vs. 0.3 m – 4.0 m indoor depth precision and downward floor view)`
   - **Verify**: `python3 systems/sight/cad/stereo_baseline_calc.py --verify`
-  - **First Principles**: Deriving stereo baseline and lens focal length directly from desired close-range obstacle depth precision *(Corke, Ch. 14)*
-- [ ] **`sight-20`** — **Visual Cortex Head Enclosure CAD (Dual OV9281 + Companion SBC + Sync Tap)** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/sight/cad/head_enclosure_cad.py (rigid carbon/MJF stereo bar bolted cleanly onto walker torso front plate + cooling flow)`
+  - **First Principles**: Deriving left-to-right camera spacing B and lens focal length directly from target close-range obstacle depth accuracy *(Corke, Ch. 14)*
+- [ ] **`sight-20`** — **Stereo Head Pod CAD (Dual OV9281 + Companion Vision Computer + Sync Tap)** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/sight/cad/head_enclosure_cad.py (rigid carbon/MJF stereo bar bolted cleanly onto walker torso front plate + cooling airflow)`
   - **Verify**: `python3 systems/sight/cad/head_enclosure_cad.py --check-clearances`
-  - **First Principles**: Why rigid baseline mounting between left/right cameras is critical so walking vibrations do not ruin epipolar rectification *(systems/sight/README.md)*
+  - **First Principles**: Why a torsionally rigid stereo bar between left and right cameras is essential so walking vibrations never flex the lenses out of row-aligned calibration *(systems/sight/README.md)*
 
 #### Phase 4: Stereo Camera Pod Build, Room Mapping & Autonomous Walking
 
-- [ ] **`sight-21`** — **Stereo Sync Trigger Interconnect & Power-Rail Budget Check** *(🛋️ Couch · ⬜ Pending)*
+- [ ] **`sight-21`** — **Stereo Sync Trigger Harness & 5V Power-Rail Budget Spec** *(🛋️ Couch · ⬜ Pending)*
   - **Deliverables**: `systems/sight/cad/SIGHT_HARNESS_ICD.md (5V/4A power from power spine + 3.3V FPGA trigger + 2 Mbps UART/SPI wiring to brain)`
   - **Verify**: `Pinout and voltage levels verified 1:1 against brain and power schematics`
-  - **First Principles**: Ensuring crisp 3.3V CMOS exposure trigger edges across the torso interconnect *(VISION.md)*
-- [ ] **`sight-22`** — **Head Enclosure Export & Hardware Calibration Target Generator** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/sight/cad/export_fab.sh & AprilGrid calibration board PDF generator`
+  - **First Principles**: Keeping 3.3V digital camera-exposure trigger edges crisp and noise-free across the torso interconnect harness *(VISION.md)*
+- [ ] **`sight-22`** — **Head Pod Fabrication Export & Asymmetric Calibration Grid Generator** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/sight/cad/export_fab.sh & AprilGrid calibration target PDF generator`
   - **Verify**: `bash systems/sight/cad/export_fab.sh`
-  - **First Principles**: Why asymmetric AprilGrid targets resolve 180-deg pattern ambiguity during stereo-IMU calibration *(systems/sight/README.md)*
+  - **First Principles**: Why asymmetric coded fiducial grids (AprilGrid) prevent 180-degree upside-down pattern confusion when calibrating stereo cameras *(systems/sight/README.md)*
 - [ ] **`sight-23`** — **Automated Calibration & Handheld SLAM Verification Script** *(🛋️ Couch · ⬜ Pending)*
   - **Deliverables**: `systems/sight/perception/calib_runner.py & systems/sight/tb/test_calib_runner.py`
   - **Verify**: `uv run --with pytest pytest systems/sight/tb/test_calib_runner.py`
-  - **First Principles**: Validating reprojection pixel error < 0.3 px automatically before trusting outdoor/room SLAM *(systems/sight/README.md)*
-- [ ] **`sight-24`** — **Bench 29: Order Dual OV9281 Cameras, Companion SBC/NPU & MJF Stereo Mount** *(🔧 Bench · ⬜ Pending)*
-  - **Deliverables**: `Order dual hardware-triggerable OV9281 monochrome global-shutter cameras, SBC/NPU module & MJF stereo head bar`
-  - **Verify**: `Confirmed matched lens focal lengths and external FSYNC trigger support`
-  - **First Principles**: Why global-shutter monochrome sensors avoid rolling-shutter skew during dynamic walking impacts *(systems/sight/README.md)*
-- [ ] **`sight-25`** — **Bench 30: Assemble Stereo Head & Run Hardware-Synced Stereo-IMU Calibration** *(🔧 Bench · ⬜ Pending)*
-  - **Deliverables**: `Assemble cameras + SBC + brain sync tap; capture AprilGrid sequence and run calib_runner.py`
+  - **First Principles**: Checking that mean pixel reprojection error stays below 0.3 pixels automatically before trusting live room mapping *(systems/sight/README.md)*
+- [ ] **`sight-24`** — **Bench 29: Order Dual OV9281 Cameras, Companion SBC/NPU & MJF Stereo Bar** *(🔧 Bench · ⬜ Pending)*
+  - **Deliverables**: `Order dual external-trigger OV9281 monochrome simultaneous-shutter (global-shutter) cameras, companion SBC/NPU module & MJF head bar`
+  - **Verify**: `Confirmed matched lens focal lengths and hardware external FSYNC exposure trigger pin`
+  - **First Principles**: Why simultaneous-exposure (global-shutter) monochrome sensors avoid wavy motion skew (rolling shutter) during sharp quadruped footsteps *(systems/sight/README.md)*
+- [ ] **`sight-25`** — **Bench 30: Assemble Stereo Head & Run Hardware-Synced Camera-IMU Calibration** *(🔧 Bench · ⬜ Pending)*
+  - **Deliverables**: `Assemble cameras + SBC/NPU + brain sync tap; wave AprilGrid calibration board and run calib_runner.py`
   - **Verify**: `Mean stereo reprojection error < 0.3 px and measured camera-to-IMU clock offset < 50 µs`
-  - **First Principles**: Physical realization of sub-microsecond FPGA sensor synchronization *(systems/sight/README.md)*
-- [ ] **`sight-26`** — **Bench 31: Handheld Living-Room VIO SLAM & 3D Obstacle Map Verification** *(🔧 Bench · ⬜ Pending)*
+  - **First Principles**: Verifying sub-microsecond FPGA hardware exposure synchronization on physical cameras and IMU silicon *(systems/sight/README.md)*
+- [ ] **`sight-26`** — **Bench 31: Handheld Living-Room VIO SLAM & 3D Obstacle Map Test** *(🔧 Bench · ⬜ Pending)*
   - **Deliverables**: `Walk around room carrying powered sight pod; verify live loop closure and 2.5D furniture occupancy grid accuracy`
   - **Verify**: `Closed-loop endpoint drift < 1% of path length and clean detection of chairs, table legs & doorways`
-  - **First Principles**: Validating real-time spatial perception independently before granting it velocity control over walker *(systems/sight/README.md)*
-- [ ] **`sight-27`** — **Autonomous Navigation Pre-Flight Guardrails & Live Telemetry Dashboard** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/sight/perception/nav_dashboard.py (live map + planned path + brain RL state viewer + bounded speed ceiling for indoor trials)`
+  - **First Principles**: Proving real-time 3D mapping and pose tracking independently by hand before giving sight steering control over walker *(systems/sight/README.md)*
+- [ ] **`sight-27`** — **Autonomous Navigation Pre-Flight Guardrails & Live Map Telemetry Dashboard** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/sight/perception/nav_dashboard.py (live 2.5D map + planned path + brain RL state viewer + bounded speed cap for indoor trials)`
   - **Verify**: `uv run --with pytest pytest systems/sight/tb/test_nav_dashboard.py`
-  - **First Principles**: Bounding commanded speeds during initial autonomous navigation trials *(VISION.md)*
-- [ ] **`sight-28`** — **Bench 32 (Final Apex Graduation): Autonomous Point-to-Point Obstacle-Avoiding Quadruped** *(🔧 Bench · ⬜ Pending)*
+  - **First Principles**: Enforcing conservative indoor speed ceilings and live path visualization before untethered autonomous navigation runs *(VISION.md)*
+- [ ] **`sight-28`** — **Bench 32 (Final Apex Graduation): Autonomous Point-to-Point Obstacle-Avoiding Dog** *(🔧 Bench · ⬜ Pending)*
   - **Deliverables**: `Bolt sight head onto walker, command a 5-meter indoor goal across furniture obstacles & verify autonomous VIO + planning + RL walking`
   - **Verify**: `Robot walks untethered from start to goal, avoids static and moving obstacles smoothly, and halts cleanly on target`
-  - **First Principles**: Full-stack convergence: blank SystemVerilog -> custom compiler & RTOS -> 6-layer PCB -> FOC drives -> power spine -> Sim-to-Real RL -> autonomous spatial navigation *(VISION.md)*
+  - **First Principles**: Full-stack convergence: blank SystemVerilog -> custom compiler & RTOS -> 6-layer circuit board -> FOC drives -> power spine -> Sim-to-Real RL -> autonomous spatial navigation *(VISION.md)*
 
 </details>
