@@ -4,6 +4,7 @@
 
 ## Locked Interface Contracts
 - **Hardware Sync & Link**: Receives `3.3V` sub-µs exposure trigger from `brain` (keeping IMU and stereo shutter phase-locked); streams CRC-16 framed `[vx, vy, wz]` velocity commands + heartbeat over `2 Mbps` UART / `10 MHz` SPI (`150 ms` watchdog fallback to zero velocity).
+- **From-Scratch Spatial Math, Pragmatic Silicon Stack**: Because computer architecture, C compilation, and RTOS design are built from scratch in `brain`, `sight` openly uses embedded Linux (`V4L2` MIPI camera DMA, Wi-Fi telemetry) and an onboard NPU (`RPi 5 + Hailo` or `Jetson Orin Nano`) for hardware I/O and `INT8` semantic person/pet perception (`sight-16`), while prohibiting black-box robotics middleware (`no ROS`, `no ORB-SLAM`, `no Nav2`)—every calibration, stereo disparity, `SO(3)`/`SE(3)` VIO, sparse bundle-adjustment, loop-closure, voxel-mapping, and planning equation is implemented from first principles.
 - **Power**: Regulated `5.0V / 4A` rail supplied by `power`.
 
 ## Directory Layout
