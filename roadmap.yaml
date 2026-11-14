@@ -228,7 +228,7 @@ steps:
       - 'systems/brain/rtl/periph/uart.sv (115200/2M baud serial transmitter/receiver with 16x oversampling & small byte FIFO buffers)'
       - 'systems/brain/rtl/uart_echo_top.sv (standalone FPGA bitstream wrapper for Tang Primer 20K)'
       - 'systems/brain/tb/test_uart.py'
-    verification: 'make -C systems/brain/tb MODULE=test_uart && yosys -p "synth_gowin -top uart_echo_top" systems/brain/rtl/uart_echo_top.sv systems/brain/rtl/periph/*.sv'
+    verification: 'make -C systems/brain/tb MODULE=test_uart && yosys -p "read_verilog -sv systems/brain/rtl/periph/cdc_sync.sv systems/brain/rtl/periph/uart.sv systems/brain/rtl/uart_echo_top.sv; synth_gowin -top uart_echo_top"'
     first_principles: 'Why reading an asynchronous pin can leave a flip-flop undecided (metastability MTBF), serial start/stop byte framing, and sampling each bit 16x to tolerate clock drift'
     reference_reading: 'Harris & Harris (RISC-V Ed.), Ch. 3.5 (Timing & Metastability)'
     status: pending
@@ -276,7 +276,7 @@ steps:
     title: 'Byte/Halfword/Word Memory Aligner & On-Chip Block RAM (BRAM)'
     deliverables:
       - 'systems/brain/rtl/core/lsu.sv (Load-Store Unit handling lb/lbu/lh/lhu/lw/sb/sh/sw lane alignment & byte-write masks)'
-      - 'systems/brain/rtl/mem/bram_32k.sv (inferred fast on-chip FPGA Block RAM)'
+      - 'systems/brain/rtl/mem/bram_32k.sv (inferred fast on-chip FPGA Block RAM; 32 KB bank in single-cycle core, dual-banked to 64 KB at 0x1000_0000 in full SoC for zero-wait-state RTOS stacks & 48.1 KB INT16 neural weights)'
       - 'systems/brain/tb/test_lsu.py'
     verification: 'make -C systems/brain/tb MODULE=test_lsu'
     first_principles: 'Little-endian byte ordering inside 32-bit memory words, 4-bit partial-word write masks, sign- vs. zero-extension on loads, and misaligned-address trap detection'
@@ -324,10 +324,10 @@ steps:
     mode: couch
     title: 'Custom Neural Fixed-Point Dot-Product Unit (Xapex mac Instruction)'
     deliverables:
-      - 'systems/brain/rtl/core/mac_unit.sv (packed dual-int16 SIMD multiply-accumulate into 32/64-bit accumulator mapped onto FPGA hardware DSP multiplier blocks)'
+      - 'systems/brain/rtl/core/mac_unit.sv (packed dual-int16 SIMD multiply-accumulate into internal EX-stage saturating 32-bit accumulator written back to rd, mapped onto FPGA hardware MULT18X18 DSP blocks using only 2 register-file read ports)'
       - 'systems/brain/tb/test_mac_unit.py (verifies quantized neural-layer dot-products bit-for-bit vs. NumPy int16 reference)'
     verification: 'make -C systems/brain/tb MODULE=test_mac_unit'
-    first_principles: 'Hardware-software co-design: why packing two 16-bit multiply-adds into one custom instruction cuts walking-network runtime from about 25 ms to < 0.6 ms'
+    first_principles: 'Hardware-software co-design: why packing two 16-bit multiply-adds into one custom instruction with an internal EX accumulator cuts walking-network runtime from about 25 ms to < 0.6 ms without needing a 3-read-port register file'
     reference_reading: 'Harris & Harris (RISC-V Ed.), Ch. 5.5 (DSP Blocks)'
     status: pending
     pr_url: null
@@ -422,9 +422,9 @@ steps:
     mode: couch
     title: 'FPGA Logic Compilation (Synthesis), Chip Utilization & 50 MHz Timing Closure'
     deliverables:
-      - 'systems/brain/scripts/synth_core.sh (Yosys logic synthesis + nextpnr-himbaechel timing-driven placement/routing for Tang Primer 20K GW2A-18)'
+      - 'systems/brain/scripts/synth_core.sh (Yosys logic synthesis + nextpnr-himbaechel timing-driven placement/routing for Tang Primer 20K GW2A-18, asserting f_max >= 50 MHz with positive timing slack and <= 65% LUT4 utilization)'
       - 'Critical-path optimization pass in RTL if max clock speed f_max < 50 MHz'
-    verification: 'bash systems/brain/scripts/synth_core.sh (achieves f_max >= 50 MHz with positive timing slack and <= 65% LUT4 utilization)'
+    verification: 'bash systems/brain/scripts/synth_core.sh'
     first_principles: 'How SystemVerilog compiles into 4-input lookup tables (LUT4s) and flip-flops, wire routing delay vs. logic delay, timing margin (slack), and dynamic chip power `P = alpha * C * V^2 * f`'
     reference_reading: 'Harris & Harris (RISC-V Ed.), Ch. 5.6'
     status: pending
@@ -484,7 +484,7 @@ steps:
     mode: couch
     title: 'Programmatic KiCad Schematic 2: RAM, Flash, Dual CAN-FD, IMU & Trace-Echo Coupons'
     deliverables:
-      - 'systems/brain/pcb/gen_sch_periph.py (adds W9825G6KH 32MB SDRAM, W25Q128 16MB QSPI Flash, dual TCAN1044V CAN-FD drivers w/ 120-ohm termination, ICM-42688-P motion sensor, camera sync buffer, USB-UART & dual SMA coax test coupons)'
+      - 'systems/brain/pcb/gen_sch_periph.py (adds W9825G6KH 32MB SDRAM, W25Q128 16MB QSPI Flash, dual TCAN1044V CAN-FD drivers w/ 120-ohm trunk-root termination, ICM-42688-P motion sensor, camera sync + 2 Mbps UART1 sight header, USB-UART0 & dual SMA coax test coupons)'
     verification: 'python3 systems/brain/pcb/gen_sch_periph.py && kicad-cli sch erc --exit-code-violations systems/brain/pcb/brain_carrier.kicad_sch'
     first_principles: 'Series damping resistors that tame signal ringing, 120-ohm differential bus echo termination, and building an intentional ground-slot test coupon to visualize return-path inductance'
     reference_reading: 'Clayton Paul, Ch. 5 & 11'
@@ -546,7 +546,7 @@ steps:
     mode: couch
     title: 'Memory-Mapped System Bus Crossbar & Wait-State Arbitrator'
     deliverables:
-      - 'systems/brain/rtl/soc/soc_bus.sv (valid/ready wait-state interconnect routing Boot ROM, BRAM, SDRAM, QSPI Flash, CLINT timer, UART, SPI IMU, Dual CAN-FD, Sync & GPIO)'
+      - 'systems/brain/rtl/soc/soc_bus.sv (valid/ready wait-state interconnect routing 16 KB Boot ROM, 64 KB BRAM, 32 MB SDRAM, 16 MB QSPI Flash, CLINT timer, UART0 console, SPI0 IMU, Dual CAN-FD, Camera Sync + UART1 sight link & GPIO)'
       - 'systems/brain/tb/test_soc_bus.py'
     verification: 'make -C systems/brain/tb MODULE=test_soc_bus'
     first_principles: 'Address-range decoding (turning pointer addresses into chip selects), multi-cycle wait states for slow off-chip peripherals, and preventing bus protocol deadlocks'
@@ -595,7 +595,7 @@ steps:
     title: 'Robot Spine Peripherals: Motion Sensor SPI, Sub-µs Camera Sync & CAN-FD Engine'
     deliverables:
       - 'systems/brain/rtl/periph/spi_master.sv (for 1 kHz ICM-42688-P motion-sensor bursts)'
-      - 'systems/brain/rtl/periph/sync_trigger.sv (sub-microsecond camera exposure pulse + exact mtime clock latch)'
+      - 'systems/brain/rtl/periph/sync_trigger.sv (sub-microsecond camera exposure pulse + exact mtime clock latch paired with 2 Mbps UART1 sight link at 0x8005_0000)'
       - 'systems/brain/rtl/periph/can_ctrl.sv (lightweight CAN/CAN-FD TX/RX packet engine with bit-stuffing & CRC-15/17 error checks)'
       - 'systems/brain/tb/test_spine_periphs.py'
     verification: 'make -C systems/brain/tb MODULE=test_spine_periphs'
@@ -981,9 +981,9 @@ steps:
     mode: couch
     title: 'KiCad Schematic 2: Motor MCU (STM32G4), Magnetic Angle Chip & CAN-FD Driver'
     deliverables:
-      - 'systems/drive/pcb/gen_sch_ctrl.py (adds STM32G431 microcontroller, 10V/3.3V regulators, SWD debug header, AS5047P magnetic encoder, temp thermistor & TCAN1044V CAN-FD chip + ERC)'
+      - 'systems/drive/pcb/gen_sch_ctrl.py (adds STM32G431 microcontroller, 10V/5V/3.3V regulators, SWD debug header, AS5047P magnetic encoder, temp thermistor & TCAN1044V CAN-FD chip w/ jumper-selectable 120-ohm termination JP_TERM + ERC)'
     verification: 'python3 systems/drive/pcb/gen_sch_ctrl.py && kicad-cli sch erc --exit-code-violations systems/drive/pcb/drive_foc.kicad_sch'
-    first_principles: 'Separating noisy motor-power ground currents from sensitive millivolt ADC ground references, hardware overcurrent shutoff comparators, and daisy-chain CAN-FD stub limits'
+    first_principles: 'Separating noisy motor-power ground currents from sensitive millivolt ADC ground references, hardware overcurrent shutoff comparators, and closing 120-ohm CAN-FD termination only at the final distal joint of each bus trunk'
     reference_reading: 'STM32G431 Datasheet & Hardware Design Guide'
     status: pending
     pr_url: null
@@ -1072,8 +1072,8 @@ steps:
     mode: couch
     title: 'Microcontroller Startup, Clocks & Hardware-Synced 20 kHz PWM + ADC Trigger'
     deliverables:
-      - 'systems/drive/firmware/hal_pwm_adc.c (TIM1 20 kHz triangle-wave PWM + hardware trigger firing ADC1/2 phase-current reads right in the quiet switching valley)'
-    verification: 'arm-none-eabi-gcc build cleanly compiles with zero warnings & timing calculation verified'
+      - 'systems/drive/firmware/hal_pwm_adc.c & systems/drive/tb/test_hal_pwm_adc.py (TIM1 20 kHz triangle-wave PWM + hardware trigger firing ADC1/2 phase-current reads right in the quiet switching valley)'
+    verification: 'uv run --with pytest pytest systems/drive/tb/test_hal_pwm_adc.py'
     first_principles: 'Timer-to-ADC hardware synchronization: eliminating CPU interrupt latency so current is always sampled mid-pulse away from switching noise'
     reference_reading: 'STM32G4 Reference Manual (TIM1 & ADC Triggering)'
     status: pending
@@ -1119,8 +1119,8 @@ steps:
     mode: couch
     title: '20 kHz Hard Real-Time Force-Control Interrupt (ISR) & Magnetic Notch Smoothing'
     deliverables:
-      - 'systems/drive/firmware/foc_isr.c (Clarke/Park -> PI coil current -> SVPWM -> hardware current/temp/communication watchdogs + anticogging LUT)'
-    verification: 'Cycle-count budget audit confirms ISR executes in < 18 µs inside 50 µs period; host sim passes'
+      - 'systems/drive/firmware/foc_isr.c & systems/drive/tb/test_foc_isr.py (Clarke/Park -> PI coil current -> SVPWM -> hardware current/temp/communication watchdogs + anticogging LUT; asserts < 18 µs ISR cycle budget)'
+    verification: 'uv run --with pytest pytest systems/drive/tb/test_foc_isr.py'
     first_principles: 'Canceling permanent-magnet stator-slot bumpiness (anticogging) and zeroing motor torque immediately if CAN-FD messages from brain pause > 50 ms'
     reference_reading: 'Sang-Hoon Kim, Ch. 8'
     status: pending
@@ -1211,8 +1211,8 @@ steps:
     mode: couch
     title: 'Gear Tooth & Housing Structural Stress Simulation (FEA via CalculiX)'
     deliverables:
-      - 'systems/drive/cad/run_fea.sh (runs CalculiX finite-element stress & flex analysis under 3x peak stall torque = 7.5 N·m)'
-    verification: 'bash systems/drive/cad/run_fea.sh (safety factor >= 2.5 in PA12/7075-T6 and radial deflection < 0.05 mm)'
+      - 'systems/drive/cad/run_fea.sh (runs CalculiX finite-element stress & flex analysis under 3x peak stall torque = 7.5 N·m, asserting safety factor >= 2.5 in PA12/7075-T6 and radial deflection < 0.05 mm)'
+    verification: 'bash systems/drive/cad/run_fea.sh'
     first_principles: 'Combined shear/bending stress (Von Mises), pinpoint gear-tooth contact pressure (Hertzian stress), and stiffness-to-weight scaling'
     reference_reading: 'Logan, First Course in Finite Element Method, Ch. 1–3'
     status: pending
@@ -1426,7 +1426,7 @@ steps:
     mode: couch
     title: 'KiCad Schematic 2: 4x Leg Bus Channels, 5V Buck, Current Sense & Supervisor'
     deliverables:
-      - 'systems/power/pcb/gen_sch_ctrl.py (adds per-leg INA current/voltage monitors, 5V/4A buck regulator, braking surge TVS bank, STM32 supervisor & CAN-FD + ERC)'
+      - 'systems/power/pcb/gen_sch_ctrl.py (adds per-leg INA current/voltage monitors, 5V/4A buck regulator, braking surge TVS bank, STM32 supervisor & CAN-FD Bus B Node ID 13 transceiver w/ jumper-selectable 120-ohm termination + ERC)'
     verification: 'python3 systems/power/pcb/gen_sch_ctrl.py && kicad-cli sch erc --exit-code-violations systems/power/pcb/power_spine.kicad_sch'
     first_principles: 'Isolating 30A motor switching transients away from tiny millivolt sense-resistor measurement traces'
     reference_reading: 'Clayton Paul, Ch. 6'
@@ -1594,8 +1594,8 @@ steps:
     mode: couch
     title: '24V Current-Limited Bench Bring-Up & Fault-Injection Test Protocol'
     deliverables:
-      - 'systems/power/pcb/BRINGUP_PROTOCOL.md (step-by-step current-limited test matrix, oscilloscope probe points & expected e-fuse trip times)'
-    verification: 'All test matrix acceptance bounds cross-checked against simulated SPICE/EKF numbers'
+      - 'systems/power/pcb/BRINGUP_PROTOCOL.md & systems/power/tb/test_bringup_protocol.py (step-by-step current-limited test matrix, oscilloscope probe points & expected e-fuse trip times cross-checked against SPICE/EKF numbers)'
+    verification: 'uv run --with pytest pytest systems/power/tb/test_bringup_protocol.py'
     first_principles: 'Writing a rigorous verification test plan before applying real energy to high-current power electronics'
     reference_reading: 'systems/power/README.md'
     status: pending
@@ -1937,8 +1937,8 @@ steps:
     mode: couch
     title: '3-Joint Leg Landing Impact Stress Simulation (CalculiX FEA)'
     deliverables:
-      - 'systems/limb/cad/run_leg_fea.sh (simulates 4g landing shock load across hip, upper-leg & knee brackets)'
-    verification: 'bash systems/limb/cad/run_leg_fea.sh (safety factor >= 2.5 across all printed/milled brackets)'
+      - 'systems/limb/cad/run_leg_fea.sh (simulates 4g landing shock load across hip, upper-leg & knee brackets, asserting safety factor >= 2.5 across all printed/milled brackets)'
+    verification: 'bash systems/limb/cad/run_leg_fea.sh'
     first_principles: 'Using Finite Element Analysis (FEA) stress meshes to spot sharp-corner tear hotspots at rounded fillets and bolt bosses before ordering parts'
     reference_reading: 'Logan, FEA, Ch. 6–8'
     status: pending
@@ -2389,8 +2389,8 @@ steps:
     mode: couch
     title: 'Train 50 Hz Walking Policy in GPU-Parallel MuJoCo (MJX) & Evaluate Tracking'
     deliverables:
-      - 'systems/walker/sim/train_walk.py & saved float32 policy checkpoint passing omni-directional speed & step-terrain eval'
-    verification: 'python3 systems/walker/sim/train_walk.py --eval-only (achieves < 8% velocity error across +/- 0.8 m/s & uneven tiles)'
+      - 'systems/walker/sim/train_walk.py & saved float32 policy checkpoint passing omni-directional speed & step-terrain eval (< 8% velocity error across +/- 0.8 m/s & uneven tiles)'
+    verification: 'python3 systems/walker/sim/train_walk.py --eval-only'
     first_principles: 'Tracking exploration randomness (entropy), value-network fit (explained variance), and joint-jerk penalties across thousands of parallel GPU physics rollouts'
     reference_reading: 'Sutton & Barto, Ch. 13'
     status: pending
@@ -2481,8 +2481,8 @@ steps:
     mode: couch
     title: 'Torso Twist & Drop-Impact Structural Stress Simulation (CalculiX FEA)'
     deliverables:
-      - 'systems/walker/cad/run_torso_fea.sh (verifies stiffness under diagonal-trot twisting moments and 4g landing loads)'
-    verification: 'bash systems/walker/cad/run_torso_fea.sh (safety factor >= 2.5 and hip-to-hip torsional twist < 0.5 deg)'
+      - 'systems/walker/cad/run_torso_fea.sh (verifies stiffness under diagonal-trot twisting moments and 4g landing loads, asserting safety factor >= 2.5 and hip-to-hip torsional twist < 0.5 deg)'
+    verification: 'bash systems/walker/cad/run_torso_fea.sh'
     first_principles: 'Why a torsionally stiff torso linking front and rear hips prevents frame flex from corrupting leg-kinematics height estimates during diagonal trotting'
     reference_reading: 'Hibbeler, Mechanics of Materials, Ch. 5; Logan, FEA'
     status: pending
@@ -2496,9 +2496,9 @@ steps:
     mode: couch
     title: 'High-Flex Wire Harness Spec (Power + Dual CAN-FD Pinouts & Routing)'
     deliverables:
-      - 'systems/walker/cad/HARNESS_ICD.md (exact wire gauges, XT30 power & Molex Micro-Fit/JST-GH locking plug pinouts, lengths & flex loops for all 4 legs)'
-    verification: 'All connector pinouts cross-checked 1:1 against brain, power, and drive schematics'
-    first_principles: 'Keeping electromagnetic switching noise (EMI crosstalk) out of data wires by twisting CAN-FD signal pairs and routing them away from 24V motor power leads'
+      - 'systems/walker/cad/HARNESS_ICD.md & systems/walker/tb/test_harness_icd.py (exact wire gauges, XT30 power & Molex Micro-Fit/JST-GH locking plug pinouts, flex loops & endpoint-only 120-ohm CAN-FD termination jumpers cross-checked 1:1 against brain, power & drive schematics)'
+    verification: 'uv run --with pytest pytest systems/walker/tb/test_harness_icd.py'
+    first_principles: 'Keeping electromagnetic switching noise (EMI crosstalk) out of data wires by twisting CAN-FD signal pairs, routing them away from 24V motor power leads, and closing 120-ohm termination jumpers only at trunk ends'
     reference_reading: 'Clayton Paul, Ch. 6 & 9'
     status: pending
     pr_url: null
@@ -2616,8 +2616,8 @@ steps:
     mode: couch
     title: 'Real-World Telemetry Diff & Simulator Physics Fine-Tune'
     deliverables:
-      - 'systems/walker/sim/analyze_real_gait.py (compares logged physical joint/IMU trajectories vs. MuJoCo and tightens sim motor damping/latency if needed)'
-    verification: 'Updated quantized SysC weights re-verified in Verilator co-simulation'
+      - 'systems/walker/sim/analyze_real_gait.py & systems/walker/tb/test_analyze_real_gait.py (compares logged physical joint/IMU trajectories vs. MuJoCo, tightens sim motor damping/latency, and re-verifies updated quantized SysC weights)'
+    verification: 'uv run --with pytest pytest systems/walker/tb/test_analyze_real_gait.py'
     first_principles: 'Data-driven system identification: shrinking remaining Sim-to-Real mismatch from real sensor logs rather than guessing gains'
     reference_reading: 'systems/walker/README.md'
     status: pending
@@ -2838,10 +2838,10 @@ steps:
     mode: couch
     title: 'brain ↔ sight Framed Velocity Link & Sub-Microsecond Sync Bridge'
     deliverables:
-      - 'systems/sight/perception/brain_link.py & systems/brain/apps/sight_link.c (CRC-16 [vx, vy, wz] packets + FPGA frame_seq timestamp pairing)'
+      - 'systems/sight/perception/brain_link.py & systems/brain/apps/sight_link.c (2 Mbps UART1 full-duplex bridge: 1 kHz IMU + FPGA frame_seq exposure timestamp stream brain -> sight, and CRC-16 [vx, vy, wz] velocity commands sight -> brain)'
       - 'systems/sight/tb/test_brain_link.py'
     verification: 'uv run --with pytest pytest systems/sight/tb/test_brain_link.py'
-    first_principles: 'Tagging every camera frame with brain''s hardware exposure sequence ID so vision snapshots align to exact millisecond IMU readings without OS clock jitter'
+    first_principles: 'Tagging every camera frame with brain''s hardware exposure sequence ID and streaming 1 kHz IMU ticks over a dedicated 2 Mbps UART1 link so vision snapshots align to exact millisecond inertial readings without OS clock jitter'
     reference_reading: 'VISION.md (Locked Interface Contracts)'
     status: pending
     pr_url: null
@@ -2963,8 +2963,8 @@ steps:
     mode: couch
     title: 'Stereo Sync Trigger Harness & 5V Power-Rail Budget Spec'
     deliverables:
-      - 'systems/sight/cad/SIGHT_HARNESS_ICD.md (5V/4A power from power spine + 3.3V FPGA trigger + 2 Mbps UART/SPI wiring to brain)'
-    verification: 'Pinout and voltage levels verified 1:1 against brain and power schematics'
+      - 'systems/sight/cad/SIGHT_HARNESS_ICD.md & systems/sight/tb/test_sight_harness_icd.py (5V/4A power from power spine + 3.3V FPGA FSYNC trigger + 2 Mbps UART1 wiring cross-checked 1:1 against brain and power schematics)'
+    verification: 'uv run --with pytest pytest systems/sight/tb/test_sight_harness_icd.py'
     first_principles: 'Keeping 3.3V digital camera-exposure trigger edges crisp and noise-free across the torso interconnect harness'
     reference_reading: 'VISION.md'
     status: pending

@@ -144,8 +144,16 @@ def validate_roadmap(data: dict) -> list[str]:
         deliverables = step.get("deliverables")
         if not isinstance(deliverables, list) or not deliverables:
             errors.append(f"[{step_id}] 'deliverables' must be a non-empty list")
-        if not step.get("verification"):
+        ver = step.get("verification")
+        if not ver:
             errors.append(f"[{step_id}] Missing 'verification'")
+        elif mode == "couch":
+            valid_cmd_prefixes = ("uv run ", "python3 ", "make ", "bash ", "kicad-cli ")
+            if not str(ver).startswith(valid_cmd_prefixes) or " (" in str(ver):
+                errors.append(
+                    f"[{step_id}] Couch step 'verification' must be a clean executable command "
+                    f"starting with {valid_cmd_prefixes}, got: {ver}"
+                )
         if not step.get("first_principles"):
             errors.append(f"[{step_id}] Missing 'first_principles'")
         if not step.get("reference_reading"):

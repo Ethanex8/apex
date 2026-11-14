@@ -4,7 +4,7 @@
 
 ## Locked Interface Contracts
 - **Battery Input**: 6-cell series lithium-iron-phosphate pack (`6S LiFePO4`: `19.2V` nominal, `21.9V` max—non-volatile chemistry well under the `60V` touch-safe **SELV** limit).
-- **Outputs**: Protected `21.9V` motor bus (individually current-monitored leg channels), clean step-down `5.0V / 4A` logic rail for `brain` and `sight`, hardware-wired physical mushroom E-stop loop (`< 5 µs` transistor gate cutoff independent of software), and `CAN-FD` Pack Voltage / Current / State-of-Charge / Temperature telemetry.
+- **Outputs**: Protected `21.9V` motor bus (individually current-monitored leg channels), clean step-down `5.0V / 4A` logic rail for `brain` and `sight`, hardware-wired physical mushroom E-stop loop (`< 5 µs` transistor gate cutoff independent of software), and `CAN-FD` Bus B (Node ID `13`, `100 Hz`) Pack Voltage / Current / State-of-Charge / Temperature telemetry with jumper-selectable `120 Ω` termination.
 
 ## Directory Layout
 - `sim/` — Equivalent resistor-capacitor battery voltage-sag model (**Randles model**), startup capacitor-inrush circuit simulation (**SPICE**), and online `EKF` battery fuel-gauge estimator
