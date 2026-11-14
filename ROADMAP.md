@@ -8,7 +8,7 @@ Generated from [`roadmap.yaml`](./roadmap.yaml). Tracks **6 integrated systems**
 
 - **Total Completion**: `░░░░░░░░░░░░░░░░` **0 / 186 steps** (`0.0%`)
 - **Couch Steps**: **0 / 154** · **Bench Sessions**: **0 / 32**
-- **Active Step**: **`brain-01`** (🛋️ Couch, ⬜ Pending) — Hardware Simulator Toolchain & Golden RISC-V Reference Emulator
+- **Active Step**: **`brain-01`** (🛋️ Couch, 🔍 In Review) — Hardware Simulator Toolchain & Golden RISC-V Reference Emulator
 
 | # | System | Role | Progress | Couch / Bench | Est. Timeline | Workspace |
 | :---: | :--- | :--- | :--- | :---: | :---: | :--- |
@@ -86,7 +86,7 @@ flowchart LR
 
 #### Phase 1: Simulator Tools, Reference CPU & Digital Building Blocks
 
-- [ ] **`brain-01`** — **Hardware Simulator Toolchain & Golden RISC-V Reference Emulator** *(🛋️ Couch · ⬜ Pending)*
+- [ ] **`brain-01`** — **Hardware Simulator Toolchain & Golden RISC-V Reference Emulator** *(🛋️ Couch · 🔍 In Review)*
   - **Deliverables**: `systems/brain/scripts/setup_tools.sh (installs Verilator digital simulator, Yosys/nextpnr FPGA compiler, Icarus, and pytest/cocotb in .tools/)`; `systems/brain/sim/rv32_oracle.py (instruction-by-instruction Python reference CPU emulator supporting RV32IM integer/multiply, machine-mode control registers Zicsr, CLINT timer, UART console & custom mac instruction)`; `systems/brain/tb/test_oracle.py (unit tests covering arithmetic, branches, memory loads/stores, interrupt traps & custom mac)`
   - **Verify**: `uv run --with pytest pytest systems/brain/tb/test_oracle.py && which verilator yosys nextpnr-himbaechel`
   - **First Principles**: Instruction bit-field decoding, architectural CPU state (Program Counter + 32 registers + Control/Status Registers), two's complement arithmetic & comparing real hardware against a golden software oracle *(Harris & Harris (RISC-V Ed.), Ch. 6)*
