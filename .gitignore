@@ -13,3 +13,6 @@ sim_build/
 *.json.bak
 *-backups/
 results.xml
+.coverage
+.coverage.*
+htmlcov/

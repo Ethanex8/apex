@@ -13,7 +13,7 @@ Build every layer of a safe, living-room-sized (about 2.5 kg) autonomous robot d
 **Current Focus**: **`brain-01`** (🛋️ Couch · 🔍 In Review) — **Hardware Simulator Toolchain & Golden RISC-V Reference Emulator**
 
 - **First Principles**: Instruction bit-field decoding, architectural CPU state (Program Counter + 32 registers + Control/Status Registers), two's complement arithmetic & comparing real hardware against a golden software oracle
-- **Verification Gate**: `uv run --with pytest pytest systems/brain/tb/test_oracle.py && which verilator yosys nextpnr-himbaechel`
+- **Verification Gate**: `uv run --with pytest --with pytest-cov pytest --cov=systems/brain/sim --cov-report=term-missing --cov-fail-under=95 systems/brain/tb/test_oracle.py && which verilator yosys nextpnr-himbaechel`
 
 ```bash
 python3 scripts/step.py status          # Progress across all 6 systems
