@@ -87,8 +87,8 @@ flowchart LR
 #### Phase 1: Simulator Tools, Reference CPU & Digital Building Blocks
 
 - [ ] **`brain-01`** — **Hardware Simulator Toolchain & Golden RISC-V Reference Emulator** *(🛋️ Couch · 🔍 In Review)*
-  - **Deliverables**: `systems/brain/scripts/setup_tools.sh (installs Verilator digital simulator, Yosys/nextpnr FPGA compiler, Icarus, and pytest/cocotb in .tools/)`; `systems/brain/sim/rv32_oracle.py (instruction-by-instruction Python reference CPU emulator supporting RV32IM integer/multiply, machine-mode control registers Zicsr, CLINT timer, UART console & custom mac instruction)`; `systems/brain/tb/test_oracle.py (unit tests covering arithmetic, branches, memory loads/stores, interrupt traps & custom mac)`
-  - **Verify**: `uv run --with pytest pytest systems/brain/tb/test_oracle.py && which verilator yosys nextpnr-himbaechel`
+  - **Deliverables**: `systems/brain/scripts/setup_tools.sh (installs Verilator digital simulator, Yosys/nextpnr FPGA compiler, Icarus, and pytest/cocotb in .tools/)`; `systems/brain/sim/oracle.py (instruction-by-instruction Python reference CPU emulator supporting RV32IM integer/multiply, machine-mode control registers Zicsr, CLINT timer, UART console & custom mac instruction)`; `systems/brain/tb/test_oracle.py (unit tests covering arithmetic, branches, memory loads/stores, interrupt traps & custom mac)`
+  - **Verify**: `uv run --with pytest --with pytest-cov pytest --cov=systems/brain/sim --cov-report=term-missing --cov-fail-under=95 systems/brain/tb/test_oracle.py && which verilator yosys nextpnr-himbaechel`
   - **First Principles**: Instruction bit-field decoding, architectural CPU state (Program Counter + 32 registers + Control/Status Registers), two's complement arithmetic & comparing real hardware against a golden software oracle *(Harris & Harris (RISC-V Ed.), Ch. 6)*
 - [ ] **`brain-02`** — **32-Bit Combinational Arithmetic Logic Unit (ALU) & Single-Cycle Bit Shifter** *(🛋️ Couch · ⬜ Pending)*
   - **Deliverables**: `systems/brain/rtl/core/alu.sv`; `systems/brain/tb/test_alu.py (Cocotb + Verilator exhaustive edge-case & randomized property testbench)`
@@ -118,7 +118,7 @@ flowchart LR
   - **Verify**: `make -C systems/brain/tb MODULE=test_lsu`
   - **First Principles**: Little-endian byte ordering inside 32-bit memory words, 4-bit partial-word write masks, sign- vs. zero-extension on loads, and misaligned-address trap detection *(Harris & Harris (RISC-V Ed.), Ch. 6.2 & 7.3)*
 - [ ] **`brain-08`** — **Single-Cycle RISC-V Core & 10k-Instruction Lockstep Verification** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/brain/rtl/core/cpu_single_cycle.sv`; `systems/brain/tb/test_single_cycle.py (runs 10,000 random & directed RV32I instructions lockstep against rv32_oracle.py)`
+  - **Deliverables**: `systems/brain/rtl/core/cpu_single_cycle.sv`; `systems/brain/tb/test_single_cycle.py (runs 10,000 random & directed RV32I instructions lockstep against oracle.py)`
   - **Verify**: `make -C systems/brain/tb MODULE=test_single_cycle`
   - **First Principles**: Composing fetch -> decode -> execute -> memory -> writeback in one clock tick and understanding why that long chain caps clock frequency *(Harris & Harris (RISC-V Ed.), Ch. 7.3)*
 - [ ] **`brain-09`** — **Multi-Cycle Hardware Multiplier & Divider (RV32M)** *(🛋️ Couch · ⬜ Pending)*
@@ -149,7 +149,7 @@ flowchart LR
   - **Verify**: `make -C systems/brain/tb MODULE=test_hazards`
   - **First Principles**: Why reading from memory followed immediately by using that register needs a 1-cycle stall even with bypass wires, and cleanly canceling speculatively fetched instructions on branches or interrupts *(Harris & Harris (RISC-V Ed.), Ch. 7.5.3–7.5.4)*
 - [ ] **`brain-15`** — **100k-Instruction Randomized Hazard & Async Interrupt Stress Test** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/brain/tb/test_cpu_torture.py (100k randomized RV32IM+MAC instructions + async timer interrupts + random bus wait states vs. rv32_oracle.py)`
+  - **Deliverables**: `systems/brain/tb/test_cpu_torture.py (100k randomized RV32IM+MAC instructions + async timer interrupts + random bus wait states vs. oracle.py)`
   - **Verify**: `make -C systems/brain/tb MODULE=test_cpu_torture`
   - **First Principles**: Instruction-retirement lockstep comparison, measuring effective Cycles Per Instruction (CPI = 1 + stalls/instruction), and catching subtle interrupt-vs-branch race conditions *(Harris & Harris (RISC-V Ed.), Ch. 7.5)*
 - [ ] **`brain-16`** — **FPGA Logic Compilation (Synthesis), Chip Utilization & 50 MHz Timing Closure** *(🛋️ Couch · ⬜ Pending)*

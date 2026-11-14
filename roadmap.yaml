@@ -187,11 +187,11 @@ steps:
   deliverables:
   - systems/brain/scripts/setup_tools.sh (installs Verilator digital simulator, Yosys/nextpnr FPGA compiler, Icarus,
     and pytest/cocotb in .tools/)
-  - systems/brain/sim/rv32_oracle.py (instruction-by-instruction Python reference CPU emulator supporting RV32IM
+  - systems/brain/sim/oracle.py (instruction-by-instruction Python reference CPU emulator supporting RV32IM
     integer/multiply, machine-mode control registers Zicsr, CLINT timer, UART console & custom mac instruction)
   - systems/brain/tb/test_oracle.py (unit tests covering arithmetic, branches, memory loads/stores, interrupt traps
     & custom mac)
-  verification: uv run --with pytest pytest systems/brain/tb/test_oracle.py && which verilator yosys nextpnr-himbaechel
+  verification: uv run --with pytest --with pytest-cov pytest --cov=systems/brain/sim --cov-report=term-missing --cov-fail-under=95 systems/brain/tb/test_oracle.py && which verilator yosys nextpnr-himbaechel
   first_principles: Instruction bit-field decoding, architectural CPU state (Program Counter + 32 registers + Control/Status
     Registers), two's complement arithmetic & comparing real hardware against a golden software oracle
   reference_reading: Harris & Harris (RISC-V Ed.), Ch. 6
@@ -312,7 +312,7 @@ steps:
   title: Single-Cycle RISC-V Core & 10k-Instruction Lockstep Verification
   deliverables:
   - systems/brain/rtl/core/cpu_single_cycle.sv
-  - systems/brain/tb/test_single_cycle.py (runs 10,000 random & directed RV32I instructions lockstep against rv32_oracle.py)
+  - systems/brain/tb/test_single_cycle.py (runs 10,000 random & directed RV32I instructions lockstep against oracle.py)
   verification: make -C systems/brain/tb MODULE=test_single_cycle
   first_principles: Composing fetch -> decode -> execute -> memory -> writeback in one clock tick and understanding
     why that long chain caps clock frequency
@@ -435,7 +435,7 @@ steps:
   title: 100k-Instruction Randomized Hazard & Async Interrupt Stress Test
   deliverables:
   - systems/brain/tb/test_cpu_torture.py (100k randomized RV32IM+MAC instructions + async timer interrupts + random
-    bus wait states vs. rv32_oracle.py)
+    bus wait states vs. oracle.py)
   verification: make -C systems/brain/tb MODULE=test_cpu_torture
   first_principles: Instruction-retirement lockstep comparison, measuring effective Cycles Per Instruction (CPI
     = 1 + stalls/instruction), and catching subtle interrupt-vs-branch race conditions
