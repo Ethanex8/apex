@@ -1,0 +1,25 @@
+name: Apex CI
+
+on:
+  push:
+    branches: [main, "step/**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify-python-and-roadmap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Validate roadmap.yaml and generated docs
+        run: uv run --with pyyaml python3 scripts/build.py --check
+
+      - name: Run Python unit tests with line coverage
+        run: >
+          uv run --with pytest --with pytest-cov
+          pytest -v --cov=systems/brain/sim --cov-report=term-missing --cov-fail-under=95
+          systems/brain/tb/test_oracle.py
