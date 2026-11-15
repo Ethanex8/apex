@@ -27,6 +27,7 @@ Boot directly from persistent `QSPI` Flash into `32 MB` `SDRAM` on your custom 6
 
 ## Directory Layout
 
+- `chapters/` — Per-step Just-In-Time (JIT) textbook chapters focused strictly on the concepts exercised by each step ([Chapter 1: Golden Oracle & ISA](./chapters/01_golden_oracle_and_isa.md))
 - `rtl/` — Synthesizable hardware-description code (**SystemVerilog RTL**: `core/`, `mem/`, `periph/`, `soc_top.sv`)
 - `sim/` — Golden cycle-accurate Python CPU emulator (`RV32IM` + `Zicsr` + `Xapex`) & custom assembler/linker
 - `tb/` — Automated testbenches (`Verilator` digital simulator + `Cocotb` + `pytest`) comparing hardware vs. emulator bit-for-bit
