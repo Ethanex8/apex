@@ -28,8 +28,8 @@ Never write a chapter in a single hurried pass. Execute all four passes in order
 2. List every constant, helper function, hardware register/signal, normal path, and corner/fault path.
 3. Topologically sort sections so **every concept is derived from first principles before any code line uses it** (zero forward references).
 4. For each planned section, define:
-   - **Software-Systems Anchor**: What familiar CS primitive (hash map, ring buffer, state machine, mutex, try/catch) bridges into this hardware mechanism?
-   - **Naive Strawman & Why Hardware Rejects It**: What obvious first attempt would a software engineer try, and why does it fail in silicon/physics?
+   - **Direct Definition & Software-Systems Anchor**: State what the hardware mechanism **is** and **does** directly, then bridge from a familiar CS primitive (hash map, ring buffer, state machine, mutex, try/catch).
+   - **Design Trade-Off & Physical Constraint**: After defining the mechanism, show the physical or silicon constraint that motivates it (e.g., why a naive alternative stalls, overflows, or wastes area).
    - **Mathematical / Bit-Level Derivation**: Exact step-by-step proof or numerical trace (never assert bitwise tricks or physical formulas without proving *why* they work).
    - **Live Code Transclusion**: Plan `<!-- book-sync: <spec> -->` + `<<< @/systems/...#L<start>-L<end>` slices using zero-clutter symbol/pattern anchors (`scripts/code_anchors.py`), never adding `#region` comments into source code.
 
@@ -40,16 +40,17 @@ Never write a chapter in a single hurried pass. Execute all four passes in order
    - Guard every `<<<` transclusion with `<!-- book-sync: <spec> -->` (supporting `sym`, `symA..symB`, and `Scope['pat1'..'pat2']`).
    - Anchor every `#L...` link via either a backticked symbol label (e.g., `` [`sign_extend`](../sim/oracle.py#L138-L143) ``) or a `"anchor: <spec>"` link title, and keep file line counts synced via `([`file.py`](...) (\`1,027\` lines))`.
    - **Never write unanchored bare prose line numbers** (`line 142` or `lines 50–60`); name the function/branch/constant visible in the transcluded block or use an anchored `#L` link.
-4. Silently defer out-of-scope future hardware stages to the chapters where they are built (never write meta-commentary about what the reader doesn't need to know yet).
+4. **Directness & Zero Meta-Commentary**: Introduce every subsystem, section, and mechanism directly by what it **is** and **does**. Never open with meta-commentary about engineering curricula, reader transitions, or what the reader doesn't need to know yet (silently defer out-of-scope future stages to their own chapters), and never introduce a system by listing what unrelated technologies fail to do.
 
 ### Pass 3: Adversarial "Cold-Reader" Subagent Critique
-Invoke an isolated `research` subagent (`invoke_subagent`, `Model: 'inherit'`, `Workspace: 'inherit'`) role-playing a senior software engineer with **zero prior RISC-V, RTL, EDA, or EE background**. Instruct it to read the drafted chapter and source file cold and audit against 6 defect categories:
+Invoke an isolated `research` subagent (`invoke_subagent`, `Model: 'inherit'`, `Workspace: 'inherit'`) role-playing a senior software engineer with **zero prior RISC-V, RTL, EDA, or EE background**. Instruct it to read the drafted chapter and source file cold and audit against 7 defect categories:
 1. **Unexplained Jargon / Acronym Soup**: Any hardware acronym, mnemonic, or register name used before plain-English mechanism + spelled-out expansion.
 2. **Hand-Waved Derivations**: Any equation, bitwise identity, or corner case stated without proof or concrete numbers.
 3. **Unmotivated Bit Layouts / Magic Numbers**: Any constant, address, or bit scramble presented as an arbitrary rule without explaining the physical trade-off.
 4. **Rushed Pacing**: Any section reading like terse reference notes rather than patient textbook prose.
 5. **Uncovered Deliverable Logic**: Any function, state field, or fault branch in the step's code left unexplained.
 6. **Formatting & Sync Hygiene Bugs**: Unescaped `$` currency, prose `~...~` tildes, broken links, bare prose line numbers, or unanchored `#L` links.
+7. **Meta-Commentary & Negative-Foil Openers**: Any section, subsystem, or concept introduced by what it does not do, what an unrelated technology fails at, or meta-commentary about curricula, reader transitions, or deferred topics—every opening must state directly what the component **is** and **does**.
 
 ### Pass 4: Interactive Vue Widgets, Graded Exercises & Verification Gate
 1. Resolve **every** ticket raised by the Cold-Reader subagent.
