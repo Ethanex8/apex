@@ -1,6 +1,6 @@
 # System 2: `drive` — Force-Controlled Brushless Motor Driver & 8:1 Gearbox
 
-Position-controlled hobby servos drive aggressively toward a target angle and strip gear teeth on unexpected ground impact. System 2 (`drive`) pairs a flat pancake brushless motor with a custom `24V` inverter board that regulates coil current—and therefore mechanical torque—at `20 kHz` via **Field-Oriented Control (`FOC`)**, turning each joint into a backdrivable, finger-safe (`< 2.5 N·m`) programmable spring and damper. A single actuator unit is built and verified here; twelve identical units actuate the full quadruped.
+System 2 (`drive`) pairs a flat pancake brushless motor with a custom `24V` inverter board and an `8:1` low-backlash planetary gearbox. Regulating coil current—and therefore mechanical torque—at `20 kHz` via **Field-Oriented Control (`FOC`)**, it turns each joint into a backdrivable, finger-safe (`< 2.5 N·m`) programmable spring and damper. A single actuator unit is built and verified here; twelve identical units actuate the full quadruped.
 
 ## Locked Interface Contracts
 - **Power Input**: `19.2V` nominal (`21.9V` max, 6-cell `LiFePO4` touch-safe **SELV** battery bus) via daisy-chained XT30/Micro-Fit power connectors.

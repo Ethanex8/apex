@@ -26,9 +26,7 @@
 
 ## Preface
 
-Most engineering curricula isolate processor architecture, printed-circuit design, compiler construction, power electronics, and robotic control into separate disciplines, leaving the interfaces between them abstract.
-
-**Apex** develops all six layers around a single cohesive machine: an indoor-safe (about `2.5 kg`, `< 22V`) autonomous quadruped built from first principles. Across six volumes, we design a custom 32-bit processor on a **Field-Programmable Gate Array (`FPGA`)**, route a 6-layer controlled-impedance carrier board, write a C compiler and preemptive **Real-Time Operating System (`RTOS`)**, implement `20 kHz` brushless torque control, engineer a solid-state power distribution spine, and deploy stereo visual-inertial navigation.
+**Apex** integrates processor architecture, printed-circuit design, compiler construction, power electronics, and dynamic robotic control around a single cohesive machine: an indoor-safe (about `2.5 kg`, `< 22V`) autonomous quadruped built from first principles. Across six volumes, we design a custom 32-bit processor on a **Field-Programmable Gate Array (`FPGA`)**, route a 6-layer controlled-impedance carrier board, write a C compiler and preemptive **Real-Time Operating System (`RTOS`)**, implement `20 kHz` brushless torque control, engineer a solid-state power distribution spine, and deploy stereo visual-inertial navigation.
 
 Each chapter derives the underlying mathematics, physics, and architecture from first principles, walks directly through the corresponding verified implementation in `systems/` (`Python`, `SystemVerilog`, `C`, and `KiCad` generators), and provides interactive workbenches and worked exercises to test comprehension before moving to physical hardware.
 
