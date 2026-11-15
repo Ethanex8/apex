@@ -1,34 +1,71 @@
 #!/usr/bin/env python3
-"""CLI helper for managing Couch-to-Silicon step states in roadmap.yaml."""
+"""CLI helper for managing Couch-to-Silicon step states in roadmap.yaml.
+
+Purpose:
+  Provide deterministic subcommands (`status`, `next`, `review`, `approve`, `reset`)
+  to inspect and advance atomic steps in `roadmap.yaml` while delegating validation
+  and Markdown regeneration to `scripts/build.py`.
+
+Usage:
+  python3 scripts/step.py status [system]
+  python3 scripts/step.py next [system]
+  python3 scripts/step.py review <step-id> [--pr URL]
+  python3 scripts/step.py approve <step-id> [--commit SHA] [--date YYYY-MM-DD]
+  python3 scripts/step.py reset <step-id>
+
+Outputs:
+  Prints status summaries to stdout; updates `roadmap.yaml`, `ROADMAP.md`, and `README.md`
+  on state transitions.
+"""
 
 from __future__ import annotations
 
 import argparse
+import sys
 from datetime import date, datetime
 from pathlib import Path
-import sys
+
 import yaml
 
-sys.dont_write_bytecode = True
-import build
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
 
+import build  # noqa: E402 — repo scripts run standalone without package install
 
-ROOT_DIR = Path(__file__).resolve().parent.parent
+ROOT_DIR = SCRIPT_DIR.parent
 ROADMAP_YAML_PATH = ROOT_DIR / "roadmap.yaml"
 
 
 def load_roadmap() -> dict:
-    with open(ROADMAP_YAML_PATH, encoding="utf-8") as f:
-        return yaml.safe_load(f)
+    """Parse and return `roadmap.yaml` as a Python dictionary."""
+    return build._load_roadmap(ROADMAP_YAML_PATH)
 
 
 def save_and_rebuild(data: dict) -> int:
+    """Validate, atomically persist `data` to `roadmap.yaml`, and run `scripts/build.py`."""
+    errors = build.validate_roadmap(data)
+    if errors:
+        print("Roadmap invariant validation FAILED (roadmap.yaml left unchanged):", file=sys.stderr)
+        for err in errors:
+            print(f"  - {err}", file=sys.stderr)
+        return 1
+
+    backup = ROADMAP_YAML_PATH.read_text(encoding="utf-8") if ROADMAP_YAML_PATH.exists() else None
     with open(ROADMAP_YAML_PATH, "w", encoding="utf-8") as f:
         yaml.dump(data, f, sort_keys=False, allow_unicode=True, width=110)
-    return build.main([])
+
+    rc = build.main([])
+    if rc != 0:
+        if backup is not None:
+            ROADMAP_YAML_PATH.write_text(backup, encoding="utf-8")
+        else:
+            ROADMAP_YAML_PATH.unlink(missing_ok=True)
+    return rc
 
 
 def find_step(data: dict, step_id: str) -> dict | None:
+    """Locate a step dictionary in `data['steps']` by case-insensitive ID."""
     target = step_id.strip().lower()
     for st in data.get("steps", []):
         if st["id"].lower() == target:
@@ -36,10 +73,22 @@ def find_step(data: dict, step_id: str) -> dict | None:
     return None
 
 
+def _validate_target_system(data: dict, system_arg: str | None) -> str | None:
+    """Return normalized system ID if valid, None if omitted, or raise ValueError if unknown."""
+    if not system_arg:
+        return None
+    target = system_arg.strip().lower()
+    valid = {str(s["id"]).lower() for s in data.get("systems") or [] if isinstance(s, dict) and s.get("id")}
+    if target not in valid:
+        raise ValueError(f"Unknown system '{system_arg}' (expected one of {sorted(valid)})")
+    return target
+
+
 def cmd_status(args: argparse.Namespace) -> int:
+    """Print overall and per-system progress metrics across `roadmap.yaml`."""
     data = load_roadmap()
+    target_sys = _validate_target_system(data, args.system)
     metrics = build.compute_metrics(data)
-    target_sys = args.system.strip().lower() if args.system else None
 
     print("=== Apex Couch-to-Silicon Engineering Progress ===")
     print(
@@ -58,9 +107,7 @@ def cmd_status(args: argparse.Namespace) -> int:
         if target_sys and sys_obj["id"] != target_sys:
             continue
         bar = build.render_progress_bar(sm["pct"], width=16)
-        print(
-            f"[{sys_obj['order']}. {sys_obj['id']}] {sys_obj['name']} ({sm['status']})"
-        )
+        print(f"[{sys_obj['order']}. {sys_obj['id']}] {sys_obj['name']} ({sm['status']})")
         print(
             f"  Progress : [{bar}] {sm['approved']}/{sm['total']} ({sm['pct']:.1f}%) "
             f"| Couch {sm['couch_done']}/{sm['couch']} | Bench {sm['bench_done']}/{sm['bench']}"
@@ -73,8 +120,9 @@ def cmd_status(args: argparse.Namespace) -> int:
 
 
 def cmd_next(args: argparse.Namespace) -> int:
+    """Display metadata, deliverables, and verification gate for the next unapproved step."""
     data = load_roadmap()
-    target_sys = args.system.strip().lower() if args.system else None
+    target_sys = _validate_target_system(data, args.system)
     candidates = [
         s
         for s in data.get("steps", [])
@@ -98,26 +146,39 @@ def cmd_next(args: argparse.Namespace) -> int:
 
 
 def cmd_review(args: argparse.Namespace) -> int:
+    """Transition `args.step_id` to `in_review`, clearing prior approval fields cleanly."""
+    if args.pr is not None and not args.pr.strip():
+        print("ERROR: --pr URL cannot be empty", file=sys.stderr)
+        return 1
     data = load_roadmap()
     st = find_step(data, args.step_id)
     if not st:
         print(f"ERROR: Unknown step '{args.step_id}'", file=sys.stderr)
         return 1
     st["status"] = "in_review"
+    st["approved_date"] = None
+    st["commit"] = None
     if args.pr:
-        st["pr_url"] = args.pr
-    print(f"Marked [{st['id']}] as in_review" + (f" (PR: {args.pr})" if args.pr else ""))
+        st["pr_url"] = args.pr.strip()
+    print(f"Marked [{st['id']}] as in_review" + (f" (PR: {st['pr_url']})" if args.pr else ""))
     return save_and_rebuild(data)
 
 
 def cmd_approve(args: argparse.Namespace) -> int:
+    """Mark `args.step_id` as `approved` with a validated `YYYY-MM-DD` date."""
+    if args.date is not None and not args.date.strip():
+        print("ERROR: --date cannot be empty (expected YYYY-MM-DD)", file=sys.stderr)
+        return 1
+    if args.commit is not None and not args.commit.strip():
+        print("ERROR: --commit SHA cannot be empty", file=sys.stderr)
+        return 1
     data = load_roadmap()
     st = find_step(data, args.step_id)
     if not st:
         print(f"ERROR: Unknown step '{args.step_id}'", file=sys.stderr)
         return 1
 
-    adate = args.date or date.today().strftime("%Y-%m-%d")
+    adate = args.date.strip() if args.date else date.today().strftime("%Y-%m-%d")
     try:
         datetime.strptime(adate, "%Y-%m-%d")
     except ValueError:
@@ -127,12 +188,13 @@ def cmd_approve(args: argparse.Namespace) -> int:
     st["status"] = "approved"
     st["approved_date"] = adate
     if args.commit:
-        st["commit"] = args.commit
+        st["commit"] = args.commit.strip()
     print(f"Approved [{st['id']}] on {adate}")
     return save_and_rebuild(data)
 
 
 def cmd_reset(args: argparse.Namespace) -> int:
+    """Reset `args.step_id` back to `pending` and clear review/approval metadata."""
     data = load_roadmap()
     st = find_step(data, args.step_id)
     if not st:
@@ -146,7 +208,8 @@ def cmd_reset(args: argparse.Namespace) -> int:
     return save_and_rebuild(data)
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    """Parse CLI subcommands and dispatch step lifecycle updates."""
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="cmd", required=True)
 
@@ -173,8 +236,12 @@ def main() -> int:
     p_reset.add_argument("step_id", help="Step ID (e.g. brain-01)")
     p_reset.set_defaults(func=cmd_reset)
 
-    args = parser.parse_args()
-    return args.func(args)
+    args = parser.parse_args(argv)
+    try:
+        return args.func(args)
+    except ValueError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":

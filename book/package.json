@@ -1,0 +1,18 @@
+{
+  "name": "apex-textbook",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Apex: Couch-to-Silicon Interactive Engineering Textbook",
+  "scripts": {
+    "dev": "vitepress dev . --host 0.0.0.0 --port 5173",
+    "build": "vitepress build .",
+    "preview": "vitepress preview . --host 0.0.0.0 --port 4173"
+  },
+  "devDependencies": {
+    "js-yaml": "^4.1.0",
+    "markdown-it-mathjax3": "^4.3.2",
+    "mermaid": "^11.4.1",
+    "vitepress": "^1.6.4"
+  }
+}

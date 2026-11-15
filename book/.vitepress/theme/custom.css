@@ -1,0 +1,278 @@
+:root {
+  --vp-c-brand-1: #2563eb;
+  --vp-c-brand-2: #1d4ed8;
+  --vp-c-brand-3: #1e40af;
+  --vp-c-brand-soft: rgba(37, 99, 235, 0.12);
+  --book-surface-subtle: rgba(15, 23, 42, 0.03);
+  --book-border-strong: rgba(15, 23, 42, 0.12);
+}
+
+.dark {
+  --vp-c-brand-1: #60a5fa;
+  --vp-c-brand-2: #3b82f6;
+  --vp-c-brand-3: #2563eb;
+  --vp-c-brand-soft: rgba(96, 165, 250, 0.14);
+  --book-surface-subtle: rgba(248, 250, 252, 0.04);
+  --book-border-strong: rgba(248, 250, 252, 0.14);
+}
+
+/* Reading Progress Bar */
+.book-progress-track {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  z-index: 100;
+  background: transparent;
+  pointer-events: none;
+}
+
+.book-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--vp-c-brand-1), #10b981);
+  transition: width 80ms linear;
+}
+
+/* Reader Serif / Sans Toggle */
+.reader-font-toggle {
+  margin-left: 12px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--vp-c-divider);
+  background: var(--vp-c-bg-soft);
+  color: var(--vp-c-text-2);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.reader-font-toggle:hover {
+  border-color: var(--vp-c-brand-1);
+  color: var(--vp-c-text-1);
+}
+
+/* Long-Form Textbook Reading Typography */
+.vp-doc {
+  font-size: 16.5px;
+  line-height: 1.78;
+}
+
+html.book-serif-mode .vp-doc p,
+html.book-serif-mode .vp-doc li,
+html.book-serif-mode .vp-doc blockquote {
+  font-family: Charter, 'Bitstream Charter', 'Sitka Text', Cambria, Georgia, serif;
+  font-size: 17.5px;
+  line-height: 1.82;
+}
+
+.vp-doc h1 {
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  margin-bottom: 0.65em;
+}
+
+.vp-doc h2 {
+  margin-top: 2.6em;
+  padding-top: 1.1em;
+  letter-spacing: -0.015em;
+}
+
+.vp-doc h3 {
+  margin-top: 1.9em;
+}
+
+/* Source Code Link Pill */
+.vp-doc a.repo-source-link {
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+}
+
+.vp-doc a.repo-source-link::after {
+  content: ' ↗';
+  font-size: 0.78em;
+  opacity: 0.75;
+}
+
+/* MathJax Overflow Hygiene on Mobile */
+mjx-container[display='true'] {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.5rem 0;
+  max-width: 100%;
+}
+
+/* Mermaid Figure Card */
+.mermaid-book-figure {
+  margin: 1.5rem 0;
+  padding: 1.25rem;
+  border-radius: 10px;
+  border: 1px solid var(--vp-c-divider);
+  background: var(--vp-c-bg-soft);
+  overflow-x: auto;
+}
+
+.mermaid-svg-wrap {
+  display: flex;
+  justify-content: center;
+}
+
+.mermaid-error {
+  color: var(--vp-c-danger-1);
+  font-family: var(--vp-font-family-mono);
+  font-size: 13px;
+}
+
+/* Cover Hero Stats */
+.book-hero-banner {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin: 1.5rem 0;
+}
+
+.book-hero-stat {
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--vp-c-divider);
+  background: var(--vp-c-bg-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.book-hero-stat .stat-num {
+  font-size: 1.55rem;
+  font-weight: 700;
+  color: var(--vp-c-brand-1);
+  font-family: var(--vp-font-family-mono);
+  line-height: 1.2;
+}
+
+.book-hero-stat .stat-label {
+  font-size: 0.82rem;
+  color: var(--vp-c-text-2);
+  font-family: var(--vp-font-family-base);
+}
+
+/* Collapsible Exercise Solutions */
+.vp-doc details {
+  margin: 1rem 0;
+  padding: 0.85rem 1.1rem;
+  border-radius: 8px;
+  border: 1px solid var(--vp-c-divider);
+  background: var(--vp-c-bg-soft);
+}
+
+.vp-doc details summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-family: var(--vp-font-family-base);
+  color: var(--vp-c-brand-1);
+  user-select: none;
+}
+
+/* Interactive Hardware Widget Containers */
+.hw-widget {
+  margin: 1.75rem 0;
+  padding: 1.15rem 1.25rem;
+  border-radius: 12px;
+  border: 1px solid var(--book-border-strong);
+  background: var(--vp-c-bg-soft);
+  font-family: var(--vp-font-family-base);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.hw-widget-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 0.75rem;
+  margin-bottom: 0.9rem;
+  border-bottom: 1px solid var(--vp-c-divider);
+}
+
+.hw-widget-title {
+  font-weight: 700;
+  font-size: 14.5px;
+  color: var(--vp-c-text-1);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hw-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: var(--vp-c-brand-soft);
+  color: var(--vp-c-brand-1);
+}
+
+.hw-btn {
+  padding: 5px 11px;
+  border-radius: 6px;
+  border: 1px solid var(--vp-c-divider);
+  background: var(--vp-c-bg);
+  color: var(--vp-c-text-1);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.hw-btn:hover:not(:disabled) {
+  border-color: var(--vp-c-brand-1);
+  color: var(--vp-c-brand-1);
+}
+
+.hw-btn.active {
+  background: var(--vp-c-brand-1);
+  border-color: var(--vp-c-brand-1);
+  color: #ffffff;
+}
+
+.dark .hw-btn.active {
+  color: #0f172a;
+}
+
+.hw-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.hw-mono {
+  font-family: var(--vp-font-family-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.hw-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.hw-card {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--vp-c-divider);
+  background: var(--vp-c-bg);
+}
+
+.hw-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--vp-c-text-2);
+  margin-bottom: 4px;
+}

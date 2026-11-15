@@ -1,0 +1,517 @@
+<script setup lang="ts">
+import { computed, ref } from 'vue'
+
+interface PresetInsn {
+  label: string
+  asm: string
+  word: number
+}
+
+const presets: PresetInsn[] = [
+  { label: 'I-Type: ADDI', asm: 'addi x1, x0, -5', word: 0xffb00093 },
+  { label: 'Shift-Imm: SRAI', asm: 'srai x7, x1, 1', word: 0x4010d393 },
+  { label: 'R-Type: ADD', asm: 'add x3, x1, x2', word: 0x002081b3 },
+  { label: 'R-Type: SUB', asm: 'sub x4, x1, x2', word: 0x40208233 },
+  { label: 'RV32M: DIV', asm: 'div x14, x1, x2', word: 0x0220c733 },
+  { label: 'Xapex: MAC', asm: 'mac x11, x2, x3', word: 0x0031058b },
+  { label: 'Load: LH', asm: 'lh x6, 0(x1)', word: 0x00009303 },
+  { label: 'S-Type: SW', asm: 'sw x2, 12(x1)', word: 0x0020a623 },
+  { label: 'B-Type: BLT', asm: 'blt x2, x3, -8', word: 0xfe314ce3 },
+  { label: 'U-Type: LUI', asm: 'lui x22, 0x12345', word: 0x12345b37 },
+  { label: 'J-Type: JAL', asm: 'jal x5, +8', word: 0x008002ef },
+  { label: 'Zicsr: CSRRS', asm: 'csrrs x25, mcause, x0', word: 0x34202cf3 },
+]
+
+const insnWord = ref<number>(0xffb00093)
+const hexInput = ref<string>('0xFFB00093')
+
+function selectPreset(p: PresetInsn) {
+  insnWord.value = p.word >>> 0
+  hexInput.value = `0x${(p.word >>> 0).toString(16).toUpperCase().padStart(8, '0')}`
+}
+
+function onHexChange() {
+  const cleaned = hexInput.value.replace(/[^0-9a-fA-F]/g, '')
+  if (cleaned.length > 0) {
+    insnWord.value = Number.parseInt(cleaned.slice(-8), 16) >>> 0
+  }
+}
+
+function flipBit(bit: number) {
+  insnWord.value = (insnWord.value ^ (1 << bit)) >>> 0
+  hexInput.value = `0x${insnWord.value.toString(16).toUpperCase().padStart(8, '0')}`
+}
+
+function signExtend(val: number, bits: number): number {
+  const signBit = 1 << (bits - 1)
+  const mask = (1 << bits) - 1
+  const masked = val & mask
+  return (masked ^ signBit) - signBit
+}
+
+interface FieldSpan {
+  name: string
+  range: string
+  bits: string
+  value: string
+  color: string
+  widthCols: number
+}
+
+const rAluNames: Record<number, string> = {
+  0: 'add (Add Registers)',
+  1: 'sll (Shift Left Logical)',
+  2: 'slt (Set if Signed Less Than)',
+  3: 'sltu (Set if Unsigned Less Than)',
+  4: 'xor (Bitwise Exclusive-OR)',
+  5: 'srl (Shift Right Logical)',
+  6: 'or (Bitwise OR)',
+  7: 'and (Bitwise AND)',
+}
+
+const rMulNames: Record<number, string> = {
+  0: 'mul (Multiply Lower 32 Bits)',
+  1: 'mulh (Multiply Upper 32 Bits, Signed × Signed)',
+  2: 'mulhsu (Multiply Upper 32 Bits, Signed × Unsigned)',
+  3: 'mulhu (Multiply Upper 32 Bits, Unsigned × Unsigned)',
+  4: 'div (Signed Divide Toward Zero)',
+  5: 'divu (Unsigned Divide)',
+  6: 'rem (Signed Remainder)',
+  7: 'remu (Unsigned Remainder)',
+}
+
+const decoded = computed(() => {
+  const w = insnWord.value >>> 0
+  const opcode = w & 0x7f
+  const rd = (w >>> 7) & 0x1f
+  const funct3 = (w >>> 12) & 0x7
+  const rs1 = (w >>> 15) & 0x1f
+  const rs2 = (w >>> 20) & 0x1f
+  const funct7 = (w >>> 25) & 0x7f
+
+  const b = (hi: number, lo: number) =>
+    ((w >>> lo) & ((1 << (hi - lo + 1)) - 1)).toString(2).padStart(hi - lo + 1, '0')
+
+  // R-Type & Custom-0 Xapex MAC
+  if (opcode === 0x33 || opcode === 0x0b) {
+    const isMac = opcode === 0x0b
+    let opName = 'Illegal R-Type Instruction (Raises Trap Cause 2)'
+    if (isMac && funct7 === 0x00) {
+      const macOps: Record<number, string> = {
+        0: 'mac (Dual-Int16 Multiply-Accumulate)',
+        1: 'mac.clr (Zero Accumulator & Multiply-Accumulate)',
+        2: 'mac.set (Preload 32-Bit Bias into Accumulator)',
+        3: 'mac.get (Read Accumulator into Register)',
+      }
+      opName = macOps[funct3] ?? 'Illegal Xapex Sub-Operation (Trap Cause 2)'
+    } else if (!isMac && funct7 === 0x01) {
+      opName = rMulNames[funct3]
+    } else if (!isMac && funct7 === 0x00) {
+      opName = rAluNames[funct3]
+    } else if (!isMac && funct7 === 0x20) {
+      opName =
+        funct3 === 0
+          ? 'sub (Subtract Registers)'
+          : funct3 === 5
+            ? 'sra (Shift Right Arithmetic)'
+            : 'Illegal funct7/funct3 Combination (Trap Cause 2)'
+    }
+    const spans: FieldSpan[] = [
+      { name: 'funct7', range: 'Bits 31..25', bits: b(31, 25), value: `0x${funct7.toString(16).padStart(2, '0')}`, color: '#8b5cf6', widthCols: 7 },
+      { name: 'rs2 (Source 2)', range: 'Bits 24..20', bits: b(24, 20), value: `x${rs2}`, color: '#f59e0b', widthCols: 5 },
+      { name: 'rs1 (Source 1)', range: 'Bits 19..15', bits: b(19, 15), value: `x${rs1}`, color: '#10b981', widthCols: 5 },
+      { name: 'funct3', range: 'Bits 14..12', bits: b(14, 12), value: `${funct3}`, color: '#06b6d4', widthCols: 3 },
+      { name: 'rd (Dest)', range: 'Bits 11..7', bits: b(11, 7), value: `x${rd}`, color: '#3b82f6', widthCols: 5 },
+      { name: 'opcode', range: 'Bits 6..0', bits: b(6, 0), value: `0x${opcode.toString(16).padStart(2, '0')}`, color: '#ec4899', widthCols: 7 },
+    ]
+    return {
+      format: isMac ? 'R-Type (Custom-0 Xapex Neural Extension)' : 'R-Type (Register-Register)',
+      mnemonic: opName,
+      immExplain: 'No embedded constant — all three 5-bit register columns (rd, rs1, rs2) are active, leaving 10 bits (funct7 + funct3) to select the exact operation.',
+      effect: opName.startsWith('Illegal')
+        ? 'Traps to mtvec with mcause = 2 (Illegal Instruction).'
+        : `Reads x${rs1} and x${rs2}, computes ${opName}, and commits result to x${rd}${rd === 0 ? ' (discarded because x0 stays 0)' : ''}.`,
+      spans,
+    }
+  }
+
+  // Shift-Immediate Specialization (OP-IMM with funct3 == 1 or 5)
+  if (opcode === 0x13 && (funct3 === 1 || funct3 === 5)) {
+    const shamt = rs2
+    let opName = 'Illegal Shift-Immediate (Trap Cause 2)'
+    if (funct3 === 1 && funct7 === 0x00) opName = 'slli (Shift Left Logical Immediate)'
+    else if (funct3 === 5 && funct7 === 0x00) opName = 'srli (Shift Right Logical Immediate)'
+    else if (funct3 === 5 && funct7 === 0x20) opName = 'srai (Shift Right Arithmetic Immediate)'
+
+    return {
+      format: 'I-Type (Shift-Immediate Specialization)',
+      mnemonic: opName,
+      immExplain: `Bits 24..20 hold the 5-bit shift amount (shamt = ${shamt}), leaving Bits 31..25 as funct7 (0x${funct7.toString(16).padStart(2, '0')}) to distinguish logical (0x00) vs arithmetic (0x20) right shifts.`,
+      effect: opName.startsWith('Illegal')
+        ? 'Traps to mtvec with mcause = 2 (Illegal Instruction).'
+        : `Shifts x${rs1} by ${shamt} bit(s) and writes result into x${rd}.`,
+      spans: [
+        { name: 'funct7 (Shift Mode)', range: 'Bits 31..25', bits: b(31, 25), value: `0x${funct7.toString(16).padStart(2, '0')}`, color: '#8b5cf6', widthCols: 7 },
+        { name: 'shamt (Count)', range: 'Bits 24..20', bits: b(24, 20), value: `${shamt}`, color: '#f59e0b', widthCols: 5 },
+        { name: 'rs1 (Source 1)', range: 'Bits 19..15', bits: b(19, 15), value: `x${rs1}`, color: '#10b981', widthCols: 5 },
+        { name: 'funct3', range: 'Bits 14..12', bits: b(14, 12), value: `${funct3}`, color: '#06b6d4', widthCols: 3 },
+        { name: 'rd (Dest)', range: 'Bits 11..7', bits: b(11, 7), value: `x${rd}`, color: '#3b82f6', widthCols: 5 },
+        { name: 'opcode', range: 'Bits 6..0', bits: b(6, 0), value: '0x13', color: '#ec4899', widthCols: 7 },
+      ],
+    }
+  }
+
+  // SYSTEM & Zicsr (opcode 0x73)
+  if (opcode === 0x73) {
+    const csrAddr = (w >>> 20) & 0xfff
+    const csrHex = `0x${csrAddr.toString(16).toUpperCase().padStart(3, '0')}`
+    if (funct3 === 0) {
+      const sysMap: Record<number, [string, string]> = {
+        0x00000073: ['ecall (Environment Call)', 'Raises synchronous trap (mcause = 11) jumping PC to mtvec.'],
+        0x00100073: ['ebreak (Environment Breakpoint)', 'Sets halted = True and raises breakpoint trap (mcause = 3).'],
+        0x30200073: ['mret (Machine Trap Return)', 'Restores mstatus.MIE from MPIE and jumps PC back to mepc.'],
+        0x10500073: ['wfi (Wait For Interrupt)', 'Clock-sleep hint; advances PC to PC + 4 in sequential oracle.'],
+      }
+      const hit = sysMap[w] ?? ['Illegal SYSTEM Instruction (Trap Cause 2)', 'Unassigned SYSTEM encoding; traps to mtvec with mcause = 2.']
+      return {
+        format: 'I-Type (Privileged SYSTEM Instruction)',
+        mnemonic: hit[0],
+        immExplain: `Upper 12-bit function selector = ${csrHex} with rs1 = x0 and rd = x0.`,
+        effect: hit[1],
+        spans: [
+          { name: 'System Function', range: 'Bits 31..20', bits: b(31, 20), value: csrHex, color: '#8b5cf6', widthCols: 12 },
+          { name: 'rs1', range: 'Bits 19..15', bits: b(19, 15), value: `x${rs1}`, color: '#10b981', widthCols: 5 },
+          { name: 'funct3', range: 'Bits 14..12', bits: b(14, 12), value: '0', color: '#06b6d4', widthCols: 3 },
+          { name: 'rd', range: 'Bits 11..7', bits: b(11, 7), value: `x${rd}`, color: '#3b82f6', widthCols: 5 },
+          { name: 'opcode', range: 'Bits 6..0', bits: b(6, 0), value: '0x73', color: '#ec4899', widthCols: 7 },
+        ],
+      }
+    }
+
+    const csrOps: Record<number, string> = {
+      1: 'csrrw (Atomic CSR Read & Write)',
+      2: 'csrrs (Atomic CSR Read & Set Bits)',
+      3: 'csrrc (Atomic CSR Read & Clear Bits)',
+      5: 'csrrwi (Atomic CSR Read & Write 5-Bit Constant)',
+      6: 'csrrsi (Atomic CSR Read & Set 5-Bit Constant)',
+      7: 'csrrci (Atomic CSR Read & Clear 5-Bit Constant)',
+    }
+    const isImm = (funct3 & 0x4) !== 0
+    const opName = csrOps[funct3] ?? 'Illegal Zicsr funct3=4 (Trap Cause 2)'
+    return {
+      format: 'I-Type (Zicsr Control & Status Register Access)',
+      mnemonic: opName,
+      immExplain: `Bits 31..20 hold unsigned 12-bit CSR address ${csrHex}${isImm ? `; Bits 19..15 hold unsigned 5-bit constant zimm = ${rs1}` : ''}.`,
+      effect: funct3 === 4
+        ? 'Traps with mcause = 2 (Illegal Instruction).'
+        : `Atomically reads old CSR ${csrHex} into x${rd} and updates CSR using ${isImm ? `constant ${rs1}` : `x${rs1}`}.`,
+      spans: [
+        { name: 'CSR Address (12b)', range: 'Bits 31..20', bits: b(31, 20), value: csrHex, color: '#8b5cf6', widthCols: 12 },
+        { name: isImm ? 'zimm (5b Const)' : 'rs1 (Source 1)', range: 'Bits 19..15', bits: b(19, 15), value: isImm ? `${rs1}` : `x${rs1}`, color: '#10b981', widthCols: 5 },
+        { name: 'funct3', range: 'Bits 14..12', bits: b(14, 12), value: `${funct3}`, color: '#06b6d4', widthCols: 3 },
+        { name: 'rd (Dest)', range: 'Bits 11..7', bits: b(11, 7), value: `x${rd}`, color: '#3b82f6', widthCols: 5 },
+        { name: 'opcode', range: 'Bits 6..0', bits: b(6, 0), value: '0x73', color: '#ec4899', widthCols: 7 },
+      ],
+    }
+  }
+
+  // Standard I-Type (OP-IMM, LOAD, JALR, FENCE)
+  if (opcode === 0x13 || opcode === 0x03 || opcode === 0x67 || opcode === 0x0f) {
+    const imm12Raw = (w >>> 20) & 0xfff
+    const imm12 = signExtend(imm12Raw, 12)
+    let opName = 'I-Type Operation'
+    let effect = ''
+    if (opcode === 0x13) {
+      const iNames: Record<number, string> = {
+        0: 'addi (Add 12-Bit Immediate)',
+        2: 'slti (Set if Signed Less Than Immediate)',
+        3: 'sltiu (Set if Unsigned Less Than Immediate)',
+        4: 'xori (Bitwise Exclusive-OR Immediate)',
+        6: 'ori (Bitwise OR Immediate)',
+        7: 'andi (Bitwise AND Immediate)',
+      }
+      opName = iNames[funct3]
+      effect = `Reads x${rs1}, combines with sign-extended 12-bit constant (${imm12}), and writes x${rd}.`
+    } else if (opcode === 0x03) {
+      const lNames: Record<number, string> = {
+        0: 'lb (Load Signed 8-Bit Byte)',
+        1: 'lh (Load Signed 16-Bit Halfword)',
+        2: 'lw (Load 32-Bit Word)',
+        4: 'lbu (Load Unsigned 8-Bit Byte)',
+        5: 'lhu (Load Unsigned 16-Bit Halfword)',
+      }
+      opName = lNames[funct3] ?? 'Illegal Load Width (Trap Cause 2)'
+      effect = lNames[funct3]
+        ? `Computes byte address x${rs1} + (${imm12}), reads little-endian memory, and writes x${rd}.`
+        : 'Traps with mcause = 2 (Illegal Instruction).'
+    } else if (opcode === 0x67) {
+      opName = funct3 === 0 ? 'jalr (Jump and Link Register)' : 'Illegal JALR funct3 (Trap Cause 2)'
+      effect = funct3 === 0
+        ? `Saves return address (PC + 4) into x${rd} and jumps to (x${rs1} + (${imm12})) & ~1.`
+        : 'Traps with mcause = 2 (Illegal Instruction).'
+    } else {
+      opName =
+        funct3 === 0
+          ? 'fence (Memory Ordering Barrier)'
+          : funct3 === 1
+            ? 'fence.i (Instruction Stream Barrier)'
+            : 'Illegal FENCE funct3 (Trap Cause 2)'
+      effect =
+        funct3 === 0 || funct3 === 1
+          ? 'Synchronizes memory/instruction order; advances PC to PC + 4 in sequential oracle.'
+          : 'Traps with mcause = 2 (Illegal Instruction).'
+    }
+    return {
+      format: 'I-Type (12-Bit Signed Constant)',
+      mnemonic: opName,
+      immExplain: `Bits 31..20 hold 12-bit constant 0x${imm12Raw.toString(16).toUpperCase().padStart(3, '0')} → sign_extend(..., 12) = ${imm12}.`,
+      effect,
+      spans: [
+        { name: '12-Bit Constant', range: 'Bits 31..20', bits: b(31, 20), value: `${imm12}`, color: '#8b5cf6', widthCols: 12 },
+        { name: 'rs1 (Source 1)', range: 'Bits 19..15', bits: b(19, 15), value: `x${rs1}`, color: '#10b981', widthCols: 5 },
+        { name: 'funct3', range: 'Bits 14..12', bits: b(14, 12), value: `${funct3}`, color: '#06b6d4', widthCols: 3 },
+        { name: 'rd (Dest)', range: 'Bits 11..7', bits: b(11, 7), value: `x${rd}`, color: '#3b82f6', widthCols: 5 },
+        { name: 'opcode', range: 'Bits 6..0', bits: b(6, 0), value: `0x${opcode.toString(16).padStart(2, '0')}`, color: '#ec4899', widthCols: 7 },
+      ],
+    }
+  }
+
+  // S-Type
+  if (opcode === 0x23) {
+    const imm12Raw = (funct7 << 5) | rd
+    const imm12 = signExtend(imm12Raw, 12)
+    const names: Record<number, string> = {
+      0: 'sb (Store 8-Bit Byte)',
+      1: 'sh (Store 16-Bit Halfword)',
+      2: 'sw (Store 32-Bit Word)',
+    }
+    return {
+      format: 'S-Type (Memory Store — Split 12-Bit Offset)',
+      mnemonic: names[funct3] ?? 'Illegal Store Width (Trap Cause 2)',
+      immExplain: `Stores read both rs1 (base) and rs2 (data) with no rd, so the 12-bit offset splits across Bits 31..25 (upper 7 bits) and Bits 11..7 (lower 5 bits) → ${imm12}.`,
+      effect: names[funct3]
+        ? `Writes low byte(s) of x${rs2} to memory address x${rs1} + (${imm12}).`
+        : 'Traps with mcause = 2 (Illegal Instruction).',
+      spans: [
+        { name: 'Offset Bits 11..5', range: 'Bits 31..25', bits: b(31, 25), value: 'upper 7b', color: '#8b5cf6', widthCols: 7 },
+        { name: 'rs2 (Data)', range: 'Bits 24..20', bits: b(24, 20), value: `x${rs2}`, color: '#f59e0b', widthCols: 5 },
+        { name: 'rs1 (Base)', range: 'Bits 19..15', bits: b(19, 15), value: `x${rs1}`, color: '#10b981', widthCols: 5 },
+        { name: 'funct3', range: 'Bits 14..12', bits: b(14, 12), value: `${funct3}`, color: '#06b6d4', widthCols: 3 },
+        { name: 'Offset Bits 4..0', range: 'Bits 11..7', bits: b(11, 7), value: 'lower 5b', color: '#8b5cf6', widthCols: 5 },
+        { name: 'opcode', range: 'Bits 6..0', bits: b(6, 0), value: '0x23', color: '#ec4899', widthCols: 7 },
+      ],
+    }
+  }
+
+  // B-Type (exact contiguous bit columns, zero pipe shorthand!)
+  if (opcode === 0x63) {
+    const imm13Raw =
+      (((w >>> 31) & 1) << 12) |
+      (((w >>> 7) & 1) << 11) |
+      (((w >>> 25) & 0x3f) << 5) |
+      (((w >>> 8) & 0xf) << 1)
+    const imm13 = signExtend(imm13Raw, 13)
+    const names: Record<number, string> = {
+      0: 'beq (Branch if Equal)',
+      1: 'bne (Branch if Not Equal)',
+      4: 'blt (Branch if Signed Less Than)',
+      5: 'bge (Branch if Signed Greater or Equal)',
+      6: 'bltu (Branch if Unsigned Less Than)',
+      7: 'bgeu (Branch if Unsigned Greater or Equal)',
+    }
+    return {
+      format: 'B-Type (PC-Relative Conditional Branch)',
+      mnemonic: names[funct3] ?? 'Illegal Branch Condition (Trap Cause 2)',
+      immExplain: `Bit 31 -> Offset Bit 12 (sign), Bit 7 -> Offset Bit 11, Bits 30..25 -> Offset Bits 10..5, Bits 11..8 -> Offset Bits 4..1, plus implicit Offset Bit 0 = 0 → ${imm13 >= 0 ? `+${imm13}` : imm13} bytes.`,
+      effect: names[funct3]
+        ? `Compares x${rs1} and x${rs2}; if condition holds, jumps to PC + (${imm13}), else advances to PC + 4.`
+        : 'Traps with mcause = 2 (Illegal Instruction).',
+      spans: [
+        { name: 'Sign + Off 10..5', range: 'Bits 31..25', bits: b(31, 25), value: `sign=${(w >>> 31) & 1}`, color: '#8b5cf6', widthCols: 7 },
+        { name: 'rs2 (Source 2)', range: 'Bits 24..20', bits: b(24, 20), value: `x${rs2}`, color: '#f59e0b', widthCols: 5 },
+        { name: 'rs1 (Source 1)', range: 'Bits 19..15', bits: b(19, 15), value: `x${rs1}`, color: '#10b981', widthCols: 5 },
+        { name: 'funct3', range: 'Bits 14..12', bits: b(14, 12), value: `${funct3}`, color: '#06b6d4', widthCols: 3 },
+        { name: 'Off 4..1 + Bit 11', range: 'Bits 11..7', bits: b(11, 7), value: `${imm13 >= 0 ? `+${imm13}` : imm13}B`, color: '#8b5cf6', widthCols: 5 },
+        { name: 'opcode', range: 'Bits 6..0', bits: b(6, 0), value: '0x63', color: '#ec4899', widthCols: 7 },
+      ],
+    }
+  }
+
+  // U-Type
+  if (opcode === 0x37 || opcode === 0x17) {
+    const upper = (w & 0xfffff000) >>> 0
+    const isLui = opcode === 0x37
+    return {
+      format: 'U-Type (20-Bit Upper Constant)',
+      mnemonic: isLui ? 'lui (Load Upper Immediate)' : 'auipc (Add Upper Immediate to Program Counter)',
+      immExplain: `Bits 31..12 place 20 bits directly into the upper 20 bits of a 32-bit word with Bits 11..0 zeroed: 0x${upper.toString(16).toUpperCase().padStart(8, '0')}.`,
+      effect: isLui
+        ? `Writes 0x${upper.toString(16).toUpperCase().padStart(8, '0')} into x${rd}.`
+        : `Writes PC + 0x${upper.toString(16).toUpperCase().padStart(8, '0')} into x${rd}.`,
+      spans: [
+        { name: 'Upper 20-Bit Constant', range: 'Bits 31..12', bits: b(31, 12), value: `0x${(upper >>> 12).toString(16).toUpperCase()}000`, color: '#8b5cf6', widthCols: 20 },
+        { name: 'rd (Dest)', range: 'Bits 11..7', bits: b(11, 7), value: `x${rd}`, color: '#3b82f6', widthCols: 5 },
+        { name: 'opcode', range: 'Bits 6..0', bits: b(6, 0), value: `0x${opcode.toString(16)}`, color: '#ec4899', widthCols: 7 },
+      ],
+    }
+  }
+
+  // J-Type
+  if (opcode === 0x6f) {
+    const imm21Raw =
+      (((w >>> 31) & 1) << 20) |
+      (((w >>> 12) & 0xff) << 12) |
+      (((w >>> 20) & 1) << 11) |
+      (((w >>> 21) & 0x3ff) << 1)
+    const imm21 = signExtend(imm21Raw, 21)
+    return {
+      format: 'J-Type (21-Bit PC-Relative Jump)',
+      mnemonic: 'jal (Jump and Link Subroutine)',
+      immExplain: `Bit 31 -> Offset Bit 20 (sign), Bits 19..12 -> Offset Bits 19..12, Bit 20 -> Offset Bit 11, Bits 30..21 -> Offset Bits 10..1, plus implicit Offset Bit 0 = 0 → ${imm21 >= 0 ? `+${imm21}` : imm21} bytes.`,
+      effect: `Saves return link address (PC + 4) into x${rd} and jumps to PC + (${imm21}).`,
+      spans: [
+        { name: '21-Bit Signed Jump Offset (Even Bytes)', range: 'Bits 31..12', bits: b(31, 12), value: `${imm21 >= 0 ? `+${imm21}` : imm21} B`, color: '#8b5cf6', widthCols: 20 },
+        { name: 'rd (Link)', range: 'Bits 11..7', bits: b(11, 7), value: `x${rd}`, color: '#3b82f6', widthCols: 5 },
+        { name: 'opcode', range: 'Bits 6..0', bits: b(6, 0), value: '0x6f', color: '#ec4899', widthCols: 7 },
+      ],
+    }
+  }
+
+  return {
+    format: 'Unknown / Illegal Opcode',
+    mnemonic: 'Raises CAUSE_ILLEGAL_INSN (Trap Cause 2)',
+    immExplain: `Opcode 0x${opcode.toString(16).padStart(2, '0')} is unassigned in RV32IM + Zicsr + Xapex.`,
+    effect: 'Redirects PC to mtvec trap handler with mcause = 2 and mtval = offending 32-bit instruction word.',
+    spans: [
+      { name: 'Upper Bits', range: 'Bits 31..7', bits: b(31, 7), value: '—', color: '#64748b', widthCols: 25 },
+      { name: 'opcode', range: 'Bits 6..0', bits: b(6, 0), value: `0x${opcode.toString(16).padStart(2, '0')}`, color: '#dc2626', widthCols: 7 },
+    ],
+  }
+})
+</script>
+
+<template>
+  <div class="hw-widget">
+    <div class="hw-widget-header">
+      <div class="hw-widget-title">
+        <span class="hw-badge">Interactive Decoder</span>
+        <span>32-Bit RISC-V &amp; Xapex Instruction Inspector (Bits 31..0)</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 6px">
+        <span style="font-size: 12px; color: var(--vp-c-text-2)">Hex Word:</span>
+        <input
+          v-model="hexInput"
+          type="text"
+          class="hw-mono"
+          style="
+            width: 118px;
+            padding: 4px 8px;
+            border-radius: 6px;
+            border: 1px solid var(--vp-c-divider);
+            background: var(--vp-c-bg);
+            font-size: 13px;
+            font-weight: 700;
+          "
+          @input="onHexChange"
+        />
+      </div>
+    </div>
+
+    <!-- Preset Buttons -->
+    <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px">
+      <button
+        v-for="p in presets"
+        :key="p.label"
+        type="button"
+        class="hw-btn"
+        :class="{ active: (insnWord >>> 0) === (p.word >>> 0) }"
+        :title="p.asm"
+        @click="selectPreset(p)"
+      >
+        {{ p.label }}
+      </button>
+    </div>
+
+    <!-- Clickable 32 individual bits -->
+    <div style="overflow-x: auto; padding-bottom: 6px; margin-bottom: 10px">
+      <div class="hw-label">Click any individual wire (Bit 31 down to Bit 0) to flip it live:</div>
+      <div style="display: grid; grid-template-columns: repeat(32, minmax(19px, 1fr)); gap: 2px; min-width: 640px">
+        <button
+          v-for="bitIdx in 32"
+          :key="bitIdx"
+          type="button"
+          class="hw-mono"
+          style="
+            padding: 3px 0;
+            border-radius: 4px;
+            border: 1px solid var(--vp-c-divider);
+            background: var(--vp-c-bg);
+            cursor: pointer;
+            font-size: 11px;
+            text-align: center;
+          "
+          :title="`Bit ${32 - bitIdx}`"
+          @click="flipBit(32 - bitIdx)"
+        >
+          <div style="font-size: 8.5px; opacity: 0.6">{{ 32 - bitIdx }}</div>
+          <div style="font-weight: 700; color: var(--vp-c-brand-1)">
+            {{ (insnWord >>> (32 - bitIdx)) & 1 }}
+          </div>
+        </button>
+      </div>
+
+      <!-- Aligned Field Spans -->
+      <div
+        style="
+          display: grid;
+          grid-template-columns: repeat(32, minmax(19px, 1fr));
+          gap: 3px;
+          margin-top: 6px;
+          min-width: 640px;
+        "
+      >
+        <div
+          v-for="(sp, idx) in decoded.spans"
+          :key="idx"
+          :style="{
+            gridColumn: `span ${sp.widthCols}`,
+            borderTop: `3px solid ${sp.color}`,
+            background: 'var(--vp-c-bg)',
+            padding: '6px 6px',
+            borderRadius: '6px',
+            borderLeft: '1px solid var(--vp-c-divider)',
+            borderRight: '1px solid var(--vp-c-divider)',
+            borderBottom: '1px solid var(--vp-c-divider)',
+          }"
+        >
+          <div style="font-size: 10px; font-weight: 700" :style="{ color: sp.color }">
+            {{ sp.range }}
+          </div>
+          <div style="font-size: 12px; font-weight: 700; margin: 1px 0">{{ sp.name }}</div>
+          <div class="hw-mono" style="font-size: 11.5px; color: var(--vp-c-text-2)">
+            {{ sp.value }}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Decoded Meaning Cards -->
+    <div class="hw-grid-2">
+      <div class="hw-card">
+        <div class="hw-label">{{ decoded.format }}</div>
+        <div style="font-size: 14.5px; font-weight: 700; color: var(--vp-c-brand-1); margin-bottom: 4px">
+          {{ decoded.mnemonic }}
+        </div>
+        <div style="font-size: 12.5px; color: var(--vp-c-text-2)">
+          {{ decoded.immExplain }}
+        </div>
+      </div>
+      <div class="hw-card">
+        <div class="hw-label">What RV32Oracle.step() Executes</div>
+        <div style="font-size: 13px">
+          {{ decoded.effect }}
+        </div>
+      </div>
+    </div>
+  </div>
+</template>

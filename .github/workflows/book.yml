@@ -1,0 +1,64 @@
+name: Deploy Textbook to GitHub Pages
+
+on:
+  push:
+    branches: [main, "step/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build-book:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: book/package-lock.json
+
+      - name: Configure GitHub Pages
+        id: pages_cfg
+        uses: actions/configure-pages@v5
+
+      - name: Run quality gates and build VitePress textbook
+        env:
+          BOOK_BASE: /${{ github.event.repository.name }}/
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+        run: |
+          python3 scripts/check_code.py
+          python3 scripts/sync_book.py --check
+          python3 scripts/check_book.py
+          uv run --with pyyaml python3 scripts/build.py --check
+          npm --prefix book ci
+          npm --prefix book run build
+
+      - name: Upload Pages Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: book/.vitepress/dist
+
+  deploy-book:
+    needs: build-book
+    if: success()
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

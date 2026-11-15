@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  verify-python-and-roadmap:
+  verify-python-roadmap-and-book:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -15,10 +15,37 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
 
-      - name: Validate roadmap.yaml and generated docs
-        run: uv run --with pyyaml python3 scripts/build.py --check
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: book/package-lock.json
 
-      - name: Run Python unit tests with line coverage
+      - name: Run static AST, Ruff, and ShellCheck quality gate
+        run: python3 scripts/check_code.py
+
+      - name: Validate roadmap.yaml, book sync, and textbook anchors
+        run: |
+          python3 scripts/sync_book.py --check
+          python3 scripts/check_book.py
+          uv run --with pyyaml python3 scripts/build.py --check
+
+      - name: Build VitePress interactive textbook (strict link & math check)
+        env:
+          BOOK_BASE: /${{ github.event.repository.name }}/
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+        run: |
+          npm --prefix book ci
+          npm --prefix book run build
+
+      - name: Run repo tooling unit tests with >=95% line coverage
+        run: >
+          PYTHONPATH=scripts uv run --with pytest --with pytest-cov --with pyyaml
+          pytest -v --cov=code_anchors --cov=sync_book --cov=check_book --cov=check_code
+          --cov=build --cov=step --cov-report=term-missing --cov-fail-under=95 scripts/tests/
+
+      - name: Run brain oracle unit tests with >=95% line coverage
         run: >
           uv run --with pytest --with pytest-cov
           pytest -v --cov=systems/brain/sim --cov-report=term-missing --cov-fail-under=95

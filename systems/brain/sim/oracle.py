@@ -1,7 +1,18 @@
 """Golden instruction-by-instruction RISC-V reference emulator (RV32IM + Zicsr + Xapex MAC).
 
-This oracle serves as the single source of truth for verifying every SystemVerilog CPU
-core (single-cycle and 5-stage pipelined) and the scratch SysC compiler toolchain.
+Purpose:
+  Serve as the single source of truth for verifying every SystemVerilog CPU core
+  (single-cycle and 5-stage pipelined) and the scratch SysC compiler toolchain.
+
+Usage:
+  cpu = RV32Oracle()
+  cpu.load_words(BOOT_ROM_BASE, program_words)
+  traces = cpu.run(max_steps=10_000)
+
+Invariants:
+  - Models architectural `pc`, `x0..x31` (`x0` hardwired to 0), 32-bit saturating `mac_acc`,
+    17 Machine-mode CSRs (`WARL`-masked), and `CLINT`/`UART0` peripherals across 4 KB sparse pages.
+  - Pre-fetch interrupt priority follows RISC-V Privileged Spec (`MEIP > MSIP > MTIP`).
 
 Memory Map (matching systems/brain/README.md):
   0x0000_0000 - 0x0000_3FFF : Boot ROM (16 KB, read-only to CPU)
@@ -24,12 +35,15 @@ Custom Xapex MAC Instruction (RISC-V custom-0 opcode 0x0B, funct7 = 0x00):
 from __future__ import annotations
 
 from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
 
 # ---------------------------------------------------------------------------
 # Address Map & Peripheral Register Offsets
 # ---------------------------------------------------------------------------
+SYS_CLK_HZ = 50_000_000
+UART_DEFAULT_BAUD = 115_200
+
 BOOT_ROM_BASE = 0x0000_0000
 BOOT_ROM_SIZE = 0x0000_4000  # 16 KB
 
@@ -81,6 +95,7 @@ CSR_MIMPID = 0xF13
 CSR_MHARTID = 0xF14
 
 CAUSE_INSN_MISALIGNED = 0
+CAUSE_INSN_ACCESS_FAULT = 1
 CAUSE_ILLEGAL_INSN = 2
 CAUSE_BREAKPOINT = 3
 CAUSE_LOAD_MISALIGNED = 4
@@ -88,7 +103,9 @@ CAUSE_LOAD_ACCESS_FAULT = 5
 CAUSE_STORE_MISALIGNED = 6
 CAUSE_STORE_ACCESS_FAULT = 7
 CAUSE_ECALL_M = 11
+CAUSE_INT_M_SW = 0x8000_0003
 CAUSE_INT_M_TIMER = 0x8000_0007
+CAUSE_INT_M_EXT = 0x8000_000B
 
 MSTATUS_MIE_BIT = 1 << 3
 MSTATUS_MPIE_BIT = 1 << 7
@@ -449,9 +466,9 @@ class RV32Oracle:
                 raise MemoryAccessFault(f"CLINT requires 32-bit aligned access at 0x{addr:08x}")
             return self._clint_read(addr - CLINT_BASE)
         if UART0_BASE <= addr and (addr + width) <= UART0_BASE + UART0_SIZE:
-            if (addr & 3) != 0 and width != 1:
-                raise MemoryAccessFault(f"UART misaligned access at 0x{addr:08x}")
-            return self._uart_read((addr - UART0_BASE) & ~3)
+            if (addr & 3) != 0 or width not in (1, 4):
+                raise MemoryAccessFault(f"UART misaligned/unsupported access at 0x{addr:08x}")
+            return self._uart_read(addr - UART0_BASE)
         if self.mmio_stub.contains(addr, width):
             return self.mmio_stub.read_bytes(addr, width)
         raise MemoryAccessFault(f"Load access fault at 0x{addr:08x}")
@@ -469,9 +486,9 @@ class RV32Oracle:
             self._clint_write(addr - CLINT_BASE, val)
             return
         if UART0_BASE <= addr and (addr + width) <= UART0_BASE + UART0_SIZE:
-            if (addr & 3) != 0 and width != 1:
-                raise MemoryAccessFault(f"UART misaligned access at 0x{addr:08x}")
-            self._uart_write((addr - UART0_BASE) & ~3, val)
+            if (addr & 3) != 0 or width not in (1, 4):
+                raise MemoryAccessFault(f"UART misaligned/unsupported access at 0x{addr:08x}")
+            self._uart_write(addr - UART0_BASE, val)
             return
         if self.mmio_stub.contains(addr, width):
             self.mmio_stub.write_bytes(addr, width, val)
@@ -616,9 +633,17 @@ class RV32Oracle:
     # Modular Instruction-Family Execution Helpers
     # -----------------------------------------------------------------------
     def _check_pending_interrupt(self, cur_pc: int) -> StepTrace | None:
-        """Return a trap `StepTrace` if machine timer interrupts are enabled and pending."""
-        if (self.mstatus & MSTATUS_MIE_BIT) and ((self._live_mip() & self.mie) & MIE_MTIE_BIT):
-            return self._trap_trace(cur_pc, 0, CAUSE_INT_M_TIMER, 0, is_interrupt=True)
+        """Return a trap `StepTrace` if any enabled machine interrupt is pending (`MEIP > MSIP > MTIP`)."""
+        if not (self.mstatus & MSTATUS_MIE_BIT):
+            return None
+        pending = self._live_mip() & self.mie
+        for bit, cause in (
+            (MIE_MEIE_BIT, CAUSE_INT_M_EXT),
+            (MIE_MSIE_BIT, CAUSE_INT_M_SW),
+            (MIE_MTIE_BIT, CAUSE_INT_M_TIMER),
+        ):
+            if pending & bit:
+                return self._trap_trace(cur_pc, 0, cause, 0, is_interrupt=True)
         return None
 
     def _fetch_instruction(self, cur_pc: int) -> int | StepTrace:
@@ -628,7 +653,7 @@ class RV32Oracle:
         try:
             return self.bus_read(cur_pc, 4)
         except MemoryAccessFault:
-            return self._trap_trace(cur_pc, 0, CAUSE_ILLEGAL_INSN, cur_pc)
+            return self._trap_trace(cur_pc, 0, CAUSE_INSN_ACCESS_FAULT, cur_pc)
 
     def _exec_jal(self, insn: int, cur_pc: int, rd: int, next_pc: int) -> tuple[int, int, int] | StepTrace:
         """Execute `JAL`, returning `(wb_rd, wb_val, target_pc)` or a misaligned-target trap."""
@@ -903,6 +928,7 @@ class RV32Oracle:
     # -----------------------------------------------------------------------
     # Single-Instruction Execution & Run Loop
     # -----------------------------------------------------------------------
+    # code-gate: allow-long-dispatch (flat single-level RISC-V major-opcode dispatch table)
     def step(self) -> StepTrace:
         """Advance CPU and CLINT timers by one instruction/trap and return its `StepTrace`."""
         cur_pc = self.pc

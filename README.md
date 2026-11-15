@@ -18,7 +18,8 @@ Build every layer of a safe, living-room-sized (about 2.5 kg) autonomous robot d
 ```bash
 python3 scripts/step.py status          # Progress across all 6 systems
 python3 scripts/step.py next            # Inspect next pending step & verification gate
-python3 scripts/build.py --check        # Validate roadmap invariants & zero doc drift
+python3 scripts/check_code.py           # Run AST docstring/modularity, Ruff, and ShellCheck gates
+python3 scripts/build.py --check        # Validate roadmap invariants, book sync & zero doc drift
 ```
 
 ---
@@ -38,16 +39,17 @@ python3 scripts/build.py --check        # Validate roadmap invariants & zero doc
 
 ## Repository Guide
 
+- [**`Apex Interactive Textbook (GitHub Pages)`**](https://ethanex8.github.io/apex/) — 6-volume VitePress engineering textbook ([`book/`](./book/index.md)) publishing `systems/*/chapters/*.md` with auto-synced repo code transclusions & hardware widgets.
 - [**`VISION.md`**](./VISION.md) — Two-Brain architecture, locked hardware/protocol interfaces, home safety & parts budget.
 - [**`ROADMAP.md`**](./ROADMAP.md) — Full phase breakdowns, ordering schedule & all 186 step checklists.
 - [**`roadmap.yaml`**](./roadmap.yaml) — Canonical declarative source of truth for systems, steps & review state.
 - [**`systems/`**](./systems/brain/README.md) — Subsystem workspaces (`brain`, `drive`, `power`, `limb`, `walker`, `sight`).
-- [**`scripts/step.py`**](./scripts/step.py) & [**`scripts/build.py`**](./scripts/build.py) — Step lifecycle CLI, invariant validator & Markdown generator.
+- [**`scripts/`**](./scripts/step.py) — [`step.py`](./scripts/step.py), [`build.py`](./scripts/build.py), [`sync_book.py`](./scripts/sync_book.py), [`check_book.py`](./scripts/check_book.py), and [`check_code.py`](./scripts/check_code.py) lifecycle, anchor-sync, and quality gates.
 
 ---
 
 ## How Couch-to-Silicon Works
 
 1. **Agent Implements & Verifies One Atomic Step (roughly 50–150 LOC)**: Runs real `Verilator` digital simulations, `Yosys`/`nextpnr` FPGA builds, KiCad circuit-board checks (`ERC`/`DRC`), trace-impedance solvers, `MuJoCo` physics, or `pytest` inside the VM.
-2. **You Review From Your Phone**: Inspect a 5-minute Textbook First-Principles Brief, interactive visual diagrams/waveforms/copper-layer renders, a guided PR diff, and 2–3 intuition checks.
-3. **Ask Why, Then `LGTM`**: Interrogate any derivation or trade-off; the agent is blocked from starting Step `N+1` until you approve Step `N`.
+2. **Multi-Pass Interactive Textbook Chapter (`30–60 min`)**: Alongside each step, a 4-pass authoring pipeline produces an unhurried textbook chapter in `systems/<system>/chapters/` published to GitHub Pages with auto-synced repo code and interactive explorers.
+3. **Ask Why, Then `LGTM`**: Review a calm mobile summary + full rendered chapter; interrogate any derivation or trade-off before approving Step `N`.

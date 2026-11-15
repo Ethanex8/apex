@@ -1,9 +1,23 @@
-"""Unit tests for the golden RV32IM + Zicsr + CLINT + UART0 + Xapex MAC emulator."""
+"""Unit tests for the golden RV32IM + Zicsr + CLINT + UART0 + Xapex MAC emulator.
+
+Purpose:
+  Verify every instruction family, arithmetic/overflow edge case, CSR WARL mask,
+  CLINT timer and priority interrupts, UART0 FIFO handshake, Xapex MAC accumulator,
+  and alignment/bus fault trap in `systems/brain/sim/oracle.py`.
+
+Usage:
+  uv run --with pytest --with pytest-cov pytest -v \\
+    --cov=systems/brain/sim --cov-fail-under=95 systems/brain/tb/test_oracle.py
+
+Invariants:
+  - Achieves >=95% line coverage across `systems/brain/sim/oracle.py`.
+  - Validates exact RISC-V trap causes, priority ordering (`MEIP > MSIP > MTIP`), and MMIO bounds.
+"""
 
 from __future__ import annotations
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -11,12 +25,15 @@ BRAIN_SIM_DIR = Path(__file__).resolve().parents[1] / "sim"
 if str(BRAIN_SIM_DIR) not in sys.path:
     sys.path.insert(0, str(BRAIN_SIM_DIR))
 
-from oracle import (  # noqa: E402
+from oracle import (  # noqa: E402 — sys.path adjusted for repo-local sim package
     BOOT_ROM_BASE,
     BRAM_BASE,
     CAUSE_ECALL_M,
     CAUSE_ILLEGAL_INSN,
+    CAUSE_INSN_ACCESS_FAULT,
     CAUSE_INSN_MISALIGNED,
+    CAUSE_INT_M_EXT,
+    CAUSE_INT_M_SW,
     CAUSE_INT_M_TIMER,
     CAUSE_LOAD_ACCESS_FAULT,
     CAUSE_LOAD_MISALIGNED,
@@ -27,14 +44,12 @@ from oracle import (  # noqa: E402
     CLINT_MTIME_LO,
     CLINT_MTIMECMP_HI,
     CLINT_MTIMECMP_LO,
-    CSR_MARCHID,
     CSR_MCAUSE,
     CSR_MCYCLE,
     CSR_MCYCLEH,
     CSR_MEPC,
     CSR_MHARTID,
     CSR_MIE,
-    CSR_MIMPID,
     CSR_MINSTRET,
     CSR_MINSTRETH,
     CSR_MIP,
@@ -43,9 +58,10 @@ from oracle import (  # noqa: E402
     CSR_MSTATUS,
     CSR_MTVAL,
     CSR_MTVEC,
-    CSR_MVENDORID,
     INT32_MAX,
     INT32_MIN,
+    MIE_MEIE_BIT,
+    MIE_MSIE_BIT,
     MIE_MTIE_BIT,
     MMIO_STUB_BASE,
     MSTATUS_MIE_BIT,
@@ -80,6 +96,7 @@ def pack_i16(lo: int, hi: int) -> int:
 
 
 def test_rv32i_arithmetic_shifts_and_x0() -> None:
+    """Verify RV32I ALU/immediate ops, barrel-shift sign rules, LUI/AUIPC, and hardwired x0."""
     cpu = RV32Oracle()
     cpu.regs[20] = 0x0000_00FF
     prog = [
@@ -137,6 +154,7 @@ def test_rv32i_arithmetic_shifts_and_x0() -> None:
 
 
 def test_rv32m_multiply_and_division_edge_cases() -> None:
+    """Verify RV32M 64-bit products, truncation-toward-zero division, div-by-zero, and INT32_MIN/-1."""
     cpu = RV32Oracle()
     cpu.regs[1] = u32(-7)
     cpu.regs[2] = 3
@@ -182,6 +200,7 @@ def test_rv32m_multiply_and_division_edge_cases() -> None:
 
 
 def test_branches_and_jumps_all_conditions() -> None:
+    """Verify signed/unsigned branches, JAL/JALR link addresses, reset_pc, and stop_on_pc."""
     cpu = RV32Oracle()
     # Test sum(1..5) loop + subroutine call + bge/bltu/bgeu branches + stop_on_pc
     cpu.regs[10] = u32(-1)
@@ -218,6 +237,7 @@ def test_branches_and_jumps_all_conditions() -> None:
 
 
 def test_memory_loads_stores_mmio_stub_and_faults() -> None:
+    """Verify little-endian byte/half/word accesses, MMIO stub R/W, and alignment/ROM fault traps."""
     cpu = RV32Oracle()
     cpu.regs[1] = BRAM_BASE
     cpu.regs[2] = 0x1122_80FF
@@ -273,7 +293,8 @@ def test_memory_loads_stores_mmio_stub_and_faults() -> None:
         cpu.load_words(0x7000_0000, [0])
 
 
-def test_zicsr_csrs_clint_and_timer_interrupt() -> None:
+def test_clint_timer_interrupt_and_ecall_traps() -> None:
+    """Verify ECALL trap handling, MRET return, mcycle > minstret invariant, and CLINT timer IRQ."""
     cpu = RV32Oracle()
     handler_addr = BRAM_BASE
     cpu.regs[21] = CAUSE_INT_M_TIMER
@@ -324,33 +345,45 @@ def test_zicsr_csrs_clint_and_timer_interrupt() -> None:
     assert any(t.interrupt and t.trap_cause == CAUSE_INT_M_TIMER for t in traces)
     assert cpu.mcycle > cpu.minstret
 
-    # Exercise remaining CSRs (CSRRC, MTVAL, MIP, MCYCLE/H, MINSTRET/H, IDs) & CLINT reads/writes
+    # Vectored MTVEC mode jumps to base + 4 * cause_code on interrupt
     cpu.reset()
+    cpu.mtvec = BRAM_BASE | 1
+    cpu.mie = MIE_MTIE_BIT
+    cpu.mstatus = MSTATUS_MIE_BIT
+    cpu.mtimecmp = 0
+    tr = cpu.step()
+    assert tr.interrupt
+    assert tr.next_pc == BRAM_BASE + 4 * (CAUSE_INT_M_TIMER & 0x7FFF_FFFF)
+
+
+def test_zicsr_read_modify_write_and_warl_masks() -> None:
+    """Verify CSRRC, minstret write-suppression rule, CLINT hi/lo reads, and read-only CSR traps."""
+    cpu = RV32Oracle()
     cpu.regs[1] = 0x0F
     cpu.regs[2] = 0x03
     cpu.regs[3] = CLINT_BASE
     csr_prog = [
-        enc_i(CSR_MSCRATCH, 1, 1, 0, 0x73),     # csrw mscratch, 0x0F
-        enc_i(CSR_MSCRATCH, 2, 3, 10, 0x73),    # csrrc x10, mscratch, 0x03 -> x10=0x0F, mscratch=0x0C
-        enc_i(CSR_MTVAL, 1, 1, 0, 0x73),        # csrw mtval, 0x0F
-        enc_i(CSR_MTVAL, 0, 2, 11, 0x73),       # csrr x11, mtval
-        enc_i(CSR_MIP, 0, 1, 0, 0x73),          # csrw mip, 0
-        enc_i(CSR_MIP, 0, 2, 12, 0x73),         # csrr x12, mip
-        enc_i(CSR_MCYCLE, 1, 1, 0, 0x73),       # csrw mcycle, 0x0F
-        enc_i(CSR_MCYCLEH, 2, 1, 0, 0x73),      # csrw mcycleh, 0x03
-        enc_i(CSR_MCYCLE, 0, 2, 13, 0x73),      # csrr x13, mcycle
-        enc_i(CSR_MCYCLEH, 0, 2, 14, 0x73),     # csrr x14, mcycleh
-        enc_i(CSR_MINSTRET, 1, 1, 0, 0x73),     # csrw minstret, 0x0F
-        enc_i(CSR_MINSTRETH, 2, 1, 0, 0x73),    # csrw minstreth, 0x03
-        enc_i(CSR_MINSTRET, 0, 2, 15, 0x73),    # csrr x15, minstret
-        enc_i(CSR_MINSTRETH, 0, 2, 16, 0x73),   # csrr x16, minstreth
-        enc_i(CSR_MHARTID, 0, 2, 17, 0x73),     # csrr x17, mhartid -> 0
-        enc_s(CLINT_MTIME_LO, 1, 3, 2, 0x23),   # sw 0x0F -> mtime_lo
-        enc_s(CLINT_MTIME_HI, 2, 3, 2, 0x23),   # sw 0x03 -> mtime_hi
-        enc_i(CLINT_MTIME_LO, 3, 2, 18, 0x03),  # lw mtime_lo
-        enc_i(CLINT_MTIME_HI, 3, 2, 19, 0x03),  # lw mtime_hi
-        enc_i(CLINT_MTIMECMP_LO, 3, 2, 20, 0x03),  # lw mtimecmp_lo
-        enc_i(CLINT_MTIMECMP_HI, 3, 2, 21, 0x03),  # lw mtimecmp_hi
+        enc_i(CSR_MSCRATCH, 1, 1, 0, 0x73),       # csrw mscratch, 0x0F
+        enc_i(CSR_MSCRATCH, 2, 3, 10, 0x73),      # csrrc x10, mscratch, 0x03 -> x10=0x0F, mscratch=0x0C
+        enc_i(CSR_MTVAL, 1, 1, 0, 0x73),          # csrw mtval, 0x0F
+        enc_i(CSR_MTVAL, 0, 2, 11, 0x73),         # csrr x11, mtval
+        enc_i(CSR_MIP, 0, 1, 0, 0x73),            # csrw mip, 0
+        enc_i(CSR_MIP, 0, 2, 12, 0x73),           # csrr x12, mip
+        enc_i(CSR_MCYCLE, 1, 1, 0, 0x73),         # csrw mcycle, 0x0F
+        enc_i(CSR_MCYCLEH, 2, 1, 0, 0x73),        # csrw mcycleh, 0x03
+        enc_i(CSR_MCYCLE, 0, 2, 13, 0x73),        # csrr x13, mcycle
+        enc_i(CSR_MCYCLEH, 0, 2, 14, 0x73),       # csrr x14, mcycleh
+        enc_i(CSR_MINSTRET, 1, 1, 0, 0x73),       # csrw minstret, 0x0F
+        enc_i(CSR_MINSTRETH, 2, 1, 0, 0x73),      # csrw minstreth, 0x03
+        enc_i(CSR_MINSTRET, 0, 2, 15, 0x73),      # csrr x15, minstret
+        enc_i(CSR_MINSTRETH, 0, 2, 16, 0x73),     # csrr x16, minstreth
+        enc_i(CSR_MHARTID, 0, 2, 17, 0x73),       # csrr x17, mhartid -> 0
+        enc_s(CLINT_MTIME_LO, 1, 3, 2, 0x23),     # sw 0x0F -> mtime_lo
+        enc_s(CLINT_MTIME_HI, 2, 3, 2, 0x23),     # sw 0x03 -> mtime_hi
+        enc_i(CLINT_MTIME_LO, 3, 2, 18, 0x03),    # lw mtime_lo
+        enc_i(CLINT_MTIME_HI, 3, 2, 19, 0x03),    # lw mtime_hi
+        enc_i(CLINT_MTIMECMP_LO, 3, 2, 20, 0x03), # lw mtimecmp_lo
+        enc_i(CLINT_MTIMECMP_HI, 3, 2, 21, 0x03), # lw mtimecmp_hi
         EBREAK,
     ]
     cpu.load_words(BOOT_ROM_BASE, csr_prog)
@@ -365,16 +398,6 @@ def test_zicsr_csrs_clint_and_timer_interrupt() -> None:
     assert cpu.regs[18] >= 0x10
     assert cpu.regs[19] == 0x03
 
-    # Vectored MTVEC mode jumps to base + 4 * cause_code on interrupt
-    cpu.reset()
-    cpu.mtvec = BRAM_BASE | 1
-    cpu.mie = MIE_MTIE_BIT
-    cpu.mstatus = MSTATUS_MIE_BIT
-    cpu.mtimecmp = 0
-    tr = cpu.step()
-    assert tr.interrupt
-    assert tr.next_pc == BRAM_BASE + 4 * (CAUSE_INT_M_TIMER & 0x7FFF_FFFF)
-
     # Read-only CSR write & unknown CSR read raise illegal instruction
     for bad_insn in [
         enc_i(CSR_MISA, 1, 1, 0, 0x73),
@@ -386,6 +409,7 @@ def test_zicsr_csrs_clint_and_timer_interrupt() -> None:
 
 
 def test_uart0_console_tx_rx_and_bauddiv() -> None:
+    """Verify UART0 byte TX buffer/callback, RX FIFO ordering, STATUS bits, and BAUDDIV clamping."""
     tx_seen: list[int] = []
     cpu = RV32Oracle(uart_tx_callback=tx_seen.append)
     cpu.push_uart_rx("OK")
@@ -419,6 +443,7 @@ def test_uart0_console_tx_rx_and_bauddiv() -> None:
 
 
 def test_xapex_custom_mac_dot_product_and_saturation() -> None:
+    """Verify Xapex dual-int16 SIMD MAC ops (mac, mac.clr, mac.set, mac.get) and +/- saturation."""
     cpu = RV32Oracle()
     cpu.regs[1] = 1000
     cpu.regs[2] = pack_i16(10, -20)
@@ -453,6 +478,7 @@ def test_xapex_custom_mac_dot_product_and_saturation() -> None:
 
 
 def test_illegal_instructions_and_misaligned_pc_traps() -> None:
+    """Verify illegal opcodes/funct fields and misaligned fetch/jump targets raise exact traps."""
     cpu = RV32Oracle()
     # Misaligned taken branch, misaligned JAL, misaligned JALR, and unmapped PC
     for insn, reg1, expected in [
@@ -473,4 +499,87 @@ def test_illegal_instructions_and_misaligned_pc_traps() -> None:
     cpu.reset(reset_pc=BOOT_ROM_BASE + 2)
     assert cpu.step().trap_cause == CAUSE_INSN_MISALIGNED
     cpu.reset(reset_pc=0x7000_0000)
-    assert cpu.step().trap_cause == CAUSE_ILLEGAL_INSN
+    assert cpu.step().trap_cause == CAUSE_INSN_ACCESS_FAULT
+
+    # Cover illegal funct3/funct7 across BRANCH, LOAD, STORE, OP-IMM, OP, FENCE, and SYSTEM
+    illegal_cases = [
+        enc_b(4, 0, 0, 2),                # BRANCH invalid funct3
+        enc_i(0, 1, 3, 2, 0x03),           # LOAD invalid funct3
+        enc_s(0, 2, 1, 3, 0x23),           # STORE invalid funct3
+        enc_i(0x020, 0, 1, 2, 0x13),       # SLLI invalid funct7
+        enc_i(0x020, 0, 5, 2, 0x13),       # SRLI/SRAI invalid funct7
+        enc_r(0x20, 0, 0, 1, 2, 0x33),     # OP invalid funct3 under funct7=0x20
+        enc_i(0, 0, 2, 0, 0x0F),           # FENCE invalid funct3
+        0x7FF0_0073,                       # SYSTEM funct3=0 unknown imm
+        enc_i(CSR_MISA, 0, 4, 2, 0x73),    # SYSTEM invalid funct3=4
+    ]
+    for insn in illegal_cases:
+        cpu.reset(reset_pc=BOOT_ROM_BASE)
+        cpu.regs[1] = BRAM_BASE
+        cpu.load_words(BOOT_ROM_BASE, [insn])
+        assert cpu.step().trap_cause == CAUSE_ILLEGAL_INSN
+
+
+def test_interrupt_priority_csr_variants_and_mmio_bounds() -> None:
+    """Verify MEIP > MSIP > MTIP priority, Zicsr immediate ops, WARL edges, and CLINT/UART0 bounds."""
+    cpu = RV32Oracle()
+    # 1. MEIP > MSIP > MTIP priority ordering when all three are pending & enabled
+    cpu.mstatus = MSTATUS_MIE_BIT
+    cpu.mie = MIE_MEIE_BIT | MIE_MSIE_BIT | MIE_MTIE_BIT
+    cpu.mip_sw_ext = MIE_MEIE_BIT | MIE_MSIE_BIT
+    cpu.mtimecmp = 0
+    assert cpu.step().trap_cause == CAUSE_INT_M_EXT
+
+    cpu.reset()
+    cpu.mstatus = MSTATUS_MIE_BIT
+    cpu.mie = MIE_MSIE_BIT | MIE_MTIE_BIT
+    cpu.mip_sw_ext = MIE_MSIE_BIT
+    cpu.mtimecmp = 0
+    assert cpu.step().trap_cause == CAUSE_INT_M_SW
+
+    # 2. mtvec WARL snap (mode 3 -> 0), mcause R/W, Zicsr imm ops, and uimm=0 CSRRSI on MISA
+    cpu.reset()
+    cpu.regs[1] = BRAM_BASE | 3
+    cpu.regs[2] = 0x55
+    prog = [
+        enc_i(CSR_MTVEC, 1, 1, 0, 0x73),       # csrw mtvec, BRAM|3 -> mode snaps to 0
+        enc_i(CSR_MCAUSE, 2, 1, 0, 0x73),      # csrw mcause, 0x55
+        enc_i(CSR_MCAUSE, 0, 2, 7, 0x73),      # csrr x7, mcause -> 0x55
+        enc_i(CSR_MSCRATCH, 0x0A, 5, 3, 0x73), # csrrwi x3, mscratch, 0x0A
+        enc_i(CSR_MSCRATCH, 0x05, 6, 4, 0x73), # csrrsi x4, mscratch, 0x05 -> 0x0F
+        enc_i(CSR_MSCRATCH, 0x03, 7, 5, 0x73), # csrrci x5, mscratch, 0x03 -> 0x0C
+        enc_i(CSR_MISA, 0, 6, 6, 0x73),        # csrrsi x6, misa, 0 (read-only uimm=0 succeeds)
+        EBREAK,
+    ]
+    cpu.load_words(BOOT_ROM_BASE, prog)
+    cpu.run()
+    assert cpu.mtvec == BRAM_BASE
+    assert cpu.regs[7] == 0x55
+    assert cpu.regs[4] == 0x0A
+    assert cpu.regs[5] == 0x0F
+    assert cpu.mscratch == 0x0C
+    assert cpu.regs[6] == cpu.misa
+
+    # 3. CLINT/UART0 unused register offsets, empty RX FIFO read, and misaligned MMIO traps
+    assert cpu.read_u32(CLINT_BASE + 0x20) == 0
+    cpu.write_u32(CLINT_BASE + 0x20, 0x1234)
+    assert cpu.read_u32(UART0_BASE + 0x20) == 0
+    cpu.write_u32(UART0_BASE + 0x20, 0x1234)
+    assert cpu.read_u32(UART0_BASE + UART0_RXDATA) == 0
+    for bad_addr, width in [
+        (CLINT_BASE + 1, 4),
+        (CLINT_BASE, 1),
+        (UART0_BASE + 1, 1),
+        (UART0_BASE, 2),
+    ]:
+        with pytest.raises(MemoryAccessFault):
+            cpu.bus_read(bad_addr, width)
+        with pytest.raises(MemoryAccessFault):
+            cpu.bus_write(bad_addr, width, 0)
+
+    # 4. Signed (-32768)^2 * 2 positive MAC saturation edge case
+    cpu.reset()
+    cpu.regs[1] = pack_i16(-32768, -32768)
+    cpu.load_words(BOOT_ROM_BASE, [enc_mac(10, 1, 1, funct3=1), EBREAK])
+    cpu.run()
+    assert cpu.regs[10] == INT32_MAX
