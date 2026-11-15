@@ -103,7 +103,7 @@ flowchart LR
   - **Verify**: `make -C systems/brain/tb MODULE=test_uart && yosys -p "read_verilog -sv systems/brain/rtl/periph/cdc_sync.sv systems/brain/rtl/periph/uart.sv systems/brain/rtl/uart_echo_top.sv; synth_gowin -top uart_echo_top"`
   - **First Principles**: Why reading an asynchronous pin can leave a flip-flop undecided (metastability MTBF), serial start/stop byte framing, and sampling each bit 16x to tolerate clock drift *(Harris & Harris (RISC-V Ed.), Ch. 3.5 (Timing & Metastability))*
 - [ ] **`brain-05`** — **Bench 1: Order Tang Primer 20K FPGA + Logic Analyzer & Flash Serial Echo** *(🔧 Bench · ⬜ Pending)*
-  - **Deliverables**: `Order Sipeed Tang Primer 20K Dock + Core plug-in FPGA module ($45) and 8-ch USB digital waveform analyzer ($15)`; `Flash uart_echo_top bitstream onto Tang Primer 20K and capture live serial frames in PulseView`
+  - **Deliverables**: `Order Sipeed Tang Primer 20K Dock Kit (Core SOM + Dock baseboard, $45), 8-ch 24 MHz FX2LP USB logic analyzer ($15), and male-to-female 2.54 mm Dupont jumper wires ($6)`; `Flash uart_echo_top bitstream onto Tang Primer 20K and capture live serial frames in PulseView`
   - **Verify**: `Serial terminal echoes typed characters cleanly at 115200 baud and logic analyzer decodes valid 8N1 UART timing`
   - **First Principles**: Connecting simulated logic-gate waveforms to physical 3.3V copper pins and baud clock accuracy *(systems/brain/pcb/BOM.md (Order 1))*
 

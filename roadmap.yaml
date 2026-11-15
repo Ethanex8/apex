@@ -259,7 +259,7 @@ steps:
   mode: bench
   title: 'Bench 1: Order Tang Primer 20K FPGA + Logic Analyzer & Flash Serial Echo'
   deliverables:
-  - Order Sipeed Tang Primer 20K Dock + Core plug-in FPGA module ($45) and 8-ch USB digital waveform analyzer ($15)
+  - Order Sipeed Tang Primer 20K Dock Kit (Core SOM + Dock baseboard, $45), 8-ch 24 MHz FX2LP USB logic analyzer ($15), and male-to-female 2.54 mm Dupont jumper wires ($6)
   - Flash uart_echo_top bitstream onto Tang Primer 20K and capture live serial frames in PulseView
   verification: Serial terminal echoes typed characters cleanly at 115200 baud and logic analyzer decodes valid
     8N1 UART timing
