@@ -1,14 +1,14 @@
-# Apex: Building a Walking Robot Dog From Scratch
+# Apex: Autonomous Quadruped from Custom Silicon to Locomotion
 
-Build every layer of a safe, living-room-sized (about 2.5 kg) autonomous robot dog from blank files—your own programmable-silicon CPU & 6-layer circuit board (`brain`), force-controlled electric muscles (`drive`), smart surge/breaker power board (`power`), single hopping leg (`limb`), simulator-trained 4-legged walker (`walker`), and stereo camera eyes (`sight`)—one small, phone-reviewable step at a time.
+A full-stack robotics platform engineered from first principles—comprising a custom RISC-V processor and 6-layer carrier board (`brain`), force-controlled brushless actuators (`drive`), solid-state power protection (`power`), a 3-DOF hopping leg (`limb`), simulator-trained locomotion (`walker`), and synchronized stereo navigation (`sight`).
 
-- **Target Machine**: About 2.5 kg Desktop Research Class (roughly 35 cm long, < 22V touch-safe power, < 2.5 N·m finger-safe joints)
-- **Estimated Cost**: About \$1,495 for robot parts across roughly 12 months (about \$125/mo), plus about \$310–\$540 for reusable bench tools if needed
-- **Workflow**: **154 / 186 steps (`83%`)** built by AI agents & verified in simulation or automated board checks for mobile **couch review**, paired with **32 batched weekend bench sessions**.
+- **Target Platform**: About 2.5 kg Desktop Research Class (about 35 cm long, < 22V touch-safe power, < 2.5 N·m finger-safe joints)
+- **Estimated BOM**: About \$1,495 for robot parts across roughly 12 months (about \$125/mo), plus about \$310–\$540 for reusable bench instruments if needed
+- **Scope**: **154 / 186 design & simulation steps (`83%`)** paired with **32 hardware assembly and laboratory bring-up sessions**.
 
 ---
 
-## Active Step Queue
+## Active Milestone
 
 **Current Focus**: **`brain-01`** (🛋️ Couch · 🔍 In Review) — **Hardware Simulator Toolchain & Golden RISC-V Reference Emulator**
 
@@ -16,40 +16,40 @@ Build every layer of a safe, living-room-sized (about 2.5 kg) autonomous robot d
 - **Verification Gate**: `uv run --with pytest --with pytest-cov pytest --cov=systems/brain/sim --cov-report=term-missing --cov-fail-under=95 systems/brain/tb/test_oracle.py && which verilator yosys nextpnr-himbaechel`
 
 ```bash
-python3 scripts/step.py status          # Progress across all 6 systems
+python3 scripts/step.py status          # Progress across all 6 subsystems
 python3 scripts/step.py next            # Inspect next pending step & verification gate
 python3 scripts/check_code.py           # Run AST docstring/modularity, Ruff, and ShellCheck gates
-python3 scripts/build.py --check        # Validate roadmap invariants, book sync & zero doc drift
+python3 scripts/build.py --check        # Validate roadmap invariants, book sync & doc consistency
 ```
 
 ---
 
-## The 6 Zero-Throwaway Systems
+## Subsystems
 
-| # | System | What It Builds | Steps (Done / Total) | Couch / Bench | Timeline |
+| # | Subsystem | Scope | Progress | Design / Bench | Timeline |
 | :---: | :--- | :--- | :---: | :---: | :---: |
 | **1** | [**`brain`**](./systems/brain/) | Custom CPU on FPGA, 6-Layer Circuit Board, C Compiler & Real-Time OS | `░░░░░░░░` **0 / 42** | 36 / 6 | 10–12 weeks (8–12 hr/wk) |
-| **2** | [**`drive`**](./systems/drive/) | Force-Controlled Brushless Motor Driver & 8:1 Gearbox (Electric Muscle) | `░░░░░░░░` **0 / 30** | 24 / 6 | 7–8 weeks |
+| **2** | [**`drive`**](./systems/drive/) | Force-Controlled Brushless Motor Driver & 8:1 Gearbox | `░░░░░░░░` **0 / 30** | 24 / 6 | 7–8 weeks |
 | **3** | [**`power`**](./systems/power/) | Smart Power Distribution, Soft Startup & Electronic Breaker Spine | `░░░░░░░░` **0 / 24** | 19 / 5 | 5–6 weeks |
 | **4** | [**`limb`**](./systems/limb/) | 3-Joint Force-Controlled Leg & Tabletop Hopping Stand | `░░░░░░░░` **0 / 28** | 23 / 5 | 6–7 weeks |
-| **5** | [**`walker`**](./systems/walker/) | 4-Legged Walking Robot Dog (Physics Balance + Simulator-Trained AI) | `░░░░░░░░` **0 / 34** | 28 / 6 | 8–10 weeks |
-| **6** | [**`sight`**](./systems/sight/) | Synchronized Stereo Camera Eyes, 3D Room Mapping & Navigation Head | `░░░░░░░░` **0 / 28** | 24 / 4 | 6–8 weeks |
+| **5** | [**`walker`**](./systems/walker/) | 4-Legged Autonomous Quadruped (Dynamics, Balance & Learned Locomotion) | `░░░░░░░░` **0 / 34** | 28 / 6 | 8–10 weeks |
+| **6** | [**`sight`**](./systems/sight/) | Synchronized Stereo Vision, 3D Mapping & Autonomous Navigation | `░░░░░░░░` **0 / 28** | 24 / 4 | 6–8 weeks |
 
 ---
 
 ## Repository Guide
 
-- [**`Apex Interactive Textbook (GitHub Pages)`**](https://ethanex8.github.io/apex/) — 6-volume VitePress engineering textbook ([`book/`](./book/index.md)) publishing `systems/*/chapters/*.md` with auto-synced repo code transclusions & hardware widgets.
-- [**`VISION.md`**](./VISION.md) — Two-Brain architecture, locked hardware/protocol interfaces, home safety & parts budget.
-- [**`ROADMAP.md`**](./ROADMAP.md) — Full phase breakdowns, ordering schedule & all 186 step checklists.
-- [**`roadmap.yaml`**](./roadmap.yaml) — Canonical declarative source of truth for systems, steps & review state.
+- [**`Apex Interactive Textbook`**](https://ethanex8.github.io/apex/) — Six-volume VitePress textbook ([`book/`](./book/index.md)) compiling `systems/*/chapters/*.md` with synchronized source excerpts and interactive hardware figures.
+- [**`VISION.md`**](./VISION.md) — Dual-processor architecture, electrical and protocol interface contracts, safety limits, and bill of materials.
+- [**`ROADMAP.md`**](./ROADMAP.md) — Phase breakdowns, procurement schedule, and all 186 step checklists.
+- [**`roadmap.yaml`**](./roadmap.yaml) — Declarative manifest of subsystems, milestones, and verification state.
 - [**`systems/`**](./systems/brain/README.md) — Subsystem workspaces (`brain`, `drive`, `power`, `limb`, `walker`, `sight`).
-- [**`scripts/`**](./scripts/step.py) — [`step.py`](./scripts/step.py), [`build.py`](./scripts/build.py), [`sync_book.py`](./scripts/sync_book.py), [`check_book.py`](./scripts/check_book.py), and [`check_code.py`](./scripts/check_code.py) lifecycle, anchor-sync, and quality gates.
+- [**`scripts/`**](./scripts/step.py) — [`step.py`](./scripts/step.py), [`build.py`](./scripts/build.py), [`sync_book.py`](./scripts/sync_book.py), [`check_book.py`](./scripts/check_book.py), and [`check_code.py`](./scripts/check_code.py) milestone tracking, documentation synchronization, and static checks.
 
 ---
 
-## How Couch-to-Silicon Works
+## Engineering Methodology
 
-1. **Agent Implements & Verifies One Atomic Step (roughly 50–150 LOC)**: Runs real `Verilator` digital simulations, `Yosys`/`nextpnr` FPGA builds, KiCad circuit-board checks (`ERC`/`DRC`), trace-impedance solvers, `MuJoCo` physics, or `pytest` inside the VM.
-2. **Multi-Pass Interactive Textbook Chapter (`30–60 min`)**: Alongside each step, a 4-pass authoring pipeline produces an unhurried textbook chapter in `systems/<system>/chapters/` published to GitHub Pages with auto-synced repo code and interactive explorers.
-3. **Ask Why, Then `LGTM`**: Review a calm mobile summary + full rendered chapter; interrogate any derivation or trade-off before approving Step `N`.
+1. **Incremental Specification & Simulation**: Each design milestone implements a bounded module verified in `Verilator` digital simulation, `Yosys`/`nextpnr` FPGA synthesis, KiCad electrical/layout checks (`ERC`/`DRC`), transmission-line solvers, `MuJoCo` rigid-body dynamics, or `pytest`.
+2. **First-Principles Textbook Documentation**: Design milestones pair verified source code and hardware descriptions with chapters in `systems/<system>/chapters/`, linking code anchors directly to the analytical derivations.
+3. **Staged Hardware Bring-Up**: Subsystems pass automated simulation and board-level verification gates before physical assembly, current-limited power-on testing, and system integration.

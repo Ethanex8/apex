@@ -303,7 +303,7 @@ const decoded = computed(() => {
     }
   }
 
-  // B-Type (exact contiguous bit columns, zero pipe shorthand!)
+  // B-Type (explicit contiguous bit columns)
   if (opcode === 0x63) {
     const imm13Raw =
       (((w >>> 31) & 1) << 12) |
@@ -434,7 +434,7 @@ const decoded = computed(() => {
 
     <!-- Clickable 32 individual bits -->
     <div style="overflow-x: auto; padding-bottom: 6px; margin-bottom: 10px">
-      <div class="hw-label">Click any individual wire (Bit 31 down to Bit 0) to flip it live:</div>
+      <div class="hw-label">Toggle any instruction bit (Bit 31 down to Bit 0):</div>
       <div style="display: grid; grid-template-columns: repeat(32, minmax(19px, 1fr)); gap: 2px; min-width: 640px">
         <button
           v-for="bitIdx in 32"

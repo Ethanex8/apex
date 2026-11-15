@@ -1,23 +1,23 @@
-# Apex Engineering Roadmap (Couch-to-Silicon)
+# Apex Engineering Roadmap
 
-Generated from [`roadmap.yaml`](./roadmap.yaml). Tracks **6 integrated systems** and **186 atomic steps** (**154 couch** `83%` / **32 bench**) building one cohesive `About 2.5 kg Desktop Research Class (roughly 35 cm long, < 22V touch-safe power, < 2.5 N·m finger-safe joints)`.
+Generated from [`roadmap.yaml`](./roadmap.yaml). Tracks **6 integrated subsystems** and **186 engineering milestones** (**154 design & simulation** `83%` / **32 bench sessions**) for a unified hardware platform (About 2.5 kg Desktop Research Class (about 35 cm long, < 22V touch-safe power, < 2.5 N·m finger-safe joints)).
 
 ---
 
 ## Overall Progress
 
 - **Total Completion**: `░░░░░░░░░░░░░░░░` **0 / 186 steps** (`0.0%`)
-- **Couch Steps**: **0 / 154** · **Bench Sessions**: **0 / 32**
+- **Design & Simulation**: **0 / 154** · **Hardware Bench Sessions**: **0 / 32**
 - **Active Step**: **`brain-01`** (🛋️ Couch, 🔍 In Review) — Hardware Simulator Toolchain & Golden RISC-V Reference Emulator
 
-| # | System | Role | Progress | Couch / Bench | Est. Timeline | Workspace |
+| # | Subsystem | Role | Progress | Design / Bench | Est. Timeline | Workspace |
 | :---: | :--- | :--- | :--- | :---: | :---: | :--- |
-| **1** | [`brain`](#brain-custom-cpu-on-fpga-6-layer-circuit-board-c-compiler--real-time-os) — Custom CPU on FPGA, 6-Layer Circuit Board, C Compiler & Real-Time OS | Robot spinal cord & walking brain (also works standalone as a custom programmable-chip computer) | `░░░░░░░░░░` 0/42 (`0%`) | 36 / 6 | 10–12 weeks (8–12 hr/wk) | [./systems/brain/](./systems/brain/) |
-| **2** | [`drive`](#drive-force-controlled-brushless-motor-driver--81-gearbox-electric-muscle) — Force-Controlled Brushless Motor Driver & 8:1 Gearbox (Electric Muscle) | One finger-safe, hand-backdrivable robotic joint (< 2.5 N·m; 12x used in final robot) | `░░░░░░░░░░` 0/30 (`0%`) | 24 / 6 | 7–8 weeks | [./systems/drive/](./systems/drive/) |
-| **3** | [`power`](#power-smart-power-distribution-soft-startup--electronic-breaker-spine) — Smart Power Distribution, Soft Startup & Electronic Breaker Spine | Surge protector, microsecond electronic circuit breaker & battery fuel gauge protecting all electronics | `░░░░░░░░░░` 0/24 (`0%`) | 19 / 5 | 5–6 weeks | [./systems/power/](./systems/power/) |
-| **4** | [`limb`](#limb-3-joint-force-controlled-leg--tabletop-hopping-stand) — 3-Joint Force-Controlled Leg & Tabletop Hopping Stand | Masters 3D leg motion & soft impact landings on a desk rail; becomes Front-Left Leg #1 | `░░░░░░░░░░` 0/28 (`0%`) | 23 / 5 | 6–7 weeks | [./systems/limb/](./systems/limb/) |
-| **5** | [`walker`](#walker-4-legged-walking-robot-dog-physics-balance--simulator-trained-ai) — 4-Legged Walking Robot Dog (Physics Balance + Simulator-Trained AI) | Combines brain + power + 4 legs into an untethered 2.5 kg dynamic walker | `░░░░░░░░░░` 0/34 (`0%`) | 28 / 6 | 8–10 weeks | [./systems/walker/](./systems/walker/) |
-| **6** | [`sight`](#sight-synchronized-stereo-camera-eyes-3d-room-mapping--navigation-head) — Synchronized Stereo Camera Eyes, 3D Room Mapping & Navigation Head | High-level vision computer that maps furniture and steers walker around obstacles | `░░░░░░░░░░` 0/28 (`0%`) | 24 / 4 | 6–8 weeks | [./systems/sight/](./systems/sight/) |
+| **1** | [`brain`](#brain-custom-cpu-on-fpga-6-layer-circuit-board-c-compiler--real-time-os) — Custom CPU on FPGA, 6-Layer Circuit Board, C Compiler & Real-Time OS | Real-time spinal cord and locomotion processor (also operates standalone as a custom FPGA computer) | `░░░░░░░░░░` 0/42 (`0%`) | 36 / 6 | 10–12 weeks (8–12 hr/wk) | [./systems/brain/](./systems/brain/) |
+| **2** | [`drive`](#drive-force-controlled-brushless-motor-driver--81-gearbox) — Force-Controlled Brushless Motor Driver & 8:1 Gearbox | Backdrivable, finger-safe robotic joint actuator (< 2.5 N·m; 12x used in final quadruped) | `░░░░░░░░░░` 0/30 (`0%`) | 24 / 6 | 7–8 weeks | [./systems/drive/](./systems/drive/) |
+| **3** | [`power`](#power-smart-power-distribution-soft-startup--electronic-breaker-spine) — Smart Power Distribution, Soft Startup & Electronic Breaker Spine | Pre-charge limiter, microsecond electronic circuit breaker, and battery fuel gauge protecting all electronics | `░░░░░░░░░░` 0/24 (`0%`) | 19 / 5 | 5–6 weeks | [./systems/power/](./systems/power/) |
+| **4** | [`limb`](#limb-3-joint-force-controlled-leg--tabletop-hopping-stand) — 3-Joint Force-Controlled Leg & Tabletop Hopping Stand | 3D leg kinematics, Cartesian impedance, and soft impact landings on a linear rail; becomes Front-Left Leg #1 | `░░░░░░░░░░` 0/28 (`0%`) | 23 / 5 | 6–7 weeks | [./systems/limb/](./systems/limb/) |
+| **5** | [`walker`](#walker-4-legged-autonomous-quadruped-dynamics-balance--learned-locomotion) — 4-Legged Autonomous Quadruped (Dynamics, Balance & Learned Locomotion) | Integrates brain, power, and four legs into an untethered 2.5 kg dynamic quadruped | `░░░░░░░░░░` 0/34 (`0%`) | 28 / 6 | 8–10 weeks | [./systems/walker/](./systems/walker/) |
+| **6** | [`sight`](#sight-synchronized-stereo-vision-3d-mapping--autonomous-navigation) — Synchronized Stereo Vision, 3D Mapping & Autonomous Navigation | High-level perception head that maps indoor obstacles and steers walker autonomously | `░░░░░░░░░░` 0/28 (`0%`) | 24 / 4 | 6–8 weeks | [./systems/sight/](./systems/sight/) |
 
 ---
 
@@ -41,22 +41,22 @@ flowchart LR
 
 ---
 
-## Home Safety & Phased Procurement
+## Safety Guardrails & Phased Procurement
 
 - **Touch-Safe Voltage (< 22V DC)**: Powered by a 6-cell series lithium-iron-phosphate battery pack (6S LiFePO4: 19.2V nominal, 21.9V max), well below the 60V DC shock threshold.
-- **Stable Battery Chemistry & Current-Limited Bench Power**: Lithium-iron-phosphate (LiFePO4) cells resist fire and thermal runaway, and 95% of indoor testing runs off a current-limited desk power supply before any battery is ever plugged in.
-- **Finger-Safe Backdrivable Joints (< 2.5 N·m)**: At roughly 2.5 kg total weight, every joint can be easily moved by hand when unpowered or compliant, runs quietly on carpet, and tests inside a compact tabletop slotted-aluminum frame (no ceiling or doorway drilling).
-- **Zero-Fume Factory Fabrication**: External factories handle circuit-board surface-mount soldering (turnkey PCBA) and industrial nylon/aluminum printing & milling (MJF/CNC), eliminating solder-paste and high-temp plastic fumes indoors.
+- **Stable Battery Chemistry & Current-Limited Bench Power**: Lithium-iron-phosphate (LiFePO4) cells resist thermal runaway, and 95% of indoor testing runs from a current-limited bench power supply before a battery pack is connected.
+- **Finger-Safe Backdrivable Joints (< 2.5 N·m)**: At roughly 2.5 kg total mass, every joint can be moved manually when unpowered or compliant, operates quietly indoors, and tests inside a compact tabletop slotted-aluminum frame.
+- **Zero-Fume Factory Fabrication**: External board houses handle surface-mount assembly (turnkey PCBA) and industrial suppliers fabricate powder-fused nylon and milled aluminum parts (MJF/CNC), eliminating solder-paste and high-temperature polymer fumes indoors.
 
-| Stage | Est. Cost | What You Order |
+| Stage | Est. Cost | Components & Equipment |
 | :--- | :---: | :--- |
-| **System 1: brain (Months 1–3)** | **\$290** | Tang Primer 20K programmable-logic board + snap-in FPGA module (\$45), 8-channel USB waveform analyzer (\$15), 2x factory-assembled 6-layer Spine boards (\$115), and LiteVNA 64 radar-like cable/trace tester (\$115) |
-| **Core Bench Instruments (Month 4, 1x if needed)** | **\$310–\$540** | 4-channel 70–100 MHz oscilloscope for fast voltage waveforms (\$160–\$390), 30V/10A current-limited bench power supply (\$55), and USB-C soldering iron + multimeter + wire crimpers (\$95) |
-| **System 2: drive (Months 4–5)** | **\$130** | 1x flat pancake brushless motor, contactless magnetic angle chip, bearings, nylon/aluminum gearbox housing, and 2x factory-assembled 4-layer motor-driver boards |
-| **System 3: power (Month 6)** | **\$150** | 2x factory-assembled 4-layer power/breaker boards, physical mushroom E-stop button, and 6-cell LiFePO4 battery + smart charger + fire-safe storage bag |
-| **System 4: limb (Months 7–8)** | **\$185** | 2x extra motors, housings, carbon-fiber leg tubes, timing belts, and tabletop slotted-aluminum linear-rail stand |
-| **System 5: walker (Months 9–10)** | **\$520** | 9x motors (\$200), 10x batch motor-driver boards (\$140), and carbon tubes, bearings, milled torso plates & tabletop bungee safety frame (\$180) |
-| **System 6: sight (Months 11–12)** | **\$220** | 2x synchronized simultaneous-exposure stereo cameras, compact Linux/neural vision computer, and 3D-printed head mount |
+| **System 1: brain (Months 1–3)** | **\$290** | Tang Primer 20K FPGA dock + plug-in compute module (\$45), 8-channel USB logic analyzer (\$15), 2x factory-assembled 6-layer Spine boards (\$115), and LiteVNA 64 vector network analyzer for trace-impedance testing (\$115) |
+| **Core Bench Instruments (Month 4, 1x if needed)** | **\$310–\$540** | 4-channel 70–100 MHz oscilloscope (\$160–\$390), 30V/10A current-limited bench power supply (\$55), and USB-C soldering iron, digital multimeter, and wire crimpers (\$95) |
+| **System 2: drive (Months 4–5)** | **\$130** | 1x flat pancake brushless motor, contactless magnetic angle sensor, bearings, nylon/aluminum gearbox housing, and 2x factory-assembled 4-layer motor-driver boards |
+| **System 3: power (Month 6)** | **\$150** | 2x factory-assembled 4-layer power/breaker boards, physical mushroom E-stop switch, and 6-cell LiFePO4 battery, charger, and fire-safe storage bag |
+| **System 4: limb (Months 7–8)** | **\$185** | 2x additional motors, housings, carbon-fiber leg tubes, timing belts, and tabletop slotted-aluminum linear-rail stand |
+| **System 5: walker (Months 9–10)** | **\$520** | 9x motors (\$200), 10x batch motor-driver boards (\$140), and carbon tubes, bearings, milled torso plates, and tabletop bungee safety gantry (\$180) |
+| **System 6: sight (Months 11–12)** | **\$220** | 2x synchronized global-shutter stereo cameras, compact Linux/NPU vision computer, and 3D-printed stereo mount |
 
 ---
 
@@ -64,13 +64,13 @@ flowchart LR
 
 ### 1. `brain` — Custom CPU on FPGA, 6-Layer Circuit Board, C Compiler & Real-Time OS
 
-- **Role**: Robot spinal cord & walking brain (also works standalone as a custom programmable-chip computer)
+- **Role**: Real-time spinal cord and locomotion processor (also operates standalone as a custom FPGA computer)
 - **Workspace**: [`./systems/brain/`](./systems/brain/)
-- **Builds On**: None (Start Here)
-- **Graduation Demo**: Boots from persistent Flash into 32 MB dynamic RAM on your custom 6-layer board running your own C compiler and Real-Time OS: interactive terminal, rock-steady 1,000 Hz tilt/balance loop (< 2 µs jitter), and < 0.6 ms neural walking inference using a custom AI multiply-add instruction.
-- **Progress**: `░░░░░░░░░░░░` **0 / 42** (`36` couch / `6` bench)
+- **Builds On**: None (Entry Subsystem)
+- **Integration Milestone**: Boots from persistent QSPI Flash into 32 MB SDRAM on the custom 6-layer board running the custom SysC compiler and RTOS: interactive ash shell, deterministic 1,000 Hz tilt/PID loop (< 2 µs jitter), and < 0.6 ms neural locomotion inference via the custom mac instruction.
+- **Progress**: `░░░░░░░░░░░░` **0 / 42** (`36` design / `6` bench)
 
-| Phase | Steps Done | Couch / Bench | Progress |
+| Phase | Steps Done | Design / Bench | Progress |
 | :--- | :---: | :---: | :--- |
 | **Phase 1: Simulator Tools, Reference CPU & Digital Building Blocks** | 0 / 5 | 4 / 1 | `░░░░░░░░░░` `0%` |
 | **Phase 2: Basic RISC-V CPU, AI Multiplier & Interrupt Handling** | 0 / 6 | 6 / 0 | `░░░░░░░░░░` `0%` |
@@ -267,26 +267,26 @@ flowchart LR
   - **Deliverables**: `Power arrived 6-layer Spine board via current-limited 5V/1A bench supply before snapping in the FPGA SOM`; `Measure 3.3V buck regulator startup & voltage ripple; verify ICM-42688-P WHO_AM_I chip ID & CAN-FD bus loopback`
   - **Verify**: `Idle rail currents within budget, 3.3V ripple < 30 mVpp, IMU WHO_AM_I = 0x47, CAN-FD loopback clean`
   - **First Principles**: Disciplined hardware bring-up order: verify power rails first, clocks second, and digital data links third before plugging in expensive compute *(systems/brain/pcb/REVIEW_CHECKLIST.md)*
-- [ ] **`brain-41`** — **Bench 5: LiteVNA 64 Calibration & Radar-Like Trace-Echo (TDR) Sweep** *(🔧 Bench · ⬜ Pending)*
+- [ ] **`brain-41`** — **Bench 5: LiteVNA 64 Calibration & Time-Domain Reflectometry (TDR) Sweep** *(🔧 Bench · ⬜ Pending)*
   - **Deliverables**: `Run SMA Open/Short/Load calibration on LiteVNA 64 and capture Inverse-FFT Time-Domain Reflectometry (TDR) echo plots`; `Compare clean 50-ohm SMA coax test trace against intentional ground-slot coupon and check against brain-18 solver predictions`
   - **Verify**: `Clean trace measures 50 +/- 5 Ohm along its span; ground-slot coupon clearly displays an inductive impedance spike right at the slot coordinate`
-  - **First Principles**: Seeing transmission-line impedance physics come alive in real copper: why interrupting a ground return plane creates a measurable radar echo *(Clayton Paul, Ch. 4–5)*
+  - **First Principles**: Observing transmission-line impedance reflections in physical copper: why interrupting a ground return plane creates a measurable discontinuity echo *(Clayton Paul, Ch. 4–5)*
 - [ ] **`brain-42`** — **Bench 6 (brain Graduation): Boot SysC RTOS from Flash/RAM & Capture < 2 µs Jitter** *(🔧 Bench · ⬜ Pending)*
   - **Deliverables**: `Snap Tang Primer 20K SOM into 6-layer Spine board, flash QSPI NOR with SysC-compiled RTOS image, and run memtest + ash shell`; `Tilt board to watch live 1 kHz motion-sensor attitude + 50 Hz neural network output frames on CAN-FD and capture < 2 µs task jitter on logic analyzer`
   - **Verify**: `32 MB SDRAM memtest passes 100%, ash shell reports < 0.6 ms MLP inference, and logic analyzer confirms < 2 µs 1 kHz control loop jitter`
-  - **First Principles**: Full-stack convergence: blank SystemVerilog -> custom 6-layer PCB -> custom C compiler -> custom RTOS operating together as one deterministic physical machine *(VISION.md)*
+  - **First Principles**: Full-stack convergence: custom SystemVerilog -> custom 6-layer PCB -> custom C compiler -> custom RTOS operating together as one deterministic physical machine *(VISION.md)*
 
 </details>
 
-### 2. `drive` — Force-Controlled Brushless Motor Driver & 8:1 Gearbox (Electric Muscle)
+### 2. `drive` — Force-Controlled Brushless Motor Driver & 8:1 Gearbox
 
-- **Role**: One finger-safe, hand-backdrivable robotic joint (< 2.5 N·m; 12x used in final robot)
+- **Role**: Backdrivable, finger-safe robotic joint actuator (< 2.5 N·m; 12x used in final quadruped)
 - **Workspace**: [`./systems/drive/`](./systems/drive/)
 - **Builds On**: `brain`
-- **Graduation Demo**: A haptic wheel that feels like a programmable spring and shock absorber in your fingers, commanded 1,000 times per second by brain.
-- **Progress**: `░░░░░░░░░░░░` **0 / 30** (`24` couch / `6` bench)
+- **Integration Milestone**: A haptic wheel behaving as a programmable spring and damper under live 1,000 Hz commands from brain.
+- **Progress**: `░░░░░░░░░░░░` **0 / 30** (`24` design / `6` bench)
 
-| Phase | Steps Done | Couch / Bench | Progress |
+| Phase | Steps Done | Design / Bench | Progress |
 | :--- | :---: | :---: | :--- |
 | **Phase 1: Brushless Motor Physics & Force-Control Simulation** | 0 / 6 | 6 / 0 | `░░░░░░░░░░` `0%` |
 | **Phase 2: 4-Layer 24V Motor-Driver Circuit Board & Factory Launch** | 0 / 8 | 7 / 1 | `░░░░░░░░░░` `0%` |
@@ -418,7 +418,7 @@ flowchart LR
 - [ ] **`drive-27`** — **Bench 9: Current-Limited Motor-Driver Smoke Test & Scope Switching Check** *(🔧 Bench · ⬜ Pending)*
   - **Deliverables**: `Power FOC PCB from current-limited bench PSU (20V / 0.5A cap), flash STM32G4 & probe 3-phase PWM edges + dead-time on oscilloscope`
   - **Verify**: `Clean 3.3V/10V rails, crisp complementary PWM dead-time with zero switch shoot-through voltage spikes`
-  - **First Principles**: Comparing real transistor switching edges on an oscilloscope directly against your drive-12 SPICE simulation *(systems/drive/README.md)*
+  - **First Principles**: Comparing real transistor switching edges on an oscilloscope directly against the drive-12 SPICE simulation *(systems/drive/README.md)*
 - [ ] **`drive-28`** — **Bench 10: Motor R/L Auto-ID, Magnetic Zeroing & Open-Loop Bench Spin** *(🔧 Bench · ⬜ Pending)*
   - **Deliverables**: `Mount diametric magnet, spin bare motor on desk, run auto-calibration and inspect d/q current step response`
   - **Verify**: `Measured R/L matches datasheet +/-10%; q-axis current tracks 1 kHz step cleanly with zero magnetic cogging buzz`
@@ -426,23 +426,23 @@ flowchart LR
 - [ ] **`drive-29`** — **Bench 11: Assemble 8:1 Gearbox Actuator & Measure Hand-Backdrive Friction** *(🔧 Bench · ⬜ Pending)*
   - **Deliverables**: `Assemble bearings, 8:1 gearbox, motor & rear driver PCB; measure static backdrive torque and tooth play (backlash)`
   - **Verify**: `Smooth manual backdrivability (< 0.12 N·m friction) and backlash < 0.3 deg`
-  - **First Principles**: Seeing firsthand how low reflected inertia and low friction turn motor coil current into a clean torque sensor *(systems/drive/README.md)*
+  - **First Principles**: Observing how low reflected inertia and low friction turn motor coil current into a clean torque sensor *(systems/drive/README.md)*
 - [ ] **`drive-30`** — **Bench 12 (drive Graduation): brain-Driven Haptic Wheel & Torque Step Test** *(🔧 Bench · ⬜ Pending)*
   - **Deliverables**: `Connect drive to brain CAN-FD Bus A; run SysC haptic virtual-spring/damper demo and verify 2.5 N·m step torque`
   - **Verify**: `1 kHz closed-loop CAN-FD telemetry runs drop-free while fingers feel crisp programmable stiffness and damping`
-  - **First Principles**: Closing the first physical robotic muscle loop across your custom RISC-V SoC and custom brushless FOC drive *(VISION.md)*
+  - **First Principles**: Closing the first physical closed-loop actuator control path across the custom RISC-V SoC and brushless FOC drive *(VISION.md)*
 
 </details>
 
 ### 3. `power` — Smart Power Distribution, Soft Startup & Electronic Breaker Spine
 
-- **Role**: Surge protector, microsecond electronic circuit breaker & battery fuel gauge protecting all electronics
+- **Role**: Pre-charge limiter, microsecond electronic circuit breaker, and battery fuel gauge protecting all electronics
 - **Workspace**: [`./systems/power/`](./systems/power/)
 - **Builds On**: `drive`
-- **Graduation Demo**: Survives massive 12-motor startup surges and intentional dead-shorts in < 5 µs while accurately estimating remaining battery charge under load.
-- **Progress**: `░░░░░░░░░░░░` **0 / 24** (`19` couch / `5` bench)
+- **Integration Milestone**: Survives 12-actuator startup surges and intentional dead-shorts in < 5 µs while accurately estimating battery State of Charge under load.
+- **Progress**: `░░░░░░░░░░░░` **0 / 24** (`19` design / `5` bench)
 
-| Phase | Steps Done | Couch / Bench | Progress |
+| Phase | Steps Done | Design / Bench | Progress |
 | :--- | :---: | :---: | :--- |
 | **Phase 1: Battery Modeling, Startup Surge Math & Fuel-Gauge Filter** | 0 / 6 | 6 / 0 | `░░░░░░░░░░` `0%` |
 | **Phase 2: 4-Layer Power & Electronic Breaker Board & Factory Launch** | 0 / 8 | 7 / 1 | `░░░░░░░░░░` `0%` |
@@ -508,7 +508,7 @@ flowchart LR
 - [ ] **`power-13`** — **Fault-Latching Black-Box Event Ring & CAN Telemetry Broadcaster** *(🛋️ Couch · ⬜ Pending)*
   - **Deliverables**: `systems/power/firmware/fault_log.c & systems/power/tb/test_fault_log.py`
   - **Verify**: `uv run --with pytest pytest systems/power/tb/test_fault_log.py`
-  - **First Principles**: Saving a circular flight-recorder buffer of the last 50 ms of voltage/current samples before an overcurrent trip for root-cause post-mortem *(systems/power/README.md)*
+  - **First Principles**: Saving a circular pre-trigger ring buffer of the last 50 ms of voltage/current samples before an overcurrent trip for root-cause post-mortem *(systems/power/README.md)*
 - [ ] **`power-14`** — **Bench 13 (Fab Trigger): Order 2x Factory Power Boards + 6S LiFePO4 Pack + E-Stop** *(🔧 Bench · ⬜ Pending)*
   - **Deliverables**: `Order 2x factory-assembled 4-layer Power Spine boards from JLCPCB`; `Order physical mushroom E-stop switch, 6-cell LiFePO4 battery pack, smart balance charger & fiberglass fire-safe storage bag`
   - **Verify**: `PCBA manufacturability verified and LiFePO4 pack rated <= 21.9V max with individual cell balance leads`
@@ -564,13 +564,13 @@ flowchart LR
 
 ### 4. `limb` — 3-Joint Force-Controlled Leg & Tabletop Hopping Stand
 
-- **Role**: Masters 3D leg motion & soft impact landings on a desk rail; becomes Front-Left Leg #1
+- **Role**: 3D leg kinematics, Cartesian impedance, and soft impact landings on a linear rail; becomes Front-Left Leg #1
 - **Workspace**: [`./systems/limb/`](./systems/limb/)
 - **Builds On**: `drive`, `power`
-- **Graduation Demo**: Leg #1 mounted on a compact desk rail floats weightlessly in your hand and hops smoothly on its own, driven by code compiled in your C compiler on brain.
-- **Progress**: `░░░░░░░░░░░░` **0 / 28** (`23` couch / `5` bench)
+- **Integration Milestone**: Leg #1 mounted on a compact linear rail floats under gravity compensation and hops smoothly, driven by SysC firmware on brain.
+- **Progress**: `░░░░░░░░░░░░` **0 / 28** (`23` design / `5` bench)
 
-| Phase | Steps Done | Couch / Bench | Progress |
+| Phase | Steps Done | Design / Bench | Progress |
 | :--- | :---: | :---: | :--- |
 | **Phase 1: 3D Leg Geometry, Force-Torque Mapping & Gravity Compensation** | 0 / 7 | 7 / 0 | `░░░░░░░░░░` `0%` |
 | **Phase 2: Physics-Simulator Hopping & Foot-Contact Detection** | 0 / 7 | 7 / 0 | `░░░░░░░░░░` `0%` |
@@ -626,7 +626,7 @@ flowchart LR
   - **Verify**: `uv run --with pytest pytest systems/limb/tb/test_hopper_sim.py`
   - **First Principles**: Treating a hopping leg like a pogo stick (Spring-Loaded Inverted Pendulum / SLIP) and topping up mechanical energy each bounce to cancel ground damping losses *(Tedrake, Underactuated Robotics, Ch. 4)*
 - [ ] **`limb-11`** — **Fixed-Point (Q16.16) Leg Kinematics & Spring Library for brain (SysC)** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/limb/firmware/leg_ctrl.c & systems/limb/tb/test_leg_sysc.py (compiles with our scratch SysC compiler and verifies bit-accurate torque match vs. Python floats)`
+  - **Deliverables**: `systems/limb/firmware/leg_ctrl.c & systems/limb/tb/test_leg_sysc.py (compiles with the custom SysC compiler and verifies bit-accurate torque match vs. Python floats)`
   - **Verify**: `uv run --with pytest pytest systems/limb/tb/test_leg_sysc.py`
   - **First Principles**: Encoding decimal fractions inside 32-bit integers (16 integer bits, 16 fractional bits / Q16.16) so custom integer-only RISC-V silicon solves trig and matrices inside a 1 ms tick *(systems/brain/README.md)*
 - [ ] **`limb-12`** — **SysC + Verilator Chip-to-Physics Co-Simulation Driving MuJoCo Leg** *(🛋️ Couch · ⬜ Pending)*
@@ -706,15 +706,15 @@ flowchart LR
 
 </details>
 
-### 5. `walker` — 4-Legged Walking Robot Dog (Physics Balance + Simulator-Trained AI)
+### 5. `walker` — 4-Legged Autonomous Quadruped (Dynamics, Balance & Learned Locomotion)
 
-- **Role**: Combines brain + power + 4 legs into an untethered 2.5 kg dynamic walker
+- **Role**: Integrates brain, power, and four legs into an untethered 2.5 kg dynamic quadruped
 - **Workspace**: [`./systems/walker/`](./systems/walker/)
 - **Builds On**: `limb`
-- **Graduation Demo**: Untethered 2.5 kg robot dog stands up, recovers from shoves, and trots across carpet using a neural policy trained in simulation and running natively on brain.
-- **Progress**: `░░░░░░░░░░░░` **0 / 34** (`28` couch / `6` bench)
+- **Integration Milestone**: Untethered 2.5 kg quadruped stands autonomously, recovers from lateral perturbations, and trots across indoor flooring using a quantized neural policy running natively on brain.
+- **Progress**: `░░░░░░░░░░░░` **0 / 34** (`28` design / `6` bench)
 
-| Phase | Steps Done | Couch / Bench | Progress |
+| Phase | Steps Done | Design / Bench | Progress |
 | :--- | :---: | :---: | :--- |
 | **Phase 1: Full 12-Joint Robot Simulation & Body Speed Estimator** | 0 / 7 | 7 / 0 | `░░░░░░░░░░` `0%` |
 | **Phase 2: Predictive Whole-Body Balance & Trotting in Simulation** | 0 / 7 | 7 / 0 | `░░░░░░░░░░` `0%` |
@@ -809,10 +809,10 @@ flowchart LR
   - **Deliverables**: `systems/walker/sim/export_sysc_mlp.py (quantizes weights/activations to scaled 16-bit integer Q-format C arrays ready for brain's custom mac unit)`; `systems/walker/tb/test_quantized_mlp.py (verifies < 1% action drift between float32 PyTorch/NumPy and INT16 SysC)`
   - **Verify**: `uv run --with pytest pytest systems/walker/tb/test_quantized_mlp.py`
   - **First Principles**: Symmetric per-layer INT16 scaling and clamping (saturating) arithmetic so integer-only custom silicon matches float32 walking behavior within 1% *(systems/brain/README.md)*
-- [ ] **`walker-20`** — **Closed-Loop Silicon-to-Physics Test (Verilator brain Walks the MuJoCo Dog!)** *(🛋️ Couch · ⬜ Pending)*
-  - **Deliverables**: `systems/walker/tb/test_brain_walks_mujoco.py (compiled SysC ESKF + 50 Hz RL neural network running inside Verilator chip sim walks the 12-joint MuJoCo robot)`
+- [ ] **`walker-20`** — **Closed-Loop Silicon-to-Physics Test (Verilator brain Walks in MuJoCo)** *(🛋️ Couch · ⬜ Pending)*
+  - **Deliverables**: `systems/walker/tb/test_brain_walks_mujoco.py (compiled SysC ESKF + 50 Hz RL neural network running inside Verilator chip sim drives the 12-joint MuJoCo quadruped)`
   - **Verify**: `uv run --with pytest pytest systems/walker/tb/test_brain_walks_mujoco.py`
-  - **First Principles**: Proving end-to-end that your custom CPU, custom C compiler, custom RTOS, and quantized neural network actually walk a physics robot before powering real legs *(VISION.md)*
+  - **First Principles**: Verifying end-to-end that the custom CPU, compiler, RTOS, and quantized neural network locomote a full physics model prior to physical leg bring-up *(VISION.md)*
 - [ ] **`walker-21`** — **On-Robot SysC 12-Joint Dual CAN-FD Spine Scheduler & Safety Envelope** *(🛋️ Couch · ⬜ Pending)*
   - **Deliverables**: `systems/brain/apps/app_walker_spine.c (1 kHz dual-bus CAN-FD dispatcher + ESKF + 50 Hz RL task + sight velocity listener)`; `systems/walker/tb/test_walker_spine_sim.py`
   - **Verify**: `uv run --with pytest pytest systems/walker/tb/test_walker_spine_sim.py`
@@ -820,7 +820,7 @@ flowchart LR
 - [ ] **`walker-22`** — **Emergency Fall-Detection & Watchdog Integration Test in Verilator** *(🛋️ Couch · ⬜ Pending)*
   - **Deliverables**: `systems/walker/tb/test_walker_faults_verilator.py (simulates dropped CAN-FD joint, tilted body > 50 deg & power brownout)`
   - **Verify**: `uv run --with pytest pytest systems/walker/tb/test_walker_faults_verilator.py`
-  - **First Principles**: Stress-testing every safety reflex inside simulated chip silicon before energizing 12 physical brushless actuators in your living room *(VISION.md)*
+  - **First Principles**: Verifying every fault-protection reflex inside simulated chip silicon prior to energizing 12 physical brushless actuators *(VISION.md)*
 
 #### Phase 4: Torso Frame CAD, Wire Harnesses & Building Legs #2–#4
 
@@ -865,8 +865,8 @@ flowchart LR
   - **First Principles**: Testing closed-chain 4-leg force sharing safely on a current-limited bench power supply before dynamic stepping *(systems/walker/README.md)*
 - [ ] **`walker-32`** — **Bench 27: First Live Sim-to-Real RL Policy Trot on brain (Gantry Tethered)** *(🔧 Bench · ⬜ Pending)*
   - **Deliverables**: `Deploy INT16 PPO walking policy on brain under slack bungee safety sling; record live gait telemetry & IMU attitude`
-  - **Verify**: `Robot executes steady in-place and forward/lateral trotting on carpet powered by your custom RISC-V+MAC System-on-Chip`
-  - **First Principles**: Watching your GPU-trained RL policy execute natively via custom mac instructions on your own FPGA silicon *(VISION.md)*
+  - **Verify**: `Robot executes steady in-place and forward/lateral trotting on carpet powered by the custom RISC-V+MAC System-on-Chip`
+  - **First Principles**: Executing a GPU-trained RL policy natively via custom mac instructions on custom FPGA silicon *(VISION.md)*
 - [ ] **`walker-33`** — **Real-World Telemetry Diff & Simulator Physics Fine-Tune** *(🛋️ Couch · ⬜ Pending)*
   - **Deliverables**: `systems/walker/sim/analyze_real_gait.py & systems/walker/tb/test_analyze_real_gait.py (compares logged physical joint/IMU trajectories vs. MuJoCo, tightens sim motor damping/latency, and re-verifies updated quantized SysC weights)`
   - **Verify**: `uv run --with pytest pytest systems/walker/tb/test_analyze_real_gait.py`
@@ -874,19 +874,19 @@ flowchart LR
 - [ ] **`walker-34`** — **Bench 28 (walker Graduation): Untethered 6-Cell LiFePO4 Walking & Shove Recovery** *(🔧 Bench · ⬜ Pending)*
   - **Deliverables**: `Install 6-cell LiFePO4 battery pack, remove umbilical PSU cable, and run untethered omni-directional walking + shove recovery + small threshold climbs`
   - **Verify**: `Stable untethered trotting, rapid recovery from lateral shoves, and healthy EKF battery telemetry`
-  - **First Principles**: A complete self-contained walking robot built from blank RTL, custom circuit boards, custom compiler, custom RTOS, custom FOC drives & custom RL *(VISION.md)*
+  - **First Principles**: A complete self-contained walking robot built from custom RTL, custom circuit boards, custom compiler, custom RTOS, custom FOC drives & custom RL *(VISION.md)*
 
 </details>
 
-### 6. `sight` — Synchronized Stereo Camera Eyes, 3D Room Mapping & Navigation Head
+### 6. `sight` — Synchronized Stereo Vision, 3D Mapping & Autonomous Navigation
 
-- **Role**: High-level vision computer that maps furniture and steers walker around obstacles
+- **Role**: High-level perception head that maps indoor obstacles and steers walker autonomously
 - **Workspace**: [`./systems/sight/`](./systems/sight/)
 - **Builds On**: `walker`
-- **Graduation Demo**: Hardware-synced stereo camera pod maps a room in 3D, bolts onto walker, and steers it autonomously around furniture to a target spot.
-- **Progress**: `░░░░░░░░░░░░` **0 / 28** (`24` couch / `4` bench)
+- **Integration Milestone**: Hardware-synced stereo camera pod maps an indoor space in 3D, mounts onto walker, and navigates autonomously around obstacles to a target waypoint.
+- **Progress**: `░░░░░░░░░░░░` **0 / 28** (`24` design / `4` bench)
 
-| Phase | Steps Done | Couch / Bench | Progress |
+| Phase | Steps Done | Design / Bench | Progress |
 | :--- | :---: | :---: | :--- |
 | **Phase 1: Camera Geometry, Calibration & 2-Camera Stereo Depth** | 0 / 6 | 6 / 0 | `░░░░░░░░░░` `0%` |
 | **Phase 2: Camera + Motion-Sensor Tracking & 3D Room Obstacle Grid** | 0 / 7 | 7 / 0 | `░░░░░░░░░░` `0%` |
@@ -975,7 +975,7 @@ flowchart LR
 - [ ] **`sight-18`** — **Full Closed-Loop Navigation Simulation (sight -> brain -> MuJoCo walker)** *(🛋️ Couch · ⬜ Pending)*
   - **Deliverables**: `systems/sight/tb/test_full_autonomy_sim.py (navigates walker autonomously through cluttered virtual room around moving obstacles)`
   - **Verify**: `uv run --with pytest pytest systems/sight/tb/test_full_autonomy_sim.py`
-  - **First Principles**: Closing the full perception-planning-locomotion loop in physics simulation before bolting stereo cameras onto the physical dog *(VISION.md)*
+  - **First Principles**: Closing the full perception-planning-locomotion loop in physics simulation before mounting stereo cameras onto the physical quadruped *(VISION.md)*
 - [ ] **`sight-19`** — **Dual OV9281 Simultaneous-Shutter Stereo Spacing & Field-of-View Sizing** *(🛋️ Couch · ⬜ Pending)*
   - **Deliverables**: `systems/sight/cad/stereo_baseline_calc.py (optimizes camera separation B vs. 0.3 m – 4.0 m indoor depth precision and downward floor view)`
   - **Verify**: `python3 systems/sight/cad/stereo_baseline_calc.py --verify`
@@ -1015,9 +1015,9 @@ flowchart LR
   - **Deliverables**: `systems/sight/perception/nav_dashboard.py (live 2.5D map + planned path + brain RL state viewer + bounded speed cap for indoor trials)`
   - **Verify**: `uv run --with pytest pytest systems/sight/tb/test_nav_dashboard.py`
   - **First Principles**: Enforcing conservative indoor speed ceilings and live path visualization before untethered autonomous navigation runs *(VISION.md)*
-- [ ] **`sight-28`** — **Bench 32 (Final Apex Graduation): Autonomous Point-to-Point Obstacle-Avoiding Dog** *(🔧 Bench · ⬜ Pending)*
+- [ ] **`sight-28`** — **Bench 32 (Final Apex Graduation): Autonomous Point-to-Point Obstacle-Avoiding Quadruped** *(🔧 Bench · ⬜ Pending)*
   - **Deliverables**: `Bolt sight head onto walker, command a 5-meter indoor goal across furniture obstacles & verify autonomous VIO + planning + RL walking`
   - **Verify**: `Robot walks untethered from start to goal, avoids static and moving obstacles smoothly, and halts cleanly on target`
-  - **First Principles**: Full-stack convergence: blank SystemVerilog -> custom compiler & RTOS -> 6-layer circuit board -> FOC drives -> power spine -> Sim-to-Real RL -> autonomous spatial navigation *(VISION.md)*
+  - **First Principles**: Full-stack convergence: custom SystemVerilog -> custom compiler & RTOS -> 6-layer circuit board -> FOC drives -> power spine -> Sim-to-Real RL -> autonomous spatial navigation *(VISION.md)*
 
 </details>

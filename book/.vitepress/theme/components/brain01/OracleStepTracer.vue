@@ -92,7 +92,7 @@ const scenarios: Scenario[] = [
       {
         stepNum: 5,
         asm: '0x14: jalr x0, 0(x5)   # Jump and Link Register: return to 0x0C',
-        stageNote: '_set_reg(0, 0x18) discards write to x0! Jumps cleanly back to caller at 0x0C.',
+        stageNote: '_set_reg(0, 0x18) discards write to x0; PC jumps back to caller at 0x0C.',
         pc: '0x0000_0014',
         insnHex: '0x0002_8067',
         nextPc: '0x0000_000C',
@@ -184,7 +184,7 @@ const scenarios: Scenario[] = [
       {
         stepNum: 4,
         asm: '0x0C: sh x2, 2(x1)     # Store 16-Bit Halfword (0x80FF) at +2..+3',
-        stageNote: 'Overwrites bytes +2 (0xFF) and +3 (0x80), turning the 32-bit word into 0x80FF_80FF!',
+        stageNote: 'Overwrites bytes +2 (0xFF) and +3 (0x80), turning the 32-bit word into 0x80FF_80FF.',
         pc: '0x0000_000C',
         insnHex: '0x0020_9123',
         nextPc: '0x0000_0010',
@@ -205,7 +205,7 @@ const scenarios: Scenario[] = [
     id: 'trap_irq',
     title: '3. Exact Trap & Timer Preemption (1 Instruction per Step)',
     summary:
-      'Every step below is 1 literal RV32Oracle.step() call with vectored mtvec = 0x1000_0001: watch ECALL jump to 0x1000_0000 (advancing mepc to 0x18), then watch CLINT preempt 0x18 at mtime = 4 and jump to 0x1000_001C!',
+      'Executes one RV32Oracle.step() call per frame with vectored mtvec = 0x1000_0001: ECALL traps to 0x1000_0000 (advancing mepc to 0x18), then CLINT preempts 0x18 at mtime = 4 and branches to 0x1000_001C.',
     frames: [
       {
         stepNum: 0,
@@ -228,7 +228,7 @@ const scenarios: Scenario[] = [
       {
         stepNum: 1,
         asm: '0x0000_0014: ecall                  # Synchronous Environment Call',
-        stageNote: 'Saves mepc=0x14, mcause=11, shifts MIE->MPIE, clears MIE=0, jumps to mtvec base 0x1000_0000 (minstret stays 0!).',
+        stageNote: 'Saves mepc=0x14, mcause=11, shifts MIE->MPIE, clears MIE=0, jumps to mtvec base 0x1000_0000 (minstret stays 0).',
         pc: '0x0000_0014',
         insnHex: '0x0000_0073',
         nextPc: '0x1000_0000',
@@ -281,8 +281,8 @@ const scenarios: Scenario[] = [
       },
       {
         stepNum: 4,
-        asm: '[Interrupt] mtime hits 4 >= mtimecmp BEFORE fetching 0x18!',
-        stageNote: 'Saves unexecuted mepc=0x18, mcause=0x8000_0007, and vectored mtvec jumps straight to base + 4*7 = 0x1000_001C!',
+        asm: '[Interrupt] mtime reaches 4 (>= mtimecmp) before fetching 0x18',
+        stageNote: 'Saves unexecuted mepc=0x18, mcause=0x8000_0007, and vectored mtvec branches directly to base + 4*7 = 0x1000_001C.',
         pc: '0x0000_0018',
         insnHex: '0x0000_0000 (Timer Interrupt)',
         nextPc: '0x1000_001C',
@@ -300,7 +300,7 @@ const scenarios: Scenario[] = [
       {
         stepNum: 5,
         asm: '0x1000_001C: sw x3, 12(x2)          # Write 0xFFFF_FFFF to mtimecmp_hi',
-        stageNote: 'Timer handler silences alarm by raising mtimecmp ceiling; leaves mepc = 0x18 unchanged!',
+        stageNote: 'Timer handler silences alarm by raising mtimecmp ceiling, leaving mepc = 0x18 unchanged.',
         pc: '0x1000_001C',
         insnHex: '0x0031_2623',
         nextPc: '0x1000_0020',
@@ -318,7 +318,7 @@ const scenarios: Scenario[] = [
       {
         stepNum: 6,
         asm: '0x1000_0020: mret                   # Return from Timer Interrupt',
-        stageNote: 'Restores MIE=1 and jumps straight back to mepc=0x18 so the preempted instruction can finally run!',
+        stageNote: 'Restores MIE=1 and jumps back to mepc=0x18 so the preempted instruction executes.',
         pc: '0x1000_0020',
         insnHex: '0x3020_0073',
         nextPc: '0x0000_0018',
@@ -335,8 +335,8 @@ const scenarios: Scenario[] = [
       },
       {
         stepNum: 7,
-        asm: '0x0000_0018: addi x20, x0, 42       # Preempted main instruction executes!',
-        stageNote: 'Commits 42 to x20! Notice mcycle (7) > minstret (5) by exactly the 2 trap entries.',
+        asm: '0x0000_0018: addi x20, x0, 42       # Preempted main instruction executes',
+        stageNote: 'Commits 42 to x20. Note mcycle (7) > minstret (5) by the 2 trap entries.',
         pc: '0x0000_0018',
         insnHex: '0x02A0_0A13',
         nextPc: '0x0000_001C',
@@ -357,7 +357,7 @@ const scenarios: Scenario[] = [
     id: 'xapex_mac',
     title: '4. Custom Xapex MAC (Dual-Int16 SIMD & Saturation)',
     summary:
-      'Shows all packed input registers alongside destination registers, executing 1 Xapex instruction per step and clamping overflow safely at INT32_MAX.',
+      'Displays all packed input registers alongside destination registers, executing one Xapex instruction per step and saturating overflow at INT32_MAX.',
     frames: [
       {
         stepNum: 0,
@@ -445,8 +445,8 @@ const scenarios: Scenario[] = [
       },
       {
         stepNum: 4,
-        asm: '0x0C: mac x15, x6, x6       # + 2,147,352,578 -> Clamps at INT32_MAX!',
-        stageNote: 'True sum 4,294,705,156 exceeds INT32_MAX; sat32() clamps cleanly at +2,147,483,647 instead of wrapping negative!',
+        asm: '0x0C: mac x15, x6, x6       # + 2,147,352,578 -> Clamps at INT32_MAX',
+        stageNote: 'True sum 4,294,705,156 exceeds INT32_MAX; sat32() saturates at +2,147,483,647 rather than wrapping negative.',
         pc: '0x0000_000C',
         insnHex: '0x0063_078B',
         nextPc: '0x0000_0010',

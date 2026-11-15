@@ -11,7 +11,7 @@ const REPO_ROOT = path.resolve(__dirname, '../..')
 export default defineConfig({
   title: 'Apex Systems Textbook',
   description:
-    'From-Scratch Silicon, Circuit Boards, Compilers, Real-Time OS & Dynamic Robotics — Written for Software Engineers',
+    'Digital Silicon, Circuit Boards, Compilers, Real-Time Operating Systems & Quadruped Robotics — An Integrated Systems Engineering Textbook',
   base: process.env.BOOK_BASE ?? '/',
   srcDir: '..',
   cleanUrls: true,

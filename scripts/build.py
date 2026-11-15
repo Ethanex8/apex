@@ -344,13 +344,13 @@ def _render_roadmap_overview(data: dict, metrics: dict) -> list[str]:
     """Render header summary, summary table, dependency DAG, and procurement sections."""
     repo = data["repository"]
     lines: list[str] = [
-        "# Apex Engineering Roadmap (Couch-to-Silicon)",
+        "# Apex Engineering Roadmap",
         "",
         (
-            f"Generated from [`roadmap.yaml`](./roadmap.yaml). Tracks **{len(metrics['sys_metrics'])} integrated systems** "
-            f"and **{metrics['total_steps']} atomic steps** "
-            f"(**{metrics['total_couch']} couch** `{metrics['pct_couch']:.0f}%` / **{metrics['total_bench']} bench**) "
-            f"building one cohesive `{repo['robot_class']}`."
+            f"Generated from [`roadmap.yaml`](./roadmap.yaml). Tracks **{len(metrics['sys_metrics'])} integrated subsystems** "
+            f"and **{metrics['total_steps']} engineering milestones** "
+            f"(**{metrics['total_couch']} design & simulation** `{metrics['pct_couch']:.0f}%` / **{metrics['total_bench']} bench sessions**) "
+            f"for a unified hardware platform ({repo['robot_class']})."
         ),
         "",
         "---",
@@ -362,8 +362,8 @@ def _render_roadmap_overview(data: dict, metrics: dict) -> list[str]:
             f"**{metrics['total_approved']} / {metrics['total_steps']} steps** (`{metrics['pct_total']:.1f}%`)"
         ),
         (
-            f"- **Couch Steps**: **{metrics['total_couch_done']} / {metrics['total_couch']}** · "
-            f"**Bench Sessions**: **{metrics['total_bench_done']} / {metrics['total_bench']}**"
+            f"- **Design & Simulation**: **{metrics['total_couch_done']} / {metrics['total_couch']}** · "
+            f"**Hardware Bench Sessions**: **{metrics['total_bench_done']} / {metrics['total_bench']}**"
         ),
     ]
     if metrics["active_step"]:
@@ -371,7 +371,7 @@ def _render_roadmap_overview(data: dict, metrics: dict) -> list[str]:
         lines.append(
             f"- **Active Step**: **`{st['id']}`** ({mode_badge(st['mode'])}, {status_badge(st['status'])}) — {st['title']}"
         )
-    lines.extend(["", "| # | System | Role | Progress | Couch / Bench | Est. Timeline | Workspace |"])
+    lines.extend(["", "| # | Subsystem | Role | Progress | Design / Bench | Est. Timeline | Workspace |"])
     lines.append("| :---: | :--- | :--- | :--- | :---: | :---: | :--- |")
     for sm in metrics["sys_metrics"]:
         sys_obj = sm["system"]
@@ -392,10 +392,10 @@ def _render_roadmap_overview(data: dict, metrics: dict) -> list[str]:
         sid = sm["system"]["id"]
         for dep in sm["system"].get("depends_on") or []:
             lines.append(f"    {dep} --> {sid}")
-    lines.extend(["```", "", "---", "", "## Home Safety & Phased Procurement", ""])
+    lines.extend(["```", "", "---", "", "## Safety Guardrails & Phased Procurement", ""])
     for sg in data["safety_guardrails"]:
         lines.append(f"- **{sg['name']}**: {sg['description']}")
-    lines.extend(["", "| Stage | Est. Cost | What You Order |", "| :--- | :---: | :--- |"])
+    lines.extend(["", "| Stage | Est. Cost | Components & Equipment |", "| :--- | :---: | :--- |"])
     for item in data["phased_procurement"]:
         lines.append(f"| **{item['stage']}** | **{item['est_cost_usd']}** | {item['items']} |")
     return lines
@@ -405,20 +405,20 @@ def _render_system_section(sm: dict) -> list[str]:
     """Render one system's phase progress table and collapsible step checklists."""
     sys_obj = sm["system"]
     sid = sys_obj["id"]
-    deps = ", ".join(f"`{d}`" for d in sys_obj.get("depends_on") or []) or "None (Start Here)"
+    deps = ", ".join(f"`{d}`" for d in sys_obj.get("depends_on") or []) or "None (Entry Subsystem)"
     lines = [
         f"### {sys_obj['order']}. `{sid}` — {sys_obj['name']}",
         "",
         f"- **Role**: {sys_obj['role']}",
         f"- **Workspace**: [`{sys_obj['workspace']}`]({sys_obj['workspace']})",
         f"- **Builds On**: {deps}",
-        f"- **Graduation Demo**: {sys_obj['graduation_demo']}",
+        f"- **Integration Milestone**: {sys_obj['graduation_demo']}",
         (
             f"- **Progress**: `{render_progress_bar(sm['pct'], 12)}` **{sm['approved']} / {sm['total']}** "
-            f"(`{sm['couch']}` couch / `{sm['bench']}` bench)"
+            f"(`{sm['couch']}` design / `{sm['bench']}` bench)"
         ),
         "",
-        "| Phase | Steps Done | Couch / Bench | Progress |",
+        "| Phase | Steps Done | Design / Bench | Progress |",
         "| :--- | :---: | :---: | :--- |",
     ]
     for ph in sm["phases"]:
@@ -462,27 +462,27 @@ def render_roadmap_md(data: dict, metrics: dict) -> str:
 
 
 def _render_readme_guide(total_steps: int) -> list[str]:
-    """Return the Repository Guide and Couch-to-Silicon workflow sections for `README.md`."""
+    """Return the Repository Guide and Engineering Methodology sections for `README.md`."""
     return [
         "",
         "---",
         "",
         "## Repository Guide",
         "",
-        f"- [**`Apex Interactive Textbook (GitHub Pages)`**]({PAGES_BOOK_URL}) — 6-volume VitePress engineering textbook ([`book/`](./book/index.md)) publishing `systems/*/chapters/*.md` with auto-synced repo code transclusions & hardware widgets.",
-        "- [**`VISION.md`**](./VISION.md) — Two-Brain architecture, locked hardware/protocol interfaces, home safety & parts budget.",
-        f"- [**`ROADMAP.md`**](./ROADMAP.md) — Full phase breakdowns, ordering schedule & all {total_steps} step checklists.",
-        "- [**`roadmap.yaml`**](./roadmap.yaml) — Canonical declarative source of truth for systems, steps & review state.",
+        f"- [**`Apex Interactive Textbook`**]({PAGES_BOOK_URL}) — Six-volume VitePress textbook ([`book/`](./book/index.md)) compiling `systems/*/chapters/*.md` with synchronized source excerpts and interactive hardware figures.",
+        "- [**`VISION.md`**](./VISION.md) — Dual-processor architecture, electrical and protocol interface contracts, safety limits, and bill of materials.",
+        f"- [**`ROADMAP.md`**](./ROADMAP.md) — Phase breakdowns, procurement schedule, and all {total_steps} step checklists.",
+        "- [**`roadmap.yaml`**](./roadmap.yaml) — Declarative manifest of subsystems, milestones, and verification state.",
         "- [**`systems/`**](./systems/brain/README.md) — Subsystem workspaces (`brain`, `drive`, `power`, `limb`, `walker`, `sight`).",
-        "- [**`scripts/`**](./scripts/step.py) — [`step.py`](./scripts/step.py), [`build.py`](./scripts/build.py), [`sync_book.py`](./scripts/sync_book.py), [`check_book.py`](./scripts/check_book.py), and [`check_code.py`](./scripts/check_code.py) lifecycle, anchor-sync, and quality gates.",
+        "- [**`scripts/`**](./scripts/step.py) — [`step.py`](./scripts/step.py), [`build.py`](./scripts/build.py), [`sync_book.py`](./scripts/sync_book.py), [`check_book.py`](./scripts/check_book.py), and [`check_code.py`](./scripts/check_code.py) milestone tracking, documentation synchronization, and static checks.",
         "",
         "---",
         "",
-        "## How Couch-to-Silicon Works",
+        "## Engineering Methodology",
         "",
-        "1. **Agent Implements & Verifies One Atomic Step (roughly 50–150 LOC)**: Runs real `Verilator` digital simulations, `Yosys`/`nextpnr` FPGA builds, KiCad circuit-board checks (`ERC`/`DRC`), trace-impedance solvers, `MuJoCo` physics, or `pytest` inside the VM.",
-        "2. **Multi-Pass Interactive Textbook Chapter (`30–60 min`)**: Alongside each step, a 4-pass authoring pipeline produces an unhurried textbook chapter in `systems/<system>/chapters/` published to GitHub Pages with auto-synced repo code and interactive explorers.",
-        "3. **Ask Why, Then `LGTM`**: Review a calm mobile summary + full rendered chapter; interrogate any derivation or trade-off before approving Step `N`.",
+        "1. **Incremental Specification & Simulation**: Each design milestone implements a bounded module verified in `Verilator` digital simulation, `Yosys`/`nextpnr` FPGA synthesis, KiCad electrical/layout checks (`ERC`/`DRC`), transmission-line solvers, `MuJoCo` rigid-body dynamics, or `pytest`.",
+        "2. **First-Principles Textbook Documentation**: Design milestones pair verified source code and hardware descriptions with chapters in `systems/<system>/chapters/`, linking code anchors directly to the analytical derivations.",
+        "3. **Staged Hardware Bring-Up**: Subsystems pass automated simulation and board-level verification gates before physical assembly, current-limited power-on testing, and system integration.",
     ]
 
 
@@ -494,17 +494,16 @@ def render_readme_md(data: dict, metrics: dict) -> str:
         "",
         repo["tagline"],
         "",
-        f"- **Target Machine**: {repo['robot_class']}",
-        f"- **Estimated Cost**: {repo['estimated_total_bom_usd']}",
+        f"- **Target Platform**: {repo['robot_class']}",
+        f"- **Estimated BOM**: {repo['estimated_total_bom_usd']}",
         (
-            f"- **Workflow**: **{metrics['total_couch']} / {metrics['total_steps']} steps (`{metrics['pct_couch']:.0f}%`)** "
-            "built by AI agents & verified in simulation or automated board checks for mobile **couch review**, paired with "
-            f"**{metrics['total_bench']} batched weekend bench sessions**."
+            f"- **Scope**: **{metrics['total_couch']} / {metrics['total_steps']} design & simulation steps (`{metrics['pct_couch']:.0f}%`)** "
+            f"paired with **{metrics['total_bench']} hardware assembly and laboratory bring-up sessions**."
         ),
         "",
         "---",
         "",
-        "## Active Step Queue",
+        "## Active Milestone",
         "",
     ]
     if metrics["active_step"]:
@@ -523,17 +522,17 @@ def render_readme_md(data: dict, metrics: dict) -> str:
         [
             "",
             "```bash",
-            "python3 scripts/step.py status          # Progress across all 6 systems",
+            "python3 scripts/step.py status          # Progress across all 6 subsystems",
             "python3 scripts/step.py next            # Inspect next pending step & verification gate",
             "python3 scripts/check_code.py           # Run AST docstring/modularity, Ruff, and ShellCheck gates",
-            "python3 scripts/build.py --check        # Validate roadmap invariants, book sync & zero doc drift",
+            "python3 scripts/build.py --check        # Validate roadmap invariants, book sync & doc consistency",
             "```",
             "",
             "---",
             "",
-            "## The 6 Zero-Throwaway Systems",
+            "## Subsystems",
             "",
-            "| # | System | What It Builds | Steps (Done / Total) | Couch / Bench | Timeline |",
+            "| # | Subsystem | Scope | Progress | Design / Bench | Timeline |",
             "| :---: | :--- | :--- | :---: | :---: | :---: |",
         ]
     )

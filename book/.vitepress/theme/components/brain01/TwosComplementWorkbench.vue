@@ -112,10 +112,10 @@ function hex12(n: number): string {
     <!-- TAB 1: 4-BIT RING -->
     <div v-if="activeTab === 'ring'">
       <p style="margin: 0 0 12px 0; color: var(--vp-c-text-2); font-size: 13.5px">
-        Click any bit below to flip it. Notice that <strong>Bit 3</strong> has weight
-        <code>+8</code> in unsigned math (<code>u4</code>), or <code>-8</code> in signed two's
-        complement (<code>s4</code>)—yet the <strong>exact same binary addition</strong> produces
-        the right answer for both!
+        Click any bit below to toggle it. Notice that <strong>Bit 3</strong> carries weight
+        <code>+8</code> in unsigned representation (<code>u4</code>) and <code>-8</code> in
+        two's complement (<code>s4</code>), yet the identical 4-bit binary adder computes the
+        correct modular sum for both.
       </p>
 
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; align-items: center">
@@ -189,9 +189,9 @@ function hex12(n: number): string {
                 <strong>Signed view:</strong> ({{ aS4 }}) + ({{ bS4 }}) →
                 <code class="hw-mono">{{ sumS4 >= 0 ? `+${sumS4}` : sumS4 }}</code>
                 <span v-if="signedOverflow" style="color: #dc2626; font-weight: 600">
-                  (signed 4-bit overflow! True sum {{ aS4 + bS4 }} outside [-8..+7])
+                  (signed 4-bit overflow: true sum {{ aS4 + bS4 }} outside [-8..+7])
                 </span>
-                <span v-else style="color: #10b981; font-weight: 600"> (exact!) </span>
+                <span v-else style="color: #10b981; font-weight: 600"> (exact) </span>
               </div>
             </div>
           </div>

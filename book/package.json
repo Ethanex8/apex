@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Apex: Couch-to-Silicon Interactive Engineering Textbook",
+  "description": "Apex: Integrated Systems Engineering Textbook",
   "scripts": {
     "dev": "vitepress dev . --host 0.0.0.0 --port 5173",
     "build": "vitepress build .",

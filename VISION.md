@@ -1,97 +1,96 @@
-# Apex Vision: From Blank Files to a Walking Robot Dog
+# System Architecture & Engineering Vision
 
-**Apex** is a project-first, **"Couch-to-Silicon"** engineering platform where you build every layer of a small, living-room-safe (`~2.5 kg`) autonomous walking robot dog—its computer chip, circuit boards, C compiler, real-time operating system, smart electric muscles, power protection board, and stereo-camera eyes—one small, mobile-reviewable step at a time.
+**Apex** is a full-stack hardware and robotics project that builds every layer of a compact, indoor-safe (`about 2.5 kg`) autonomous quadruped from first principles: a custom 32-bit processor on programmable logic, a 6-layer carrier board, a C compiler and real-time operating system, force-controlled brushless actuators, a solid-state power distribution spine, and synchronized stereo vision.
 
-Instead of reading textbooks in isolation for years before touching hardware, every math equation, physics law, compiler pass, circuit trace, and control algorithm is learned **Just-In-Time** right when a real physical subsystem needs it.
-
----
-
-## Hardware Shorthand in Plain English (For Software Engineers)
-
-If you come from software engineering, hardware terms often sound like an alphabet soup. Here is what the six systems actually mean in everyday language:
-
-1. **Custom CPU & Motherboard on Programmable Silicon (`brain`)**: You write your own open-source **RISC-V** processor (like designing your own tiny ARM/x86 chip) plus an AI multiply-add instruction (**MAC**) in hardware-description code (**SystemVerilog**), load it onto a reprogrammable **FPGA** chip, plug it into a custom **6-layer circuit board (PCB)** with 32 MB of RAM, and run your own **scratch C compiler** and strict-deadline **Real-Time OS (RTOS)** on it.
-2. **Force-Controlled Electric Muscles (`drive`)**: Cheap hobby servos blindly jam to a target angle and snap gears on uneven ground. We pair strong drone-style brushless motors with a custom **24V motor-driver board** that controls **exact electrical current = exact physical force** 20,000 times a second (**Field-Oriented Control / FOC**)—turning each joint into a programmable spring and shock absorber.
-3. **Surge Protector, Breaker & Fuel Gauge (`power`)**: Twelve motors powering up at once draw a massive surge of electricity that can spark connectors or brown out your CPU. Our **smart power spine** gently pre-charges the motor rail, acts as a microsecond electronic circuit breaker (**e-fuse**) with a big red **E-stop** button, and runs a smart statistical filter (**Kalman filter**) to estimate remaining battery charge.
-4. **One Hopping Leg (`limb`)**: Before building 12 joints, we bolt 3 muscles together into a single leg on a desk rail so it can feel gravity, absorb drops softly, and hop—and that exact leg becomes **Leg #1 of 4** with zero thrown-away parts.
-5. **Simulator-Trained Walking Robot Dog (`walker`)**: We bolt 4 legs onto a light carbon torso, train a neural walking policy inside a 3D physics simulator (**MuJoCo**), and transfer it directly onto your custom RISC-V CPU (**Sim-to-Real**).
-6. **Stereo Camera Eyes (`sight`)**: Two synchronized cameras (like left/right human eyes) measure 3D room depth, map furniture (**SLAM**), and send simple *"walk forward / turn left"* commands down to the spinal-cord CPU.
+Rather than treating software, electronics, and dynamics as isolated subjects, each mathematical derivation, circuit layout, compiler pass, and control loop is developed directly alongside the subsystem that requires it.
 
 ---
 
-## 1. The 6 Zero-Throwaway Systems
+## Architectural Overview for Software Engineers
 
-Every subsystem works as a rewarding standalone machine on your desk *and* bolts directly into the final autonomous robot dog with **zero wasted parts and zero circuit-board respins**:
+Transitioning from application or systems software into silicon design, power electronics, and legged robotics introduces unfamiliar terminology. Seen through a systems-software lens, the six subsystems of Apex form a unified vertical stack:
+
+1. **Custom Processor, Motherboard, Compiler & RTOS (`brain`)**: An open-source **RISC-V** processor extended with a neural multiply-accumulate instruction (**`mac`**) is written in a hardware-description language (**SystemVerilog**), synthesized onto a reprogrammable **Field-Programmable Gate Array (`FPGA`)**, mounted on a custom **6-layer printed circuit board (`PCB`)** with 32 MB of RAM, and programmed using a custom **SysC compiler** and preemptive **Real-Time Operating System (`RTOS`)**.
+2. **Force-Controlled Brushless Actuators (`drive`)**: Position-only hobby servos drive aggressively toward a target angle and strip gears upon unexpected floor impact. Here, flat brushless motors pair with a custom **24V inverter board** that regulates exact coil current—and therefore output torque—at 20,000 Hz via **Field-Oriented Control (`FOC`)**, turning each joint into a programmable spring and damper.
+3. **Power Distribution, Soft Pre-Charge & Protection (`power`)**: Twelve motor-driver boards contain large decoupling capacitors that momentarily behave like dead shorts at power-on, causing connector arcing or processor brownouts. The power spine gently pre-charges the motor bus, acts as a microsecond solid-state circuit breaker (**e-fuse**) wired to a physical emergency-stop (**E-stop**) switch, and runs an **Extended Kalman Filter (`EKF`)** to track remaining battery **State of Charge (`SoC`)**.
+4. **Single Articulated Leg & Hopping Testbed (`limb`)**: Before scaling to twelve joints, three `drive` actuators bolt together into a single 3-DOF leg on a desktop linear rail to master gravity compensation, impact absorption, and cyclic hopping. That exact hardware assembly transfers directly to the final quadruped as Front-Left Leg #1.
+5. **Full Quadruped Dynamics & Locomotion (`walker`)**: Four legs attach to a lightweight carbon-and-aluminum torso bay. A model-based balance controller and a neural locomotion policy trained in 3D physics simulation (**`MuJoCo`**) are quantized and deployed natively onto the custom RISC-V processor (**Sim-to-Real**).
+6. **Synchronized Stereo Vision & Navigation (`sight`)**: Two global-shutter cameras measure 3D room depth, fuse visual features with inertial measurements (**Visual-Inertial Odometry / `VIO`**), map obstacles (**`SLAM`**), and send bounded velocity commands down to the spinal-cord CPU.
+
+---
+
+## 1. The Six Integrated Subsystems
+
+Every subsystem is verified first as a standalone benchtop unit and then integrates directly into the final quadruped with zero throwaway hardware or circuit-board revisions:
 
 ```mermaid
 flowchart TD
-    SIGHT["6. sight — Stereo Camera Eyes<br/>(2x Global-Shutter Cameras + 3D Room Mapping + Path Planner)"]
-    BRAIN["1. brain — Custom CPU & Spinal Cord<br/>(Programmable FPGA CPU + AI Math Unit + Scratch Compiler + RTOS + 6-Layer Board)"]
-    POWER["3. power — Surge Protector & Breaker<br/>(Safe Battery + Soft Pre-Charge + Microsecond E-Fuse + Fuel Gauge)"]
-    DRIVE["2. drive — Force-Controlled Muscle<br/>(Brushless Motor Driver Board + 8:1 Low-Backlash Gearbox)"]
-    LIMB["4. limb — 3-Joint Hopping Leg<br/>(3D Leg Math + Soft Landing + Hopping — Becomes Leg #1)"]
-    WALKER["5. walker — 4-Legged Walking Robot<br/>(Physics-Sim Balance + Simulator-Trained Neural Walking on brain)"]
+    SIGHT["6. sight — Stereo Vision & Navigation<br/>(2x Global-Shutter Cameras + 3D Mapping + Path Planner)"]
+    BRAIN["1. brain — Custom CPU & Spinal Cord<br/>(FPGA CPU + AI Math Unit + SysC Compiler + RTOS + 6-Layer Board)"]
+    POWER["3. power — Power Spine & Protection<br/>(Safe Battery + Soft Pre-Charge + Microsecond E-Fuse + Fuel Gauge)"]
+    DRIVE["2. drive — Force-Controlled Actuator<br/>(Brushless Driver Board + 8:1 Low-Backlash Gearbox)"]
+    LIMB["4. limb — 3-Joint Hopping Leg<br/>(3D Kinematics + Soft Landing + Hopping — Becomes Leg #1)"]
+    WALKER["5. walker — 4-Legged Quadruped<br/>(Model-Based Balance + Quantized RL Locomotion on brain)"]
 
-    DRIVE -->|"3x muscles"| LIMB
+    DRIVE -->|"3x actuators"| LIMB
     BRAIN -->|"1,000 Hz motor bus"| LIMB
     POWER -->|"Safe < 22V power + 5V logic"| LIMB
     LIMB -->|"becomes Leg #1 of 4"| WALKER
-    BRAIN -->|"runs 50 Hz walking brain + balance"| WALKER
-    POWER -->|"protects all 12 muscles"| WALKER
-    SIGHT -->|"walk commands + FPGA camera sync"| BRAIN
+    BRAIN -->|"runs 50 Hz locomotion + balance"| WALKER
+    POWER -->|"protects all 12 actuators"| WALKER
+    SIGHT -->|"velocity commands + FPGA camera sync"| BRAIN
     WALKER --> SIGHT
 ```
 
-| # | System | What You Build From Scratch (Plain English) | Standalone Desk Demo | Role in Final Robot |
+| # | System | Core Engineering Deliverables | Standalone Benchtop Milestone | Role in Final Robot |
 | :---: | :--- | :--- | :--- | :--- |
-| **1** | **`brain`** | Your own 5-stage **RISC-V** processor + AI multiply-add unit in SystemVerilog; memory controllers for 32 MB RAM & 16 MB Flash; motor/sensor ports; a **6-layer circuit board** with trace-echo test jacks; and your own **C compiler, assembler, linker & real-time OS** | Boots an interactive terminal (`ash`), runs a rock-steady 1,000 Hz tilt/PID loop (`< 2 µs` jitter), and runs a neural walking network in `< 0.6 ms` | Real-time cerebellum & 12-motor spinal cord |
-| **2** | **`drive`** | Custom 4-layer brushless motor-driver board (`24V`, `30A`), bare-metal 20 kHz force-control firmware (`FOC`), and an `8:1` gearbox designed and stress-tested in 3D CAD | A haptic wheel that feels like a programmable spring/damper in your fingers, driven live by `brain` | One joint muscle (`12x` used across 4 legs) |
-| **3** | **`power`** | Custom heavy-copper power board with gentle startup pre-charge, `< 5 µs` solid-state circuit breaker (`e-fuse`), physical red E-stop, clean `5V` computer rail & battery fuel-gauge filter | Survives massive startup surges and intentional dead-shorts while accurately tracking remaining battery charge under a 150W load | Safe battery & surge-protection spine (`< 22V`) |
-| **4** | **`limb`** | 3-joint carbon/nylon leg hardware, 3D geometry & force math, impact-absorbing soft landing control, and a vertical hopping controller written in your own C language on `brain` | Floats weightlessly when lifted by hand and hops smoothly up and down on a compact desk rail | Front-Left Leg #1 (moves straight onto the robot) |
-| **5** | **`walker`** | Light `~2.5 kg` torso frame + wire harnesses, body motion estimator, predictive balance solver (`MPC`), and a neural walking policy trained in a 3D physics simulator and compiled onto `brain` | Stands up on its own, recovers from shoves, and trots untethered across carpet using your custom chip and compiler | The complete dynamic walking robot |
-| **6** | **`sight`** | Two synchronized stereo cameras + compact vision computer wired to `brain`'s camera-flash sync pulse, building live 3D room obstacle maps and planning safe paths | Maps a room while carried by hand, then bolts onto `walker` to walk around chairs and obstacles on its own | High-level vision & navigation head |
+| **1** | **`brain`** | 5-stage **RISC-V** processor + `mac` dot-product unit in SystemVerilog; 32 MB SDRAM & 16 MB QSPI Flash controllers; motor/sensor peripherals; **6-layer PCB** with trace-echo test coupons; custom **C compiler, assembler, linker & RTOS** | Boots an interactive shell (`ash`), executes a deterministic 1,000 Hz tilt/PID loop (`< 2 µs` jitter), and runs a neural walking network in `< 0.6 ms` | Real-time cerebellum & 12-motor spinal cord |
+| **2** | **`drive`** | 4-layer brushless inverter board (`24V`, `30A`), bare-metal 20 kHz force-control firmware (`FOC`), and an `8:1` planetary gearbox designed and stress-analyzed in 3D CAD | A haptic wheel behaving as a programmable spring and damper under live commands from `brain` | Joint actuator (`12x` across 4 legs) |
+| **3** | **`power`** | Heavy-copper power distribution board with soft pre-charge, `< 5 µs` bidirectional **e-fuse**, physical E-stop loop, regulated `5V` logic rail & `EKF` fuel gauge | Survives startup surges and intentional dead-shorts while accurately tracking battery charge under a 150W pulse load | Safe battery & surge-protection spine (`< 22V`) |
+| **4** | **`limb`** | 3-joint carbon/nylon leg structure, `SE(3)` screw kinematics & Jacobian torque mapping, impact-absorbing impedance control, and vertical hopping firmware in `SysC` on `brain` | Floats under gravity compensation when lifted and hops smoothly along a compact desktop rail | Front-Left Leg #1 (transfers directly onto chassis) |
+| **5** | **`walker`** | Lightweight `about 2.5 kg` torso frame + wire harnesses, floating-base state estimator (`ESKF`), convex predictive balance solver (`MPC`), and quantized RL locomotion policy on `brain` | Stands autonomously, recovers from lateral shoves, and trots untethered across indoor flooring | Complete dynamic quadruped platform |
+| **6** | **`sight`** | Two synchronized stereo cameras + compact vision computer phase-locked to `brain`'s shutter pulse, building live 3D occupancy maps and planning collision-free paths | Maps a room while carried by hand, then mounts onto `walker` for autonomous obstacle avoidance | High-level perception & navigation head |
 
 ---
 
-## 2. The Two-Brain Architecture & Cross-System Interface Contracts
+## 2. The Two-Brain Architecture & Locked Interface Contracts
 
-Why split compute into **`brain`** (custom RISC-V programmable-silicon processor) and **`sight`** (companion stereo-camera computer)?
+Why partition compute between **`brain`** (a custom RISC-V FPGA System-on-Chip) and **`sight`** (a companion stereo-vision computer)?
 
 1. **Deterministic Real-Time Spinal Cord (`brain`, 50–100 MHz FPGA System-on-Chip)**:
-   - Body-balance walking networks (`48 sensor inputs -> 128 -> 128 -> 12 joint targets` running 50 times per second) require only **24,064 multiply-accumulate (`MAC`) operations** per tick.
-   - By adding a single custom packed fixed-point dot-product instruction (`mac`) in RISC-V's open `custom-0` instruction slot and teaching our scratch `SysC` compiler to emit it, a 50 MHz soft processor finishes the entire neural forward pass in **`< 0.6 ms`**, leaving **`> 96%` CPU headroom** for the 1,000 Hz 6-axis motion sensor (`ICM-42688-P` accelerometer + gyroscope), dual 5 Mbps motor buses, safety limits, and terminal telemetry.
-   - Mounted at the **center of the robot's torso** with static memory allocation (zero garbage collection or OS paging), `brain`'s `< 2 µs` 1,000 Hz motor loop stays physically isolated from variable-latency camera processing behind a `150 ms` zero-velocity safety timeout (**watchdog**).
+   - Quadruped locomotion networks (`48 sensor inputs -> 128 -> 128 -> 12 joint targets` at 50 Hz) require only **24,064 multiply-accumulate (`MAC`) operations** per tick.
+   - By adding a single custom packed fixed-point dot-product instruction (`mac`) in RISC-V's `custom-0` opcode slot and teaching our `SysC` compiler to emit it, a 50 MHz soft processor completes the neural forward pass in **`< 0.6 ms`**, leaving **`> 96%` CPU headroom** for the 1,000 Hz 6-axis motion sensor (`ICM-42688-P` accelerometer + gyroscope), dual 5 Mbps motor buses, safety envelopes, and telemetry.
+   - Mounted at the **center of the torso** with static memory allocation (zero garbage collection or virtual-memory paging), `brain`'s `< 2 µs` 1,000 Hz motor loop remains physically isolated from variable-latency vision processing behind a `150 ms` zero-velocity **watchdog** timeout.
 2. **High-Bandwidth Visual Cortex (`sight`, Compact Linux Computer + Neural Accelerator)**:
-   - Stereo depth matching (roughly `491 million` pixel-window checks per second at `640×400` resolution, `30 frames/sec`), double-precision (`FP64`) 3D map optimization (**sparse bundle adjustment**), and 8-bit integer (`INT8`) person/obstacle detection exceed `brain`'s FPGA chip (`20,736` programmable 4-input logic lookup tables / `LUT4`s and `103.5 KB` of on-chip scratchpad `SRAM`) by roughly **`1,000×`**. Mounting `sight` directly behind the front camera lenses also keeps `800 Mbps` high-speed camera ribbon cables (**MIPI CSI-2**) under `4 cm` long, away from `30A` switching motor wires.
-   - **Deliberate Division of From-Scratch Labor**: Because `brain`, `drive`, and `power` already build the CPU, circuit boards, C compiler, real-time OS, and bare-metal motor loops from blank files, `sight` uses minimal embedded Linux (for zero-copy camera memory transfers via `V4L2 DMA` and Wi-Fi telemetry) plus a dedicated neural inference chip (**NPU**, e.g., `Raspberry Pi 5 + Hailo` or `Jetson Orin Nano`) for hardware I/O and neural throughput, while keeping **every spatial and autonomy algorithm 100% from scratch** (`zero ROS`, `zero ORB-SLAM`, `zero Nav2`—you derive and write every lens model, stereo depth solver, Kalman pose filter, factor graph, loop-closure module, 3D obstacle grid, and path planner from first principles).
+   - Stereo depth matching (about `491 million` pixel-window evaluations per second at `640×400` resolution, `30 frames/sec`), double-precision (`FP64`) 3D map optimization (**sparse bundle adjustment**), and 8-bit integer (`INT8`) obstacle detection exceed `brain`'s FPGA fabric (`20,736` 4-input logic lookup tables / `LUT4`s and `103.5 KB` of on-chip scratchpad `SRAM`) by roughly **`1,000×`**. Mounting `sight` directly behind the front lenses also keeps `800 Mbps` **MIPI CSI-2** camera ribbons under `4 cm` long, isolated from `30A` motor switching currents.
+   - **Scope of Custom Implementation**: Because `brain`, `drive`, and `power` already implement the processor, circuit boards, C compiler, RTOS, and bare-metal motor loops from first principles, `sight` leverages embedded Linux (zero-copy `V4L2 DMA` camera capture and Wi-Fi telemetry) and a dedicated neural inference accelerator (**NPU**, e.g., `Raspberry Pi 5 + Hailo` or `Jetson Orin Nano`) for hardware I/O and `INT8` inference, while implementing **every spatial and autonomy algorithm from scratch** (`zero ROS`, `zero ORB-SLAM`, `zero Nav2`—camera models, stereo rectification, visual-inertial Kalman filtering, factor-graph smoothing, loop closure, 3D occupancy grids, and path planning are all derived and written directly).
 
-### Locked Interface Contracts (Zero Circuit-Board Redesigns)
+### Locked Interface Contracts (Zero Circuit-Board Revisions)
 
 | Interface | Electrical / Physical Spec | Logical / Timing Contract |
 | :--- | :--- | :--- |
-| **Main Power Bus (`power` → `drive`/`brain`)** | 6-cell series lithium-iron-phosphate pack (`6S LiFePO4`: `19.2V` nominal, `21.9V` max, well under the `60V` touch-safe **SELV** limit) on XT30/XT60 power plugs + regulated `5.0V / 4A` computer rail | Gently pre-charged on boot to prevent connector sparks; `< 5 µs` two-way solid-state circuit breaker (**e-fuse**); physical red mushroom **E-stop** button directly cuts transistor gate power |
-| **Motor Control Spine (`brain` ↔ `drive`/`power`)** | Two independent 5 Mbps noise-immune 2-wire differential motor buses (**CAN-FD**; Bus A: Legs 1–2 [IDs 1–6], Bus B: Legs 3–4 [IDs 7–12] + `power` spine [ID 13]) using `TCAN1044V` (`5V` core / `3.3V` logic I/O) transceivers and jumper-selectable `120 Ω` echo-absorbing resistors (**termination** closed only at trunk endpoints) | 1,000 Hz closed-loop frame: `brain -> drive` sends desired angle, speed, spring/damper gains, and feedforward torque (`q_des`, `dq_des`, `kp`, `kd`, `tau_ff`) scaled as integers (**Q-format**); `drive -> brain` returns measured angle, speed, torque current, temperature, and fault flags |
-| **Visual Cortex Link (`sight` ↔ `brain`)** | Dedicated `3.3V` 2 Mbps full-duplex serial link (`UART1`, separate from `UART0` USB debug shell) + dedicated `3.3V` twisted/coaxial hardware camera-shutter pulse wire | Sub-microsecond hardware timestamp pairing (`frame_seq`, `t_us`) + `1,000 Hz` `ICM-42688-P` motion-sensor stream (`brain -> sight`) aligns camera exposures to inertial ticks; error-checked (`CRC-16`) velocity commands `[vx, vy, wz]` (`sight -> brain`) fall back to zero after a `150 ms` watchdog silence |
-| **Carrier Mechanics & Plug-In CPU Socket (`brain`)** | `100 × 80 mm` 6-layer circuit board (`JLC06161H-3313` copper/fiberglass stackup) with `50 Ω` signal-matched (**controlled-impedance**) traces, a 204-pin laptop-RAM-style edge socket (`SODIMM-204`) for the Tang Primer 20K FPGA module (**SOM**), and 4× M3 mounting holes | Drops straight between the desktop test stand (Phase 8 of `brain`) and the `walker` torso bay with zero rewiring |
+| **Main Power Bus (`power` → `drive`/`brain`)** | 6-cell series lithium-iron-phosphate pack (`6S LiFePO4`: `19.2V` nominal, `21.9V` max, well below the `60V` touch-safe **SELV** limit) on XT30/XT60 connectors + regulated `5.0V / 4A` logic rail | Soft pre-charge ramp on startup to prevent connector arcing; `< 5 µs` bidirectional solid-state **e-fuse**; physical mushroom **E-stop** switch directly cuts transistor gate power |
+| **Motor Control Spine (`brain` ↔ `drive`/`power`)** | Two independent 5 Mbps differential motor buses (**CAN-FD**; Bus A: Legs 1–2 [IDs 1–6], Bus B: Legs 3–4 [IDs 7–12] + `power` spine [ID 13]) using `TCAN1044V` (`5V` core / `3.3V` logic I/O) transceivers and jumper-selectable `120 Ω` **termination** resistors closed only at bus endpoints | 1,000 Hz closed-loop frame: `brain -> drive` transmits desired angle, velocity, spring/damper gains, and feedforward torque (`q_des`, `dq_des`, `kp`, `kd`, `tau_ff`) in scaled fixed-point (**Q-format**); `drive -> brain` returns measured angle, velocity, torque current, temperature, and fault flags |
+| **Visual Cortex Link (`sight` ↔ `brain`)** | Dedicated `3.3V` 2 Mbps full-duplex serial link (`UART1`, separate from `UART0` USB debug console) + dedicated `3.3V` twisted/coaxial hardware camera-shutter sync wire | Sub-microsecond hardware timestamp pairing (`frame_seq`, `t_us`) + `1,000 Hz` `ICM-42688-P` inertial stream (`brain -> sight`) aligns camera exposures to inertial ticks; `CRC-16` framed velocity commands `[vx, vy, wz]` (`sight -> brain`) fall back to zero after a `150 ms` watchdog silence |
+| **Carrier Mechanics & Plug-In CPU Socket (`brain`)** | `100 × 80 mm` 6-layer circuit board (`JLC06161H-3313` copper/fiberglass stackup) with `50 Ω` **controlled-impedance** traces, a 204-pin edge socket (`SODIMM-204`) for the Tang Primer 20K FPGA System-on-Module (`SOM`), and 4× M3 mounting holes | Transfers directly between the desktop test stand (Phase 8 of `brain`) and the `walker` torso bay with zero rewiring |
 
 ---
 
-## 3. Home Safety & Pay-As-You-Go Budget
+## 3. Laboratory Safety & Phased Hardware Budget
 
-Apex is engineered at the **2.5 kg Desktop Research Class** (similar to the ODRI Solo-12 or Stanford Pupper, roughly `35 cm` long) so every build and test is safe in an apartment or living room:
+Apex is sized to the **2.5 kg Desktop Research Class** (comparable to the ODRI Solo-12 or Stanford Pupper, about `35 cm` long) so fabrication, bring-up, and dynamic testing remain safe in an indoor workspace:
 
-- **Touch-Safe Voltage (`< 22V` DC) & Stable `LiFePO4` Cells**: Far below shock thresholds and free of volatile cobalt LiPo pouches. **95% of indoor testing runs from a current-limited bench power supply** before any battery is ever plugged in.
-- **Finger-Safe Backdrivable Joints (`< 2.5 N·m`)**: Easily pushed by hand when unpowered or compliant; cannot damage furniture or fingers; tested inside a compact **tabletop slotted-aluminum frame** (`2020 extrusion`) with zero doorway or ceiling drilling.
-- **Zero-Fume Turnkey Fabrication**: Sending board files to an external factory for automated surface-mount soldering (**turnkey PCBA**) and ordering industrial powder-fused nylon (`MJF PA12`) and milled (`CNC`) parts eliminates indoor solder-paste reflow and toxic plastic fumes.
-- **Phased Cost (about \$115–\$145/mo)**: About \$290 for all of `brain` (Months 1–3) and about \$1,495 for robot parts across all 6 systems over roughly 12 months (plus about \$310–\$540 once in Month 4 for reusable bench test tools if not already owned).
+- **Touch-Safe Voltage (`< 22V` DC) & Stable `LiFePO4` Cells**: Well below DC shock thresholds and free of volatile cobalt LiPo pouches. **95% of indoor testing runs from a current-limited bench power supply** before a battery pack is connected.
+- **Finger-Safe Backdrivable Joints (`< 2.5 N·m`)**: Easily moved by hand when unpowered or compliant; tested inside a compact **tabletop slotted-aluminum gantry** (`2020 extrusion`).
+- **Zero-Fume Turnkey Fabrication**: External board houses handle automated surface-mount assembly (**turnkey PCBA**), and industrial suppliers fabricate powder-fused nylon (`MJF PA12`) and milled aluminum (`CNC`) structures—eliminating indoor solder-paste reflow and high-temperature polymer fumes.
+- **Phased Cost (about \$115–\$145/mo)**: About \$290 for `brain` (Months 1–3) and about \$1,495 for robot parts across all six systems over roughly 12 months (plus about \$310–\$540 once in Month 4 for reusable bench instruments if not already on hand).
 
 ---
 
-## 4. How the "Couch-to-Silicon" Review Loop Works
+## 4. Verification & Hardware Bring-Up Methodology
 
-You lead the engineering team; the agent handles coding, simulation, FPGA chip compilation (**synthesis**), and automated board checking inside the VM—**strictly one atomic step (roughly 50–150 lines of code) at a time**:
+Every subsystem progresses through bounded, independently verifiable milestones—roughly `83%` validated purely in software simulation and automated checks before physical hardware is ordered or powered:
 
-1. **Agent Implements & Verifies**: Builds the next `pending` step in `roadmap.yaml` and runs real tools (`Verilator` digital simulator, `Yosys`/`nextpnr` FPGA place-and-route, trace-impedance/power-network solvers, KiCad electrical/layout rule checks `ERC`/`DRC`, `MuJoCo` physics, or `pytest`) until 100% passing.
-2. **Mobile Review Packet + GitHub PR**: Presents a **5-minute Textbook-Style First-Principles Brief**, **interactive HTML/SVG visual diagrams, waveforms, or copper-layer renders**, a guided diff tour + GitHub PR, and **2–3 intuition checks**.
-3. **Socratic Q&A & `LGTM` Gate**: Ask any "why?" or "derive that" question right from your phone. The agent never touches Step `N+1` until you reply **`LGTM`**.
-4. **Batched Bench Sessions (`17%` of steps)**: Physical hardware tasks (ordering factory boards, flashing the FPGA, measuring trace impedance via radar-like `LiteVNA` echo sweeps, testing a motor on a rig, walking the robot) are isolated into clean weekend bench sessions.
+1. **Simulation-First Verification**: Each software, RTL, and circuit-generation module is validated against golden reference models (`Verilator` digital simulation, `Yosys`/`nextpnr` FPGA synthesis and timing closure, transmission-line and PDN solvers, `KiCad` `ERC`/`DRC` checks, `MuJoCo` rigid-body dynamics, and `pytest` suites).
+2. **Textbook Documentation**: Each design milestone is paired with a self-contained textbook chapter in `systems/<system>/chapters/` that derives the underlying theory and maps it directly to the verified implementation.
+3. **Batched Bench Sessions (`17%` of steps)**: Physical hardware tasks—turnkey PCB ordering, FPGA bitstream flashing, vector network analyzer (`LiteVNA`) TDR sweeps, dynamometer torque calibration, and untethered walking trials—are grouped into discrete bench sessions once all prerequisite simulation gates pass.
