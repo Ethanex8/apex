@@ -133,14 +133,14 @@ def u32(val: int) -> int:
 
 def s32(val: int) -> int:
     """Interpret the lower 32 bits of an integer as a signed two's complement int32."""
-    val &= MASK32
-    return val - 0x1_0000_0000 if (val & 0x8000_0000) else val
+    u = u32(val)
+    return u - (u >> 31) * (1 << 32)
 
 
 def s16(val: int) -> int:
     """Interpret the lower 16 bits of an integer as a signed two's complement int16."""
-    val &= 0xFFFF
-    return val - 0x1_0000 if (val & 0x8000) else val
+    u = val & 0xFFFF
+    return u - (u >> 15) * (1 << 16)
 
 
 def sat32(val: int) -> int:
@@ -362,7 +362,7 @@ class RV32Oracle:
 
         self.uart_tx_buf: bytearray = bytearray()
         self.uart_rx_fifo: deque[int] = deque()
-        self.uart_bauddiv: int = 50_000_000 // 115_200
+        self.uart_bauddiv: int = SYS_CLK_HZ // UART_DEFAULT_BAUD
 
         self.halted: bool = False
 
@@ -413,13 +413,13 @@ class RV32Oracle:
     def _clint_read(self, offset: int) -> int:
         """Read one 32-bit CLINT timer register by byte offset from `CLINT_BASE`."""
         if offset == CLINT_MTIME_LO:
-            return self.mtime & MASK32
+            return u32(self.mtime)
         if offset == CLINT_MTIME_HI:
-            return (self.mtime >> 32) & MASK32
+            return u32(self.mtime >> 32)
         if offset == CLINT_MTIMECMP_LO:
-            return self.mtimecmp & MASK32
+            return u32(self.mtimecmp)
         if offset == CLINT_MTIMECMP_HI:
-            return (self.mtimecmp >> 32) & MASK32
+            return u32(self.mtimecmp >> 32)
         return 0
 
     def _clint_write(self, offset: int, val: int) -> None:
@@ -508,7 +508,7 @@ class RV32Oracle:
     # -----------------------------------------------------------------------
     def _live_mip(self) -> int:
         """Compute `mip`, combining software/external bits with live CLINT `mtime >= mtimecmp`."""
-        mtip = (1 << 7) if (self.mtime >= self.mtimecmp) else 0
+        mtip = MIE_MTIE_BIT if (self.mtime >= self.mtimecmp) else 0
         return (self.mip_sw_ext & (MIE_MSIE_BIT | MIE_MEIE_BIT)) | mtip
 
     def _read_csr(self, addr: int) -> int | None:
@@ -532,13 +532,13 @@ class RV32Oracle:
         if addr == CSR_MIP:
             return self._live_mip()
         if addr == CSR_MCYCLE:
-            return self.mcycle & MASK32
+            return u32(self.mcycle)
         if addr == CSR_MCYCLEH:
-            return (self.mcycle >> 32) & MASK32
+            return u32(self.mcycle >> 32)
         if addr == CSR_MINSTRET:
-            return self.minstret & MASK32
+            return u32(self.minstret)
         if addr == CSR_MINSTRETH:
-            return (self.minstret >> 32) & MASK32
+            return u32(self.minstret >> 32)
         if addr in (CSR_MVENDORID, CSR_MARCHID, CSR_MIMPID, CSR_MHARTID):
             return 0
         return None
@@ -593,7 +593,7 @@ class RV32Oracle:
         self.mcause = u32(cause)
         self.mtval = u32(tval)
 
-        mie_was = 1 if (self.mstatus & MSTATUS_MIE_BIT) else 0
+        mie_was = bool(self.mstatus & MSTATUS_MIE_BIT)
         self.mstatus = (
             (self.mstatus & ~(MSTATUS_MIE_BIT | MSTATUS_MPIE_BIT))
             | (MSTATUS_MPIE_BIT if mie_was else 0)
@@ -866,7 +866,7 @@ class RV32Oracle:
                 self.halted = True
                 return self._trap_trace(cur_pc, insn, CAUSE_BREAKPOINT, cur_pc)
             if insn == 0x3020_0073:  # MRET
-                mpie = 1 if (self.mstatus & MSTATUS_MPIE_BIT) else 0
+                mpie = bool(self.mstatus & MSTATUS_MPIE_BIT)
                 self.mstatus = (
                     (self.mstatus & ~(MSTATUS_MIE_BIT | MSTATUS_MPIE_BIT))
                     | (MSTATUS_MIE_BIT if mpie else 0)
@@ -911,10 +911,10 @@ class RV32Oracle:
         if funct7 != 0x00:
             return None
         if funct3 in (0, 1):
-            a0 = s16(rs1_u & 0xFFFF)
-            a1 = s16((rs1_u >> 16) & 0xFFFF)
-            b0 = s16(rs2_u & 0xFFFF)
-            b1 = s16((rs2_u >> 16) & 0xFFFF)
+            a0 = s16(rs1_u)
+            a1 = s16(rs1_u >> 16)
+            b0 = s16(rs2_u)
+            b1 = s16(rs2_u >> 16)
             base_acc = 0 if funct3 == 1 else self.mac_acc
             self.mac_acc = sat32(base_acc + a0 * b0 + a1 * b1)
             return self._set_reg(rd, self.mac_acc)

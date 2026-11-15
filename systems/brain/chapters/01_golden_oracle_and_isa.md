@@ -135,11 +135,12 @@ Compare `U(b)` and `S(b)` directly:
 - When $b_{31} = 0$, $S(b) = U(b)$.
 - When $b_{31} = 1$, `U(b)` counted $+2^{31}$ where `S(b)` requires $-2^{31}$—a difference of $2^{31} - (-2^{31}) = 2^{32}$ (`0x1_0000_0000`).
 
-Now inspect the return expression of [`s32(val)`](../sim/oracle.py#L134-L137):
+Now inspect [`s32(val)`](../sim/oracle.py#L134-L137):
 ```python
-return val - 0x1_0000_0000 if (val & 0x8000_0000) else val
+u = u32(val)
+return u - (u >> 31) * (1 << 32)
 ```
-That single line is the exact algebraic identity $S(b) = U(b) - b_{31} \cdot 2^{32}$.
+That expression is the exact algebraic identity $S(b) = U(b) - b_{31} \cdot 2^{32}$, where `u = u32(val)` computes $U(b)$, `(u >> 31)` extracts bit $b_{31} \in \{0, 1\}$, and `(1 << 32)` is $2^{32}$ (`0x1_0000_0000`).
 
 #### Proof: Why Unsigned Addition Computes Signed Two's Complement Addition
 
@@ -223,7 +224,7 @@ Every persistent variable attached to `self` corresponds to physical storage on 
      - `Bit 12 = 1` (`0x0000_1000`, letter `'M'` = index `12`): declares hardware integer Multiply/Divide (`RV32M`).
      - `Bit 8 = 1` (`0x0000_0100`, letter `'I'` = index `8`): declares the `RV32I` base integer instruction set.
      - Combining them via bitwise OR gives `0x4000_0000 | 0x0080_0000 | 0x0000_1000 | 0x0000_0100 = 0x4080_1100`.
-5. **Memory Regions & I/O Devices (`rom`, `bram`, `qspi`, `sdram`, `mtime`/`mtimecmp`, `uart_*`)**: The backing memory arrays, 64-bit timer alarm, and serial transmit/receive byte queues. Note `self.uart_bauddiv = 50_000_000 // 115_200` at the end of `reset()` (`434` clock ticks per serial bit at a `50 MHz` system clock and `115,200` baud console rate).
+5. **Memory Regions & I/O Devices (`rom`, `bram`, `qspi`, `sdram`, `mtime`/`mtimecmp`, `uart_*`)**: The backing memory arrays, 64-bit timer alarm, and serial transmit/receive byte queues. Note `self.uart_bauddiv = SYS_CLK_HZ // UART_DEFAULT_BAUD` at the end of `reset()` (`50_000_000 // 115_200 = 434` clock ticks per serial bit at a `50 MHz` system clock and `115,200` baud console rate).
 
 ### Why Register `x0` Is Hardwired to Zero
 
