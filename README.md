@@ -39,10 +39,10 @@ python3 scripts/build.py --check        # Validate roadmap invariants, book sync
 
 ## Repository Guide
 
-- [**`Apex Interactive Textbook`**](https://ethanex8.github.io/apex/) — Six-volume VitePress textbook ([`book/`](./book/index.md)) compiling `systems/*/chapters/*.md` with synchronized source excerpts and interactive hardware figures.
+- [**`Apex Interactive Textbook`**](https://ethanex8.github.io/apex/) — 8-part, 34-chapter VitePress textbook ([`book/`](./book/index.md)) compiling `systems/*/chapters/*.md` with synchronized source excerpts and interactive hardware figures.
 - [**`VISION.md`**](./VISION.md) — Dual-processor architecture, electrical and protocol interface contracts, safety limits, and bill of materials.
 - [**`ROADMAP.md`**](./ROADMAP.md) — Phase breakdowns, procurement schedule, and all 186 step checklists.
-- [**`roadmap.yaml`**](./roadmap.yaml) — Declarative manifest of subsystems, milestones, and verification state.
+- [**`roadmap.yaml`**](./roadmap.yaml) — Declarative manifest of subsystems, milestones, textbook outline, and verification state.
 - [**`systems/`**](./systems/brain/README.md) — Subsystem workspaces (`brain`, `drive`, `power`, `limb`, `walker`, `sight`).
 - [**`scripts/`**](./scripts/step.py) — [`step.py`](./scripts/step.py), [`build.py`](./scripts/build.py), [`sync_book.py`](./scripts/sync_book.py), [`check_book.py`](./scripts/check_book.py), and [`check_code.py`](./scripts/check_code.py) milestone tracking, documentation synchronization, and static checks.
 

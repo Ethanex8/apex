@@ -177,6 +177,448 @@ systems:
     name: 'Phase 3: Path Planning, Person/Obstacle Detection & brain Sync Link'
   - id: sight-P4
     name: 'Phase 4: Stereo Camera Pod Build, Room Mapping & Autonomous Walking'
+book:
+  title: 'Apex: Integrated Systems Engineering'
+  subtitle: From Digital Silicon, Compilers, and Power Electronics to Autonomous Legged Robotics
+  parts:
+  - id: part-1
+    number: I
+    title: Digital Logic & Processor Architecture
+    system: brain
+    summary: Fixed-width binary algebra, instruction set contracts, combinational and sequential logic, single-cycle and 5-stage pipelined RISC-V + SIMD silicon, and FPGA timing closure.
+    chapters:
+    - id: ch-01
+      number: 1
+      slug: 01_isa_and_binary_arithmetic
+      title: Instruction Set Architecture & Fixed-Width Binary Arithmetic
+      summary: Golden reference modeling, modular rings and two's complement, RV32IM + Zicsr + Xapex mac encoding, memory-mapped I/O, and traps.
+      steps:
+      - brain-01
+    - id: ch-02
+      number: 2
+      slug: 02_combinational_and_sequential_logic
+      title: Combinational Logic, Sequential Storage & Timing Constraints
+      summary: Carry-chain adders, single-cycle barrel shifters, signed/unsigned comparators, clocked flip-flops, setup/hold windows, 32x32 register files, and sign extension.
+      steps:
+      - brain-02
+      - brain-03
+    - id: ch-03
+      number: 3
+      slug: 03_clock_domains_and_serial_framing
+      title: Clock-Domain Synchronization & Asynchronous Serial Framing
+      summary: Flip-flop metastability, two-stage synchronizers, 16x-oversampled UART framing with FIFOs, and physical FPGA logic-analyzer capture.
+      steps:
+      - brain-04
+      - brain-05
+    - id: ch-04
+      number: 4
+      slug: 04_single_cycle_datapath_and_memory
+      title: Single-Cycle Processor Composition & Memory Alignment
+      summary: Control-table decoding, conditional branches, little-endian byte/halfword alignment, Block RAM, and 10k-instruction lockstep verification.
+      steps:
+      - brain-06
+      - brain-07
+      - brain-08
+    - id: ch-05
+      number: 5
+      slug: 05_multicycle_math_neural_simd_and_traps
+      title: Multi-Cycle Arithmetic, Custom Neural Silicon & Machine Traps
+      summary: Valid/ready backpressure, shift-add multiply and restoring divide, dual-INT16 DSP dot-product silicon, atomic CSRs, and 64-bit CLINT timers.
+      steps:
+      - brain-09
+      - brain-10
+      - brain-11
+    - id: ch-06
+      number: 6
+      slug: 06_pipelined_execution_and_timing_closure
+      title: Pipelined Execution, Hazard Resolution & Timing Closure
+      summary: Five-stage throughput vs. latency, RAW bypass networks, load-use stalls, precise trap flushes, 100k-instruction stress testing, and 50 MHz LUT4 timing closure.
+      steps:
+      - brain-12
+      - brain-13
+      - brain-14
+      - brain-15
+      - brain-16
+  - id: part-2
+    number: II
+    title: High-Speed Board Physics & System-on-Chip Interconnects
+    system: brain
+    summary: Switching power supplies, transmission-line electromagnetics, 6-layer controlled-impedance PCB routing, and external Flash/SDRAM and real-time SoC controllers.
+    chapters:
+    - id: ch-07
+      number: 7
+      slug: 07_power_conversion_and_transmission_lines
+      title: Power Conversion, Transmission Lines & Power-Delivery Networks
+      summary: Synchronous buck switching physics, USB-C negotiation, copper traces as waveguides, impedance reflections, and multi-decade MLCC charge caches.
+      steps:
+      - brain-17
+      - brain-18
+    - id: ch-08
+      number: 8
+      slug: 08_six_layer_controlled_impedance_pcb
+      title: Controlled-Impedance Six-Layer Circuit Board Design
+      summary: Unbroken ground return planes, Kelvin sensing, series damping, 120-ohm differential CAN termination, ground-slot test coupons, length matching, and DFM/DRC sign-off.
+      steps:
+      - brain-19
+      - brain-20
+      - brain-21
+      - brain-22
+      - brain-23
+    - id: ch-09
+      number: 9
+      slug: 09_bus_crossbars_flash_and_sdram
+      title: Bus Crossbars, Persistent Flash & Dynamic RAM Controllers
+      summary: Address-decoded MMIO crossbars, bidirectional 4-lane QSPI Flash XIP engines, and SDRAM capacitor refresh, row/column timing, and burst scheduling.
+      steps:
+      - brain-24
+      - brain-25
+      - brain-26
+    - id: ch-10
+      number: 10
+      slug: 10_realtime_peripherals_and_soc_clocking
+      title: Real-Time Peripherals, PLL Clocking & SoC Bring-Up
+      summary: Motion-sensor SPI bursts, sub-microsecond camera shutter latching, CAN-FD bit-stuffing and CRCs, PLL phase-shifted SDRAM capture, and dock FPGA boot.
+      steps:
+      - brain-27
+      - brain-28
+      - brain-29
+  - id: part-3
+    number: III
+    title: Compilers, Real-Time Operating Systems & Silicon Validation
+    system: brain
+    summary: Two-pass machine assembly, C compilation from lexing to register allocation, preemptive real-time scheduling, quantized neural inference, and custom-board TDR bring-up.
+    chapters:
+    - id: ch-11
+      number: 11
+      slug: 11_assembly_linking_and_c_parsing
+      title: Machine Assembly, Relocation & C Front-End Parsing
+      summary: Two-pass label resolution, %hi/%lo relocations, Flash-to-RAM linker maps, DFA lexing, recursive-descent parsing, pointer typing, and SSA-lite IR lowering.
+      steps:
+      - brain-30
+      - brain-31
+      - brain-32
+    - id: ch-12
+      number: 12
+      slug: 12_optimization_register_allocation_and_codegen
+      title: Data-Flow Optimization, Register Allocation & Code Generation
+      summary: Fixed-point optimization with volatile MMIO barriers, backward liveness, linear-scan register allocation, ABI stack frames, mac emission, and translation validation.
+      steps:
+      - brain-33
+      - brain-34
+      - brain-35
+    - id: ch-13
+      number: 13
+      slug: 13_preemptive_rtos_and_synchronization
+      title: Preemptive Real-Time Kernels & Lock-Free Synchronization
+      summary: Bare-metal startup, QSPI-to-SDRAM bootloading, 31-register mscratch trap switching, priority-inheritance mutexes, and lock-free SPSC ring buffers.
+      steps:
+      - brain-36
+      - brain-37
+    - id: ch-14
+      number: 14
+      slug: 14_fixed_point_control_and_board_bringup
+      title: Fixed-Point Control, Quantized Inference & Hardware Bring-Up
+      summary: Q16.16 attitude filtering, 1 kHz PID jitter histograms, interactive ash shell, < 0.6 ms INT16 neural inference, LiteVNA TDR sweeps, and custom-board graduation.
+      steps:
+      - brain-38
+      - brain-39
+      - brain-40
+      - brain-41
+      - brain-42
+  - id: part-4
+    number: IV
+    title: Brushless Electromechanics, Power Inverters & Force Actuation
+    system: drive
+    summary: Permanent-magnet motor physics, Field-Oriented Control, 24V 3-phase inverter hardware, 20 kHz embedded firmware, 8:1 planetary gearing, and haptic bench validation.
+    chapters:
+    - id: ch-15
+      number: 15
+      slug: 15_brushless_electromechanics_and_foc
+      title: Brushless Electromechanics & Field-Oriented Control
+      summary: Three-phase motor back-EMF and Lorentz torque, Clarke/Park rotating coordinates, hexagonal SVPWM headroom, and nested 20 kHz current + 1 kHz impedance loops.
+      steps:
+      - drive-01
+      - drive-02
+      - drive-03
+      - drive-04
+    - id: ch-16
+      number: 16
+      slug: 16_three_phase_inverters_and_switching
+      title: Three-Phase Power Inverters, Current Sensing & Switching Transients
+      summary: Low-side shunt valley sampling, Q-format CAN-FD packets, MOSFET losses and bootstrap pumps, SPICE switch-ringing damping, and 4-layer circular PCB layout.
+      steps:
+      - drive-05
+      - drive-06
+      - drive-07
+      - drive-08
+      - drive-09
+      - drive-10
+      - drive-11
+      - drive-12
+      - drive-14
+    - id: ch-17
+      number: 17
+      slug: 17_realtime_motor_firmware_and_observers
+      title: Hard Real-Time Motor Firmware, Sensor Observers & Calibration
+      summary: Fixed-point CORDIC trig, timer-triggered ADC valleys, 14-bit magnetic PLL speed tracking, coil R/L and eccentricity auto-ID, anticogging ISR, CAN-FD, and CCM-SRAM linking.
+      steps:
+      - drive-13
+      - drive-15
+      - drive-16
+      - drive-17
+      - drive-18
+      - drive-19
+      - drive-20
+      - drive-21
+    - id: ch-18
+      number: 18
+      slug: 18_planetary_transmissions_and_actuator_bringup
+      title: Quasi-Direct-Drive Transmissions, Structural FEA & Actuator Bring-Up
+      summary: Reflected inertia, 8:1 tooth geometry, parametric CAD, CalculiX tooth stress FEA, RSS tolerance stack-ups, oscilloscope switching checks, backdrive tests, and haptic wheel graduation.
+      steps:
+      - drive-22
+      - drive-23
+      - drive-24
+      - drive-25
+      - drive-26
+      - drive-27
+      - drive-28
+      - drive-29
+      - drive-30
+  - id: part-5
+    number: V
+    title: Electrochemical Energy & Solid-State Power Protection
+    system: power
+    summary: LiFePO4 battery modeling, capacitive surge physics, Extended Kalman State-of-Charge estimation, microsecond solid-state circuit breakers, and fault-injection testing.
+    chapters:
+    - id: ch-19
+      number: 19
+      slug: 19_battery_dynamics_and_kalman_estimation
+      title: Battery Electrochemistry, Surge Physics & Kalman State Estimation
+      summary: 6S LiFePO4 Randles impedance and flat OCV plateaus, 2,400 uF capacitive inrush and regenerative energy, and nonlinear EKF fuel-gauge estimation.
+      steps:
+      - power-01
+      - power-02
+      - power-03
+    - id: ch-20
+      number: 20
+      slug: 20_solid_state_breakers_and_power_layout
+      title: Solid-State Circuit Breakers, Loop Stability & High-Current Layout
+      summary: Back-to-back N-MOSFET blocking, TVS-clamped inductive turn-off, 5V buck Bode stability, hardware E-stop latching, and 2 oz thick-copper thermal layout.
+      steps:
+      - power-04
+      - power-05
+      - power-06
+      - power-07
+      - power-08
+      - power-09
+      - power-10
+      - power-11
+      - power-14
+    - id: ch-21
+      number: 21
+      slug: 21_power_supervision_and_fault_bringup
+      title: Power Supervision Firmware, Black-Box Telemetry & Fault Validation
+      summary: Positive-definite C EKF covariance updates, pre-trigger black-box fault logs, soft pre-charge short guards, Steinhart-Hart ADC calibration, and < 5 us hard-short scope graduation.
+      steps:
+      - power-12
+      - power-13
+      - power-15
+      - power-16
+      - power-17
+      - power-18
+      - power-19
+      - power-20
+      - power-21
+      - power-22
+      - power-23
+      - power-24
+  - id: part-6
+    number: VI
+    title: Spatial Kinematics, Dynamics & Compliant Limbs
+    system: limb
+    summary: 3D rigid-body transformations, Product-of-Exponentials kinematics, recursive dynamics, Cartesian impedance, hopping control, low-inertia leg mechanics, and rail bring-up.
+    chapters:
+    - id: ch-22
+      number: 22
+      slug: 22_rigid_body_motion_and_screw_kinematics
+      title: Rigid-Body Transformations, Screw Kinematics & Force-Torque Duality
+      summary: SO(3) rotations and SE(3) twists, Product-of-Exponentials forward kinematics, closed-form geometric IK with singularity clamping, and virtual-work Jacobian duality.
+      steps:
+      - limb-01
+      - limb-02
+      - limb-03
+      - limb-04
+    - id: ch-23
+      number: 23
+      slug: 23_inverse_dynamics_and_cartesian_impedance
+      title: Articulated-Body Inverse Dynamics & Cartesian Virtual-Spring Control
+      summary: O(N) Recursive Newton-Euler gravity and inertia sweeps, 3D Cartesian impedance stiffness/damping, and MuJoCo verification with 64x reflected rotor inertia.
+      steps:
+      - limb-05
+      - limb-06
+      - limb-07
+    - id: ch-24
+      number: 24
+      slug: 24_contact_estimation_and_hopping_control
+      title: Momentum Contact Estimation, Hopping Control & Silicon Co-Simulation
+      summary: Sensorless generalized-momentum impact observers, C2 Bezier swing paths, SLIP pogo energy control, Q16.16 SysC kinematics, and Verilator-to-MuJoCo co-simulation.
+      steps:
+      - limb-08
+      - limb-09
+      - limb-10
+      - limb-11
+      - limb-12
+    - id: ch-25
+      number: 25
+      slug: 25_low_inertia_limb_mechanics_and_buckling
+      title: Low-Inertia Limb Mechanics, Impact Buckling & Structural CAD
+      summary: Hip-mounted belt transmissions, impact impulse and Euler column buckling, neutral-axis cable routing, 4g landing FEA, 2020 rail stand CAD, and software torque walls.
+      steps:
+      - limb-13
+      - limb-14
+      - limb-15
+      - limb-16
+      - limb-17
+      - limb-18
+      - limb-19
+      - limb-20
+      - limb-21
+    - id: ch-26
+      number: 26
+      slug: 26_embedded_impedance_and_rail_hopping
+      title: Embedded Limb Control, Joint Calibration & Experimental Rail Hopping
+      summary: 1 kHz SysC leg loop, right-hand zero-offset calibration, telemetry identification, weightless gravity float, soft drop landings, and 30-hop rail graduation.
+      steps:
+      - limb-22
+      - limb-23
+      - limb-24
+      - limb-25
+      - limb-26
+      - limb-27
+      - limb-28
+  - id: part-7
+    number: VII
+    title: Whole-Body Optimal Control & Learned Locomotion
+    system: walker
+    summary: Floating-base state estimation, constrained QP balance, receding-horizon Centroidal MPC, GPU-parallel PPO reinforcement learning, INT16 quantization, and untethered walking.
+    chapters:
+    - id: ch-27
+      number: 27
+      slug: 27_floating_base_estimation_and_qp_balance
+      title: Floating-Base State Estimation, Friction Cones & Quadratic Balance
+      summary: Unanchored 18-DOF modeling, stance-constrained ESKF speed/height estimation, friction-cone balance QP, Raibert capture-point footholds, back-EMF realism, and fall reflexes.
+      steps:
+      - walker-01
+      - walker-02
+      - walker-03
+      - walker-04
+      - walker-05
+      - walker-06
+      - walker-07
+    - id: ch-28
+      number: 28
+      slug: 28_centroidal_dynamics_and_convex_mpc
+      title: Centroidal Dynamics & Receding-Horizon Model Predictive Control
+      summary: Single-rigid-body linearization, 200 ms Convex MPC via OSQP, integrated MPC + Bezier trotting, slip reflexes, and cost-of-transport comparisons against kinematic playback.
+      steps:
+      - walker-08
+      - walker-09
+      - walker-10
+      - walker-11
+      - walker-12
+      - walker-13
+      - walker-14
+    - id: ch-29
+      number: 29
+      slug: 29_reinforcement_learning_and_quantized_policy
+      title: Deep Reinforcement Learning & Quantized Sim-to-Real Deployment
+      summary: Partially observable locomotion MDP, from-scratch PPO and GAE, domain randomization in GPU-parallel MJX, symmetric INT16 mac export, 12-joint CAN-FD scheduling, and Verilator walking.
+      steps:
+      - walker-15
+      - walker-16
+      - walker-17
+      - walker-18
+      - walker-19
+      - walker-20
+      - walker-21
+      - walker-22
+    - id: ch-30
+      number: 30
+      slug: 30_quadruped_chassis_and_sim_to_real_walking
+      title: Quadruped Chassis Mechanics, EMI Harnessing & Untethered Locomotion
+      summary: Carbon sandwich torso CAD, diagonal-trot torsional FEA, twisted-pair CAN-FD harnesses, slack-bungee safety gantry, telemetry system ID, and untethered LiFePO4 walking graduation.
+      steps:
+      - walker-23
+      - walker-24
+      - walker-25
+      - walker-26
+      - walker-27
+      - walker-28
+      - walker-29
+      - walker-30
+      - walker-31
+      - walker-32
+      - walker-33
+      - walker-34
+  - id: part-8
+    number: VIII
+    title: Stereo Vision, State Estimation & Autonomous Navigation
+    system: sight
+    summary: Camera projection and stereo depth, inertial pre-integration, Lie-algebra VIO and factor-graph SLAM, 3D occupancy grids, motion planning, and full-stack autonomous navigation.
+    chapters:
+    - id: ch-31
+      number: 31
+      slug: 31_projective_geometry_stereo_and_preintegration
+      title: Projective Camera Geometry, Stereo Depth & Inertial Pre-Integration
+      summary: Pinhole optics and Brown-Conrady distortion, epipolar rectification and quadratic depth error, KLT optical flow with 5-point RANSAC, IMU pre-integration, and < 50 us shutter sync.
+      steps:
+      - sight-01
+      - sight-02
+      - sight-03
+      - sight-04
+      - sight-05
+      - sight-06
+    - id: ch-32
+      number: 32
+      slug: 32_visual_inertial_odometry_slam_and_mapping
+      title: Visual-Inertial Odometry, Factor-Graph SLAM & Occupancy Mapping
+      summary: Manifold ESKF VIO, Schur-complement bundle adjustment, loop closure, Bayesian log-odds 2.5D/3D obstacle grids, metric scale observability, and the 2 Mbps brain-sight bridge.
+      steps:
+      - sight-07
+      - sight-08
+      - sight-09
+      - sight-10
+      - sight-11
+      - sight-12
+      - sight-13
+    - id: ch-33
+      number: 33
+      slug: 33_motion_planning_and_semantic_safety
+      title: Configuration-Space Planning, Dynamic Windows & Semantic Safety
+      summary: Minkowski obstacle inflation with A*/RRT*, Dynamic-Window velocity tracking, INT8 neural safety bubbles, 150 ms watchdog safe-stop FSMs, and full MuJoCo autonomy simulation.
+      steps:
+      - sight-14
+      - sight-15
+      - sight-16
+      - sight-17
+      - sight-18
+    - id: ch-34
+      number: 34
+      slug: 34_synchronized_stereo_hardware_and_autonomy
+      title: Synchronized Stereo Hardware, Calibration & Full-Stack Autonomy
+      summary: Global-shutter stereo baseline sizing, rigid head pod CAD, FSYNC harness ICD, asymmetric AprilGrid calibration, handheld SLAM, and untethered obstacle-avoiding quadruped graduation.
+      steps:
+      - sight-19
+      - sight-20
+      - sight-21
+      - sight-22
+      - sight-23
+      - sight-24
+      - sight-25
+      - sight-26
+      - sight-27
+      - sight-28
 steps:
 - id: brain-01
   system: brain

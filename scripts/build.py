@@ -204,10 +204,136 @@ def _validate_single_step(
             )
 
 
-def validate_roadmap(data: dict) -> list[str]:
-    """Validate all schema, DAG, phase, and sequential step invariants in `roadmap.yaml`."""
+def _int_to_roman(num: int) -> str:
+    """Convert positive integer `num` into uppercase Roman numerals."""
+    table = ((10, "X"), (9, "IX"), (5, "V"), (4, "IV"), (1, "I"))
+    parts: list[str] = []
+    rem = num
+    for val, sym in table:
+        while rem >= val:
+            parts.append(sym)
+            rem -= val
+    return "".join(parts)
+
+
+def _validate_book_chapter(
+    chap: object,
+    part_id: str,
+    part_sys: str | None,
+    exp_num: int,
+    step_sys_by_id: dict[str, str],
+    seen_chaps: set[str],
+    assigned_steps: set[str],
+    declared_slugs: set[tuple[str, str]],
+    errors: list[str],
+) -> None:
+    """Validate one chapter entry inside `book.parts` and record its step assignments."""
+    if not isinstance(chap, dict):
+        errors.append(f"[{part_id}] Chapter entry #{exp_num} must be a mapping")
+        return
+    cid = chap.get("id")
+    if not cid or cid in seen_chaps:
+        errors.append(f"[{part_id}] Missing or duplicate chapter id '{cid}'")
+    else:
+        seen_chaps.add(str(cid))
+    if chap.get("number") != exp_num:
+        errors.append(f"[{cid or part_id}] Expected chapter number={exp_num}, got {chap.get('number')}")
+    slug = str(chap.get("slug") or "")
+    if not re.match(rf"^{exp_num:02d}_[a-z0-9_]+$", slug):
+        errors.append(f"[{cid or part_id}] Chapter slug '{slug}' must start with '{exp_num:02d}_'")
+    elif part_sys:
+        declared_slugs.add((part_sys, slug))
+    for req in ("title", "summary"):
+        if not chap.get(req):
+            errors.append(f"[{cid or part_id}] Chapter missing '{req}'")
+    c_steps = chap.get("steps")
+    if not isinstance(c_steps, list) or not c_steps:
+        errors.append(f"[{cid or part_id}] Chapter 'steps' must be a non-empty list")
+        return
+    for sid in c_steps:
+        if sid not in step_sys_by_id:
+            errors.append(f"[{cid or part_id}] Chapter references unknown step '{sid}'")
+        elif sid in assigned_steps:
+            errors.append(f"[{cid or part_id}] Step '{sid}' assigned to multiple chapters")
+        else:
+            assigned_steps.add(str(sid))
+            if part_sys and step_sys_by_id[sid] != part_sys:
+                errors.append(
+                    f"[{cid or part_id}] Step '{sid}' belongs to '{step_sys_by_id[sid]}', not '{part_sys}'"
+                )
+
+
+def _validate_book_outline(
+    data: dict,
+    sys_by_id: dict[str, dict],
+    step_sys_by_id: dict[str, str],
+    root_dir: Path | None,
+    errors: list[str],
+) -> None:
+    """Validate `book.parts` sequential numbering, exact step coverage, and disk chapter files."""
+    book = data.get("book")
+    if not isinstance(book, dict):
+        errors.append("Missing or invalid top-level 'book' mapping in roadmap.yaml")
+        return
+    for req in ("title", "subtitle"):
+        if not book.get(req):
+            errors.append(f"[book] Missing '{req}'")
+    parts = book.get("parts")
+    if not isinstance(parts, list) or not parts:
+        errors.append("[book] 'parts' must be a non-empty list")
+        return
+
+    seen_parts: set[str] = set()
+    seen_chaps: set[str] = set()
+    assigned_steps: set[str] = set()
+    declared_slugs: set[tuple[str, str]] = set()
+    chap_num = 1
+
+    for idx, part in enumerate(parts, 1):
+        if not isinstance(part, dict):
+            errors.append(f"[book] Part entry #{idx} must be a mapping")
+            continue
+        pid = part.get("id")
+        if not pid or pid in seen_parts:
+            errors.append(f"[book] Missing or duplicate part id '{pid}'")
+        else:
+            seen_parts.add(str(pid))
+        if part.get("number") != _int_to_roman(idx):
+            errors.append(f"[{pid or 'book'}] Expected part number={_int_to_roman(idx)}, got {part.get('number')}")
+        part_sys = part.get("system")
+        if part_sys not in sys_by_id:
+            errors.append(f"[{pid or 'book'}] Unknown part system '{part_sys}'")
+            part_sys = None
+        for req in ("title", "summary"):
+            if not part.get(req):
+                errors.append(f"[{pid or 'book'}] Part missing '{req}'")
+        chaps = part.get("chapters")
+        if not isinstance(chaps, list) or not chaps:
+            errors.append(f"[{pid or 'book'}] Part 'chapters' must be a non-empty list")
+            continue
+        for chap in chaps:
+            _validate_book_chapter(
+                chap, str(pid or f"part-{idx}"), part_sys, chap_num,
+                step_sys_by_id, seen_chaps, assigned_steps, declared_slugs, errors,
+            )
+            chap_num += 1
+
+    missing_steps = [sid for sid in step_sys_by_id if sid not in assigned_steps]
+    if missing_steps:
+        errors.append(f"[book] Unmapped steps missing from book chapters: {missing_steps}")
+    if root_dir is not None:
+        for md_path in sorted(root_dir.glob("systems/*/chapters/*.md")):
+            sys_id = md_path.parent.parent.name
+            if (sys_id, md_path.stem) not in declared_slugs:
+                errors.append(
+                    f"[book] Chapter file '{md_path.relative_to(root_dir)}' is not registered in book.parts"
+                )
+
+
+def validate_roadmap(data: dict, root_dir: Path | None = None) -> list[str]:
+    """Validate all schema, DAG, phase, step, and book-outline invariants in `roadmap.yaml`."""
     errors: list[str] = []
-    for top_key in ("repository", "safety_guardrails", "phased_procurement", "systems", "steps"):
+    for top_key in ("repository", "safety_guardrails", "phased_procurement", "systems", "book", "steps"):
         if not data.get(top_key):
             errors.append(f"Missing or empty top-level section '{top_key}' in roadmap.yaml")
 
@@ -218,6 +344,7 @@ def validate_roadmap(data: dict) -> list[str]:
 
     seen_steps: set[str] = set()
     sys_step_nums: dict[str, list[int]] = defaultdict(list)
+    step_sys_by_id: dict[str, str] = {}
     if not isinstance(steps, list):
         errors.append("'steps' must be a list")
     else:
@@ -226,6 +353,8 @@ def validate_roadmap(data: dict) -> list[str]:
                 errors.append("Step entry must be a mapping")
                 continue
             _validate_single_step(step, sys_by_id, phase_to_sys, seen_steps, sys_step_nums, errors)
+            if step.get("id") and step.get("system"):
+                step_sys_by_id[str(step["id"])] = str(step["system"])
 
     for sid, nums in sys_step_nums.items():
         if nums != list(range(1, len(nums) + 1)):
@@ -233,6 +362,8 @@ def validate_roadmap(data: dict) -> list[str]:
     for sid in sys_by_id:
         if not sys_step_nums.get(sid):
             errors.append(f"[{sid}] System has 0 steps")
+
+    _validate_book_outline(data, sys_by_id, step_sys_by_id, root_dir, errors)
     return errors
 
 
@@ -308,6 +439,9 @@ def compute_metrics(data: dict) -> dict:
     if active_step is None:
         active_step = next((s for s in steps if s["status"] == "pending"), None)
 
+    parts = [p for p in ((data.get("book") or {}).get("parts") or []) if isinstance(p, dict)]
+    book_chapters = sum(len(p.get("chapters") or []) for p in parts)
+
     return {
         "total_steps": len(steps),
         "total_approved": total_approved,
@@ -318,6 +452,8 @@ def compute_metrics(data: dict) -> dict:
         "total_bench_done": sum(sm["bench_done"] for sm in sys_metrics),
         "pct_total": (total_approved / len(steps) * 100.0) if steps else 0.0,
         "pct_couch": (total_couch / len(steps) * 100.0) if steps else 0.0,
+        "book_parts": len(parts),
+        "book_chapters": book_chapters,
         "sys_metrics": sys_metrics,
         "active_step": active_step,
     }
@@ -461,7 +597,7 @@ def render_roadmap_md(data: dict, metrics: dict) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
-def _render_readme_guide(total_steps: int) -> list[str]:
+def _render_readme_guide(total_steps: int, book_parts: int, book_chapters: int) -> list[str]:
     """Return the Repository Guide and Engineering Methodology sections for `README.md`."""
     return [
         "",
@@ -469,10 +605,10 @@ def _render_readme_guide(total_steps: int) -> list[str]:
         "",
         "## Repository Guide",
         "",
-        f"- [**`Apex Interactive Textbook`**]({PAGES_BOOK_URL}) — Six-volume VitePress textbook ([`book/`](./book/index.md)) compiling `systems/*/chapters/*.md` with synchronized source excerpts and interactive hardware figures.",
+        f"- [**`Apex Interactive Textbook`**]({PAGES_BOOK_URL}) — {book_parts}-part, {book_chapters}-chapter VitePress textbook ([`book/`](./book/index.md)) compiling `systems/*/chapters/*.md` with synchronized source excerpts and interactive hardware figures.",
         "- [**`VISION.md`**](./VISION.md) — Dual-processor architecture, electrical and protocol interface contracts, safety limits, and bill of materials.",
         f"- [**`ROADMAP.md`**](./ROADMAP.md) — Phase breakdowns, procurement schedule, and all {total_steps} step checklists.",
-        "- [**`roadmap.yaml`**](./roadmap.yaml) — Declarative manifest of subsystems, milestones, and verification state.",
+        "- [**`roadmap.yaml`**](./roadmap.yaml) — Declarative manifest of subsystems, milestones, textbook outline, and verification state.",
         "- [**`systems/`**](./systems/brain/README.md) — Subsystem workspaces (`brain`, `drive`, `power`, `limb`, `walker`, `sight`).",
         "- [**`scripts/`**](./scripts/step.py) — [`step.py`](./scripts/step.py), [`build.py`](./scripts/build.py), [`sync_book.py`](./scripts/sync_book.py), [`check_book.py`](./scripts/check_book.py), and [`check_code.py`](./scripts/check_code.py) milestone tracking, documentation synchronization, and static checks.",
         "",
@@ -544,7 +680,9 @@ def render_readme_md(data: dict, metrics: dict) -> str:
             f"{sys_obj['name']} | `{bar}` **{sm['approved']} / {sm['total']}** | "
             f"{sm['couch']} / {sm['bench']} | {sys_obj['est_weeks']} |"
         )
-    lines.extend(_render_readme_guide(metrics["total_steps"]))
+    lines.extend(
+        _render_readme_guide(metrics["total_steps"], metrics["book_parts"], metrics["book_chapters"])
+    )
     return "\n".join(lines).rstrip() + "\n"
 
 
@@ -564,7 +702,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
 
-    errors = validate_roadmap(data)
+    errors = validate_roadmap(data, ROOT_DIR)
     if errors:
         print("Roadmap invariant validation FAILED:", file=sys.stderr)
         for err in errors:

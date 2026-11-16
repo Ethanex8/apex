@@ -32,6 +32,50 @@ import build  # noqa: E402 — repo test runner imports standalone scripts witho
 import step  # noqa: E402 — repo test runner imports standalone scripts without package install
 
 
+def _sample_book() -> dict:
+    """Return a valid two-part, two-chapter book manifest covering `alpha-01` and `beta-01`."""
+    return {
+        "title": "Demo Apex Textbook",
+        "subtitle": "From logic gates to locomotion",
+        "parts": [
+            {
+                "id": "part-1",
+                "number": "I",
+                "system": "alpha",
+                "title": "Alpha Foundations",
+                "summary": "Core digital concepts",
+                "chapters": [
+                    {
+                        "id": "ch-01",
+                        "number": 1,
+                        "slug": "01_alpha_core",
+                        "title": "Alpha Core",
+                        "summary": "Foundations",
+                        "steps": ["alpha-01"],
+                    }
+                ],
+            },
+            {
+                "id": "part-2",
+                "number": "II",
+                "system": "beta",
+                "title": "Beta Actuation",
+                "summary": "Drive hardware",
+                "chapters": [
+                    {
+                        "id": "ch-02",
+                        "number": 2,
+                        "slug": "02_beta_drive",
+                        "title": "Beta Drive",
+                        "summary": "Torque stage",
+                        "steps": ["beta-01"],
+                    }
+                ],
+            },
+        ],
+    }
+
+
 def _sample_roadmap() -> dict:
     """Build a valid minimal two-system (`alpha` -> `beta`) roadmap dictionary for testing."""
     return {
@@ -67,6 +111,7 @@ def _sample_roadmap() -> dict:
                 "phases": [{"id": "beta-p1", "name": "Phase 1"}],
             },
         ],
+        "book": _sample_book(),
         "steps": [
             {
                 "id": "alpha-01",
@@ -241,6 +286,7 @@ def test_metrics_badges_and_dynamic_markdown_rendering() -> None:
     roadmap_md = build.render_roadmap_md(data, metrics)
     assert "All 2 steps completed!" in readme
     assert "all 2 step checklists" in readme
+    assert "2-part, 2-chapter" in readme
     assert "186" not in readme
     assert "[PR](https://pr/1)" in roadmap_md
 
@@ -287,6 +333,95 @@ def test_build_main_modes_and_invariant_order(
         assert build.main(["--check"]) == 1
 
 
+def test_validate_book_outline_parts_and_chapters() -> None:
+    """Verify Roman numerals, part/chapter schema checks, and step-partitioning errors."""
+    assert [build._int_to_roman(n) for n in (1, 4, 5, 9, 10)] == ["I", "IV", "V", "IX", "X"]
+
+    no_book = _sample_roadmap()
+    no_book["book"] = "bad"
+    assert "Missing or invalid top-level 'book'" in "\n".join(build.validate_roadmap(no_book))
+
+    bad_parts = _sample_roadmap()
+    bad_parts["book"] = {"parts": []}
+    joined = "\n".join(build.validate_roadmap(bad_parts))
+    assert "[book] Missing 'title'" in joined and "[book] 'parts' must be a non-empty list" in joined
+
+    d = _sample_roadmap()
+    d["book"]["parts"] = [
+        "bad_part",
+        {"id": "", "number": "IX", "system": "ghost", "chapters": []},
+        {
+            "id": "part-x",
+            "number": "III",
+            "system": "alpha",
+            "title": "Ok",
+            "summary": "Ok",
+            "chapters": ["bad_chap", {"id": "", "number": 9, "slug": "bad", "steps": []}],
+        },
+        {
+            "id": "part-x",
+            "number": "IV",
+            "system": "beta",
+            "title": "Dup",
+            "summary": "Dup",
+            "chapters": [
+                {
+                    "id": "ch-dup",
+                    "number": 3,
+                    "slug": "03_beta_drive",
+                    "title": "T",
+                    "summary": "S",
+                    "steps": ["alpha-01", "ghost-01"],
+                },
+                {
+                    "id": "ch-dup",
+                    "number": 4,
+                    "slug": "04_beta_extra",
+                    "title": "T2",
+                    "summary": "S2",
+                    "steps": ["alpha-01"],
+                },
+            ],
+        },
+    ]
+    errs = "\n".join(build.validate_roadmap(d))
+    for msg in (
+        "Part entry #1 must be a mapping",
+        "Missing or duplicate part id",
+        "Unknown part system 'ghost'",
+        "Part 'chapters' must be a non-empty list",
+        "Chapter entry #1 must be a mapping",
+        "Chapter slug 'bad' must start with '02_'",
+        "Chapter 'steps' must be a non-empty list",
+        "Missing or duplicate part id 'part-x'",
+        "Missing or duplicate chapter id 'ch-dup'",
+        "references unknown step 'ghost-01'",
+        "belongs to 'alpha', not 'beta'",
+        "assigned to multiple chapters",
+        "Unmapped steps missing from book chapters",
+    ):
+        assert msg in errs
+
+
+def test_validate_book_disk_consistency_and_lookup(tmp_path: Path) -> None:
+    """Verify disk chapter registration checks and `step.find_book_chapter` behavior."""
+    d = _sample_roadmap()
+    chap_dir = tmp_path / "systems" / "alpha" / "chapters"
+    chap_dir.mkdir(parents=True)
+    registered = chap_dir / "01_alpha_core.md"
+    registered.write_text("# Chapter 1\n", encoding="utf-8")
+    assert build.validate_roadmap(d, tmp_path) == []
+
+    orphan = chap_dir / "99_orphan.md"
+    orphan.write_text("# Orphan\n", encoding="utf-8")
+    disk_errs = "\n".join(build.validate_roadmap(d, tmp_path))
+    assert "is not registered in book.parts" in disk_errs
+
+    found = step.find_book_chapter(d, "ALPHA-01")
+    assert found is not None and found[0]["number"] == "I" and found[1]["number"] == 1 and found[2] == 1
+    assert step.find_book_chapter(d, "missing-99") is None
+
+
 def test_step_cli_lifecycle_and_atomic_rollback(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -299,6 +434,9 @@ def test_step_cli_lifecycle_and_atomic_rollback(
         assert step.main(["status", "alpha"]) == 0
         assert step.main(["status", "unknown_sys"]) == 1
         assert step.main(["next"]) == 0
+        next_out = capsys.readouterr().out
+        assert "Book Chapter    : Part I · Ch. 1 — Alpha Core" in next_out
+        assert "(systems/alpha/chapters/01_alpha_core.md · step 1/1)" in next_out
         assert step.main(["next", "beta"]) == 0
         assert step.main(["next", "unknown_sys"]) == 1
 
@@ -328,6 +466,7 @@ def test_step_cli_lifecycle_and_atomic_rollback(
         # Approve all steps so `next` reports completion, then reset
         assert step.main(["approve", "alpha-01", "--date", "2026-11-15"]) == 0
         assert step.main(["approve", "beta-01", "--date", "2026-11-15"]) == 0
+        capsys.readouterr()
         assert step.main(["next"]) == 0
         assert "All matching steps are approved!" in capsys.readouterr().out
         assert step.main(["reset", "unknown-99"]) == 1

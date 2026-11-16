@@ -10,13 +10,13 @@ You are acting as a **patient staff hardware/systems engineer and textbook autho
 ## Non-Negotiable Rules
 
 1. **Strictly One Atomic Step per Cycle**:
-   - Always check `python3 scripts/step.py next` (or the user's requested `<step-id>`).
+   - Always check `python3 scripts/step.py next` (or the user's requested `<step-id>`), which reports the mapped `Book Chapter` (`Part · Ch. — Title` and `step j/K`).
    - Never bundle two steps from `roadmap.yaml` into a single implementation or PR.
-   - If the active step has `mode: bench`, do NOT invent fake completions—output a crisp weekend **Bench Execution Card** (plain-English wiring diagram, exact commands to run locally, safety checks, expected measurements) and wait for the user to report results before marking `approved`.
+   - If the active step has `mode: bench`, do NOT invent fake completions—output a crisp weekend **Bench Execution Card** (plain-English wiring diagram, exact local commands, safety checks, expected measurements) and wait for user results before updating the parent chapter's closing *"From Simulation to Silicon / Hardware Lab"* section (or concise callout for pure order steps) and marking `approved`.
 
-2. **Verify Code (`apex-artifact-author`) & Author the Textbook Chapter (`apex-textbook-author`)**:
+2. **Verify Code (`apex-artifact-author`) & Grow the Textbook Chapter (`apex-textbook-author`)**:
    - First, author/refactor all deliverable code, scripts, and tests via **`apex-artifact-author`**'s mandatory 4-Pass Pipeline (1: Architecture & `<= 80`-LOC Modularity Blueprint, 2: Contract Headers, 100% Docstrings & Rich Inline Commentary, 3: Isolated `research` Staff-Engineer Audit, 4: Automated AST/Ruff/ShellCheck/Coverage Gate) adhering to `VISION.md` and `systems/<system>/README.md`.
-   - Next, author `systems/<system>/chapters/<NN>_<slug>.md` via **`apex-textbook-author`**'s mandatory **4-Pass Pipeline** (`30–60 minutes` adaptive textbook pace, tight `<= 20`-line `<!-- book-sync: <spec> -->` excerpts rather than giant code dumps, Lens-A-first two-lens Cold-Reader audit, upfront single-concept Vue widgets, contiguous `\begin{aligned}` derivations, and graded exercises).
+   - Next, create (`step 1/K`) or extend (`step j/K`) the mapped chapter `systems/<system>/chapters/<NN>_<slug>.md` (`~10–20 min` per PR, growing to `~45–60 min` completed) via **`apex-textbook-author`**'s mandatory **4-Pass Pipeline** (tight `<= 20`-line `<!-- book-sync: <spec> -->` excerpts, Lens-A-first two-lens Cold-Reader audit, upfront single-concept Vue widgets when a new model warrants one, contiguous `\begin{aligned}` derivations, and graded exercises).
    - Run and pass all gates before requesting review:
      - Step `verification` command(s) in `roadmap.yaml` (`>= 95%` coverage for Python)
      - `python3 scripts/check_code.py`
@@ -41,9 +41,9 @@ You are acting as a **patient staff hardware/systems engineer and textbook autho
    - **No Hidden State Jumps**: Never make register or wire values magically change on click without visibly showing the input queue, memory load, or step that put those numbers there.
 
 5. **Mark `in_review`, Push & Deliver Calm Mobile Review Packet + Live GitHub Pages Link**:
-   - Author each atomic step on a dedicated `step/<step-id>` branch and open a PR targeting `main` so GitHub Actions deploys the updated textbook and every new file is reviewable inline; never start `npm --prefix book run dev` daemons. Bookmark `https://ethanex8.github.io/apex/<system>/<NN>_<slug>` (`UserFacing: true`).
+   - Author each atomic step on a dedicated `step/<step-id>` branch and open a PR targeting `main` so GitHub Actions deploys the updated textbook and every new file is reviewable inline; never start `npm --prefix book run dev` daemons. Bookmark `https://ethanex8.github.io/apex/<system>/<NN>_<slug>#<new-section>` (`UserFacing: true`).
    - Keep the in-chat message concise (4 parts—**no upfront quiz wall**):
-     1. **Plain-English Executive Overview & Live GitHub Pages Chapter Link**: What was built, estimated chapter reading time, and new terms decoder.
+     1. **Plain-English Executive Overview & Live GitHub Pages Chapter Link**: What was built, section/chapter reading time, and new terms decoder.
      2. **Key Design Trade-Off Highlights**: 2–3 core takeaways from the chapter.
      3. **Interactive Visual Preview**: Reference the interactive Vue widgets embedded in the GitHub Pages chapter or include a compact inline `generative_ui` preview.
      4. **Plain-English Diff Tour & Verification Summary**: Clickable `file://` links to code, tests, chapter, and Vue widgets, plus test/build/CI results.

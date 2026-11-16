@@ -1,6 +1,6 @@
-# Chapter 1: The Golden ISA Contract, Fixed-Width Binary Math & Instruction Execution
+# Chapter 1: Instruction Set Architecture & Fixed-Width Binary Arithmetic
 
-> **Volume I (`brain`) · Phase 1 · Reading Time**: about 55 minutes  
+> **Part I: Digital Logic & Processor Architecture · Chapter 1 (`brain-01`) · Reading Time**: about 55 minutes  
 > **Primary Modules**: [`oracle.py`](../sim/oracle.py) (`1,127` lines) & [`test_oracle.py`](../tb/test_oracle.py) (`789` lines)  
 > **Interactive Figures**: *4-Bit Modular Ring Adder*, *Sign Extension & Right-Shift Comparator*, *32-Bit Instruction Inspector*, and *`RV32Oracle.step()` Trace Explorer*
 

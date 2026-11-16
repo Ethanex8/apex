@@ -27,7 +27,7 @@ Boot directly from persistent `QSPI` Flash into `32 MB` `SDRAM` on the custom 6-
 
 ## Directory Layout
 
-- `chapters/` — Volume I textbook chapters accompanying each design milestone ([Chapter 1: Golden Oracle & ISA](./chapters/01_golden_oracle_and_isa.md))
+- `chapters/` — Parts I–III textbook chapters ([Chapter 1: Instruction Set Architecture & Fixed-Width Binary Arithmetic](./chapters/01_isa_and_binary_arithmetic.md))
 - `rtl/` — Synthesizable hardware description (**SystemVerilog RTL**: `core/`, `mem/`, `periph/`, `soc_top.sv`)
 - `sim/` — Golden cycle-accurate Python CPU emulator (`RV32IM` + `Zicsr` + `Xapex`) and assembler/linker
 - `tb/` — Automated testbenches (`Verilator` + `Cocotb` + `pytest`) verifying hardware against the software oracle bit-for-bit

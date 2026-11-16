@@ -5,17 +5,17 @@ description: Author and revise full-depth (30–60 minute) interactive engineeri
 
 # Apex Multi-Pass Textbook Authoring Skill
 
-Use this skill whenever writing or upgrading a chapter in `systems/<system>/chapters/<NN>_<slug>.md` for an Apex `couch` step.
+Use this skill whenever writing, extending, or upgrading a chapter in `systems/<system>/chapters/<NN>_<slug>.md` mapped from `roadmap.yaml` (`book.parts`).
 
 ## Core Philosophy
 
-We are writing a **6-volume, publication-grade systems engineering textbook** (*Harris & Harris*, *Crafting Interpreters*, *xv6*, *OSTEP*) embedded directly alongside tested silicon, firmware, circuit-board, and robotics code, rendered via VitePress (`book/`).
+We are writing a **8-part, 34-chapter publication-grade systems engineering textbook** (*Harris & Harris*, *Crafting Interpreters*, *xv6*, *OSTEP*) embedded directly alongside tested silicon, firmware, circuit-board, and robotics code, rendered via VitePress (`book/`).
 
 - **Target Reader**: Experienced, mathematically strong software/systems engineer with **zero prior background** in computer architecture (`RISC-V`), RTL/FPGA toolchains, electrical circuits, or mechanical shop jargon.
-- **Adaptive Reading Pace (Never Rushed)**:
-  - **Foundational / Architectural Pillar Steps** (e.g., `brain-01` Golden ISA & Oracle, pipelining/hazards, 6-layer EM/PDN, SDRAM, FOC motor physics): **45–60 minutes** (`roughly 8,500–12,000 words` across `7–9` sections + `2–3` interactive Vue widgets).
-  - **Focused Module Steps** (e.g., combinational ALU, register file, shift-add muldiv, buck regulator): **30–45 minutes** (`roughly 5,000–8,000 words` across `5–7` sections + `1–2` interactive Vue widgets).
-  - **Integration / Torture Steps**: **25–35 minutes** (`roughly 3,500–5,500 words` + `1` interactive explorer).
+- **M:1 Step-to-Chapter Growth (`3–6` steps -> 1 cohesive `~45–60 min` chapter)**:
+  - **`step 1/K` (Chapter Launch)**: Creates `systems/<system>/chapters/<NN>_<slug>.md` with the opening narrative arc, foundational sections (`~10–20 min`), and initial `## Graded Engineering Exercises`.
+  - **`step j/K` (Intermediate Growth)**: Appends `1–2` focused sections (`~10–20 min`, ~1–2k words) immediately **before** `## Graded Engineering Exercises`, adds anchored exercises, reuses prior notation without re-introducing covered concepts, and adds widgets only where a genuinely new physical/algorithmic model helps (skip filler widgets on pure build/DRC/export steps).
+  - **`bench` Steps**: Experimental `bench` steps close the chapter with a *"From Simulation to Silicon / Hardware Lab"* section; pure procurement/order steps add a concise fabrication callout only.
 
 ---
 

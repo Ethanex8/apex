@@ -3,33 +3,41 @@ import path from 'node:path'
 import yaml from 'js-yaml'
 import type { DefaultTheme } from 'vitepress'
 
-interface RoadmapPhase {
-  id: string
-  name: string
-}
-
 interface RoadmapSystem {
   id: string
   order: number
   name: string
-  phases: RoadmapPhase[]
 }
 
 interface RoadmapStep {
   id: string
   system: string
-  phase: string
-  mode: 'couch' | 'bench'
-  title: string
   status: 'pending' | 'in_review' | 'approved'
+}
+
+interface BookChapter {
+  id: string
+  number: number
+  slug: string
+  title: string
+  steps: string[]
+}
+
+interface BookPart {
+  id: string
+  number: string
+  title: string
+  system: string
+  chapters: BookChapter[]
 }
 
 interface RoadmapData {
   systems: RoadmapSystem[]
   steps: RoadmapStep[]
+  book: {
+    parts: BookPart[]
+  }
 }
-
-const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI']
 
 function extractReadingTime(mdPath: string): string | null {
   try {
@@ -53,72 +61,55 @@ export function buildTextbookSidebar(repoRoot: string): DefaultTheme.SidebarItem
       text: 'Front Matter',
       collapsed: false,
       items: [
-        { text: 'About This Textbook', link: '/' },
-        { text: 'Prologue: System Vision & Contracts', link: '/vision' },
+        { text: 'About This Book', link: '/' },
+        { text: 'Prologue: System Architecture & Contracts', link: '/vision' },
       ],
     },
   ]
 
-  for (const sys of data.systems) {
-    const volNum = ROMAN[sys.order - 1] ?? String(sys.order)
-    const chapDir = path.join(repoRoot, 'systems', sys.id, 'chapters')
-    const chapterFiles = fs.existsSync(chapDir)
-      ? fs.readdirSync(chapDir).filter((f) => f.endsWith('.md')).sort()
-      : []
+  for (const part of data.book.parts) {
+    const chapDir = path.join(repoRoot, 'systems', part.system, 'chapters')
+    const partItems: DefaultTheme.SidebarItem[] = []
+    let hasPublished = false
 
-    const fileByStepNum = new Map<number, string>()
-    for (const file of chapterFiles) {
-      const m = file.match(/^(\d+)_(.+)\.md$/)
-      if (m) {
-        fileByStepNum.set(Number.parseInt(m[1], 10), file.replace(/\.md$/, ''))
-      }
-    }
-
-    const sysSteps = data.steps.filter((s) => s.system === sys.id)
-    const approvedCount = sysSteps.filter((s) => s.status === 'approved').length
-
-    const volumeItems: DefaultTheme.SidebarItem[] = [
-      {
-        text: `Volume ${volNum} Overview (${approvedCount}/${sysSteps.length} steps)`,
-        link: `/${sys.id}/`,
-      },
-    ]
-
-    for (const phase of sys.phases) {
-      const phaseSteps = sysSteps.filter((s) => s.phase === phase.id)
-      const publishedPhaseItems: DefaultTheme.SidebarItem[] = []
-
-      for (const st of phaseSteps) {
-        const numMatch = st.id.match(/-(\d+)$/)
-        if (!numMatch) continue
-        const stepNum = Number.parseInt(numMatch[1], 10)
-        const slug = fileByStepNum.get(stepNum)
-        if (slug) {
-          const fullMdPath = path.join(chapDir, `${slug}.md`)
-          const readBadge = extractReadingTime(fullMdPath)
-          const badge = readBadge ? ` (${readBadge})` : ''
-          publishedPhaseItems.push({
-            text: `${stepNum}. ${st.title}${badge}`,
-            link: `/${sys.id}/${slug}`,
-          })
-        }
-      }
-
-      if (publishedPhaseItems.length > 0) {
-        volumeItems.push({
-          text: phase.name,
-          collapsed: false,
-          items: publishedPhaseItems,
+    for (const chap of part.chapters) {
+      const mdPath = path.join(chapDir, `${chap.slug}.md`)
+      if (fs.existsSync(mdPath)) {
+        hasPublished = true
+        const readBadge = extractReadingTime(mdPath)
+        const badge = readBadge ? ` (${readBadge})` : ''
+        partItems.push({
+          text: `${chap.number}. ${chap.title}${badge}`,
+          link: `/${part.system}/${chap.slug}`,
+        })
+      } else {
+        partItems.push({
+          text: `${chap.number}. ${chap.title} · Upcoming`,
         })
       }
     }
 
     sidebar.push({
-      text: `Vol. ${volNum}: ${sys.id.toUpperCase()}`,
-      collapsed: sys.order !== 1 && chapterFiles.length === 0,
-      items: volumeItems,
+      text: `Part ${part.number}: ${part.title}`,
+      collapsed: !hasPublished,
+      items: partItems,
     })
   }
+
+  const subsystemItems: DefaultTheme.SidebarItem[] = data.systems.map((sys) => {
+    const sysSteps = data.steps.filter((s) => s.system === sys.id)
+    const approvedCount = sysSteps.filter((s) => s.status === 'approved').length
+    return {
+      text: `${sys.order}. ${sys.id} (${approvedCount}/${sysSteps.length})`,
+      link: `/${sys.id}/`,
+    }
+  })
+
+  sidebar.push({
+    text: 'Hardware Subsystems',
+    collapsed: true,
+    items: subsystemItems,
+  })
 
   return sidebar
 }

@@ -14,7 +14,7 @@ Purpose:
 
 Usage:
   uv run --with playwright python3 scripts/check_visuals.py
-  uv run --with playwright python3 scripts/check_visuals.py --screenshot-dir .cache/visual-audit /brain/01_golden_oracle_and_isa
+  uv run --with playwright python3 scripts/check_visuals.py --screenshot-dir .cache/visual-audit /brain/01_isa_and_binary_arithmetic
 
 Outputs:
   Writes optional PNG snapshots to `--screenshot-dir`; exits 0 on pass or 1 with

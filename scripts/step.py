@@ -73,6 +73,17 @@ def find_step(data: dict, step_id: str) -> dict | None:
     return None
 
 
+def find_book_chapter(data: dict, step_id: str) -> tuple[dict, dict, int] | None:
+    """Return `(part, chapter, 1_based_step_index)` for `step_id`, or None if unmapped."""
+    target = step_id.strip().lower()
+    for part in (data.get("book") or {}).get("parts") or []:
+        for chap in part.get("chapters") or []:
+            for idx, sid in enumerate(chap.get("steps") or [], 1):
+                if str(sid).lower() == target:
+                    return part, chap, idx
+    return None
+
+
 def _validate_target_system(data: dict, system_arg: str | None) -> str | None:
     """Return normalized system ID if valid, None if omitted, or raise ValueError if unknown."""
     if not system_arg:
@@ -135,6 +146,12 @@ def cmd_next(args: argparse.Namespace) -> int:
     st = next((s for s in candidates if s["status"] == "in_review"), candidates[0])
     print(f"Step ID         : {st['id']} ({st['mode']}, {st['status']})")
     print(f"System / Phase  : {st['system']} / {st['phase']}")
+    if chap_info := find_book_chapter(data, st["id"]):
+        part, chap, pos = chap_info
+        total_in_chap = len(chap.get("steps") or [])
+        chap_path = f"systems/{part['system']}/chapters/{chap['slug']}.md"
+        print(f"Book Chapter    : Part {part['number']} · Ch. {chap['number']} — {chap['title']}")
+        print(f"                  ({chap_path} · step {pos}/{total_in_chap})")
     print(f"Title           : {st['title']}")
     print(f"First Principles: {st['first_principles']}")
     print(f"Reference       : {st['reference_reading']}")
