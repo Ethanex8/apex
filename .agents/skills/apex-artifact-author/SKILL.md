@@ -31,10 +31,10 @@ Before writing code:
    - Python: module docstring with summary, `Purpose:`, `Usage:`, and `Invariants:`/`Outputs:`.
    - Shell: banner containing `Purpose:`, `Usage:`, `Optional Environment Variables:` (if any), `Outputs:`, and an explicit `# Bump policy:` comment above any pinned tool/package tag (deriving stamps dynamically, e.g., `${tag//-/}`, never duplicating strings).
    - SystemVerilog / C: block header documenting `Purpose:`, `Ports & Clock Domain` / `API`, `Parameters`, and reset/timing invariants.
-2. **100% Docstrings & Function Comments**:
+2. **100% Docstrings & Rich Pedagogical Inline Comments**:
    - Every Python class, method, and function—**including every `test_*` function**—must have a concise docstring stating *what architectural invariant or failure mode* it enforces or proves.
    - Trace/interface dataclasses and structs must document field-level width/sign semantics (e.g., extended load value vs. width-masked store lane), and helper functions should decode narrow bitfields locally rather than hiding them across caller parameters.
-   - Add concise 1-line inline comments on non-obvious host-language bit tricks (preferring explicit masks like `0xFFFF_FFFF_0000_0000` over negative-int `~MASK32`, and noting `>>` sign-bit replication) or spec-mandated dual guards (e.g., `& ~1` followed by `& 3`).
+   - **Explain Code Mechanics Inline (`#` / `//`)**: Because every file in `systems/` is primary textbook source code—and textbook chapters must NOT embed large multi-dozen-line code blocks just to paraphrase them in prose—explain *what* non-obvious blocks do and *why* directly inline inside the code. Document every architectural state field in `__init__`/`reset`, every constant group/hardware register bit, every spec/hardware invariant (e.g., `WARL` masking, read-only bit behavior, counter timing, unused operand fields), and every host-language bit trick (preferring explicit masks like `0xFFFF_FFFF_0000_0000` over negative-int `~MASK32`, and noting `>>` sign-bit replication or `//` floor-vs-truncation) right next to the lines they govern.
    - Every Bash function `<name>() {` must have an explanatory `#` comment directly above it.
    - Every `# shellcheck`, `# noqa`, `# type: ignore`, and `/* verilator lint_off */` suppression must carry a plain-English reason explaining *why* the rule cannot apply cleanly.
 3. **CWD-Safe Paths**:
@@ -45,9 +45,10 @@ Invoke an isolated `research` subagent (`invoke_subagent`, `Model: 'inherit'`, `
 1. Function modularity & size (`<= 80` lines, zero god-functions or nested closures).
 2. Naming clarity & logical top-to-bottom file structure.
 3. Complete headers, 100% docstrings, grounded constants, and explained linter pragmas.
-4. CWD-independence, fail-fast errors, and zero dead fallback branches.
-5. Hardware safety (for `.sv`: zero inferred latches, synchronous reset polarity consistency, clean clock boundaries).
-6. Adversarial test thoroughness (negative paths, boundary overflow/underflow, misaligned/invalid inputs, `>= 95%` line coverage).
+4. **Rich Standalone Inline Commentary**: Can a software engineer with zero prior hardware/RISC-V background understand state fields, register constants, edge-case guards, and spec invariants directly from inline comments in the file without needing a prose paraphrase in a chapter?
+5. CWD-independence, fail-fast errors, and zero dead fallback branches.
+6. Hardware safety (for `.sv`: zero inferred latches, synchronous reset polarity consistency, clean clock boundaries).
+7. Adversarial test thoroughness (negative paths, boundary overflow/underflow, misaligned/invalid inputs, `>= 95%` line coverage).
 
 Resolve **100%** of tickets before moving to Pass 4.
 

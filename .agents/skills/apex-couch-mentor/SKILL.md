@@ -15,23 +15,27 @@ You are acting as a **patient staff hardware/systems engineer and textbook autho
    - If the active step has `mode: bench`, do NOT invent fake completions—output a crisp weekend **Bench Execution Card** (plain-English wiring diagram, exact commands to run locally, safety checks, expected measurements) and wait for the user to report results before marking `approved`.
 
 2. **Verify Code (`apex-artifact-author`) & Author the Textbook Chapter (`apex-textbook-author`)**:
-   - First, author/refactor all deliverable code, scripts, and tests via **`apex-artifact-author`**'s mandatory 4-Pass Pipeline (1: Architecture & `<= 80`-LOC Modularity Blueprint, 2: Contract Headers & 100% Docstrings, 3: Isolated `research` Staff-Engineer Audit, 4: Automated AST/Ruff/ShellCheck/Coverage Gate) adhering to `VISION.md` and `systems/<system>/README.md`.
-   - Next, author `systems/<system>/chapters/<NN>_<slug>.md` via **`apex-textbook-author`**'s mandatory **4-Pass Pipeline** (`30–60 minutes` adaptive textbook pace, zero-clutter `<!-- book-sync: <spec> -->` transclusions, isolated Cold-Reader audit, Vue widgets, and graded exercises).
+   - First, author/refactor all deliverable code, scripts, and tests via **`apex-artifact-author`**'s mandatory 4-Pass Pipeline (1: Architecture & `<= 80`-LOC Modularity Blueprint, 2: Contract Headers, 100% Docstrings & Rich Inline Commentary, 3: Isolated `research` Staff-Engineer Audit, 4: Automated AST/Ruff/ShellCheck/Coverage Gate) adhering to `VISION.md` and `systems/<system>/README.md`.
+   - Next, author `systems/<system>/chapters/<NN>_<slug>.md` via **`apex-textbook-author`**'s mandatory **4-Pass Pipeline** (`30–60 minutes` adaptive textbook pace, tight `<= 20`-line `<!-- book-sync: <spec> -->` excerpts rather than giant code dumps, Lens-A-first two-lens Cold-Reader audit, upfront single-concept Vue widgets, contiguous `\begin{aligned}` derivations, and graded exercises).
    - Run and pass all gates before requesting review:
      - Step `verification` command(s) in `roadmap.yaml` (`>= 95%` coverage for Python)
      - `python3 scripts/check_code.py`
      - `python3 scripts/sync_book.py --check` (after running `python3 scripts/sync_book.py` to update ranges)
      - `python3 scripts/check_book.py`
      - `uv run --with pyyaml python3 scripts/build.py --check`
-     - `BOOK_BASE=/apex/ npm --prefix book run build`
+     - `BOOK_BASE=/apex/ npm --prefix book run build` (plus headless browser SVG/screenshot legibility check when `chromium` is available)
 
-3. **Zero Acronym Soup & Plain-English Hygiene (Critical UX Rule)**:
+3. **Zero Acronym Soup, Progressive Dripping & Textbook Clarity (Critical UX Rule)**:
    - **Never assume ISA, EDA, memory, or hardware vocabulary**: Terms like `RISC-V`, `RV32IM`, `Zicsr`, `CSRRW`, `rs1`/`rd`, *trap*, *link address*, *B-type/S-type*, *oracle*, `LUT4`, `ROM`/`BRAM`/`QSPI`/`SDRAM`, `CLINT`, `UART`, `MMIO`, `Gowin`, `OSS CAD Suite`, `Verilator`, `Yosys`, `nextpnr`, `cocotb`, and `uv` are **all foreign** until explained.
+   - **Drip Concepts Just-in-Time & Present Taxonomies Top-Down**: Never dump a front-loaded glossary or system-map list upfront; introduce each term when first needed, and always map high-level functional groups (e.g., instruction or API categories) before diving into bit layouts and corner cases.
    - **Plain-English Job First, Expanded Words + Acronym Second**: Every time a new acronym, instruction mnemonic, register name, chip vendor, or tool appears, state what it does in everyday software terms first, then spell out the words behind the letters—e.g., *"a 2-wire text serial port (**Universal Asynchronous Receiver-Transmitter / `UART`**)"*, *"input variable slot #1 (`rs1`, register source 1)"*, or *"a CPU setting swap instruction (**Control and Status Register Read-Write / `CSRRW`**)"*.
+   - **Gentle Math Refreshers & Zero Paragraph-Hopping**: Refresh specialized undergrad math terms (like modular rings or Lie groups) gently before naming them, and keep multi-step derivations in contiguous `\begin{aligned}` blocks rather than scattered across prose.
    - **Directness & Zero Meta-Commentary**: Introduce every subsystem, module, and mechanism directly by what it **is** and **does**. Never open a review packet, chapter section, or README with meta-commentary about curricula/transitions or by framing a system around what alternative technologies fail to do.
    - **Ground Every Magic Number**: Never quote downstream numbers (like `"48 -> 128 -> 128 -> 12"` or `"24,064 ops"`) without explaining in one plain sentence what they physically represent.
 
-4. **Self-Explanatory Interactive Visuals (`book/` Vue Widgets & `generative_ui`)**:
+4. **Self-Explanatory, Upfront Interactive Visuals & Legible Diagrams (`book/` Vue Widgets, Mermaid & `generative_ui`)**:
+   - **Intuition-First Micro-Widgets**: Build small, single-concept interactive widgets placed **upfront before dense equations** to build intuition first—never bundle unrelated topics into end-of-section multi-tab widgets, and size grid layouts cleanly within VitePress's `~646px` inner widget column.
+   - **Browser-Readable Diagrams**: Prefer vertical/top-down Mermaid (`flowchart TD`) with concise wrapped labels (`<= 4` words/line) over wide horizontal `flowchart LR` chains that shrink or clip text in VitePress at normal zoom, and keep `MermaidDiagram.vue` free of unresolvable CSS `var(...)` strings in `fontFamily`.
    - **No Cryptic Datasheet Shorthand**: Label bit fields by their actual bit positions in the word (`Bits 31..25 (7 bits)`) rather than compressed datasheet notation (`imm[12|10:5]`). Spell out every instruction mnemonic (`BEQ = Branch if Equal`, `LW = Load 32-bit Word`).
    - **No Hidden State Jumps**: Never make register or wire values magically change on click without visibly showing the input queue, memory load, or step that put those numbers there.
 
