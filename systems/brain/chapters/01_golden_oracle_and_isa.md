@@ -1,7 +1,7 @@
 # Chapter 1: The Golden ISA Contract, Fixed-Width Binary Math & Instruction Execution
 
 > **Volume I (`brain`) · Phase 1 · Reading Time**: about 60 minutes  
-> **Primary Modules**: [`oracle.py`](../sim/oracle.py) (`1,051` lines) & [`test_oracle.py`](../tb/test_oracle.py) (`585` lines)  
+> **Primary Modules**: [`oracle.py`](../sim/oracle.py) (`1,057` lines) & [`test_oracle.py`](../tb/test_oracle.py) (`585` lines)  
 > **Interactive Figures**: *Two's Complement & Sign-Extension Workbench*, *32-Bit Instruction Wire Inspector*, and *`RV32Oracle` Execution & Trap Trace Explorer*
 
 ---
@@ -42,14 +42,14 @@ An `ISA` defines strictly what a machine-code programmer or compiler can observe
 
 $$S_{t+1} = \text{step}(S_t)$$
 
-Notice what the `ISA` deliberately **omits**: it says nothing about whether an instruction takes 1 clock cycle or 32 clock cycles, whether five instructions overlap inside a pipeline, or how wide the copper traces are on the 6-layer circuit board. Those internal implementation choices belong to the **microarchitecture**, which is designed in `SystemVerilog` in subsequent chapters. Because [`oracle.py`](../sim/oracle.py) captures architectural semantics alone, it expresses the entire processor in roughly a thousand lines of sequential Python—executing one complete instruction per call to [`RV32Oracle.step()`](../sim/oracle.py#L932-L1033).
+Notice what the `ISA` deliberately **omits**: it says nothing about whether an instruction takes 1 clock cycle or 32 clock cycles, whether five instructions overlap inside a pipeline, or how wide the copper traces are on the 6-layer circuit board. Those internal implementation choices belong to the **microarchitecture**, which is designed in `SystemVerilog` in subsequent chapters. Because [`oracle.py`](../sim/oracle.py) captures architectural semantics alone, it expresses the entire processor in roughly a thousand lines of sequential Python—executing one complete instruction per call to [`RV32Oracle.step()`](../sim/oracle.py#L938-L1039).
 
 ### Architectural Commit Receipts (`StepTrace`)
 
-If verification only compared memory and registers *after* a 10,000-instruction program finished, a bug at instruction #412 could cascade through thousands of subsequent steps before surfacing as a wrong final answer. Instead, [`RV32Oracle.step()`](../sim/oracle.py#L932-L1033) returns a structured receipt after every instruction—[`StepTrace`](../sim/oracle.py#L289-L302):
+If verification only compared memory and registers *after* a 10,000-instruction program finished, a bug at instruction #412 could cascade through thousands of subsequent steps before surfacing as a wrong final answer. Instead, [`RV32Oracle.step()`](../sim/oracle.py#L938-L1039) returns a structured receipt after every instruction—[`StepTrace`](../sim/oracle.py#L289-L307):
 
 <!-- book-sync: StepTrace -->
-<<< @/systems/brain/sim/oracle.py#L289-L302
+<<< @/systems/brain/sim/oracle.py#L289-L307
 
 `StepTrace` serves as a **write-ahead transaction log entry**:
 - `pc` and `insn` record *where* the core fetched (`32`-bit byte address) and *what* raw 32-bit machine word it decoded.
@@ -62,23 +62,28 @@ During `Verilator` co-simulation, every time the hardware pipeline finishes (*re
 
 ### Architectural Vocabulary and System Map
 
-Because [`oracle.py`](../sim/oracle.py) defines the programmer-visible contract for the entire `brain` **System-on-Chip (`SoC`)**, its module header enumerates every ISA extension, memory region, and peripheral device on the chip:
+[`oracle.py`](../sim/oracle.py) defines the programmer-visible contract for the entire `brain` **System-on-Chip (`SoC`)**—spanning its instruction extensions, memory regions, and peripheral devices:
 
+**1. Instruction Set & Compiler Stack (Sections 4–6 & 8)**
 - **Open-Standard 32-Bit Processor Specification (`RISC-V`, pronounced *"risk-five"*)**: Unlike proprietary instruction sets (`x86-64` owned by Intel/AMD, or `ARM` licensed per chip), `RISC-V` (**Reduced Instruction Set Computer — Fifth Generation**, originated at UC Berkeley) is an open, royalty-free specification. Anyone may design, fabricate, and ship a custom `RISC-V` processor in silicon or on a reprogrammable logic chip (**Field-Programmable Gate Array / `FPGA`**) without licensing fees.
 - **32-Bit Base Integer + Multiply/Divide Profile (`RV32IM`)**: `RISC-V` is modular:
   - **`RV32I`** (**32-bit Base Integer**) is the mandatory core of `40` instructions: 32-bit integer addition/subtraction, bitwise logic (`AND`, `OR`, `XOR`), bit shifts, memory loads/stores, and conditional branches/jumps.
   - **`M`** (**Integer Multiplication and Division Extension**) adds `8` instructions (`mul`, `mulh`, `mulhsu`, `mulhu`, `div`, `divu`, `rem`, `remu`) so software does not have to emulate multiplication in slow loops.
-- **Atomic Control-Register Instructions (`Zicsr`)**: A small standard extension adding six instructions (such as **Control and Status Register Read/Write / `CSRRW`**) that atomically read and update privileged hardware configuration registers (**Control and Status Registers / `CSRs`**) governing interrupts, error handlers, and cycle counters.
-- **Custom Neural Dot-Product Extension (`Xapex mac`)**: `RISC-V` leaves dedicated opcode slots (`custom-0` through `custom-3`) open for domain-specific hardware accelerators. The `Xapex` extension uses `custom-0` (`0x0B`) to add a packed dual-16-bit multiply-accumulate instruction (`mac`) that accelerates the robot's neural walking policy by over `40x`.
-- **Four-Tier Chip Memory Map (`ROM`, `BRAM`, `QSPI Flash`, `SDRAM`)**: The processor reads code and data across four physical storage regions:
-  1. `16 KB` of startup **Read-Only Memory (`Boot ROM`)** at `0x0000_0000`,
-  2. `64 KB` of single-cycle on-chip **Block Random-Access Memory (`BRAM`)** inside the `FPGA` at `0x1000_0000`,
-  3. A `16 MB` soldered persistent storage chip that transfers 4 bits per clock cycle (**Quad Serial Peripheral Interface / `QSPI` NOR Flash**) mapped for direct code execution (**Execute-In-Place / `XIP`**) at `0x2000_0000`, and
-  4. A `32 MB` external **Synchronous Dynamic Random-Access Memory (`SDRAM`)** chip at `0x4000_0000`.
+- **Atomic Control-Register Instructions (`Zicsr`, Section 8)**: Six instructions (such as **Control and Status Register Read/Write / `CSRRW`**) that atomically read and update privileged hardware configuration registers (**Control and Status Registers / `CSRs`**) governing interrupts, trap handlers, and cycle counters.
+- **Custom Neural Dot-Product Extension (`Xapex mac`, Section 6)**: `RISC-V` reserves dedicated opcode slots (`custom-0` through `custom-3`) for domain-specific accelerators. The `Xapex` extension uses `custom-0` (`0x0B`) to add a packed dual-16-bit multiply-accumulate instruction (`mac`) that accelerates the robot's neural walking policy by over `40x`.
+- **Custom C-Subset Compiler (`SysC`)**: The C-to-`RISC-V` compiler toolchain built alongside the processor so the software-to-silicon stack remains transparent end to end.
+
+**2. Four-Tier Chip Memory Map (Section 7)**
+The processor reads code and data across four physical storage regions:
+1. `16 KB` of startup **Read-Only Memory (`Boot ROM`)** at `0x0000_0000`,
+2. `64 KB` of single-cycle on-chip **Block Random-Access Memory (`BRAM`)** inside the `FPGA` at `0x1000_0000`,
+3. A `16 MB` soldered persistent storage chip that transfers 4 bits per clock cycle (**Quad Serial Peripheral Interface / `QSPI` NOR Flash**) mapped for direct code execution (**Execute-In-Place / `XIP`**) at `0x2000_0000`, and
+4. A `32 MB` external **Synchronous Dynamic Random-Access Memory (`SDRAM`)** chip at `0x4000_0000`.
+
+**3. Memory-Mapped Peripherals (Sections 7–8)**
 - **Memory-Mapped Input/Output (`MMIO`)**: Rather than inventing special instructions like `PRINT_SERIAL` or `READ_TIMER`, hardware peripherals expose their control registers at fixed 32-bit memory addresses (`0x8000_0000` upward). Reading or writing a pointer at those addresses talks directly to physical hardware circuits.
 - **Core-Local Interruptor (`CLINT`)**: A memory-mapped 64-bit tick counter (`mtime`) paired with a 64-bit alarm register (`mtimecmp`) at `0x8000_0000`. Whenever `mtime >= mtimecmp`, it asserts a hardware timer interrupt so the **Real-Time Operating System (`RTOS`)** scheduler can switch tasks at `1,000 Hz`.
 - **Universal Asynchronous Receiver-Transmitter (`UART0`)**: A 2-wire (`TX` transmit, `RX` receive) byte-at-a-time serial port mapped at `0x8001_0000`, wired to the USB debug console at `115,200` signal transitions (bits) per second (**baud**) so C programs and an interactive command-line shell can transmit text and receive keystrokes.
-- **Custom C-Subset Compiler (`SysC`)**: The C-to-`RISC-V` compiler toolchain built alongside the processor so the software-to-silicon stack remains transparent end to end.
 
 ---
 
@@ -248,10 +253,10 @@ Experiment with both the 4-bit modular ring adder and the 12-to-32-bit sign exte
 
 ## 3. Architectural State & the Role of Hardwired `x0`
 
-With fixed-width binary arithmetic established, examine the complete programmer-visible state of the `brain` **System-on-Chip (`SoC`)** inside [`RV32Oracle.__init__`](../sim/oracle.py#L322-L338) and [`RV32Oracle.reset()`](../sim/oracle.py#L340-L367):
+With fixed-width binary arithmetic established, examine the complete programmer-visible state of the `brain` **System-on-Chip (`SoC`)** inside [`RV32Oracle.__init__`](../sim/oracle.py#L327-L343) and [`RV32Oracle.reset()`](../sim/oracle.py#L345-L372):
 
 <!-- book-sync: RV32Oracle.__init__..RV32Oracle.reset -->
-<<< @/systems/brain/sim/oracle.py#L322-L367
+<<< @/systems/brain/sim/oracle.py#L327-L372
 
 Every persistent variable attached to `self` corresponds to physical storage on the `FPGA` and circuit board:
 
@@ -259,21 +264,22 @@ Every persistent variable attached to `self` corresponds to physical storage on 
 2. **General-Purpose Register File (`self.regs[0..31]`)**: An array of `32` single-cycle 32-bit integer registers named `x0` through `x31` (`128` bytes total).
    - *Why `32` registers instead of `8` or `256`?* Every register operand inside a 32-bit instruction must specify *which* register it addresses using `log2(N)` bits. With `32` registers, each register index takes **5 bits** ($\log_2(32) = 5$), so three register operands (`rd`, `rs1`, `rs2`) consume `15` of the `32` instruction bits—leaving `17` bits for opcodes and constants while giving the `SysC` compiler enough fast registers to keep loop variables and function arguments out of RAM. Expanding to `128` registers (`7` bits each) would consume `21` bits just for register indices and quadruple multiplexer depth.
 3. **Neural Dot-Product Accumulator (`self.mac_acc`)**: A dedicated 32-bit signed register inside the execution stage that holds running sums across consecutive `Xapex mac` instructions.
-4. **Machine-Mode Control & Status Registers (`mstatus`, `misa`, `mie`, `mtvec`, `mscratch`, `mepc`, `mcause`, `mtval`, `mip`, `mcycle`, `minstret`)**: Privileged system registers governing interrupts, exception vector addresses, and 64-bit hardware cycle/instruction counters.
+4. **Machine-Mode Control & Status Registers (`mstatus`, `misa`, `mie`, `mtvec`, `mscratch`, `mepc`, `mcause`, `mtval`, `mip`, `mcycle`, `minstret`)**: Privileged system registers governing interrupts, exception vector addresses, and 64-bit hardware cycle/instruction counters (derived in Section 8).
+   - `self.mstatus = MSTATUS_MPP_M` (`0b11 << 11`) pins the *Machine Previous Privilege* field to Machine Mode (`0b11`) with master interrupts disabled (`MIE = 0`) at boot, and `self.mip_sw_ext = 0` clears software/external pending flags (kept separate from the live `CLINT` timer bit).
    - Note how `self.misa = 0x4080_1100` in `reset()` is constructed from the `RISC-V` Privileged Specification:
      - `Bits 31..30 = 0b01` (`0x4...`): declares a **32-bit** (`RV32`) architecture.
      - `Bit 23 = 1` (`0x0080_0000`, letter `'X'` = index `23` of `A..Z`): declares non-standard custom extensions (`Xapex`).
      - `Bit 12 = 1` (`0x0000_1000`, letter `'M'` = index `12`): declares hardware integer Multiply/Divide (`RV32M`).
      - `Bit 8 = 1` (`0x0000_0100`, letter `'I'` = index `8`): declares the `RV32I` base integer instruction set.
      - Combining them via bitwise OR gives `0x4000_0000 | 0x0080_0000 | 0x0000_1000 | 0x0000_0100 = 0x4080_1100`.
-5. **Memory Regions & I/O Devices (`rom`, `bram`, `qspi`, `sdram`, `mtime`/`mtimecmp`, `uart_*`)**: The backing memory arrays, 64-bit timer alarm, and serial transmit/receive byte queues. Note `self.uart_bauddiv = SYS_CLK_HZ // UART_DEFAULT_BAUD` at the end of `reset()` (`50_000_000 // 115_200 = 434` clock ticks per serial bit at a `50 MHz` system clock and `115,200` baud console rate).
+5. **Memory Regions & I/O Devices (`rom`, `bram`, `qspi`, `sdram`, `mtime`/`mtimecmp`, `uart_*`)**: The backing memory arrays, 64-bit timer alarm, and serial transmit/receive byte queues (detailed in Section 7). Initializing `self.mtimecmp = (1 << 64) - 1` parks the alarm threshold at its 64-bit maximum so timer interrupts never fire until firmware schedules a real deadline, and `self.uart_bauddiv = SYS_CLK_HZ // UART_DEFAULT_BAUD` (`50_000_000 // 115_200 = 434`) sets the default clock ticks per serial bit at `50 MHz` and `115,200` baud.
 
 ### Why Register `x0` Is Hardwired to Zero
 
-Inspect [`_set_reg(rd, val)`](../sim/oracle.py#L625-L630), the sole gatekeeper through which every instruction writes to `self.regs`:
+Inspect [`_set_reg(rd, val)`](../sim/oracle.py#L630-L635), the sole gatekeeper through which every instruction writes to `self.regs`:
 
 <!-- book-sync: RV32Oracle._set_reg -->
-<<< @/systems/brain/sim/oracle.py#L625-L630
+<<< @/systems/brain/sim/oracle.py#L630-L635
 
 In `RISC-V`, register `x0` is **not** a normal storage slot initialized to `0` at boot—it is physically wired to ground (`0x0000_0000`) in silicon. Reading `x0` always returns `0`, and writing any value to `x0` (`rd == 0`) is discarded.
 
@@ -302,10 +308,10 @@ In desktop architectures like `x86-64`, instructions vary from `1` byte to `15` 
 
 ### Fixed Register Columns
 
-Inspect the bitfield slice at the top of [`RV32Oracle.step()`](../sim/oracle.py#L947-L952 "anchor: RV32Oracle.step['opcode = insn & 0x7F'..'funct7 = (insn >> 25) & 0x7F']"):
+Inspect the bitfield slice at the top of [`RV32Oracle.step()`](../sim/oracle.py#L953-L958 "anchor: RV32Oracle.step['opcode = insn & 0x7F'..'funct7 = (insn >> 25) & 0x7F']"):
 
 <!-- book-sync: RV32Oracle.step['opcode = insn & 0x7F'..'rs1_s, rs2_s = s32(rs1_u)'] -->
-<<< @/systems/brain/sim/oracle.py#L947-L955
+<<< @/systems/brain/sim/oracle.py#L953-L961
 
 Notice that `step()` extracts `opcode`, `rd`, `funct3`, `rs1`, `rs2`, and `funct7`—and even reads `self.regs[rs1]` and `self.regs[rs2]`—before decoding the instruction format.
 
@@ -387,25 +393,25 @@ Explore all six formats—and toggle individual instruction bits `31..0` to obse
 
 ## 5. The Integer Execution Engine (`RV32I` & `RV32M` Corner Cases)
 
-Once `step()` slices an instruction word, integer arithmetic and logic dispatch to [`_exec_op_imm`](../sim/oracle.py#L767-L797) (register + 12-bit constant) and [`_exec_op_reg`](../sim/oracle.py#L833-L856) (register + register):
+Once `step()` slices an instruction word, integer arithmetic and logic dispatch to [`_exec_op_imm`](../sim/oracle.py#L772-L803) (register + 12-bit constant) and [`_exec_op_reg`](../sim/oracle.py#L839-L862) (register + register):
 
 <!-- book-sync: RV32Oracle._exec_op_imm -->
-<<< @/systems/brain/sim/oracle.py#L767-L797
+<<< @/systems/brain/sim/oracle.py#L772-L803
 
 <!-- book-sync: RV32Oracle._exec_op_reg -->
-<<< @/systems/brain/sim/oracle.py#L833-L856
+<<< @/systems/brain/sim/oracle.py#L839-L862
 
 Note three hardware invariants in these two helpers:
-1. **Why Shift Amounts Mask with `& 0x1F` (`Bits 4..0`)**: Inside `_exec_op_reg` (`SLL`, `SRL`, and `SRA` branches), when `x9` is shifted by a dynamic count in `rs2_u`, physical silicon routes only the bottom `5` bits of `rs2_u` (`0..31`) into a 5-stage cascaded power-of-two shift circuit (**barrel shifter**, shifting by `16`, `8`, `4`, `2`, and `1` bit positions in a single pass). Masking `rs2_u & 0x1F` ensures shifting by `35` shifts by `35 & 31 = 3`, matching hardware bit-for-bit.
+1. **Barrel Shifter Bounds (`& 0x1F`) & Python Arithmetic Right Shifts (`rs1_s >> shamt`)**: Inside `_exec_op_imm`, `shamt = (insn >> 20) & 0x1F` extracts the 5-bit immediate shift count (`0..31`) directly from `Bits 24..20`. Inside `_exec_op_reg` (`SLL`, `SRL`, and `SRA` branches), `rs2_u` holds an arbitrary 32-bit register value, so masking `rs2_u & 0x1F` models physical silicon routing only the bottom `5` bits into a 5-stage cascaded power-of-two shift circuit (**barrel shifter**, shifting by `16`, `8`, `4`, `2`, and `1` bit positions in one pass) so shifting by `35` shifts by `35 & 31 = 3`. For `SRAI` and `SRA`, Python's `>>` on a negative signed `rs1_s` already shifts in infinite leading `1` sign bits (flooring toward $-\infty$), which `_set_reg`'s `u32()` then truncates cleanly back to `32` hardware bits.
 2. **Mixed-Sign Immediate Unsigned Comparison (`SLTIU`, `funct3 == 3`)**: Examine `res = 1 if rs1_u < u32(imm) else 0` in `_exec_op_imm`. Even though **`SLTIU`** (*Set Less Than Immediate Unsigned*) performs an **unsigned** 32-bit comparison, `RISC-V` **still sign-extends** the 12-bit immediate *first* (`imm = sign_extend(insn >> 20, 12)`) before interpreting those 32 bits as unsigned via `u32(imm)`. This allows hardware to share a single 12-bit sign extender on the `I`-type path, *and* lets `sltiu rd, rs1, -1` (`u32(-1) = 0xFFFF_FFFF`) test `rs1 != 0xFFFF_FFFF` in one instruction (while `sltiu rd, rs1, 1` tests `rs1 < 1` unsigned, i.e., `rs1 == 0`, implementing the **`seqz` (`Set if Equal to Zero`)** pseudoinstruction).
-3. **Catching Illegal Bit Combinations (`return None`)**: If an instruction has `opcode = 0x33` with an unassigned `funct7` (such as `0x7F`), `_exec_op_reg` returns `None`, causing [`RV32Oracle.step`](../sim/oracle.py#L999-L1000 "anchor: RV32Oracle.step['elif opcode == 0x33:'..'self._exec_op_reg(']") to raise a synchronous **Illegal Instruction Trap (`CAUSE_ILLEGAL_INSN = 2`)**—preventing corrupted memory or unsupported opcodes from failing silently.
+3. **Catching Illegal Bit Combinations (`return None`)**: If an instruction has `opcode = 0x33` with an unassigned `funct7` (such as `0x7F`), `_exec_op_reg` returns `None`, causing [`RV32Oracle.step`](../sim/oracle.py#L1005-L1006 "anchor: RV32Oracle.step['elif opcode == 0x33:'..'self._exec_op_reg(']") to raise a synchronous **Illegal Instruction Trap (`CAUSE_ILLEGAL_INSN = 2`)**—preventing corrupted memory or unsupported opcodes from failing silently.
 
 ### Hardware Multiply & Divide (`RV32M`): 64-Bit Products and Trap-Free Division
 
-Next, examine [`_exec_muldiv`](../sim/oracle.py#L799-L831), which implements all eight `RV32M` instructions (`funct7 == 0x01` under `opcode = 0x33`):
+Next, examine [`_exec_muldiv`](../sim/oracle.py#L805-L837), which implements all eight `RV32M` instructions (`funct7 == 0x01` under `opcode = 0x33`):
 
 <!-- book-sync: RV32Oracle._exec_muldiv -->
-<<< @/systems/brain/sim/oracle.py#L799-L831
+<<< @/systems/brain/sim/oracle.py#L805-L837
 
 Every branch in `_exec_muldiv` reflects a fundamental property of integer multiplication and division hardware:
 
@@ -481,10 +487,10 @@ Suppose weights and activations are stored as quantized **16-bit signed integers
 
 ### The `Xapex` Solution: Dual-`int16` `SIMD` + Internal Execution Accumulator (`mac_acc`)
 
-Examine how [`_exec_mac`](../sim/oracle.py#L907-L926) resolves both bottlenecks inside `RISC-V`'s `custom-0` opcode (`0x0B`):
+Examine how [`_exec_mac`](../sim/oracle.py#L913-L932) resolves both bottlenecks inside `RISC-V`'s `custom-0` opcode (`0x0B`):
 
 <!-- book-sync: RV32Oracle._exec_mac -->
-<<< @/systems/brain/sim/oracle.py#L907-L926
+<<< @/systems/brain/sim/oracle.py#L913-L932
 
 1. **Packed Dual-`int16` Single-Instruction Multiple-Data (`SIMD`)**:
    - `rs1` holds two signed 16-bit activations packed side by side: `a0 = rs1[15:0]` (lower half) and `a1 = rs1[31:16]` (upper half).
@@ -518,10 +524,10 @@ In a byte-addressed memory system, **every individual 8-bit byte has a unique ad
 - **Halfword (`width = 2`, `16` bits)**: `lh` (load signed halfword), `lhu` (load unsigned halfword), `sh` (store halfword).
 - **Word (`width = 4`, `32` bits)**: `lw` (load word), `sw` (store word), plus 32-bit instruction fetches.
 
-Inspect [`_exec_load`](../sim/oracle.py#L714-L744) and [`_exec_store`](../sim/oracle.py#L746-L765):
+Inspect [`_exec_load`](../sim/oracle.py#L719-L749) and [`_exec_store`](../sim/oracle.py#L751-L770):
 
 <!-- book-sync: RV32Oracle._exec_load..RV32Oracle._exec_store -->
-<<< @/systems/brain/sim/oracle.py#L714-L765
+<<< @/systems/brain/sim/oracle.py#L719-L770
 
 Notice the identical guard near the top of both `_exec_load` and `_exec_store`:
 ```python
@@ -560,24 +566,25 @@ Trace the byte-lane operations from [`test_memory_loads_stores_mmio_stub_and_fau
    - `sh x2, 2(x3)` stores the low 16 bits of `x2` (`0x80FF`) at offsets `+2` and `+3` → bytes become `[+0]=0x00, [+1]=0x00, [+2]=0xFF, [+3]=0x80`.
    - `sb x2, 1(x3)` stores the low 8 bits of `x2` (`0xFF`) at offset `+1` → bytes become `[+0]=0x00, [+1]=0xFF, [+2]=0xFF, [+3]=0x80`.
    - `lw x9, 0(x3)` reassembles all four little-endian bytes (`[+3]<<24 | [+2]<<16 | [+1]<<8 | [+0]`) → **`0x80FF_FF00`**.
+   *(Notice the `StepTrace.mem_val` contract between `_exec_load` and `_exec_store`: loads record `u32(val)` after sign/zero extension, whereas stores record `store_val` masked strictly to the `width` written on the bus—`0xFF` for `sb`, `0xFFFF` for `sh`, and 32 bits for `sw`.)*
 
 Notice also how `SparseMemory` manages host RAM: the chip maps `16 MB` of `QSPI` Flash plus `32 MB` of `SDRAM` (`48 MB` total). Allocating `bytearray(48 * 1024 * 1024)` on every `RV32Oracle()` instantiation in a test suite would waste time zeroing unused pages. Instead, `_pages: dict[int, bytearray]` allocates `4,096`-byte (`4 KB`) pages lazily on first write and returns `0` for unvisited pages—mirroring how an operating system kernel implements zero-fill-on-demand virtual memory.
 
 ### Memory-Mapped I/O (`MMIO`): Accessing Timers, Serial Ports & Buses via Pointers
 
-Inspect the System-on-Chip address constants ([`oracle.py` lines 47–74](../sim/oracle.py#L47-L74 "anchor: BOOT_ROM_BASE..MMIO_STUB_END")) and the system bus router ([`oracle.py` lines 413–496](../sim/oracle.py#L413-L496 "anchor: RV32Oracle._clint_read..RV32Oracle.bus_write")):
+Inspect the System-on-Chip address constants ([`oracle.py` lines 47–74](../sim/oracle.py#L47-L74 "anchor: BOOT_ROM_BASE..MMIO_STUB_END")) and the system bus router ([`oracle.py` lines 418–501](../sim/oracle.py#L418-L501 "anchor: RV32Oracle._clint_read..RV32Oracle.bus_write")):
 
 <!-- book-sync: BOOT_ROM_BASE..MMIO_STUB_END -->
 <<< @/systems/brain/sim/oracle.py#L47-L74
 
 <!-- book-sync: RV32Oracle._clint_read..RV32Oracle.bus_write -->
-<<< @/systems/brain/sim/oracle.py#L413-L496
+<<< @/systems/brain/sim/oracle.py#L418-L501
 
 When the CPU executes `lw` or `sw`, it does not distinguish between silicon RAM and a peripheral controller—it simply places the 32-bit `addr` onto the system bus (`bus_read` / `bus_write`):
 
 1. **Read-Only Code Regions (`Boot ROM` at `0x0000_0000` and `QSPI Flash` at `0x2000_0000`)**:
    - Constructed with `writable=False`. If software executes `sw` targeting `0x0000_0000`, `write_bytes` raises `MemoryAccessFault`, which `_exec_store` converts into a hardware trap (`CAUSE_STORE_ACCESS_FAULT = 7`).
-   - Meanwhile, the loader methods ([`load_bytes`](../sim/oracle.py#L379-L386) and [`load_words`](../sim/oracle.py#L388-L395)) pass `bypass_ro=True` to model programming the `ROM`/Flash image before releasing CPU reset.
+   - Meanwhile, the loader methods ([`load_bytes`](../sim/oracle.py#L384-L391) and [`load_words`](../sim/oracle.py#L393-L400)) pass `bypass_ro=True` to model programming the `ROM`/Flash image before releasing CPU reset.
 2. **64-Bit Hardware Timer on a 32-Bit Bus (`CLINT` at `0x8000_0000`)**:
    - At `50 MHz`, a **32-bit** cycle counter overflows every $2^{32} / (50 \times 10^6) \approx \mathbf{85.9\text{ seconds}}$, which is too short for monotonic system uptime. A **64-bit** counter (`mtime`), by contrast, runs for $2^{64} / (50 \times 10^6) \approx \mathbf{11{,}698\text{ years}}$ without wrapping.
    - Because each `lw`/`sw` transfers `32` bits, `CLINT` exposes `mtime` and its alarm register `mtimecmp` as pairs of 32-bit aligned words (`0x00` `CLINT_MTIME_LO`, `0x04` `CLINT_MTIME_HI`, `0x08` `CLINT_MTIMECMP_LO`, `0x0C` `CLINT_MTIMECMP_HI`), and `bus_read`/`bus_write` (`CLINT_BASE` guards) strictly require `width == 4` and `(addr & 3) == 0` so hardware timer comparators avoid sub-word byte glitches.
@@ -588,7 +595,7 @@ When the CPU executes `lw` or `sw`, it does not distinguish between silicon RAM 
    - **`UART0_STATUS` (`+0x08`)**: Returns `0x03 | (rx_valid << 2)`, where `Bit 0 = 1` (`tx_ready`) and `Bit 1 = 1` (`tx_empty`) indicate the oracle transmitter queue has space, and `Bit 2` (`0x04`, `rx_valid`) equals `1` whenever `self.uart_rx_fifo` is non-empty.
    - **`UART0_BAUDDIV` (`+0x0C`)**: Stores the serial bit-rate clock divider (`SYS_CLK_HZ // UART_DEFAULT_BAUD = 50_000_000 // 115_200 = 434` system clock cycles per bit on reset), clamped via `max(1, u32(val))` inside `_uart_write` so software cannot configure a divide-by-zero serial clock.
 4. **Reserved Robot Spine `MMIO` Stub Window (`self.mmio_stub`, `0x8002_0000`–`0x8006_FFFF`)**:
-   - Notice in [`RV32Oracle.__init__`](../sim/oracle.py#L322-L338) that `self.mmio_stub` spans the five `64 KB` peripheral pages reserved for the robot's physical spine: the 4-wire **Serial Peripheral Interface (`SPI0`)** controller (`0x8002_0000`), dual `5 Mbps` differential **Controller Area Network Flexible Data-Rate (`CAN-FD`)** motor buses `CAN0`/`CAN1` (`0x8003_0000`–`0x8004_FFFF`), the sub-microsecond camera shutter `SYNC` generator (`0x8005_0000`), and **General-Purpose Input/Output (`GPIO`)** status pins (`0x8006_0000`).
+   - Notice in [`RV32Oracle.__init__`](../sim/oracle.py#L327-L343) that `self.mmio_stub` spans the five `64 KB` peripheral pages reserved for the robot's physical spine: the 4-wire **Serial Peripheral Interface (`SPI0`)** controller (`0x8002_0000`), dual `5 Mbps` differential **Controller Area Network Flexible Data-Rate (`CAN-FD`)** motor buses `CAN0`/`CAN1` (`0x8003_0000`–`0x8004_FFFF`), the sub-microsecond camera shutter `SYNC` generator (`0x8005_0000`), and **General-Purpose Input/Output (`GPIO`)** status pins (`0x8006_0000`).
    - Why is `self.mmio_stub` routed in `bus_read`/`bus_write` (`self.mmio_stub.contains(addr, width)`) yet omitted from `self._mem_regions`? Because `self._mem_regions` lists program/data memories (`rom`, `bram`, `qspi`, `sdram`) where `load_words()` and `load_bytes()` load binaries, whereas `mmio_stub` acts strictly as read/write register scratch space so firmware drivers can probe spine addresses before full peripheral models attach.
 
 ---
@@ -599,15 +606,14 @@ Sequential execution (`next_pc = cur_pc + 4`) is overridden in two ways: **expli
 
 ### Jumps, Subroutine Links, and Why `JALR` Clears Bit `0`
 
-Inspect [`_exec_jal`](../sim/oracle.py#L658-L671), [`_exec_jalr`](../sim/oracle.py#L673-L684), and [`_exec_branch`](../sim/oracle.py#L686-L712):
+Inspect [`_exec_jal`](../sim/oracle.py#L663-L676), [`_exec_jalr`](../sim/oracle.py#L678-L689), and [`_exec_branch`](../sim/oracle.py#L691-L717):
 
 <!-- book-sync: RV32Oracle._exec_jal..RV32Oracle._exec_branch -->
-<<< @/systems/brain/sim/oracle.py#L658-L712
+<<< @/systems/brain/sim/oracle.py#L663-L717
 
 - **Function Calls (`JAL` — Jump and Link)**: Adds a 21-bit signed `PC`-relative offset (`cur_pc + imm`) to jump to a function, while writing `next_pc` (`cur_pc + 4`, the **return link address**) into `rd` (by convention `x1`, or `x5` for leaf helpers). Unlike `x86`'s `CALL` instruction, which implicitly pushes the return address onto a memory stack, saving the return address in a register makes leaf function calls **zero-memory-access operations**.
 - **Indirect Jumps & Returns (`JALR` — Jump and Link Register)**: Computes `target = u32((rs1_u + imm) & ~1)`.
-  - *Why `& ~1`?* Notice `JALR` uses standard `I`-type encoding, so `imm` includes bit `0` (unlike `JAL`/`BRANCH`). Clearing bit `0` via `& ~1` ensures the target is always even (and permits compiler runtimes to tag function pointers in bit `0` if needed).
-  - Note the `if target & 3:` guard at the end of `_exec_jal`, `_exec_jalr`, and `_exec_branch`: in a 32-bit-aligned `RV32I` architecture, every instruction must sit on a 4-byte boundary (`target & 3 == 0`). If a taken branch or jump targets an address with `Bit 1 == 1` (like `0x0000_0002`), the instruction **raises `CAUSE_INSN_MISALIGNED` (`0`) at the jump** before modifying `rd`. *(In `_exec_branch`, an untaken branch with a `+2` offset skips the `target & 3` check via `if not comparisons[funct3]: return next_pc` because `next_pc = cur_pc + 4` remains aligned.)*
+  - *Why `& ~1` followed by `target & 3`?* Unlike `JAL`/`BRANCH`, `JALR` uses standard `I`-type encoding, so `imm` includes bit `0`. The `RISC-V` specification mandates clearing bit `0` (`& ~1`) so `JALR` stays compatible with 2-byte-aligned `16`-bit compressed instructions (and lets runtimes tag pointers in bit `0`), while the `if target & 3:` guard immediately below enforces strict `4`-byte instruction alignment on this `RV32IM` core—raising `CAUSE_INSN_MISALIGNED` (`0`) on `+2` targets before modifying `rd`. *(In `_exec_branch`, an untaken branch with a `+2` offset skips the `target & 3` check via `if not comparisons[funct3]: return next_pc` because `next_pc = cur_pc + 4` remains aligned.)*
 
 ### Privileged Control and Status Registers (`Zicsr`) & `WARL` Masking
 
@@ -631,10 +637,10 @@ Every `CSR` in this Machine-Mode (`M`-mode) core begins with the prefix `m` (*Ma
 | **`mvendorid` / `marchid` / `mimpid`** | `0xF11`–`0xF13` | **Vendor / Architecture / Implementation IDs**: Fixed `0` for non-commercial open silicon | Read-Only (`0xC00+`) |
 | **`mhartid`** | `0xF14` | **Machine Hardware Thread (`hart`) ID**: Core index (`0` on this single-core processor; `"hart"` is `RISC-V` terminology for an independent physical hardware execution thread/core) | Read-Only (`0xC00+`) |
 
-Inspect [`_live_mip`](../sim/oracle.py#L509-L512), [`_read_csr`](../sim/oracle.py#L514-L544), and [`_write_csr`](../sim/oracle.py#L546-L588):
+Inspect [`_live_mip`](../sim/oracle.py#L514-L517), [`_read_csr`](../sim/oracle.py#L519-L549), and [`_write_csr`](../sim/oracle.py#L551-L593):
 
 <!-- book-sync: RV32Oracle._live_mip..RV32Oracle._write_csr -->
-<<< @/systems/brain/sim/oracle.py#L509-L588
+<<< @/systems/brain/sim/oracle.py#L514-L593
 
 Three hardware invariants govern `_read_csr` and `_write_csr`:
 1. **Read-Only Convention & `WARL` (*Write Any Values, Reads Legal Values*) Masking**:
@@ -645,10 +651,10 @@ Three hardware invariants govern `_read_csr` and `_write_csr`:
 3. **Why `mip` Splits `self.mip_sw_ext` from Live `MTIP` (`_live_mip` & `addr == CSR_MIP`)**:
    - Software-triggered and external pending flags (`MSIP` at `Bit 3` and `MEIP` at `Bit 11`) live in `self.mip_sw_ext` and can be latched via CSR writes. By contrast, `MTIP` (*Machine Timer Interrupt Pending*, `Bit 7`) is a **direct wire from the `CLINT` comparator** (`self.mtime >= self.mtimecmp`). Software *cannot* clear `MTIP` by writing `0` to `mip`—the only way to clear an active timer interrupt is to write a future deadline into `CLINT_MTIMECMP`.
 
-Inspect [`_exec_system`](../sim/oracle.py#L858-L905), which decodes both the privileged environment instructions (`funct3 == 0`) and the six atomic `Zicsr` read-modify-write instructions (`funct3 in (1, 2, 3, 5, 6, 7)`):
+Inspect [`_exec_system`](../sim/oracle.py#L864-L911), which decodes both the privileged environment instructions (`funct3 == 0`) and the six atomic `Zicsr` read-modify-write instructions (`funct3 in (1, 2, 3, 5, 6, 7)`):
 
 <!-- book-sync: RV32Oracle._exec_system -->
-<<< @/systems/brain/sim/oracle.py#L858-L905
+<<< @/systems/brain/sim/oracle.py#L864-L911
 
 Both halves of `opcode = 0x73` (`SYSTEM`) execute as follows:
 1. **Four Privileged Environment Instructions (`funct3 == 0`)**:
@@ -689,13 +695,13 @@ sequenceDiagram
     CPU->>Main: Fetch and execute 0x18
 ```
 
-Inspect [`_take_trap`](../sim/oracle.py#L590-L610), [`_check_pending_interrupt`](../sim/oracle.py#L635-L647), and [`_fetch_instruction`](../sim/oracle.py#L649-L656) side by side:
+Inspect [`_take_trap`](../sim/oracle.py#L595-L615), [`_check_pending_interrupt`](../sim/oracle.py#L640-L652), and [`_fetch_instruction`](../sim/oracle.py#L654-L661) side by side:
 
 <!-- book-sync: RV32Oracle._take_trap..RV32Oracle._trap_trace -->
-<<< @/systems/brain/sim/oracle.py#L590-L623
+<<< @/systems/brain/sim/oracle.py#L595-L628
 
 <!-- book-sync: RV32Oracle._check_pending_interrupt..RV32Oracle._fetch_instruction -->
-<<< @/systems/brain/sim/oracle.py#L635-L656
+<<< @/systems/brain/sim/oracle.py#L640-L661
 
 Each pre-fetch and trap transition proceeds through six stages:
 
@@ -724,10 +730,10 @@ Each pre-fetch and trap transition proceeds through six stages:
 
 ## 9. Complete Execution Loop (`RV32Oracle.step()`), Trace Explorer & Exercises
 
-The top-level instruction loop in [`RV32Oracle.step()`](../sim/oracle.py#L932-L1033) and bounded harness [`run()`](../sim/oracle.py#L1035-L1051) unify fetch, decode, execution, and trap handling across [`oracle.py`](../sim/oracle.py):
+The top-level instruction loop in [`RV32Oracle.step()`](../sim/oracle.py#L938-L1039) and bounded harness [`run()`](../sim/oracle.py#L1041-L1057) unify fetch, decode, execution, and trap handling across [`oracle.py`](../sim/oracle.py):
 
 <!-- book-sync: RV32Oracle.step..RV32Oracle.run -->
-<<< @/systems/brain/sim/oracle.py#L932-L1051
+<<< @/systems/brain/sim/oracle.py#L938-L1057
 
 Four implementation details in `step()` and `run()` complete the specification:
 - **Memory & Instruction-Stream Barriers (`FENCE` & `FENCE.I`, `opcode == 0x0F`)**: In multi-core systems or processors with separate instruction and data caches, `FENCE` (`funct3 = 0`) orders memory reads/writes across cores, and `FENCE.I` (`funct3 = 1`, *Fence Instruction Stream*) flushes fetched instructions after self-modifying code or bootloader firmware loads. In the sequential single-core oracle, every memory write takes effect immediately, so `FENCE` and `FENCE.I` validate `funct3 in (0, 1)` (trapping invalid encodings with `CAUSE_ILLEGAL_INSN`) and advance to `next_pc`.
@@ -820,7 +826,7 @@ Inspect [`test_clint_timer_interrupt_and_ecall_traps`](../tb/test_oracle.py#L314
 ---
 
 ### Exercise 5: Reading Read-Only CSRs Without Trapping (`CSRRS` vs. `CSRRW`)
-Suppose software reads `CSR_MISA` (`0x301`) into `x12`. Compare what [`_exec_system`](../sim/oracle.py#L881-L903 "anchor: RV32Oracle._exec_system['funct3 in (1, 2, 3, 5, 6, 7)'..'return wb_rd, wb_val, next_pc, wrote_minstret']") does for `enc_i(CSR_MISA, rs1=0, funct3=2, rd=12, opcode=0x73)` versus `enc_i(CSR_MISA, rs1=0, funct3=1, rd=12, opcode=0x73)`.
+Suppose software reads `CSR_MISA` (`0x301`) into `x12`. Compare what [`_exec_system`](../sim/oracle.py#L887-L909 "anchor: RV32Oracle._exec_system['funct3 in (1, 2, 3, 5, 6, 7)'..'return wb_rd, wb_val, next_pc, wrote_minstret']") does for `enc_i(CSR_MISA, rs1=0, funct3=2, rd=12, opcode=0x73)` versus `enc_i(CSR_MISA, rs1=0, funct3=1, rd=12, opcode=0x73)`.
 
 <details>
 <summary>Worked Solution — Exercise 5</summary>

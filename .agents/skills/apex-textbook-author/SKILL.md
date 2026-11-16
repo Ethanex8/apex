@@ -26,7 +26,7 @@ Never write a chapter in a single hurried pass. Execute all four passes in order
 ### Pass 1: Pedagogical Blueprint & Zero-Forward-Reference Graph
 1. Read every line of the step's source file(s) and test file(s).
 2. List every constant, helper function, hardware register/signal, normal path, and corner/fault path.
-3. Topologically sort sections so **every concept is derived from first principles before any code line uses it** (zero forward references).
+3. Topologically sort sections so **every concept is derived from first principles before any code line uses it** (zero forward references). When an early initialization block (`__init__`, `reset()`, or module port list) sets state governed by a later section, give a 1-sentence plain-English summary and section cross-reference inline so no constant or flag sits unexplained.
 4. For each planned section, define:
    - **Direct Definition & Software-Systems Anchor**: State what the hardware mechanism **is** and **does** directly, then bridge from a familiar CS primitive (hash map, ring buffer, state machine, mutex, try/catch).
    - **Design Trade-Off & Physical Constraint**: After defining the mechanism, show the physical or silicon constraint that motivates it (e.g., why a naive alternative stalls, overflows, or wastes area).
@@ -35,13 +35,13 @@ Never write a chapter in a single hurried pass. Execute all four passes in order
 
 ### Pass 2: Uncompressed Multi-Chunk Drafting
 1. Write the chapter across **2–4 sequential file writes/appends** (`write_to_file` with `Overwrite: true` for Part 1, followed by `Append: true` for subsequent section batches) so each section gets full narrative breathing room instead of bullet-wall compression.
-2. Follow strict **Mechanism First, Expanded Name + Acronym Second** hygiene for every domain term, mnemonic, and register name.
+2. Follow strict **Mechanism First, Expanded Name + Acronym Second** hygiene for every domain term, mnemonic, and register name. When introducing a multi-peripheral chip or multi-module architecture in Section 1, group the system map by role (e.g., Instruction Set / Memory / Peripherals) with section pointers instead of a flat glossary wall.
 3. **Zero-Clutter Anchored References**:
    - Guard every `<<<` transclusion with `<!-- book-sync: <spec> -->` (supporting `sym`, `symA..symB`, and `Scope['pat1'..'pat2']`).
    - Anchor every `#L...` link via either a backticked symbol label (e.g., `` [`sign_extend`](../sim/oracle.py#L138-L143) ``) or a `"anchor: <spec>"` link title, and keep file line counts synced via `([`file.py`](...) (\`1,027\` lines))`.
    - **Never write unanchored bare prose line numbers** (`line 142` or `lines 50–60`); name the function/branch/constant visible in the transcluded block or use an anchored `#L` link.
 4. **Directness & Zero Meta-Commentary**: Introduce every subsystem, section, and mechanism directly by what it **is** and **does**. Never open with meta-commentary about engineering curricula, reader transitions, or what the reader doesn't need to know yet (silently defer out-of-scope future stages to their own chapters), and never introduce a system by listing what unrelated technologies fail to do.
-5. **Algebraic Continuity Across Sections**: Carry proven identities forward into later sections (e.g., reusing the derived two's complement conversion identity to prove instruction-split carry rules, upper-half multiplication, and alignment masks) rather than re-arguing from informal prose or case-splitting where one algebraic chain suffices.
+5. **Algebraic Continuity & Host-Language Traps**: Carry proven identities forward into later sections (e.g., reusing the derived two's complement conversion identity to prove instruction-split carry rules, upper-half multiplication, and alignment masks) rather than re-arguing from informal prose or case-splitting where one algebraic chain suffices. Explicitly highlight any host-language vs. hardware semantic traps right where the code relies on them (e.g., Python floor division `//` vs. truncating `DIV`, Python `>>` sign-bit replication on negative ints, and trace-field width conventions).
 
 ### Pass 3: Adversarial "Cold-Reader" Subagent Critique
 Invoke an isolated `research` subagent (`invoke_subagent`, `Model: 'inherit'`, `Workspace: 'inherit'`) role-playing a senior software engineer with **zero prior RISC-V, RTL, EDA, or EE background**. Instruct it to read the drafted chapter and source file cold and audit against 7 defect categories:
@@ -49,7 +49,7 @@ Invoke an isolated `research` subagent (`invoke_subagent`, `Model: 'inherit'`, `
 2. **Hand-Waved Derivations & Arithmetic Slips**: Any equation, bitwise identity, or corner case stated without an explicit algebraic bridge, missing parameter domain/asymmetric bound, or any hex/decimal/binary conversion error (cross-check every worked number independently).
 3. **Unmotivated Bit Layouts / Magic Numbers**: Any constant, address, or bit scramble presented as an arbitrary rule without explaining the physical trade-off.
 4. **Rushed Pacing**: Any section reading like terse reference notes rather than patient textbook prose.
-5. **Uncovered Deliverable Logic**: Any function, state field, or fault branch in the step's code left unexplained.
+5. **Uncovered Deliverable Logic & Silent Traps**: Any function, early init/reset field, parameter bit-slice origin (e.g., `shamt`), fault branch, or host-language semantic trap left unexplained where transcluded.
 6. **Formatting & Sync Hygiene Bugs**: Unescaped `$` currency, prose `~...~` tildes, broken links, bare prose line numbers, or unanchored `#L` links.
 7. **Meta-Commentary & Negative-Foil Openers**: Any section, subsystem, or concept introduced by what it does not do, what an unrelated technology fails at, or meta-commentary about curricula, reader transitions, or deferred topics—every opening must state directly what the component **is** and **does**.
 

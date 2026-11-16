@@ -33,6 +33,8 @@ Before writing code:
    - SystemVerilog / C: block header documenting `Purpose:`, `Ports & Clock Domain` / `API`, `Parameters`, and reset/timing invariants.
 2. **100% Docstrings & Function Comments**:
    - Every Python class, method, and function—**including every `test_*` function**—must have a concise docstring stating *what architectural invariant or failure mode* it enforces or proves.
+   - Trace/interface dataclasses and structs must document field-level width/sign semantics (e.g., extended load value vs. width-masked store lane), and helper functions should decode narrow bitfields locally rather than hiding them across caller parameters.
+   - Add concise 1-line inline comments on non-obvious host-language bit tricks (preferring explicit masks like `0xFFFF_FFFF_0000_0000` over negative-int `~MASK32`, and noting `>>` sign-bit replication) or spec-mandated dual guards (e.g., `& ~1` followed by `& 3`).
    - Every Bash function `<name>() {` must have an explanatory `#` comment directly above it.
    - Every `# shellcheck`, `# noqa`, `# type: ignore`, and `/* verilator lint_off */` suppression must carry a plain-English reason explaining *why* the rule cannot apply cleanly.
 3. **CWD-Safe Paths**:

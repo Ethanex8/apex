@@ -288,7 +288,12 @@ class SparseMemory:
 
 @dataclass
 class StepTrace:
-    """Architectural commit record emitted by `RV32Oracle.step()` for RTL lockstep checks."""
+    """Architectural commit record emitted by `RV32Oracle.step()` for RTL lockstep checks.
+
+    `rd`/`rd_val` default to `(0, 0)` when no register commits or `rd == x0`.
+    `mem_val` holds the 32-bit sign/zero-extended loaded value on loads and the
+    width-masked low byte/halfword/word (`0xFF`/`0xFFFF`/`0xFFFF_FFFF`) on stores.
+    """
 
     pc: int
     insn: int
@@ -358,7 +363,7 @@ class RV32Oracle:
         self.minstret: int = 0
 
         self.mtime: int = 0
-        self.mtimecmp: int = (1 << 64) - 1
+        self.mtimecmp: int = (1 << 64) - 1  # Max 64-bit ceiling prevents spurious timer IRQ at boot
 
         self.uart_tx_buf: bytearray = bytearray()
         self.uart_rx_fifo: deque[int] = deque()
@@ -426,11 +431,11 @@ class RV32Oracle:
         """Write one 32-bit CLINT timer register by byte offset from `CLINT_BASE`."""
         val = u32(val)
         if offset == CLINT_MTIME_LO:
-            self.mtime = (self.mtime & ~MASK32) | val
+            self.mtime = (self.mtime & 0xFFFF_FFFF_0000_0000) | val
         elif offset == CLINT_MTIME_HI:
             self.mtime = (self.mtime & MASK32) | (val << 32)
         elif offset == CLINT_MTIMECMP_LO:
-            self.mtimecmp = (self.mtimecmp & ~MASK32) | val
+            self.mtimecmp = (self.mtimecmp & 0xFFFF_FFFF_0000_0000) | val
         elif offset == CLINT_MTIMECMP_HI:
             self.mtimecmp = (self.mtimecmp & MASK32) | (val << 32)
 
@@ -574,13 +579,13 @@ class RV32Oracle:
             self.mip_sw_ext = val & (MIE_MSIE_BIT | MIE_MEIE_BIT)
             return True
         if addr == CSR_MCYCLE:
-            self.mcycle = (self.mcycle & ~MASK32) | val
+            self.mcycle = (self.mcycle & 0xFFFF_FFFF_0000_0000) | val
             return True
         if addr == CSR_MCYCLEH:
             self.mcycle = (self.mcycle & MASK32) | (val << 32)
             return True
         if addr == CSR_MINSTRET:
-            self.minstret = (self.minstret & ~MASK32) | val
+            self.minstret = (self.minstret & 0xFFFF_FFFF_0000_0000) | val
             return True
         if addr == CSR_MINSTRETH:
             self.minstret = (self.minstret & MASK32) | (val << 32)
@@ -677,7 +682,7 @@ class RV32Oracle:
         if funct3 != 0:
             return self._trap_trace(cur_pc, insn, CAUSE_ILLEGAL_INSN, insn)
         imm = sign_extend(insn >> 20, 12)
-        target = u32((rs1_u + imm) & ~1)
+        target = u32((rs1_u + imm) & ~1)  # Spec clears Bit 0; target & 3 enforces 4-byte alignment
         if target & 3:
             return self._trap_trace(cur_pc, insn, CAUSE_INSN_MISALIGNED, target)
         wb_rd, wb_val = self._set_reg(rd, next_pc)
@@ -765,10 +770,11 @@ class RV32Oracle:
         return addr, store_val
 
     def _exec_op_imm(
-        self, insn: int, rd: int, rs1_u: int, rs1_s: int, funct3: int, funct7: int, shamt: int
+        self, insn: int, rd: int, rs1_u: int, rs1_s: int, funct3: int, funct7: int
     ) -> tuple[int, int] | None:
         """Execute RV32I immediate ALU instructions (`OP-IMM`), returning `(wb_rd, wb_val)` or None."""
         imm = sign_extend(insn >> 20, 12)
+        shamt = (insn >> 20) & 0x1F
         if funct3 == 0:
             res = rs1_u + imm
         elif funct3 == 2:
@@ -789,7 +795,7 @@ class RV32Oracle:
             if funct7 == 0x00:
                 res = rs1_u >> shamt
             elif funct7 == 0x20:
-                res = rs1_s >> shamt
+                res = rs1_s >> shamt  # Python >> replicates sign bits; _set_reg wraps to 32b
             else:
                 return None
         else:
@@ -992,7 +998,7 @@ class RV32Oracle:
             mem_addr, mem_val = res
             mem_write = True
         elif opcode == 0x13:  # OP-IMM
-            res = self._exec_op_imm(insn, rd, rs1_u, rs1_s, funct3, funct7, rs2)
+            res = self._exec_op_imm(insn, rd, rs1_u, rs1_s, funct3, funct7)
             if res is None:
                 return self._trap_trace(cur_pc, insn, CAUSE_ILLEGAL_INSN, insn)
             wb_rd, wb_val = res
