@@ -1,8 +1,8 @@
 # Chapter 1: The Golden ISA Contract, Fixed-Width Binary Math & Instruction Execution
 
-> **Volume I (`brain`) · Phase 1 · Reading Time**: about 60 minutes  
-> **Primary Modules**: [`oracle.py`](../sim/oracle.py) (`1,057` lines) & [`test_oracle.py`](../tb/test_oracle.py) (`585` lines)  
-> **Interactive Figures**: *Two's Complement & Sign-Extension Workbench*, *32-Bit Instruction Wire Inspector*, and *`RV32Oracle` Execution & Trap Trace Explorer*
+> **Volume I (`brain`) · Phase 1 · Reading Time**: about 55 minutes  
+> **Primary Modules**: [`oracle.py`](../sim/oracle.py) (`1,127` lines) & [`test_oracle.py`](../tb/test_oracle.py) (`789` lines)  
+> **Interactive Figures**: *4-Bit Modular Ring Adder*, *Sign Extension & Right-Shift Comparator*, *32-Bit Instruction Inspector*, and *`RV32Oracle.step()` Trace Explorer*
 
 ---
 
@@ -10,854 +10,592 @@
 
 Consider building a production database storage engine or distributed consensus protocol without a formal specification—jumping straight into lock-free pointer arithmetic and hoping unit tests written alongside the optimizations catch subtle ordering bugs. Experienced systems engineers recognize the hazard: when an optimization and its test share the same flawed assumption, both pass while silently corrupting state.
 
-Designing a custom processor in a **Hardware Description Language (`HDL`)** such as `SystemVerilog` multiplies that hazard tenfold. In sequential software, statements execute one after another; in physical silicon, thousands of boolean logic gates, hardware selector switches—the circuit equivalent of `cond ? a : b` (**multiplexers**)—and 1-bit clocked storage latches (**flip-flops**) evaluate **simultaneously on every tick of a `50 MHz` crystal oscillator**. When a pipelined processor is fetching Instruction #5 from memory while decoding Instruction #4, computing arithmetic for Instruction #3, reading RAM for Instruction #2, and writing a register for Instruction #1—and an external timer alarm fires mid-flight—an unambiguous reference is required to define what the hardware ought to have done.
+Designing a custom processor in a **Hardware Description Language (`HDL`)** such as `SystemVerilog` multiplies that hazard tenfold. In sequential software, statements execute one after another; in physical silicon, thousands of boolean logic gates, hardware selector switches—the circuit equivalent of `cond ? a : b` (**multiplexers**)—and 1-bit clocked storage latches (**flip-flops**) evaluate **simultaneously on every tick of a `50 MHz` crystal oscillator**. When a pipelined processor fetches Instruction #5 while decoding Instruction #4, computing arithmetic for Instruction #3, reading RAM for Instruction #2, and writing a register for Instruction #1—and an external timer alarm fires mid-flight—we need an unambiguous specification defining what the hardware ought to have done.
 
-Commercial processor teams (at ARM, AMD, Apple, or SiFive) solve this the same way: **before writing a single logic gate, they build an unambiguous, sequential software specification of the processor called a Golden Reference Model—or simply an Oracle.**
-
-[`oracle.py`](../sim/oracle.py) is that golden specification for the `brain` processor. Whenever the `SystemVerilog` hardware runs inside an open-source hardware simulator that compiles register-transfer designs into fast C++ test executables (**Verilator**), both engines execute the exact same machine code in lockstep:
+Commercial chip teams solve this before writing a single logic gate by building an unambiguous, sequential software model of the processor called a **Golden Reference Model—or Oracle**. [`oracle.py`](../sim/oracle.py) is that golden specification for the `brain` processor. Before we turn the specification into logic gates, software tests execute programs directly against the oracle; later, when the `SystemVerilog` hardware runs inside an open-source hardware simulator that compiles register-transfer designs into fast C++ executables (**Verilator**), both engines execute the exact same machine code in lockstep. On every instruction, [`RV32Oracle.step()`](../sim/oracle.py#L1002-L1109) compares its architectural state transition against the hardware's retired output:
 
 ```mermaid
-flowchart LR
-    PROG["Compiled Machine Program (32-bit Words)"]
-    PROG --> ORACLE["Python Golden Oracle: RV32Oracle.step()"]
-    PROG --> RTL["SystemVerilog Hardware (Simulated in Verilator)"]
-    ORACLE -->|"Expected StepTrace"| CMP{"Bit-for-Bit Lockstep Check"}
-    RTL -->|"Retired Hardware Trace"| CMP
-    CMP -->|"Mismatch on Instruction N"| BUG["Exact Failing PC, Register, or Memory Byte Isolated"]
-    CMP -->|"100,000+ Instructions Match"| PASS["Verified Architectural Equivalence"]
+flowchart TD
+    PROG["Compiled Program<br/>(32-bit Words)"]
+    PROG --> ORACLE["Python Golden Oracle<br/>RV32Oracle.step()"]
+    PROG --> RTL["SystemVerilog CPU<br/>(Verilator Sim)"]
+    ORACLE -->|"Expected Receipt"| CMP{"Lockstep Match?"}
+    RTL -->|"Retired Hardware State"| CMP
+    CMP -->|"Any Bit Differs"| BUG["Halt on Exact<br/>Instruction & PC"]
+    CMP -->|"All Match"| PASS["Verified<br/>Equivalence"]
 ```
+
+To verify that equivalence without slowing down the pipeline, [`RV32Oracle.step()`](../sim/oracle.py#L1002-L1109) emits a structured commit receipt after each executed instruction—[`StepTrace`](../sim/oracle.py#L308-L328):
+
+<!-- book-sync: StepTrace -->
+<<< @/systems/brain/sim/oracle.py#L308-L328
+
+`StepTrace` works like a **write-ahead database log entry**. Instead of waiting for a 10,000-instruction test to finish and produce a wrong final sum, co-simulation compares five fields on every single completed and committed (**retired**) instruction: the fetched instruction address (`pc`, the **Program Counter**) and raw `32`-bit word (`insn`), the post-instruction `next_pc`, the destination register (`rd`) and committed value (`rd_val`), any memory bus payload (`mem_addr`, `mem_val`, `mem_write`), and any exception or interrupt code (`trap_cause`, `interrupt`).
 
 ### What an Instruction Set Architecture (`ISA`) Separates
 
-Software systems routinely rely on clean abstraction boundaries:
-- A **POSIX system-call interface** separates user-space applications from how the Linux kernel schedules threads or lays out ext4 disk blocks.
-- The **WebAssembly (`Wasm`) or Java Virtual Machine (`JVM`) bytecode specification** separates compilers (`clang`, `javac`) from how a particular runtime engine (`V8`, `HotSpot`) executes instructions under the hood.
+Software relies on crisp abstraction layers: a **POSIX system-call contract** separates user programs from how the Linux kernel schedules threads or lays out disk blocks, and the **Java Virtual Machine (`JVM`) bytecode specification** separates `javac` from how `HotSpot` optimizes loops at runtime. In processor engineering, the boundary separating **all software** (compilers, bootloaders, real-time schedulers, control loops) from **physical silicon** (pipelines, logic gates, clock frequencies) is the **Instruction Set Architecture (`ISA`)**.
 
-In computer architecture, the boundary separating **all software** (compilers, bootloaders, operating systems, control loops) from **physical hardware** (logic gates, pipeline stages, clock speeds) is the **Instruction Set Architecture (`ISA`)**.
-
-An `ISA` defines strictly what a machine-code programmer or compiler can observe:
-1. **Architectural State**: The exact set of persistent storage containers (registers, program counter, control flags, and addressable memory) that survive from one instruction to the next.
-2. **Instruction Binary Encoding**: How operations, register numbers, and embedded constants pack into 32-bit integers (`0`s and `1`s).
-3. **State-Transition Semantics**: Given any starting state `S_t` and the 32-bit instruction word fetched at the current program address, the exact deterministic rule producing the next state:
+An `ISA` defines strictly what machine code can observe:
+1. **Architectural State**: The persistent storage containers (registers, program counter, control registers, and addressable memory) that survive from one instruction to the next.
+2. **Instruction Binary Encoding**: How operations, register selectors, and constants pack into `32`-bit integers (`0`s and `1`s).
+3. **State-Transition Semantics**: Given any state $S_t$ and the 32-bit word fetched at `pc`, the deterministic next state:
 
 $$S_{t+1} = \text{step}(S_t)$$
 
-Notice what the `ISA` deliberately **omits**: it says nothing about whether an instruction takes 1 clock cycle or 32 clock cycles, whether five instructions overlap inside a pipeline, or how wide the copper traces are on the 6-layer circuit board. Those internal implementation choices belong to the **microarchitecture**, which is designed in `SystemVerilog` in subsequent chapters. Because [`oracle.py`](../sim/oracle.py) captures architectural semantics alone, it expresses the entire processor in roughly a thousand lines of sequential Python—executing one complete instruction per call to [`RV32Oracle.step()`](../sim/oracle.py#L938-L1039).
-
-### Architectural Commit Receipts (`StepTrace`)
-
-If verification only compared memory and registers *after* a 10,000-instruction program finished, a bug at instruction #412 could cascade through thousands of subsequent steps before surfacing as a wrong final answer. Instead, [`RV32Oracle.step()`](../sim/oracle.py#L938-L1039) returns a structured receipt after every instruction—[`StepTrace`](../sim/oracle.py#L289-L307):
-
-<!-- book-sync: StepTrace -->
-<<< @/systems/brain/sim/oracle.py#L289-L307
-
-`StepTrace` serves as a **write-ahead transaction log entry**:
-- `pc` and `insn` record *where* the core fetched (`32`-bit byte address) and *what* raw 32-bit machine word it decoded.
-- `next_pc` records where execution moved next (`pc + 4` for sequential code, or a jump/branch/trap target).
-- `rd` and `rd_val` record which general-purpose register (`0..31`) received a result and what 32-bit value landed there.
-- `mem_addr`, `mem_val`, and `mem_write` record any memory or peripheral bus transaction.
-- `trap_cause` and `interrupt` record whether normal execution was preempted by a synchronous error/system call or an external hardware timer alarm.
-
-During `Verilator` co-simulation, every time the hardware pipeline finishes (*retires*) an instruction, the testbench compares the hardware's retirement fields against `oracle.step()`'s `StepTrace`. The instant a single bit diverges, verification halts at the exact offending instruction.
-
-### Architectural Vocabulary and System Map
-
-[`oracle.py`](../sim/oracle.py) defines the programmer-visible contract for the entire `brain` **System-on-Chip (`SoC`)**—spanning its instruction extensions, memory regions, and peripheral devices:
-
-**1. Instruction Set & Compiler Stack (Sections 4–6 & 8)**
-- **Open-Standard 32-Bit Processor Specification (`RISC-V`, pronounced *"risk-five"*)**: Unlike proprietary instruction sets (`x86-64` owned by Intel/AMD, or `ARM` licensed per chip), `RISC-V` (**Reduced Instruction Set Computer — Fifth Generation**, originated at UC Berkeley) is an open, royalty-free specification. Anyone may design, fabricate, and ship a custom `RISC-V` processor in silicon or on a reprogrammable logic chip (**Field-Programmable Gate Array / `FPGA`**) without licensing fees.
-- **32-Bit Base Integer + Multiply/Divide Profile (`RV32IM`)**: `RISC-V` is modular:
-  - **`RV32I`** (**32-bit Base Integer**) is the mandatory core of `40` instructions: 32-bit integer addition/subtraction, bitwise logic (`AND`, `OR`, `XOR`), bit shifts, memory loads/stores, and conditional branches/jumps.
-  - **`M`** (**Integer Multiplication and Division Extension**) adds `8` instructions (`mul`, `mulh`, `mulhsu`, `mulhu`, `div`, `divu`, `rem`, `remu`) so software does not have to emulate multiplication in slow loops.
-- **Atomic Control-Register Instructions (`Zicsr`, Section 8)**: Six instructions (such as **Control and Status Register Read/Write / `CSRRW`**) that atomically read and update privileged hardware configuration registers (**Control and Status Registers / `CSRs`**) governing interrupts, trap handlers, and cycle counters.
-- **Custom Neural Dot-Product Extension (`Xapex mac`, Section 6)**: `RISC-V` reserves dedicated opcode slots (`custom-0` through `custom-3`) for domain-specific accelerators. The `Xapex` extension uses `custom-0` (`0x0B`) to add a packed dual-16-bit multiply-accumulate instruction (`mac`) that accelerates the robot's neural walking policy by over `40x`.
-- **Custom C-Subset Compiler (`SysC`)**: The C-to-`RISC-V` compiler toolchain built alongside the processor so the software-to-silicon stack remains transparent end to end.
-
-**2. Four-Tier Chip Memory Map (Section 7)**
-The processor reads code and data across four physical storage regions:
-1. `16 KB` of startup **Read-Only Memory (`Boot ROM`)** at `0x0000_0000`,
-2. `64 KB` of single-cycle on-chip **Block Random-Access Memory (`BRAM`)** inside the `FPGA` at `0x1000_0000`,
-3. A `16 MB` soldered persistent storage chip that transfers 4 bits per clock cycle (**Quad Serial Peripheral Interface / `QSPI` NOR Flash**) mapped for direct code execution (**Execute-In-Place / `XIP`**) at `0x2000_0000`, and
-4. A `32 MB` external **Synchronous Dynamic Random-Access Memory (`SDRAM`)** chip at `0x4000_0000`.
-
-**3. Memory-Mapped Peripherals (Sections 7–8)**
-- **Memory-Mapped Input/Output (`MMIO`)**: Rather than inventing special instructions like `PRINT_SERIAL` or `READ_TIMER`, hardware peripherals expose their control registers at fixed 32-bit memory addresses (`0x8000_0000` upward). Reading or writing a pointer at those addresses talks directly to physical hardware circuits.
-- **Core-Local Interruptor (`CLINT`)**: A memory-mapped 64-bit tick counter (`mtime`) paired with a 64-bit alarm register (`mtimecmp`) at `0x8000_0000`. Whenever `mtime >= mtimecmp`, it asserts a hardware timer interrupt so the **Real-Time Operating System (`RTOS`)** scheduler can switch tasks at `1,000 Hz`.
-- **Universal Asynchronous Receiver-Transmitter (`UART0`)**: A 2-wire (`TX` transmit, `RX` receive) byte-at-a-time serial port mapped at `0x8001_0000`, wired to the USB debug console at `115,200` signal transitions (bits) per second (**baud**) so C programs and an interactive command-line shell can transmit text and receive keystrokes.
+Because an `ISA` omits internal microarchitecture details—such as whether an operation takes 1 cycle or 32 cycles, or how five pipeline stages overlap—[`oracle.py`](../sim/oracle.py) expresses the entire `brain` processor and its peripherals cleanly in sequential Python. Across the rest of this chapter, we build the `brain` architecture layer by layer: fixed-width binary arithmetic first, registers and instruction families next, 32-bit instruction packing, corner cases in integer and neural math, the memory and peripheral bus, and finally interrupts, traps, and the full execution loop.
 
 ---
 
 ## 2. Fixed-Width Binary Arithmetic from First Principles
 
-If you evaluate `2**200` or `-5` in Python, the runtime transparently allocates variable-length byte arrays so integers never overflow and negative signs live in object metadata.
+When you evaluate `2**200` or `-5` in Python, the runtime allocates variable-length byte arrays on the heap so integers never overflow. Physical silicon has no heap allocator inside an arithmetic circuit. A 32-bit processor register is **32 parallel copper wires** driven by 32 clocked flip-flops, each holding either a low voltage (`0`) or a high voltage (`1`). Every integer, memory pointer, and packed sensor reading must fit inside those `32` wires (`2^32 = 4,294,967,296` distinct bit patterns).
 
-Physical silicon has no heap allocator inside an arithmetic circuit. A 32-bit processor register is literally **32 parallel copper wires** driven by 32 clocked storage flip-flops, each holding either a low voltage (`0V`, binary `0`) or a high voltage (`3.3V` / `1.2V`, binary `1`). Every number—positive, negative, memory pointer, or packed neural weight—must live inside those `32` bits (`2^32 = 4,294,967,296` distinct bit patterns).
+Play with a miniature **4-bit version** (`16` patterns) in the interactive clock-face adder below before walking through the algebra—notice how both positive and negative numbers wrap seamlessly around the same circle:
 
-Because [`oracle.py`](../sim/oracle.py) is written in Python, its first task at the top of the helper section ([`MASK32` through `sign_extend`](../sim/oracle.py#L121-L160 "anchor: MASK32..sign_extend")) is to constrain Python's arbitrary-precision integers so they behave identically to fixed-width hardware wires:
+<ModularRingAdder />
 
-<!-- book-sync: MASK32..s16 -->
-<<< @/systems/brain/sim/oracle.py#L121-L143
+### Unsigned Binary Integers & Modular Rings (`u32`)
 
-Below, we derive [`u32`](../sim/oracle.py#L129-L131), [`s32`](../sim/oracle.py#L134-L137), [`s16`](../sim/oracle.py#L140-L143), [`sign_extend`](../sim/oracle.py#L155-L160), and [`sat32`](../sim/oracle.py#L146-L152) from first principles.
-
-### Unsigned Binary Integers & Modular Arithmetic (`u32`)
-
-Consider an $N$-bit register holding bits $b_{N-1}, b_{N-2}, \dots, b_0 \in \{0, 1\}$. Under standard positional notation, bit $i$ carries weight $+2^i$, giving the **unsigned value**:
+Consider an $N$-bit register holding bits $b_{N-1}, b_{N-2}, \dots, b_0 \in \{0, 1\}$. Under standard positional notation, bit $i$ carries weight $+2^i$, defining the **unsigned integer interpretation**:
 
 $$U_N(b) = \sum_{i=0}^{N-1} b_i \cdot 2^i$$
 
-The minimum value occurs when every bit is `0` ($U_N = 0$), and the maximum occurs when every bit is `1`. Summing that finite geometric series gives:
+When all bits are `0`, $U_N = 0$; when all bits are `1`, summing the geometric series $\sum_{i=0}^{N-1} 2^i = 2^N - 1$ gives the maximum value. An $N$-bit unsigned register therefore spans $[0,\; 2^N - 1]$ (for $N = 32$, `0` through `4,294,967,295`).
 
-$$\sum_{i=0}^{N-1} 2^i = 2^N - 1$$
-
-Thus an $N$-bit unsigned integer spans $[0,\; 2^N - 1]$ (for $N = 32$, `0` through `4,294,967,295`).
-
-Now ask what happens when an arithmetic operation produces an arbitrary integer $x \in \mathbb{Z}$ that does not fit in $N$ bits—for example, when an $N$-bit adder sums two numbers and produces an $(N+1)$-th carry-out bit. By Euclidean division, $x$ decomposes uniquely as
+Now suppose an arithmetic step produces an integer $x \in \mathbb{Z}$ outside $[0, 2^N - 1]$—such as adding two 32-bit numbers whose true sum has a 33rd carry-out bit. By integer division with remainder (*Euclidean division*: dividing any integer $x$ by $2^N$ leaves a unique non-negative remainder $r$ strictly below $2^N$), we write:
 
 $$x = q \cdot 2^N + r, \qquad q \in \mathbb{Z},\quad 0 \le r < 2^N$$
 
-In binary, for $q \ge 0$, multiplying $q$ by $2^N$ shifts every bit of $q$ left to bit positions $i \ge N$, while $r = \sum_{i=0}^{N-1} b_i 2^i$ occupies exclusively the bottom $N$ bits $0$ through $N-1$ (and for $x < 0$, Python's infinite two's complement representation still puts the bits of $q \cdot 2^N$ at $i \ge N$ and $r = x \bmod 2^N$ in bits $0\dots N-1$). Because a physical $N$-bit destination register only has wires $0\dots N-1$, discarding bit $N$ and above projects $x$ onto its remainder modulo $2^N$. In Python, masking with `MASK32 = 0xFFFF_FFFF` ($2^{32} - 1$) performs that exact truncation:
+Multiplying $q$ by $2^N$ pushes every bit of $q$ to bit positions $i \ge N$, leaving $r = x \bmod 2^N$ in the bottom $N$ bits $0$ through $N-1$. Because a physical 32-bit register only has wires $0\dots 31$, any upper bits simply vanish off the left edge of the adder. Wrapping integers around $[0, 2^N - 1]$ creates a **modular ring** $\mathbb{Z}_{2^N}$: a finite clock face like the 4-bit `0000`–`1111` wheel above where stepping `1` past `2^N - 1` lands back at `0`, and two integers belong to the same **residue class** whenever they differ by a multiple of $2^N$ and therefore occupy the same clock slot.
 
-$$\text{u32}(x) = x \bmod 2^{32} = x \mathbin{\&} \text{0xFFFF\_FFFF}$$
+In Python, masking with `MASK32 = 0xFFFF_FFFF` ($2^{32} - 1$) projects any Python `int` onto $\mathbb{Z}_{2^{32}}$:
 
-Think of a 4-digit decimal odometer (`0000` through `9999`): adding `1` to `9999` wraps around to `0000`. In binary, `u32(val)` wraps `0xFFFF_FFFF + 1` around to `0x0000_0000` on the finite modular ring $\mathbb{Z}_{2^{32}} = \{0, 1, \dots, 2^{32}-1\}$.
+<!-- book-sync: MASK32..s16 -->
+<<< @/systems/brain/sim/oracle.py#L129-L152
 
-### Why Two's Complement Won: Designing Negative Numbers for Hardware
+### Why Two's Complement Won: Negative Numbers on Clock-Face Wires
 
-How should those same $2^N$ bit patterns represent **signed** integers (both positive and negative) when there is no wire for a `"-"` character?
+How should those same $2^N$ bit patterns represent **signed** integers without adding a wire for a `"-"` character? Compare two alternative encodings on `N = 4` bits (`16` patterns):
 
-To see why every modern CPU uses **two's complement**, examine the two simpler software alternatives on a **4-bit** register ($N = 4$, `16` bit patterns):
+- **Sign-Magnitude** (*top bit = sign, bottom `N - 1` bits = magnitude*): Wastes one pattern on `-0` (`1000` alongside `+0 = 0000`) and breaks binary addition (`+3` [`0011`] `+` `-5` [`1101`] gives `0000` instead of `-2`), forcing hardware to inspect signs and subtract magnitudes separately.
+- **Ones' Complement** (*negate by flipping all bits, so `-5` is `1010`*): Still suffers from two zeros (`0000` and `1111`) and requires routing the top carry-out bit back around into `Bit 0` ("end-around carry").
 
-1. **Alternative #1 — Sign-Magnitude** (*use top `Bit 3` as a sign flag: `0` = `+`, `1` = `-`, and `Bits 2..0` as magnitude*):
-   - First drawback: one bit pattern is wasted on **negative zero** (`0000 = +0`, `1000 = -0`), forcing every equality check `a == b` to special-case `-0 == +0`.
-   - Worse drawback: adding `+3` (`0011`) and `-5` (`1101`) with a standard binary adder yields `0011 + 1101 = 1_0000` (`+0`, which is wrong). To add signed numbers in sign-magnitude, hardware must inspect signs, compare magnitudes, choose between an adder and a subtractor, and compute the output sign—doubling circuit area and lengthening the critical path.
-2. **Alternative #2 — Ones' Complement** (*negate a number by flipping all bits: `+5 = 0101`, `-5 = 1010`*):
-   - Still suffers from **two zeros** (`0000 = +0` and `1111 = -0`), and binary addition requires an "end-around carry" where carry-out from the top bit must wrap around and be added back into `Bit 0`.
-
-**Two's Complement (`s32` and `s16`)**:
-Return to the 4-bit modular ring (`0000` at 12 o'clock). Stepping **backward by 1** modulo `16` from `0000` (`0`) lands at `1111` ($15 \equiv -1 \pmod{16}$). Stepping backward by `5` from `0000` lands at `1011` ($16 - 5 = 11 \equiv -5 \pmod{16}$).
-
-Two's complement captures this wrap-around symmetry in positional notation by keeping positive weights $+2^0, +2^1, \dots, +2^{N-2}$ on the lower $N - 1$ bits, and assigning the **most-significant bit (`Bit N-1`) a negative weight $-2^{N-1}$**:
+**Two's complement (`s32` and `s16`)** takes its cue directly from the clock face: stepping **backward by 1** modulo $16$ from `0000` lands on `1111` ($15 \equiv -1 \pmod{16}$), and stepping backward by `5` lands on `1011` ($11 \equiv -5 \pmod{16}$). Algebraically, two's complement keeps positive weights $+2^0, \dots, +2^{N-2}$ on the bottom $N - 1$ bits and assigns the **most-significant bit (`Bit N-1`) a negative weight $-2^{N-1}$**:
 
 $$S_N(b) = -b_{N-1} \cdot 2^{N-1} + \sum_{i=0}^{N-2} b_i \cdot 2^i$$
 
-Let $L = \sum_{i=0}^{N-2} b_i \cdot 2^i$ denote the value of the lower $N - 1$ bits, which ranges uniquely over $[0,\; 2^{N-1} - 1]$:
-- When $b_{N-1} = 0$, $S_N(b) = L \in [0,\; 2^{N-1} - 1]$.
-- When $b_{N-1} = 1$, $S_N(b) = -2^{N-1} + L \in [-2^{N-1},\; -1]$.
+Writing $L = \sum_{i=0}^{N-2} b_i 2^i \in [0,\; 2^{N-1}-1]$, patterns with $b_{N-1} = 0$ cover $[0,\; 2^{N-1}-1]$ while patterns with $b_{N-1} = 1$ cover $[-2^{N-1},\; -1]$—mapping all $2^N$ patterns one-to-one onto $[-2^{N-1},\; 2^{N-1}-1]$ with **only one zero** (`000...0`). For $N = 32$, that gives `INT32_MIN = -2,147,483,648` (`0x8000_0000`) through `INT32_MAX = +2,147,483,647` (`0x7FFF_FFFF`).
 
-Because those two intervals are disjoint and contiguous, the $2^N$ bit patterns map **one-to-one** onto $[-2^{N-1},\; 2^{N-1} - 1]$ with **only one zero** (`000...0`). For $N = 32$, that range is `INT32_MIN = -2,147,483,648` (`0x8000_0000`) to `INT32_MAX = +2,147,483,647` (`0x7FFF_FFFF`); there is one more negative value than positive value because `0` occupies $b_{N-1} = 0$. Checking on $N = 4$ (where the top bit has weight $-8$):
-- `0101` $= -0 \cdot 8 + 4 + 0 + 1 = +5$.
-- `1011` $= -1 \cdot 8 + 0 + 2 + 1 = -8 + 3 = -5$.
-- `1111` $= -1 \cdot 8 + 4 + 2 + 1 = -8 + 7 = -1$.
-- `1000` $= -1 \cdot 8 + 0 + 0 + 0 = -8$ (the unique minimum).
+### Contiguous Derivations: `u32`↔`s32`, Negation (`~x + 1`), and Sign-Agnostic Adders
 
-### Deriving the Algebraic Relationship Between `u32` and `s32`
+Notice how `s32(val)` and `s16(val)` in [`oracle.py`](../sim/oracle.py#L129-L152 "anchor: MASK32..s16") convert an unsigned bit pattern directly into a Python signed integer (`u - (u >> 31) * (1 << 32)`). We can derive both that formula and why a single binary adder works for signed and unsigned math in one continuous chain:
 
-How do the unsigned interpretation $U_N(b)$ and signed two's complement interpretation $S_N(b)$ of the **exact same** $N$-bit pattern relate algebraically? Split the top term $i = N - 1$ off from $U_N(b)$ so both formulas share the identical lower summation:
+$$\begin{aligned}
+U_N(b) - S_N(b)
+&= \left(b_{N-1} 2^{N-1} + \sum_{i=0}^{N-2} b_i 2^i\right)
+ - \left(-b_{N-1} 2^{N-1} + \sum_{i=0}^{N-2} b_i 2^i\right)
+&& \text{(split } i = N-1 \text{ term; lower sums match)} \\
+&= 2 \cdot b_{N-1} \cdot 2^{N-1}
+&& \text{(lower } N-1 \text{ terms cancel identically)} \\
+&= b_{N-1} \cdot 2^N
+&& \text{(combine powers of } 2 \text{)} \\
+\implies\quad S_N(b) &= U_N(b) - b_{N-1} \cdot 2^N
+&& \text{(exact } \text{s32} \text{ / } \text{s16} \text{ code formula)}
+\end{aligned}$$
 
-$$U_N(b) = b_{N-1} \cdot 2^{N-1} + \sum_{i=0}^{N-2} b_i \cdot 2^i$$
+Two hardware corollaries follow directly from this derivation:
 
-$$S_N(b) = -b_{N-1} \cdot 2^{N-1} + \sum_{i=0}^{N-2} b_i \cdot 2^i$$
+1. **Why Bitwise Negation Is `~x + 1`**: Let $\bar{b}_i = 1 - b_i$ be the bitwise complement of $b$:
 
-Subtracting $S_N(b)$ from $U_N(b)$ cancels $\sum_{i=0}^{N-2} b_i \cdot 2^i$ identically:
+$$\begin{aligned}
+U_N(\bar{b}) + 1
+&= \sum_{i=0}^{N-1} (1 - b_i) 2^i + 1
+&& \text{(substitute } \bar{b}_i = 1 - b_i \text{)} \\
+&= \left(2^N - 1 - U_N(b)\right) + 1
+&& \text{(evaluate } \sum_{i=0}^{N-1} 2^i = 2^N - 1 \text{)} \\
+&= 2^N - U_N(b) \equiv -S_N(b) \pmod{2^N}
+&& \text{(since } U_N(b) \equiv S_N(b) \pmod{2^N} \text{)}
+\end{aligned}$$
 
-$$U_N(b) - S_N(b) = \left(b_{N-1} - (-b_{N-1})\right) \cdot 2^{N-1} = 2 \cdot b_{N-1} \cdot 2^{N-1} = b_{N-1} \cdot 2^N$$
+Hardware therefore computes subtraction $A - B$ on the **exact same adder circuit** as $A + \bar{B} + 1$ by inverting $B$'s wires and driving carry-in $= 1$.
 
-Rearranging gives the exact conversion identity for any bit width $N$:
+2. **Why Integer Addition (`ADD`), Subtraction (`SUB`), and Shift Left Logical (`SLL`) Need No Signed/Unsigned Variants**: Because $U_N(b) - S_N(b) = b_{N-1} 2^N$ is always a multiple of $2^N$, any $N$-bit word satisfies $U_N(b) \equiv S_N(b) \pmod{2^N}$. Adding, subtracting, or shifting left (`* 2^k`) any two 32-bit operands modulo $2^{32}$ yields the exact same bottom 32 bits regardless of whether software treats those bits as `u32` or `s32`.
 
-$$S_N(b) = U_N(b) - b_{N-1} \cdot 2^N$$
+### Right Shifts & Widening Narrow Constants (`sign_extend`)
 
-Now inspect [`s32(val)`](../sim/oracle.py#L134-L137) and [`s16(val)`](../sim/oracle.py#L140-L143) in [`oracle.py`](../sim/oracle.py):
-- Setting $N = 32$, `u = u32(val)` computes $U_{32}(b)$, `(u >> 31)` extracts $b_{31} \in \{0, 1\}$, and `(1 << 32)` is $2^{32}$, so `return u - (u >> 31) * (1 << 32)` is literally $S_{32}(b) = U_{32}(b) - b_{31} \cdot 2^{32}$.
-- Setting $N = 16$, `u = val & 0xFFFF` computes $U_{16}(b)$, and `return u - (u >> 15) * (1 << 16)` is $S_{16}(b) = U_{16}(b) - b_{15} \cdot 2^{16}$.
+Unlike addition, three operations **do** depend on signedness: ordered comparisons (`<`, `>=`), right shifts (`>>`), and widening narrow bit widths (`8`, `12`, `16`, or `21` bits) up to `32` bits. Experiment with how Bit 11 fans out across Bits 31..12—and how logical vs. arithmetic right shifts fill vacated upper bits—before checking the proof below:
 
-### Two Corollaries: Negation (`~x + 1`) and Sign-Agnostic `ADD`/`SUB`
+<SignExtensionShifter />
 
-Two foundational hardware properties fall out immediately from the summations above:
+Notice the sharp split between the two right-shift instructions shown in the widget above: a **logical right shift (`SRLI`)** shifts in `0`s from the left to compute unsigned floor division $\lfloor U_{32}(x) / 2^k \rfloor$ (`u32(x) >> k` in Python), whereas an **arithmetic right shift (`SRAI`)** copies the original sign wire (`Bit 31`) into every vacated upper bit to preserve negative signs when computing signed division toward $-\infty$ ($\lfloor S_{32}(x) / 2^k \rfloor$). Because Python `int` right-shift (`>>`) performs arithmetic sign-replication automatically on negative numbers, [`oracle.py`](../sim/oracle.py) explicitly uses `rs1_u >> shamt` for logical shifts and `rs1_s >> shamt` for arithmetic shifts.
 
-1. **Why Negation Is "Flip All Bits and Add 1" (`-x = ~x + 1`)**:
-   Let $\bar{b}_i = 1 - b_i$ denote the bitwise complement (`~b`). Summing all $N$ inverted bits gives:
+Suppose hardware needs to widen a $k$-bit signed constant ($1 \le k < 32$, such as a 12-bit instruction immediate or 8-bit loaded byte) into a `32`-bit register by copying its top sign bit $b_{k-1}$ onto every upper wire $i \in [k, 31]$. Evaluating the two's complement sum directly proves that zero logic gates are needed—wire $b_{k-1}$ simply fans out to wires `31..k`:
 
-   $$U_N(\bar{b}) = \sum_{i=0}^{N-1} (1 - b_i) 2^i = \sum_{i=0}^{N-1} 2^i - \sum_{i=0}^{N-1} b_i 2^i = (2^N - 1) - U_N(b)$$
+$$\begin{aligned}
+S_{32}(\text{extended } b)
+&= -b_{k-1} 2^{31} + \sum_{i=k}^{30} b_{k-1} 2^i + b_{k-1} 2^{k-1} + \sum_{i=0}^{k-2} b_i 2^i
+&& \text{(assign } b_{k-1} \text{ to Bits } 31\dots k \text{)} \\
+&= b_{k-1}\!\left(-2^{31} + (2^{31} - 2^k) + 2^{k-1}\right) + \sum_{i=0}^{k-2} b_i 2^i
+&& \text{(geometric series } \sum_{i=k}^{30} 2^i = 2^{31} - 2^k \text{)} \\
+&= -b_{k-1} 2^{k-1} + \sum_{i=0}^{k-2} b_i 2^i = S_k(b)
+&& \text{(telescope } {-2^k + 2^{k-1}} = -2^{k-1} \text{)}
+\end{aligned}$$
 
-   Adding `1` yields $U_N(\bar{b}) + 1 = 2^N - U_N(b) \equiv -U_N(b) \equiv -S_N(b) \pmod{2^N}$. Thus negating a two's complement integer simply inverts all bits and adds `1`, and hardware computes subtraction $A - B$ on the **same adder circuit** as $A + \bar{B} + 1$ by inverting $B$ and driving carry-in $= 1$.
-
-2. **Why Unsigned Addition Computes Signed Two's Complement Addition**:
-   Because $U_N(b) - S_N(b) = b_{N-1} \cdot 2^N$ is always a multiple of $2^N$, we have $U_N(b) \equiv S_N(b) \pmod{2^N}$ for *every* $N$-bit pattern. Adding or subtracting the unsigned values of any two 32-bit operands $A$ and $B$ modulo $2^{32}$ therefore satisfies:
-
-   $$(U_{32}(A) \pm U_{32}(B)) \equiv (S_{32}(A) \pm S_{32}(B)) \pmod{2^{32}}$$
-
-   Because $[-2^{31},\; 2^{31}-1]$ contains exactly one representative of every residue class modulo $2^{32}$, whenever the true signed result $S_{32}(A) \pm S_{32}(B)$ fits inside $[-2^{31},\; 2^{31}-1]$, there is **only one** 32-bit pattern congruent to it modulo $2^{32}$. **An ordinary unsigned binary adder produces the exact two's complement bit pattern automatically.** The identical congruence holds for logical left shifts (**`SLL`** — *Shift Left Logical*, multiplying by $2^k \pmod{2^{32}}$). Consequently, `RISC-V` defines only a single `ADD` instruction and a single `SUB` instruction—never separate `ADD_SIGNED` and `ADD_UNSIGNED` opcodes.
-
-### Where Signedness Changes the Hardware Behavior
-
-If `ADD`, `SUB`, and `SLL` are agnostic to whether bits represent unsigned `u32` or signed `s32`, exactly **three** instruction families depend on signedness:
-
-1. **Ordered Comparisons (`<` and `>=`)**:
-   Compare bit pattern `0xFFFF_FFFB` to `0x0000_0003`:
-   - Viewed as **unsigned (`u32`)**: `4,294,967,291 < 3` is **False**—tested by **`SLTU`** (*Set Less Than Unsigned*, writing `1` or `0` to `rd`) and **`BLTU`** / **`BGEU`** (*Branch if Less Than / Greater Than or Equal Unsigned*).
-   - Viewed as **signed (`s32`)**: `-5 < +3` is **True**—tested by **`SLT`** (*Set Less Than* signed) and **`BLT`** / **`BGE`** (*Branch if Less Than / Greater Than or Equal* signed).
-   *(Equality `==` and inequality `!=` only check whether all 32 wires match, so **`BEQ`** — Branch if Equal — and **`BNE`** — Branch if Not Equal — operate identically for signed and unsigned operands.)*
-2. **Right Shifts (`>>`)**:
-   Shifting bits right by `1` divides by `2`, vacating `Bit 31` on the left:
-   - **Logical Right Shift (`SRL` / `SRLI` — *Shift Right Logical [Immediate]*)** treats the register as unsigned and shifts a `0` into `Bit 31`. Shifting `0xFFFF_FFFB` right by `1` gives `0x7FFF_FFFD` (`+2,147,483,645`).
-   - **Arithmetic Right Shift (`SRA` / `SRAI` — *Shift Right Arithmetic [Immediate]*)** treats the register as signed two's complement and **replicates the original `Bit 31` sign bit** into vacated upper positions. Shifting `-5` (`1111...1011`) right by `1` copies `1` into `Bit 31`, yielding `1111...1101` = **`-3`** ($\lfloor -5 / 2 \rfloor = -3$, flooring toward $-\infty$).
-3. **Widening Widths: Sign Extension, Upper 32-Bit Multiplication & Division**:
-   Whenever a narrower signed integer (`8`, `12`, `16`, or `32` bits) widens into a wider container (`32` or `64` bits), hardware must preserve its negative value rather than zero-padding on the left.
-
-### Sign Extension: Wire Fan-Out Proof & `oracle.py`'s Branchless Formula
-
-Inside 32-bit `RISC-V` instructions, embedded constants (**immediates**) are often `12`, `13`, or `21` bits wide, and narrow memory loads read `8`-bit bytes (`lb`) or `16`-bit halfwords (`lh`). Before adding a $k$-bit signed constant ($1 \le k < 32$) to a 32-bit register, the CPU widens it from $k$ bits to `32` bits.
-
-First prove why **replicating the top bit $b_{k-1}$** into all upper positions $i \in [k, 31]$ preserves the exact two's complement value $S_{32} = S_k$:
-
-$$S_{32}(\text{extended } b) = -b_{k-1} 2^{31} + \sum_{i=k}^{30} b_{k-1} 2^i + b_{k-1} 2^{k-1} + \sum_{i=0}^{k-2} b_i 2^i$$
-
-Factor out $b_{k-1}$ and evaluate the geometric series $\sum_{i=k}^{30} 2^i = 2^{31} - 2^k$:
-
-$$S_{32}(\text{extended } b) = b_{k-1}\!\left(-2^{31} + (2^{31} - 2^k) + 2^{k-1}\right) + \sum_{i=0}^{k-2} b_i 2^i = -b_{k-1} 2^{k-1} + \sum_{i=0}^{k-2} b_i 2^i = S_k(b)$$
-
-All the replicated upper bits telescope down to $-2^k + 2^{k-1} = -2^{k-1}$. In physical silicon, sign extension therefore requires **zero logic gates**: wire `k - 1` simply fans out directly to all upper wires `31..k`.
-
-Now inspect [`sign_extend(val, bits)`](../sim/oracle.py#L155-L160) in Python:
+Now inspect [`sign_extend`](../sim/oracle.py#L164-L170) in [`oracle.py`](../sim/oracle.py):
 
 <!-- book-sync: sign_extend -->
-<<< @/systems/brain/sim/oracle.py#L155-L160
+<<< @/systems/brain/sim/oracle.py#L164-L170
 
-Why does `(val ^ sign_bit) - sign_bit` recover $S_k(b)$ for **any** width $k = \text{bits}$ without a branch? After `val &= mask`, `val` holds the unsigned $k$-bit value $U_k(b) = b_{k-1} s + L$, where $s = 2^{k-1}$ (`sign_bit`) and $L = \sum_{i=0}^{k-2} b_i 2^i \in [0, s - 1]$. Because $L < 2^{k-1}$, bit $k - 1$ of $L$ is `0`, so XORing with $s = 2^{k-1}$ flips *only* bit $k - 1$ ($b_{k-1} \mapsto 1 - b_{k-1}$):
+Writing the masked $k$-bit unsigned value as $\text{val} = b_{k-1} s + L$, where $s = 2^{k-1}$ (`sign_bit`) and $L = \sum_{i=0}^{k-2} b_i 2^i \in [0, s - 1]$, bit $k-1$ of $L$ is `0`. XORing with $s$ therefore flips *only* bit $k-1$ without touching $L$:
 
-$$\text{val} \oplus s = (1 - b_{k-1}) \cdot s + L$$
+$$\begin{aligned}
+(\text{val} \oplus s) - s
+&= \left((1 - b_{k-1}) s + L\right) - s
+&& \text{(XOR toggles only } b_{k-1} \mapsto 1 - b_{k-1} \text{)} \\
+&= -b_{k-1} s + L = -b_{k-1} 2^{k-1} + \sum_{i=0}^{k-2} b_i 2^i = S_k(b)
+&& \text{(cancel } s - s = 0 \text{)}
+\end{aligned}$$
 
-Subtracting $s$ then produces $S_k(b)$ directly in a single algebraic step:
+### Wrap-Around Overflow vs. Saturating Clamping (`sat32`)
 
-$$(\text{val} \oplus s) - s = (1 - b_{k-1}) \cdot s + L - s = -b_{k-1} \cdot 2^{k-1} + L = S_k(b)$$
-
-Checking both values of $b_{k-1}$ confirms this numerically: when $b_{k-1} = 0$, XOR adds $s$ and subtraction cancels it ($L + s - s = +L$); when $b_{k-1} = 1$, XOR strips off $s$ and subtraction yields $L - s = -2^{k-1} + L$.
-
-### Wrap-Around Overflow vs. Saturating Arithmetic (`sat32`)
-
-Standard `ADD` wraps silently on overflow: `INT32_MAX + 1` (`0x7FFF_FFFF + 1`) becomes `INT32_MIN` (`0x8000_0000 = -2,147,483,648`). For pointer arithmetic and hash functions, modular wrap-around is expected.
-
-For **robot motor control and neural-network inference**, wrap-around overflow is physically hazardous. If a neuron computing knee torque during a landing impact nudges `1` unit past `+2,147,483,647` and wraps to `-2,147,483,648`, the actuator command reverses instantly to full negative torque.
-
-To prevent sign-inverting wrap-around inside the custom `Xapex mac` neural instruction, [`sat32(val)`](../sim/oracle.py#L146-L152) implements **saturating arithmetic**—clamping out-of-range sums to the rails `[INT32_MIN, INT32_MAX]`:
+Standard integer `ADD` wraps silently modulo $2^{32}$: `INT32_MAX + 1` flips to `INT32_MIN` (`-2,147,483,648`). While wrap-around works well for pointers and ring buffers, a wrap from max positive torque to max negative torque inside a leg-control neural network would slam a robot joint in the wrong direction. For custom neural accumulation, [`sat32`](../sim/oracle.py#L155-L161) therefore clamps out-of-range integers to `[INT32_MIN, INT32_MAX]`:
 
 <!-- book-sync: sat32 -->
-<<< @/systems/brain/sim/oracle.py#L146-L152
-
-Experiment with both the 4-bit modular ring adder and the 12-to-32-bit sign extender / shifter in the interactive workbench below:
-
-<TwosComplementWorkbench />
+<<< @/systems/brain/sim/oracle.py#L155-L161
 
 ---
 
-## 3. Architectural State & the Role of Hardwired `x0`
+## 3. Core CPU State, Hardwired `x0`, and the Six Instruction Groups
 
-With fixed-width binary arithmetic established, examine the complete programmer-visible state of the `brain` **System-on-Chip (`SoC`)** inside [`RV32Oracle.__init__`](../sim/oracle.py#L327-L343) and [`RV32Oracle.reset()`](../sim/oracle.py#L345-L372):
+Before wiring instructions together, establish the core computation state of the CPU: two fundamental storage elements plus the instruction vocabulary they execute. *(Later sections introduce the neural accumulator `mac_acc`, the memory bus and peripherals, and privileged control registers right as we derive their mechanics.)*
 
-<!-- book-sync: RV32Oracle.__init__..RV32Oracle.reset -->
-<<< @/systems/brain/sim/oracle.py#L327-L372
-
-Every persistent variable attached to `self` corresponds to physical storage on the `FPGA` and circuit board:
-
-1. **Program Counter (`self.pc`)**: A 32-bit register holding the byte address of the *next* instruction to execute. On power-on reset (`reset()`), `self.pc` starts at `BOOT_ROM_BASE = 0x0000_0000`, so the first clock cycle after power-up fetches startup code from on-chip `Boot ROM`.
-2. **General-Purpose Register File (`self.regs[0..31]`)**: An array of `32` single-cycle 32-bit integer registers named `x0` through `x31` (`128` bytes total).
-   - *Why `32` registers instead of `8` or `256`?* Every register operand inside a 32-bit instruction must specify *which* register it addresses using `log2(N)` bits. With `32` registers, each register index takes **5 bits** ($\log_2(32) = 5$), so three register operands (`rd`, `rs1`, `rs2`) consume `15` of the `32` instruction bits—leaving `17` bits for opcodes and constants while giving the `SysC` compiler enough fast registers to keep loop variables and function arguments out of RAM. Expanding to `128` registers (`7` bits each) would consume `21` bits just for register indices and quadruple multiplexer depth.
-3. **Neural Dot-Product Accumulator (`self.mac_acc`)**: A dedicated 32-bit signed register inside the execution stage that holds running sums across consecutive `Xapex mac` instructions.
-4. **Machine-Mode Control & Status Registers (`mstatus`, `misa`, `mie`, `mtvec`, `mscratch`, `mepc`, `mcause`, `mtval`, `mip`, `mcycle`, `minstret`)**: Privileged system registers governing interrupts, exception vector addresses, and 64-bit hardware cycle/instruction counters (derived in Section 8).
-   - `self.mstatus = MSTATUS_MPP_M` (`0b11 << 11`) pins the *Machine Previous Privilege* field to Machine Mode (`0b11`) with master interrupts disabled (`MIE = 0`) at boot, and `self.mip_sw_ext = 0` clears software/external pending flags (kept separate from the live `CLINT` timer bit).
-   - Note how `self.misa = 0x4080_1100` in `reset()` is constructed from the `RISC-V` Privileged Specification:
-     - `Bits 31..30 = 0b01` (`0x4...`): declares a **32-bit** (`RV32`) architecture.
-     - `Bit 23 = 1` (`0x0080_0000`, letter `'X'` = index `23` of `A..Z`): declares non-standard custom extensions (`Xapex`).
-     - `Bit 12 = 1` (`0x0000_1000`, letter `'M'` = index `12`): declares hardware integer Multiply/Divide (`RV32M`).
-     - `Bit 8 = 1` (`0x0000_0100`, letter `'I'` = index `8`): declares the `RV32I` base integer instruction set.
-     - Combining them via bitwise OR gives `0x4000_0000 | 0x0080_0000 | 0x0000_1000 | 0x0000_0100 = 0x4080_1100`.
-5. **Memory Regions & I/O Devices (`rom`, `bram`, `qspi`, `sdram`, `mtime`/`mtimecmp`, `uart_*`)**: The backing memory arrays, 64-bit timer alarm, and serial transmit/receive byte queues (detailed in Section 7). Initializing `self.mtimecmp = (1 << 64) - 1` parks the alarm threshold at its 64-bit maximum so timer interrupts never fire until firmware schedules a real deadline, and `self.uart_bauddiv = SYS_CLK_HZ // UART_DEFAULT_BAUD` (`50_000_000 // 115_200 = 434`) sets the default clock ticks per serial bit at `50 MHz` and `115,200` baud.
+Inside [`RV32Oracle.reset()`](../sim/oracle.py#L367-L396), core execution revolves around:
+1. **The Program Counter (`self.pc`)**: A single 32-bit register holding the byte address of the *next* instruction to fetch. At boot, `reset()` initializes `self.pc = BOOT_ROM_BASE` (`0x0000_0000`).
+2. **The General-Purpose Register File (`self.regs[0..31]`)**: An array of `32` fast 32-bit integer registers named `x0` through `x31` (`128` bytes total). Why `32` registers rather than `8` or `256`? Every instruction must encode each register operand using $\log_2(\text{count})$ bits: `32` registers take **5 bits** per operand, so three operands consume `15` of the `32` instruction wires while leaving `17` bits for opcodes and constants.
 
 ### Why Register `x0` Is Hardwired to Zero
 
-Inspect [`_set_reg(rd, val)`](../sim/oracle.py#L630-L635), the sole gatekeeper through which every instruction writes to `self.regs`:
+Examine [`_set_reg`](../sim/oracle.py#L671-L676), the sole gatekeeper through which every instruction commits register results:
 
 <!-- book-sync: RV32Oracle._set_reg -->
-<<< @/systems/brain/sim/oracle.py#L630-L635
+<<< @/systems/brain/sim/oracle.py#L671-L676
 
-In `RISC-V`, register `x0` is **not** a normal storage slot initialized to `0` at boot—it is physically wired to ground (`0x0000_0000`) in silicon. Reading `x0` always returns `0`, and writing any value to `x0` (`rd == 0`) is discarded.
+In hardware, `x0` is not a flip-flop cleared at boot—its output wires are strapped permanently to `0V` (`0`), and its write-enable wire ignores writes. Dedicating one register to `0` eliminates separate machine opcodes for everyday tasks by turning them into **aliases (*pseudoinstructions*)** of existing base instructions:
+- **Do nothing (`nop`)** → `addi x0, x0, 0` (discards write into `x0`)
+- **Copy register (`mv rd, rs1`)** → `addi rd, rs1, 0`
+- **Load small constant (`li rd, imm`)** → `addi rd, x0, imm`
+- **Negate integer (`neg rd, rs1`)** → `sub rd, x0, rs1`
+- **Branch if zero (`beqz rs1, off`)** → `beq rs1, x0, off` (compares directly against `x0`—eliminating any hidden CPU flags register like `Zero`/`Carry` that complicates pipelining!)
+- **Return from function (`ret`)** → `jalr x0, 0(x1)` (jumps to `x1` while discarding the unused next-instruction return address, called the **link address**, into `x0`)
 
-Although dedicating one of `32` registers (`3.1%` of the register file) to the constant `0` appears costly at first, hardwiring `x0 = 0` eliminates substantial decoder complexity. Architectures such as `x86` carry separate opcodes for `NOP`, `MOV`, `CLR`, `NEG`, `CMP`, `TEST`, `JMP`, `CALL`, and `RET`, each requiring dedicated decode logic and verification cases. With `x0 = 0`, all of those operations become **aliases (*pseudoinstructions*)** of existing base instructions:
+### Top-Down Map: The Six Instruction Families of `RV32IM + Zicsr + Xapex`
 
-| Everyday Operation | How `x86`/Complex CPUs Do It | How `RISC-V` Synthesizes It Using `x0` | Underlying Hardware Action |
-| :--- | :--- | :--- | :--- |
-| **Do nothing (`nop`)** | Dedicated `0x90` `NOP` opcode | `addi x0, x0, 0` | Computes `0 + 0`, discards write to `x0` |
-| **Copy register (`mv x3, x1`)** | Dedicated `MOV` opcode | `addi x3, x1, 0` | Computes `x1 + 0`, writes `x3` |
-| **Load small constant (`li x1, -5`)** | Dedicated `MOV_IMM` opcode | `addi x1, x0, -5` | Computes `0 + (-5)`, writes `x1` |
-| **Negate integer (`neg x2, x1`)** | Dedicated `NEG` two's complement op | `sub x2, x0, x1` | Computes `0 - x1`, writes `x2` |
-| **Branch if zero (`beqz x1, offset`)** | Status-flag `TEST` + `JZ` | `beq x1, x0, offset` | Compares `x1 == 0` directly—**no condition-code flags register needed** |
-| **Return from function (`ret`)** | Dedicated `RET` stack-pop opcode | `jalr x0, 0(x1)` (**Jump and Link Register**) | Jumps to return address in `x1`, discards unused `PC + 4` return address (**link address**) into `x0` |
+The `brain` processor implements **Reduced Instruction Set Computer — Fifth Generation (`RISC-V`)**, an open specification organized into small modular instruction sets (**RISC-V 32-bit Base Integer / `RV32I`** + `M` hardware multiply/divide + `Zicsr` control registers) alongside one custom extension (`Xapex` packed neural **Multiply-Accumulate / `MAC`**). Every valid 32-bit instruction belongs to one of **six functional groups**:
 
-Notice the fifth row: **no condition-code flags register is required.** In `x86` or `ARM`, most arithmetic instructions mutate a shared global flags register (`Zero`, `Carry`, `Negative`, `Overflow`), introducing implicit state dependencies that complicate pipelined execution. Because `RISC-V` pairs `x0` with direct two-register branches (`beq`, `blt`), integer instructions produce **no hidden flag side effects**.
+| # | Functional Group | Example Instructions | What Software Uses It For | Derived In |
+| :-: | :--- | :--- | :--- | :---: |
+| **1** | **Integer Arithmetic Logic Unit (`ALU`), Shifts & Upper Constants (`RV32I`)** | `add`, `sub`, `addi`, `and`, `or`, `xor`, `sll`, `srl`, `sra`, `slt`, `sltu`, `lui`, `auipc` | Loop counters, array offsets, bit masks, comparisons, building 32-bit addresses | Sec. 4–5 |
+| **2** | **Multiply & Divide (`RV32M`)** | `mul`, `mulh`, `mulhsu`, `mulhu`, `div`, `divu`, `rem`, `remu` | Full 64-bit products, fixed-point scaling, remainder/modulo without software loops | Sec. 5 |
+| **3** | **Memory Loads & Stores (`RV32I`)** | `lb`, `lbu`, `lh`, `lhu`, `lw`, `sb`, `sh`, `sw` | Reading/writing bytes, halfwords, and 32-bit words in RAM and peripheral registers | Sec. 7 |
+| **4** | **Branches & Subroutine Jumps (`RV32I`)** | `beq`, `bne`, `blt`, `bge`, `bltu`, `bgeu`, `jal`, `jalr` | `if`/`while` loops, function calls (saving link `PC + 4`), indirect function pointers | Sec. 4, 8 |
+| **5** | **System, Barriers & Control Registers (`RV32I + Zicsr`)** | `ecall`, `ebreak`, `mret`, `wfi` (*Wait For Interrupt*), `fence`, `fence.i`, `csrrw`, `csrrs`, `csrrc` | Syscalls, debugger halts, trap returns, memory ordering, atomic interrupt/timer setup | Sec. 8–9 |
+| **6** | **Dual-`int16` Saturating Neural `MAC` (`Xapex`)** | `mac`, `mac.clr`, `mac.set`, `mac.get` | Running the robot's quantized walking neural network within a `< 0.6 ms` real-time tick | Sec. 6 |
 
 ---
 
-## 4. Packing a Computer into 32 Wires: The Six Instruction Formats
+## 4. Instruction Encoding: Packing 32-Bit Control Words
 
-Every instruction fetched from memory is **one 32-bit integer (`4` bytes)**. Why enforce a uniform 32-bit instruction width?
+Every `RISC-V` instruction is a single `32`-bit unsigned integer stored in memory and decoded purely by slicing fixed wire ranges—no variable-length byte streams, prefix bytes, or length tables. Each `32`-bit word breaks into standard fields: a **7-bit primary operation code (`opcode`, Bits 6..0)** naming the broad instruction family, up to three **5-bit register indices (`rd` destination, `rs1`/`rs2` sources)**, **3-bit and 7-bit sub-operation codes (`funct3` and `funct7`)** selecting the specific instruction inside that family, and any remaining **constant operand (*immediate*)**.
 
-In desktop architectures like `x86-64`, instructions vary from `1` byte to `15` bytes long. Variable-length encoding improves code density at a significant hardware cost: before the processor can locate where Instruction #2 begins in memory, it must sequentially decode prefix bytes on Instruction #1. In a compact, deterministic real-time processor on an `FPGA`, **fixed 32-bit instruction words** guarantee:
-1. Every instruction sits at a byte address divisible by `4` (`0x00`, `0x04`, `0x08`, ...), so normal sequential execution always advances `next_pc = cur_pc + 4`.
-2. All `32` instruction wires arrive at the decoder simultaneously in a single memory read.
+All standard 32-bit `RISC-V` opcodes set their bottom two bits (`Bits 1..0`) to `0b11` (`3`), reserving other 2-bit endings for optional 16-bit compressed instructions omitted by this core under strict 4-byte **Instruction Address Alignment (`IALIGN = 32`)**. Inside [`RV32Oracle.step()`](../sim/oracle.py#L1002-L1109), hardware extracts all five common columns simultaneously—before knowing which instruction family just arrived:
 
-### Fixed Register Columns
+<!-- book-sync: RV32Oracle.step['opcode = insn & 0x7F'..'funct7 = (insn >> 25) & 0x7F'] -->
+<<< @/systems/brain/sim/oracle.py#L1021-L1026
 
-Inspect the bitfield slice at the top of [`RV32Oracle.step()`](../sim/oracle.py#L953-L958 "anchor: RV32Oracle.step['opcode = insn & 0x7F'..'funct7 = (insn >> 25) & 0x7F']"):
-
-<!-- book-sync: RV32Oracle.step['opcode = insn & 0x7F'..'rs1_s, rs2_s = s32(rs1_u)'] -->
-<<< @/systems/brain/sim/oracle.py#L953-L961
-
-Notice that `step()` extracts `opcode`, `rd`, `funct3`, `rs1`, `rs2`, and `funct7`—and even reads `self.regs[rs1]` and `self.regs[rs2]`—before decoding the instruction format.
-
-That works because `RISC-V` enforces a strict positional invariant across every instruction format in the architecture:
-- **`Bits 6..0` (`7` bits)**: Always **`opcode`** (selects the major instruction family).
-- **`Bits 11..7` (`5` bits)**: Always **`rd`** (destination register `x0..x31`, whenever the instruction writes a register).
-- **`Bits 14..12` (`3` bits)**: Always **`funct3`** (3-bit sub-operation selector within the family).
-- **`Bits 19..15` (`5` bits)**: Always **`rs1`** (first source register `x0..x31`).
-- **`Bits 24..20` (`5` bits)**: Always **`rs2`** (second source register `x0..x31`).
-- **`Bit 31` (`1` bit)**: Always the **sign bit** of any embedded constant.
-
-Keeping `rs1`, `rs2`, and `rd` in fixed columns allows physical wire bundles `insn[19:15]` and `insn[24:20]` to connect **directly to the Register File's read address ports** with zero multiplexer delay—fetching `rs1` and `rs2` in parallel while opcode decoding occurs.
-
-### All Six Instruction Formats (`enc_r` Through `enc_j`)
-
-Inspect the six standard `RISC-V` encoders plus the custom `Xapex` encoder in [`oracle.py` (`enc_r`–`enc_mac`)](../sim/oracle.py#L163-L234 "anchor: enc_r..enc_mac"):
-
-<!-- book-sync: enc_r..enc_mac -->
-<<< @/systems/brain/sim/oracle.py#L163-L234
-
-The diagram below shows how each format allocates its `32`-bit budget (`opcode` occupies `7` bits, leaving `25` bits). In the bit-field diagram, `imm[10:5]` denotes bits `10` down to `5` of the immediate constant (`imm`), and compact labels `12`, `4:1`, `11`, and `20` on the `B:` and `J:` rows abbreviate `imm[12]`, `imm[4:1]`, `imm[11]`, and `imm[20]`:
-
-```text
-Bit:  31        25 24   20 19   15 14   12 11    7 6      0
-      +-----------+-------+-------+-------+-------+--------+
-R:    |  funct7   |  rs2  |  rs1  |funct3 |  rd   | opcode |  Register-Register (add, sub, mul, mac)
-      +-----------+-------+-------+-------+-------+--------+
-I:    |     imm[11:0]     |  rs1  |funct3 |  rd   | opcode |  12-Bit Immediate  (addi, lw, jalr, csrrw)
-      +-----------+-------+-------+-------+-------+--------+
-S:    | imm[11:5] |  rs2  |  rs1  |funct3 |imm[4:0]| opcode|  Memory Store      (sw, sh, sb)
-      +-----------+-------+-------+-------+-------+--------+
-B:    |12|imm[10:5]| rs2  |  rs1  |funct3 |4:1|11 | opcode |  Conditional Branch(beq, blt, bgeu)
-      +-----------+-------+-------+-------+-------+--------+
-U:    |         imm[31:12]                |  rd   | opcode |  20-Bit Upper Imm  (lui, auipc)
-      +-----------------------------------+-------+--------+
-J:    |20| imm[10:1] |11|   imm[19:12]    |  rd   | opcode |  Unconditional Jump(jal)
-      +-----------------------------------+-------+--------+
-```
-
-1. **`R`-Type (`Register-Register`, [`enc_r`](../sim/oracle.py#L163-L172))**:
-   - Uses three 5-bit register indices (`rd`, `rs1`, `rs2` = `15` bits) plus `opcode` (`7` bits), leaving `10` bits (`funct7` at `Bits 31..25` + `funct3` at `Bits 14..12`) to select among up to $2^{10} = 1{,}024$ operations.
-   - Standard `RV32I` register arithmetic uses `opcode = 0x33`: `funct7 = 0x00` selects `add`, `sll`, `slt`, `sltu`, `xor`, `srl`, `or`, `and`; setting `Bit 30` (`funct7 = 0x20`) switches `add -> sub` and `srl -> sra` (in hardware, `Bit 30` drives the adder's invert-and-carry-in subtract control wire). Setting `funct7 = 0x01` selects the eight `RV32M` multiply/divide operations.
-2. **`I`-Type (`12-Bit Immediate`, [`enc_i`](../sim/oracle.py#L175-L183))**:
-   - Trades `rs2` (`5` bits) and `funct7` (`7` bits) for one contiguous **12-bit signed constant** `imm[11:0]` in `Bits 31..20` (`[-2048, +2047]`).
-   - Encodes immediate operations in the processor's **Arithmetic Logic Unit (`ALU`)** (`addi`, `andi`, `slti` at `opcode = 0x13`), memory loads (`lb`, `lh`, `lw` at `opcode = 0x03`, computing `address = rs1 + imm`), indirect jumps (`jalr` at `opcode = 0x67`), and `Zicsr` control-register accesses (`opcode = 0x73`, where the unsigned 12-bit field addresses one of `4,096` CSRs).
-   - *Shift-immediate specialization*: Shifting a 32-bit register by `>= 32` is undefined, so immediate shifts (`slli`, `srli`, `srai`) only require the bottom 5 bits of the immediate (`Bits 24..20`, the `rs2` column) as the shift amount (`shamt`), leaving `Bits 31..25` free to act as `funct7` (`0x00` for `srli` vs. `0x20` for `srai`). Look at [`test_oracle.py` (`srai x7, x1, 1`)](../tb/test_oracle.py#L110 "anchor: test_rv32i_arithmetic_shifts_and_x0['enc_i(0x400 | 1']"): `enc_i(0x400 | 1, 1, 5, 7, 0x13)` sets bit `10` of the 12-bit immediate (`0x400`), which lands at instruction `Bit 30` (`funct7 = 0x20`), encoding `srai x7, x1, 1`.
-3. **`S`-Type (`Store to Memory`, [`enc_s`](../sim/oracle.py#L186-L196))**:
-   - Consider `sw x2, 12(x1)` (*store the 32-bit value in `x2` into memory at address `x1 + 12`*). A store reads **two** registers (`rs1` base pointer and `rs2` data to write) and writes **zero** destination registers (`no rd`).
-   - Keeping `rs1` (`Bits 19..15`) and `rs2` (`Bits 24..20`) fixed, `RISC-V` splits the 12-bit signed byte offset into two pieces: `imm[11:5]` occupies `Bits 31..25` (`7` bits), and `imm[4:0]` reuses the vacant `rd` column at `Bits 11..7` (`5` bits).
-4. **`B`-Type (`Conditional Branch`, [`enc_b`](../sim/oracle.py#L199-L211)) & Immediate Bit Ordering**:
-   - Like stores, `blt x2, x3, -8` compares two source registers (`rs1`, `rs2`) and adds a signed byte offset to `self.pc`.
-   - **Implicit bit `0`**: Instructions are aligned to even byte boundaries (multiples of `4` bytes in `RV32I`, or `2` bytes when compressed 16-bit instructions exist), so every valid branch offset is an **even number** whose bit `0` is guaranteed to be `0`. Rather than allocating an instruction wire to a constant `0`, `B`-type omits `imm[0]` and stores `imm[12:1]`, **doubling branch reach** from `±2 KB` (`12` bits) to **`±4 KB` (`13` bits, `[-4096, +4094]` bytes)**.
-   - **Why `imm[11]` sits at `Bit 7` instead of `Bit 30`**: Why didn't `RISC-V` store `imm[12:6]` in `Bits 31..25` and `imm[5:1]` in `Bits 11..7`? Compare `S`-type and `B`-type side by side:
-     - In `S`-type, `Bits 30..25` hold `imm[10:5]` and `Bits 11..8` hold `imm[4:1]`.
-     - By placing `B`-type's `imm[10:5]` in `Bits 30..25` and `imm[4:1]` in `Bits 11..8` as well, **10 out of the 12 immediate wires occupy identical positions in both `S`-type and `B`-type**—eliminating 10 multiplexer gates in the hardware immediate decoder. Meanwhile, `imm[12]` (the sign bit) stays pinned at `Bit 31`, leaving `Bit 7` (where `S`-type held `imm[0]`) for `imm[11]`. The bit layout reflects **minimum-wire-crossing symmetry** in hardware.
-5. **`U`-Type (`Upper Immediate`, [`enc_u`](../sim/oracle.py#L214-L216)) & Building Full 32-Bit Constants**:
-   - A 32-bit constant and a 7-bit opcode cannot both fit inside a 32-bit instruction. `RISC-V` constructs 32-bit constants using a two-instruction sequence:
-     1. **`LUI` (`Load Upper Immediate`, `opcode = 0x37`)** places a 20-bit constant into `Bits 31..12` of `rd` and zeros `Bits 11..0`. (**`AUIPC`** — *Add Upper Immediate to Program Counter*, `opcode = 0x17` — adds that same shifted 20-bit constant to `self.pc` to form position-independent code and data pointers.)
-     2. **`ADDI` (`Add Immediate`)** adds the remaining lower 12 bits.
-   - *Deriving the `LUI` + `ADDI` split (`+ 0x800` carry rule)*: Write any 32-bit target $C \in [0, 2^{32} - 1]$ in terms of its upper 20 bits and lower 12 bits:
-
-     $$C = H \cdot 2^{12} + L, \qquad H \in [0, 2^{20} - 1],\quad L \in [0, 2^{12} - 1]$$
-
-     Because `ADDI` sign-extends the 12-bit field $L$, Section 2's conversion identity gives $S_{12}(L) = L - b_{11} \cdot 2^{12}$, where $b_{11} \in \{0, 1\}$ is `Bit 11` of $L$. To find a 20-bit upper field $H'$ satisfying $H' \cdot 2^{12} + S_{12}(L) \equiv C \pmod{2^{32}}$, substitute $S_{12}(L)$:
-
-     $$H' \cdot 2^{12} + (L - b_{11} \cdot 2^{12}) \equiv H \cdot 2^{12} + L \pmod{2^{32}} \implies H' \equiv H + b_{11} \pmod{2^{20}}$$
-
-     Adding $2^{11} = \text{0x800}$ before shifting right by `12` computes $H + b_{11}$ without branching: when $b_{11} = 0$, $L < 2^{11}$ so $L + 2^{11} < 2^{12}$ generates no carry into `Bit 12` ($\lfloor (C + \text{0x800}) / 2^{12} \rfloor = H$); when $b_{11} = 1$, $L \ge 2^{11}$ so $L + 2^{11} \ge 2^{12}$ carries $+1$ into `Bit 12` ($\lfloor (C + \text{0x800}) / 2^{12} \rfloor = H + 1$). Masking with `0xFFFFF` reduces modulo $2^{20}$:
-     - `hi20 = ((C + 0x800) >> 12) & 0xFFFFF` (or pre-shifted `upper = (C + 0x800) & 0xFFFF_F000` for `enc_u`), and `lo12 = C & 0xFFF`.
-     - Check on $C = \text{0x1234\_5800}$ ($H = \text{0x12345}$, $L = \text{0x800}$, $b_{11} = 1$): $H' = \text{0x12346}$, so `lui x5, 0x12346` (`0x1234_6000`) followed by `addi x5, x5, -2048` (`-0x800`) produces `0x1234_5800`. The same formula also handles wrap-around constants such as $C = \text{0xFFFF\_F800}$ ($H = \text{0xFFFFF} \implies H' = 0$).
-6. **`J`-Type (`Unconditional Jump and Link`, [`enc_j`](../sim/oracle.py#L219-L229))**:
-   - Used by **`JAL`** (*Jump and Link*, `opcode = 0x6F`) for function calls and long jumps. Like `B`-type, it omits `imm[0] = 0`, packing `imm[20:1]` into `Bits 31..12` for a **21-bit signed reach (`±1 MB`)**—while aligning `imm[19:12]` with `U`-type's `Bits 19..12` and pinning the sign bit `imm[20]` at `Bit 31` for hardware multiplexer sharing.
-
-Explore all six formats—and toggle individual instruction bits `31..0` to observe live field decoding—in the inspector below:
+Before inspecting the math of bit scrambling and 32-bit constant construction, test all six instruction formats interactively in the decoder below—click any instruction preset or format tab to see how every bit slice maps onto the `32`-bit wire layout:
 
 <RiscvBitfieldDecoder />
 
----
+### Why `S`, `B`, and `J` Formats Scramble Constant Bits
 
-## 5. The Integer Execution Engine (`RV32I` & `RV32M` Corner Cases)
+Notice the column discipline in the decoder above and in the six compact encoding layouts below (every `opcode` ends with `Bits 1..0 = 11`; numbers inside brackets give which bits of the constant occupy each fixed instruction wire column `Bits 31..0`):
 
-Once `step()` slices an instruction word, integer arithmetic and logic dispatch to [`_exec_op_imm`](../sim/oracle.py#L772-L803) (register + 12-bit constant) and [`_exec_op_reg`](../sim/oracle.py#L839-L862) (register + register):
+```
+Bits:  31        25 24   20 19   15 14  12 11    7 6      0
+R-fmt: [  funct7   ][ rs2  ][ rs1  ][fn3 ][  rd   ][opcode]
+I-fmt: [     imm Bits 11..0        ][ rs1  ][fn3 ][  rd   ][opcode]
+S-fmt: [ imm 11..5 ][ rs2  ][ rs1  ][fn3 ][imm4..0][opcode]
+B-fmt: [12|imm10..5][ rs2  ][ rs1  ][fn3 ][4..1|11][opcode]
+U-fmt: [          imm Bits 31..12         ][  rd   ][opcode]
+J-fmt: [20| imm 10..1  |11| imm 19..12    ][  rd   ][opcode]
+```
 
-<!-- book-sync: RV32Oracle._exec_op_imm -->
-<<< @/systems/brain/sim/oracle.py#L772-L803
+If an architect designed each format in isolation, immediates would sit in contiguous bits `31..12` or `24..12`. **Physical hardware pays a heavy multiplexer tax for shifting register selectors across wires**: if `rs1` sat at Bits `19..15` on `R`-type instructions but moved to Bits `27..23` on `S`-type instructions, every single wire feeding the `32`-entry register file read port would need an extra multiplexer switch—stretching the combinational path on every clock cycle. `RISC-V` instead **locks the register columns (`rd` at `11..7`, `rs1` at `19..15`, `rs2` at `24..20`) and keeps the sign bit at `Bit 31` across every format**:
 
-<!-- book-sync: RV32Oracle._exec_op_reg -->
-<<< @/systems/brain/sim/oracle.py#L839-L862
+- **Sign bit pinned to `Bit 31`**: Hardware taps `insn[31]` into the sign-extension fan-out tree *in parallel* with opcode decoding—zero gate delay waiting to discover the format first.
+- **`S`-type (`Store`)**: Stores read two registers (`rs1` base pointer and `rs2` data) and write no destination register, so the upper 7 bits and lower 5 bits of the 12-bit offset (`Bits 11..0`) split around `rs2`, `rs1`, and `funct3` into instruction `Bits 31..25` and `Bits 11..7`.
+- **`B`-type (`Branch`) & `J`-type (`JAL`)**: Conditional branches and jumps target 2-byte (`even`) instruction addresses, so `Bit 0` of the byte offset is always `0` and omitted from the encoding. Pinning the sign bit at `Bit 31` and keeping middle/low offset bits aligned with `S`-type (`Bits 30..25` and `Bits 11..8`) and `U`-type (`Bits 19..12`) wires collapses immediate muxing down to just **two 1-bit wire swaps** (`Bit 7` and `Bit 20`).
 
-Note three hardware invariants in these two helpers:
-1. **Barrel Shifter Bounds (`& 0x1F`) & Python Arithmetic Right Shifts (`rs1_s >> shamt`)**: Inside `_exec_op_imm`, `shamt = (insn >> 20) & 0x1F` extracts the 5-bit immediate shift count (`0..31`) directly from `Bits 24..20`. Inside `_exec_op_reg` (`SLL`, `SRL`, and `SRA` branches), `rs2_u` holds an arbitrary 32-bit register value, so masking `rs2_u & 0x1F` models physical silicon routing only the bottom `5` bits into a 5-stage cascaded power-of-two shift circuit (**barrel shifter**, shifting by `16`, `8`, `4`, `2`, and `1` bit positions in one pass) so shifting by `35` shifts by `35 & 31 = 3`. For `SRAI` and `SRA`, Python's `>>` on a negative signed `rs1_s` already shifts in infinite leading `1` sign bits (flooring toward $-\infty$), which `_set_reg`'s `u32()` then truncates cleanly back to `32` hardware bits.
-2. **Mixed-Sign Immediate Unsigned Comparison (`SLTIU`, `funct3 == 3`)**: Examine `res = 1 if rs1_u < u32(imm) else 0` in `_exec_op_imm`. Even though **`SLTIU`** (*Set Less Than Immediate Unsigned*) performs an **unsigned** 32-bit comparison, `RISC-V` **still sign-extends** the 12-bit immediate *first* (`imm = sign_extend(insn >> 20, 12)`) before interpreting those 32 bits as unsigned via `u32(imm)`. This allows hardware to share a single 12-bit sign extender on the `I`-type path, *and* lets `sltiu rd, rs1, -1` (`u32(-1) = 0xFFFF_FFFF`) test `rs1 != 0xFFFF_FFFF` in one instruction (while `sltiu rd, rs1, 1` tests `rs1 < 1` unsigned, i.e., `rs1 == 0`, implementing the **`seqz` (`Set if Equal to Zero`)** pseudoinstruction).
-3. **Catching Illegal Bit Combinations (`return None`)**: If an instruction has `opcode = 0x33` with an unassigned `funct7` (such as `0x7F`), `_exec_op_reg` returns `None`, causing [`RV32Oracle.step`](../sim/oracle.py#L1005-L1006 "anchor: RV32Oracle.step['elif opcode == 0x33:'..'self._exec_op_reg(']") to raise a synchronous **Illegal Instruction Trap (`CAUSE_ILLEGAL_INSN = 2`)**—preventing corrupted memory or unsupported opcodes from failing silently.
+The six encoder functions ([`enc_r`](../sim/oracle.py#L173-L182), [`enc_i`](../sim/oracle.py#L185-L193), [`enc_s`](../sim/oracle.py#L196-L207), [`enc_b`](../sim/oracle.py#L210-L223), [`enc_u`](../sim/oracle.py#L226-L229), [`enc_j`](../sim/oracle.py#L232-L243)) plus the custom [`enc_mac`](../sim/oracle.py#L246-L248) packer implement these exact wire placements.
 
-### Hardware Multiply & Divide (`RV32M`): 64-Bit Products and Trap-Free Division
+### Building Full 32-Bit Constants: Why `LUI + ADDI` Needs a `+0x800` Bias
 
-Next, examine [`_exec_muldiv`](../sim/oracle.py#L805-L837), which implements all eight `RV32M` instructions (`funct7 == 0x01` under `opcode = 0x33`):
+An `I`-type constant only holds `12` signed bits (`-2048` to `+2047`), yet programs constantly construct arbitrary 32-bit addresses and masks. `RISC-V` pairs **`LUI` (*Load Upper Immediate*, `U`-type)**—which places a 20-bit constant into `Bits 31..12` and zeroes `Bits 11..0`—with **`ADDI` (*Add Immediate*, `I`-type)**—which adds a **sign-extended** 12-bit constant `lo12 = sign_extend(x & 0xFFF, 12)` modulo $2^{32}$. (A sibling, **`AUIPC`**—*Add Upper Immediate to PC*—adds the shifted 20-bit immediate to `cur_pc` for position-independent code.)
 
-<!-- book-sync: RV32Oracle._exec_muldiv -->
-<<< @/systems/brain/sim/oracle.py#L805-L837
+Wait: why can an assembler **not** simply split a 32-bit constant $X$ into `(X >> 12)` for `LUI` and `(X & 0xFFF)` for `ADDI`? Whenever `Bit 11` of $X$ equals `1` (i.e., `lo >= 0x800`), `ADDI` sign-extends `lo` as a **negative** number in $[-2048, -1]$, borrowing `1` from bit 12!
 
-Every branch in `_exec_muldiv` reflects a fundamental property of integer multiplication and division hardware:
+We prove the exact assembler fix using our Section 2 identity $S_{12}(b) = U_{12}(b) - b_{11} 2^{12}$ (where $b_{11} \in \{0, 1\}$ is `Bit 11` of $X$):
 
-#### 1. Why Multiplication Needs Four Instructions (`MUL`, `MULH`, `MULHSU`, `MULHU`)
+$$\begin{aligned}
+X &= \text{hi}_{20} \cdot 2^{12} + U_{12}(\text{lo}_{12})
+&& \text{(split } X \in \mathbb{Z}_{2^{32}} \text{ at Bit 12)} \\
+&= \text{hi}_{20} \cdot 2^{12} + \left(S_{12}(\text{lo}_{12}) + b_{11} \cdot 2^{12}\right)
+&& \text{(apply } U_{12} = S_{12} + b_{11} 2^{12} \text{)} \\
+&= (\text{hi}_{20} + b_{11}) \cdot 2^{12} + S_{12}(\text{lo}_{12})
+&& \text{(factor } 2^{12} \text{ across high bits)} \\
+&\implies \text{hi}_{\text{lui}} = \left\lfloor \frac{X + 2^{11}}{2^{12}} \right\rfloor \bmod 2^{20} = \frac{(X + \texttt{0x800}) \mathbin{\&} \texttt{0xFFFF\_F000}}{2^{12}}
+&& \text{(adding } 2^{11} \text{ carries } 1 \iff b_{11} = 1 \text{)}
+\end{aligned}$$
 
-Multiplying two 32-bit integers produces up to **64 significant bits** (for example, `0xFFFF_FFFF * 0xFFFF_FFFF = 0xFFFF_FFFE_0000_0001`). Because a single `RV32` destination register `rd` is 32 bits wide, `RV32M` splits 64-bit multiplication into lower-half and upper-half instructions.
-
-Let $A = U_{32}(a)$ and $B = U_{32}(b)$ be the unsigned values of the two 32-bit inputs with sign bits $a_{31}, b_{31} \in \{0, 1\}$. Using Section 2's identity $S_{32}(x) = U_{32}(x) - x_{31} \cdot 2^{32}$, expand the exact 64-bit signed product:
-
-$$S_{32}(a) \cdot S_{32}(b) = (A - a_{31} 2^{32})(B - b_{31} 2^{32}) = A B - (a_{31} B + b_{31} A) 2^{32} + a_{31} b_{31} 2^{64}$$
-
-Similarly, for a signed `rs1` times an unsigned `rs2`, $S_{32}(a) \cdot B = A B - a_{31} B \cdot 2^{32}$. Two structural facts follow immediately from this expansion:
-
-- **`MUL` (*Multiply Lower 32 Bits*, `funct3 = 0`)**: Reducing modulo $2^{32}$ eliminates every multiple of $2^{32}$ and $2^{64}$, leaving $(S_{32}(a) \cdot S_{32}(b)) \bmod 2^{32} = (A \cdot B) \bmod 2^{32}$. Because the lower 32 bits of signed and unsigned multiplication are always identical, `_set_reg` simply writes `u32(res)` and no `MULU` instruction is needed.
-- **`MULH` (*Multiply High Signed×Signed*), `MULHSU` (*Multiply High Signed×Unsigned*), and `MULHU` (*Multiply High Unsigned×Unsigned*) (`funct3 = 1, 2, 3`)**: Write the **upper 32 bits** (`product >> 32`, i.e., $\lfloor \text{product} / 2^{32} \rfloor \bmod 2^{32}$) into `rd`. Writing the unsigned 64-bit product as $A B = \text{MULHU}(a, b) \cdot 2^{32} + R$ (where $R = A B \bmod 2^{32} \in [0, 2^{32}-1]$ is the shared lower 32 bits) gives
-
-  $$S_{32}(a) \cdot S_{32}(b) = \left(\text{MULHU}(a, b) - a_{31} B - b_{31} A + a_{31} b_{31} 2^{32}\right) 2^{32} + R$$
-
-  Taking $\lfloor \cdot / 2^{32} \rfloor$ eliminates the $R / 2^{32} \in [0, 1)$ fraction cleanly (even when the product is negative), and reducing modulo $2^{32}$ drops $a_{31} b_{31} 2^{32}$:
-
-  $$\text{MULH}(a, b) \equiv \text{MULHU}(a, b) - a_{31} B - b_{31} A \pmod{2^{32}}$$
-
-  $$\text{MULHSU}(a, b) \equiv \text{MULHU}(a, b) - a_{31} B \pmod{2^{32}}$$
-
-  Check this identity with `rs1 = -7` ($a_{31} = 1$, $A = 2^{32} - 7 = 4{,}294{,}967{,}289$) and `rs2 = 3` ($b_{31} = 0$, $B = 3$) from [`test_oracle.py` lines 167–170](../tb/test_oracle.py#L167-L170 "anchor: test_rv32m_multiply_and_division_edge_cases['mul    x10'..'mulhu  x13']"):
-  - Unsigned `MULHU`: $4{,}294{,}967{,}289 \times 3 = 12{,}884{,}901{,}867$ (`0x0000_0002_FFFF_FFEB`), so $\text{MULHU} = 2$ and $R = \text{0xFFFF\_FFEB}$.
-  - Signed `MULH` & Mixed `MULHSU`: $\text{MULHU} - a_{31} B - b_{31} A = 2 - 1 \cdot 3 - 0 = -1 \equiv \text{0xFFFF\_FFFF} \pmod{2^{32}}$, matching $(-7) \times 3 = -21$ (`0xFFFF_FFFF_FFFF_FFEB`) bit-for-bit. (`MULHSU` allows multi-word bignum and 64-bit fixed-point arithmetic to multiply a signed top word by an unsigned lower word in a single instruction.)
-
-#### 2. Python Floor Division vs. Hardware Truncation-Toward-Zero (`DIV`, `DIVU`, `REM`, `REMU`)
-
-`RV32M` provides four division/modulo instructions: **`DIV`** (*Divide Signed*, `funct3 = 4`), **`DIVU`** (*Divide Unsigned*, `funct3 = 5`), **`REM`** (*Remainder Signed*, `funct3 = 6`), and **`REMU`** (*Remainder Unsigned*, `funct3 = 7`). Look closely at the `funct3 == 4` (`DIV`) and `funct3 == 6` (`REM`) branches inside `_exec_muldiv`—why doesn't [`oracle.py`](../sim/oracle.py) simply evaluate `rs1_s // rs2_s` and `rs1_s % rs2_s`?
-
-Both conventions satisfy the integer division identity $a = q \cdot b + r$ with $|r| < |b|$, differing in how they resolve negative quotients:
-- **Python floor division (`//`, `%`)** chooses $q = \lfloor a / b \rfloor$ (rounding toward $-\infty$), forcing any non-zero remainder $r$ to take the sign of the **divisor** $b$.
-- **`RISC-V`, C, C++, and Rust (`DIV`, `REM`)** choose $q = \operatorname{sgn}(a)\operatorname{sgn}(b)\lfloor |a| / |b| \rfloor$ (truncating toward $0$), forcing any non-zero remainder $r$ to take the sign of the **dividend** $a$.
-
-Compare `-7` divided by `+3`:
-- **Python (`-7 // 3`, `-7 % 3`)**: Rounds down to `-3`, with positive remainder `+2` (`(-3) * 3 + 2 = -7`).
-- **`RISC-V` & C (`-7 / 3`, `-7 % 3`)**: Truncates fractional `-2.333...` toward zero to **`-2`**, with negative remainder **`-1`** (`(-2) * 3 + (-1) = -7`).
-
-Computing `q = abs(rs1_s) // abs(rs2_s)` and negating `q` when input signs differ (`(rs1_s < 0) ^ (rs2_s < 0)`) implements exact truncation toward zero, and `res = rs1_s - q * rs2_s` enforces $a = q \cdot b + r$ across every sign combination.
-
-#### 3. Why `RISC-V` Never Traps on Divide-by-Zero or `INT32_MIN / -1`
-
-On `x86`, dividing by zero (`1 / 0`) or dividing `INT32_MIN` by `-1` triggers a synchronous CPU exception (`SIGFPE`). `RISC-V` deliberately **never raises a hardware exception on arithmetic or division**; instead, `_exec_muldiv` returns deterministic architectural values specified by the `RISC-V` ISA:
-
-| Corner Case | `DIV` (Signed) | `DIVU` (Unsigned) | `REM` (Signed) | `REMU` (Unsigned) | Hardware Rationale |
-| :--- | :---: | :---: | :---: | :---: | :--- |
-| **Divide by `0` (`x / 0`)** | `-1` (`0xFFFF_FFFF`) | `2^32 - 1` (`0xFFFF_FFFF`) | `x` (dividend) | `x` (dividend) | All-ones quotient matches what a restoring binary divider shifts out when subtracting `0` succeeds on every bit, while `(-1) * 0 + x == x` preserves the division identity. |
-| **Signed Overflow (`INT32_MIN / -1`)** | `INT32_MIN` (`0x8000_0000`) | *(N/A)* | `0` | *(N/A)* | Exact quotient $(-2^{31})/(-1) = +2^{31} \equiv -2^{31} \pmod{2^{32}}$, wrapping cleanly to `INT32_MIN` (`0x8000_0000`) with zero remainder. |
-
-Eliminating arithmetic traps means the pipelined `brain` core never has to abort multi-cycle division pipelines mid-flight, and compilers targeting languages that require divide-by-zero checks simply emit a `beqz divisor, trap_label` guard beforehand.
+**Numerical Check**: To synthesize `X = 0x1234_5ABC` (`Bit 11 = 1` because `0xABC >= 0x800`):
+- `(0x1234_5ABC + 0x800) & 0xFFFF_F000 = 0x1234_6000` $\to$ `LUI x1, 0x12346` loads `0x1234_6000`.
+- `ADDI x1, x1, -1348` (`0xABC` as signed 12-bit $= 2748 - 4096 = -1348 = \texttt{-0x544}$) adds `-0x544`: `0x1234_6000 - 0x544 = 0x1234_5ABC`!
 
 ---
 
-## 6. Hardware-Software Co-Design: Custom `Xapex mac` Neural Acceleration
+## 5. Integer ALU, Shifts & Full 64-Bit Multiplication/Division (`RV32I + RV32M`)
 
-Why build a custom softcore processor instead of using a standard microcontroller? Examine the computational workload of the `walker` quadruped's real-time locomotion loop (`systems/brain/README.md`).
+Inside [`_exec_op_imm`](../sim/oracle.py#L826-L859) and [`_exec_op_reg`](../sim/oracle.py#L896-L921), the **Arithmetic Logic Unit (`ALU`)**—combinational adder, comparison, bitwise logic, and shift hardware—executes register-immediate (`OP-IMM`, `opcode = 0x13`) and register-register (`OP`, `opcode = 0x33`) operations in a single step. Five architectural subtleties govern correctness:
 
-Every `1` to `2` milliseconds, the walking policy reads **`48` state inputs** (`body orientation, angular velocity, 12 joint angles, 12 joint velocities, previous actions, and commanded velocity`), evaluates **two hidden layers of `128` neurons each**, and outputs **`12` target joint angles** (`3` joints × `4` legs).
+1. **5-Bit Masked Barrel Shifter (`& 0x1F`)**: Hardware shifts use a logarithmic multi-stage routing circuit (**barrel shifter**) shifting by `16`, `8`, `4`, `2`, and `1` bits in parallel. Only the bottom 5 bits (`0..31`) of the shift amount register (`rs2_u & 0x1F`) or immediate field (`(insn >> 20) & 0x1F`) wire to the control inputs, so shifting by `35` executes a shift by `3` (`35 & 31 = 3`). On shift-immediates—**Shift Left Logical Immediate (`SLLI`)**, **Shift Right Logical Immediate (`SRLI`)**, and **Shift Right Arithmetic Immediate (`SRAI`)**—Bits `31..25` (`funct7`) hold mode flags (`0x00` logical vs. `0x20` arithmetic); any unrecognized `funct7` returns `None`, causing [`step()`](../sim/oracle.py#L1002-L1109) to raise an illegal-instruction fault.
+2. **Signed vs. Unsigned Set-Less-Than (`SLT` / `SLTU` / `SLTI` / `SLTIU`)**: Comparisons write `1` if `rs1 < operand` and `0` otherwise. Beware **`SLTIU`**: hardware **always sign-extends the 12-bit immediate first** (`imm = sign_extend(insn >> 20, 12)`), then reinterprets `u32(imm)` as unsigned! Thus `sltiu rd, rs1, 1` compares `rs1 < 1` unsigned (`rd = 1` iff `rs1 == 0`, forming the **Set if Equal to Zero (`seqz`)** alias), while `sltiu rd, rs1, -1` extends `-1` to `0xFFFF_FFFF` (`4,294,967,295`).
+3. **Bitwise Immediate Promotion**: **Exclusive-OR Immediate (`XORI`)**, **`ORI`**, and **`ANDI`** likewise sign-extend the 12-bit constant (`Bits 11..0`) to 32 bits (`u32(imm)`), turning `xori rd, rs1, -1` into full 32-bit bitwise `NOT`.
+4. **Register-Register Operations (`OP`)**: Inside [`_exec_op_reg`](../sim/oracle.py#L896-L921), `funct7 = 0x00` dispatches eight standard integer ops (`ADD`, `SLL`, `SLT`, `SLTU`, `XOR`, `SRL`, `OR`, `AND` keyed by `funct3 = 0..7`), while `funct7 = 0x20` enables **`SUB`** (`funct3 = 0`) and arithmetic right-shift **`SRA`** (`funct3 = 5`), reusing the exact same adder and shifter datapaths via inverted `rs2` wires or `Bit 31` fan-out.
+5. **Unified Legal-Instruction Gate**: Whenever `funct7` fails validation inside [`_exec_op_imm`](../sim/oracle.py#L826-L859) or [`_exec_op_reg`](../sim/oracle.py#L896-L921), the helper returns `None`, and [`step()`](../sim/oracle.py#L1002-L1109) vectors cleanly to `CAUSE_ILLEGAL_INSN` (`2`) without partially modifying `rd` or `pc`.
 
-Count the multiply-accumulate (`MAC`) operations in one forward pass of that `48 -> 128 -> 128 -> 12` multi-layer perceptron:
-- Layer 1 (`48` inputs × `128` neurons): $48 \times 128 = 6{,}144$ multiply-adds
-- Layer 2 (`128` inputs × `128` neurons): $128 \times 128 = 16{,}384$ multiply-adds
-- Layer 3 (`128` inputs × `12` outputs): $128 \times 12 = 1{,}536$ multiply-adds
-- **Total per inference**: $6{,}144 + 16{,}384 + 1{,}536 = \mathbf{24{,}064\text{ multiply-adds}}$ (`48,128` bytes = `47.0 KB` of 16-bit signed integer weights, which fits entirely inside the `FPGA`'s zero-wait-state `64 KB` on-chip `BRAM`).
+### Full 64-Bit Multiplication (`RV32M`): Why `MUL` Has Four Variants
 
-### Why Standard `RV32IM` Is Too Slow—and Why a 3-Port `MAC` Hurts Silicon
+When you multiply two `32`-bit integers, the exact product spans **`64` bits** (`2^32 * 2^32 = 2^64`). One `32`-bit instruction can only write a single `32`-bit destination register `rd`, so the **Hardware Multiply and Divide Extension (`RV32M`, `funct7 = 0x01`)** splits a 64-bit product into low (`MUL`) and high (`MULH`, `MULHSU`, `MULHU`) instructions. Why does addition share one `ADD` opcode for signed and unsigned inputs while `MULH*` needs three?
 
-Suppose weights and activations are stored as quantized **16-bit signed integers (`int16`, range `[-32768, +32767]`)**, packing two `int16` values into each 32-bit word so a single memory load (`lw`) fetches two elements at once.
-- On a standard `RV32IM` CPU (especially with a multi-cycle `MUL`), unpacking two `int16` halves via shifts, multiplying twice, adding twice, and checking saturation takes roughly **`12–20` cycles per weight pair**—consuming **`150,000` to `250,000+` cycles** (several milliseconds, exceeding the real-time control budget).
-- Introducing a custom instruction `mac rd, rs1, rs2, rs3` computing `rd = rs3 + rs1 * rs2` creates a register-file bottleneck: reading `rs1`, `rs2`, **and `rs3`** simultaneously requires a **3-read-port Register File**. On an `FPGA`, standard dual-port on-chip memory blocks provide `2` simultaneous read ports natively; adding a 3rd read port forces synthesis to duplicate the entire register storage array and widen multiplexers, increasing area and reducing maximum clock frequency.
+Apply our Section 2 identity $U_{32}(x) = S_{32}(x) + x_{31} 2^{32}$ to any two 32-bit bit patterns $a, b$ with sign bits $a_{31}, b_{31} \in \{0, 1\}$:
 
-### The `Xapex` Solution: Dual-`int16` `SIMD` + Internal Execution Accumulator (`mac_acc`)
+$$\begin{aligned}
+U_{32}(a) \cdot U_{32}(b)
+&= \left(S_{32}(a) + a_{31} 2^{32}\right)\!\left(S_{32}(b) + b_{31} 2^{32}\right)
+&& \text{(substitute } U_{32} = S_{32} + b_{31} 2^{32} \text{)} \\
+&= S_{32}(a) \cdot S_{32}(b) + 2^{32}\!\left(a_{31} S_{32}(b) + b_{31} S_{32}(a) + a_{31} b_{31} 2^{32}\right)
+&& \text{(expand cross-terms of } 2^{32} \text{)}
+\end{aligned}$$
 
-Examine how [`_exec_mac`](../sim/oracle.py#L913-L932) resolves both bottlenecks inside `RISC-V`'s `custom-0` opcode (`0x0B`):
+Notice what that single equation reveals:
+- **Bottom `32` Bits Match Identically (`MUL`)**: Every sign-correction term carries a factor of $2^{32}$, touching only `Bits 63..32`. Thus `S * S`, `S * U`, and `U * U` produce the **exact same low 32 bits**—requiring only one `MUL` instruction.
+- **Top `32` Bits Depend on Operand Signs (`MULH`, `MULHSU`, `MULHU`)**: Setting `a = 0xFFFF_FFFF` (`s32 = -1`, `u32 = 2^32 - 1`) and `b = 0x8000_0000` (`s32 = -2^31`, `u32 = 2^31`) yields three completely different upper 32-bit halves (`>> 32`):
+  - **`MULH` (`signed * signed`)**: $(-1) \times (-2^{31}) = +2^{31} = \texttt{0x0000\_0000\_8000\_0000}$ $\to$ upper half = `0x0000_0000`.
+  - **`MULHSU` (`signed * unsigned`)**: $(-1) \times (+2^{31}) = -2^{31} = \texttt{0xFFFF\_FFFF\_8000\_0000}$ $\to$ upper half = `0xFFFF_FFFF`!
+  - **`MULHU` (`unsigned * unsigned`)**: $(2^{32} - 1) \times 2^{31} = 2^{63} - 2^{31} = \texttt{0x7FFF\_FFFF\_8000\_0000}$ $\to$ upper half = `0x7FFF_FFFF`.
+
+Because signed Python arithmetic right-shift `P >> 32` evaluates $\lfloor P / 2^{32} \rfloor$, it extracts exact `Bits 63..32` of two's-complement negative 64-bit products automatically (for example, `(-2**31) >> 32 = -1`, whose low 32 bits via `_set_reg` equal `0xFFFF_FFFF`).
+
+### Hardware Division Without Traps (`DIV`, `DIVU`, `REM`, `REMU`)
+
+**`RISC-V` integer division never throws a hardware trap** on divide-by-zero or signed overflow (`INT32_MIN / -1`, whose true quotient `+2^31` overflows `INT32_MAX = 2^31 - 1`). Eliminating runtime divide faults lets pipelined hardware avoid speculative trap rollback on divider units; software checks for zero divisors explicitly when language semantics demand an exception.
+
+Watch one critical Python pitfall inside [`_exec_muldiv`](../sim/oracle.py#L861-L894): Python's `//` and `%` **floor toward $-\infty$** (`-7 // 3 == -3`, remainder `+2`), whereas C, Verilog, and `RISC-V` **truncate quotients toward zero** (`-7 / 3 == -2`, remainder `-1`, preserving `q * divisor + rem == dividend`):
+
+<!-- book-sync: RV32Oracle._exec_muldiv['elif funct3 == 4:'..'else:  # REMU'] -->
+<<< @/systems/brain/sim/oracle.py#L871-L892
+
+| Instruction | Operand Signedness | Divide by Zero (`rs2 == 0`) | Overflow (`INT32_MIN / -1`) | Normal Rule |
+| :--- | :--- | :--- | :--- | :--- |
+| **`DIV`** | `s32 / s32` | `-1` (`0xFFFF_FFFF`) | `INT32_MIN` (`0x8000_0000`) | Truncate magnitude toward `0` |
+| **`DIVU`** | `u32 / u32` | `0xFFFF_FFFF` (`MASK32`) | *(impossible)* | Unsigned floor `rs1_u // rs2_u` |
+| **`REM`** | `s32 % s32` | `rs1_s` (dividend) | `0` | Sign matches **dividend** `rs1_s` |
+| **`REMU`** | `u32 % u32` | `rs1_u` (dividend) | *(impossible)* | Unsigned modulo `rs1_u % rs2_u` |
+
+---
+
+## 6. Custom Neural `MAC` Instruction (`Xapex`) & Softcore Real-Time Physics
+
+At runtime, the `brain` CPU executes a compact closed-loop walking neural network (**Multilayer Perceptron / `MLP`**) at `200 Hz` (`< 0.6 ms` inference budget inside each `5 ms` control tick). The policy network shapes **`48 -> 128 -> 128 -> 12`**: `48` normalized proprioceptive inputs (current angles, angular velocities, previous commands across `12` leg motors, plus body orientation and target velocity) feed two `128`-neuron hidden layers to command `12` target joint angles. Multiplying out layer dimensions yields:
+
+$$48 \times 128 + 128 \times 128 + 128 \times 12 = 6{,}144 + 16{,}384 + 1{,}536 = 24{,}064\text{ weights}$$
+
+Storing each neural weight as a quantized signed 16-bit integer (**`int16`**) occupies $24{,}064 \times 2 = 48{,}128\text{ bytes}$ (`47.0 KB`), fitting inside the `64 KB` fast on-chip **Block RAM (`BRAM`)** with zero external memory latency. Why add a custom **`Xapex` Multiply-Accumulate (`MAC`)** instruction (`custom-0`, `opcode = 0x0B`) instead of running plain `RV32IM`?
+
+Because the `brain` CPU is a **softcore**—a processor compiled from `SystemVerilog` (**synthesized**) into physical logic blocks on a reprogrammable **Field-Programmable Gate Array (`FPGA`)** rather than fixed custom silicon—its silicon fabric exposes hard microarchitectural constraints:
+1. **Two Register-File Read Ports**: Compact FPGA memory blocks implement our `32`-register file using 4-input **Look-Up Tables (`LUT4`)** or `BRAM` with **two read ports (`rs1`, `rs2`) and one write port (`rd`)**, never three simultaneous read ports (`rs1`, `rs2`, `acc`). Accumulating `acc += a * b` cleanly without shuffling extra registers requires storing `acc` in a dedicated internal register.
+2. **2× Parallel Packing on `18 × 18` Hardware Multipliers (`DSP` Slices)**: Reprogrammable FPGA chips include dedicated **Digital Signal Processing (`DSP`)** arithmetic blocks featuring **`18 × 18`-bit signed multiplier arrays**, which naturally ingest `int16` operands with zero wasted bit width. Because each `32`-bit register packs **two `int16` lanes** (`Bits 15..0` and `Bits 31..16`), [`_exec_mac`](../sim/oracle.py#L976-L996) splits `rs1` and `rs2` into `(a0, a1)` and `(b0, b1)`, computes both products simultaneously, accumulates into `self.mac_acc`, and saturates via `sat32`. Replacing `1` dual-lane `mac` instruction in plain `RV32IM` would take `about 12–20` separate unpack shifts, `MUL` instructions, 32-bit additions, and conditional clamping branches—making quantized dot products **about `12×–20×` faster in multiply-add compute** and **about `5×–9×` faster end-to-end** once memory weight loads and nonlinear activations are included:
 
 <!-- book-sync: RV32Oracle._exec_mac -->
-<<< @/systems/brain/sim/oracle.py#L913-L932
+<<< @/systems/brain/sim/oracle.py#L976-L996
 
-1. **Packed Dual-`int16` Single-Instruction Multiple-Data (`SIMD`)**:
-   - `rs1` holds two signed 16-bit activations packed side by side: `a0 = rs1[15:0]` (lower half) and `a1 = rs1[31:16]` (upper half).
-   - `rs2` holds two corresponding signed 16-bit weights: `b0 = rs2[15:0]` and `b1 = rs2[31:16]`.
-   - Using two hardwired `18×18`-bit multiplier blocks (**Digital Signal Processing / `DSP` slices**) inside the **Gowin Semiconductor** `FPGA`, the CPU multiplies **both pairs in parallel** in a single clock cycle: $(a_0 \times b_0) + (a_1 \times b_1)$, reducing `24,064` scalar multiply-adds to **`12,032` `mac` instructions**.
-2. **Zero Extra Register Ports via `self.mac_acc`**:
-   - Rather than reading the running sum from a third general-purpose register `rs3`, the execution unit maintains its own dedicated 32-bit saturating flip-flop **`self.mac_acc`** beside the multipliers (mirroring the updated sum out to `rd` so software can inspect or store it at the end of a dot product).
-   - Four `funct3` sub-operations give the `SysC` compiler full control over `mac_acc`:
-     - `funct3 = 0` (**`mac rd, rs1, rs2`**): Accumulate into existing sum: $\text{mac\_acc} \leftarrow \text{sat32}(\text{mac\_acc} + a_0 b_0 + a_1 b_1)$, write `rd`.
-     - `funct3 = 1` (**`mac.clr rd, rs1, rs2`**): Start a zero-bias dot product in one instruction without a separate clear step: $\text{mac\_acc} \leftarrow \text{sat32}(0 + a_0 b_0 + a_1 b_1)$, write `rd`.
-     - `funct3 = 2` (**`mac.set rd, rs1`**): Preload a neuron's 32-bit bias term (`rs1_s`) into `mac_acc` and mirror it to `rd` before running a `mac` loop.
-     - `funct3 = 3` (**`mac.get rd`**): Read `mac_acc` into `rd` without modifying it (required if an `RTOS` context switch must save and restore `mac_acc`).
-   - *Why `sat32` is mathematically required*: Because each `int16` element lies in the asymmetric interval $a_i, b_i \in [-2^{15},\; 2^{15} - 1]$, a single dual-lane sum $a_0 b_0 + a_1 b_1$ spans $[-2 \cdot 2^{15}(2^{15} - 1),\; 2 \cdot (-2^{15})^2] = [-2^{31} + 2^{16},\; +2^{31}]$—so even **one** instruction with $a_0 = b_0 = a_1 = b_1 = -32{,}768$ produces $+2^{31} = \text{INT32\_MAX} + 1$, and summing `128` hidden-layer weights can reach $\pm 2^{37}$. Clamping via `sat32` prevents those sums from wrapping across the sign boundary.
+All four `Xapex` sub-opcodes (`funct7 = 0x00`) share [`enc_mac`](../sim/oracle.py#L246-L248):
+- **`mac` (`funct3 = 0`)**: Computes `sat32(mac_acc + a0*b0 + a1*b1)` and returns the new accumulator value to `rd`. Even if `rd == x0`, hardware still updates `self.mac_acc` while `x0` simply discards the copy!
+- **`mac.clr` (`funct3 = 1`)**: Starts a fresh layer neuron from `base_acc = 0` (`sat32(a0*b0 + a1*b1)`), avoiding a separate zero-init instruction before every dot product.
+- **`mac.set` (`funct3 = 2`)**: Preloads a `32`-bit signed neuron bias `rs1_s` straight into `self.mac_acc` before looping over weight pairs.
+- **`mac.get` (`funct3 = 3`)**: Copies `self.mac_acc` into `rd` without modifying the accumulator.
 
-Trace the numerical sequence in [`test_xapex_custom_mac_dot_product_and_saturation`](../tb/test_oracle.py#L445-L477):
-- `mac.set x10, x1` preloads bias `1000` → `mac_acc = 1000`.
-- `x2 = pack_i16(10, -20)` (`0xFFEC_000A`) and `x3 = pack_i16(5, 6)` (`0x0006_0005`).
-- `mac x11, x2, x3` computes `sat32(1000 + (10 * 5) + (-20 * 6)) = sat32(1000 + 50 - 120) = 930` in one instruction.
-- When two maximum-magnitude vectors `pack_i16(32767, 32767)` accumulate twice (`4 * 32767 * 32767 = 4,294,705,156`), `sat32` saturates cleanly at `INT32_MAX` (`+2,147,483,647`) instead of wrapping negative.
+### Proof: Even a Single `mac.clr` Can Overflow `INT32_MAX`
 
----
+Because every signed 16-bit integer satisfies $-2^{15} \le a_i, b_i \le 2^{15} - 1$ (`-32,768` to `+32,767`—notice the asymmetric negative corner!), two `int16` products summed in one `mac.clr` span:
 
-## 7. Byte-Addressed Memory, Little-Endian Lanes & Memory-Mapped I/O (`MMIO`)
+$$\begin{aligned}
+\min(a_0 b_0 + a_1 b_1)
+&= 2 \cdot (-2^{15}) \cdot (2^{15} - 1) = -2^{31} + 2^{16} = -2{,}147{,}418{,}112 \ge \text{INT32\_MIN} \\
+\max(a_0 b_0 + a_1 b_1)
+&= 2 \cdot (-2^{15}) \cdot (-2^{15}) = +2^{31} = 2{,}147{,}483{,}648 = \text{INT32\_MAX} + 1
+\end{aligned}$$
 
-Registers hold only `32` integers (`128` bytes). Everything larger—compiled machine instructions, call stacks, neural-network weight matrices, and hardware peripheral ports—lives in the **32-bit byte-addressed memory space** (`0x0000_0000` to `0xFFFF_FFFF`, spanning $2^{32} = 4\text{ GB}$ of potential byte addresses).
-
-### Natural Alignment & Why Misaligned Pointers Trap
-
-In a byte-addressed memory system, **every individual 8-bit byte has a unique address** (`0`, `1`, `2`, `3`, `4`, ...). Yet instructions transfer data in three widths:
-- **Byte (`width = 1`, `8` bits)**: `lb` (load signed byte), `lbu` (load unsigned byte), `sb` (store byte).
-- **Halfword (`width = 2`, `16` bits)**: `lh` (load signed halfword), `lhu` (load unsigned halfword), `sh` (store halfword).
-- **Word (`width = 4`, `32` bits)**: `lw` (load word), `sw` (store word), plus 32-bit instruction fetches.
-
-Inspect [`_exec_load`](../sim/oracle.py#L719-L749) and [`_exec_store`](../sim/oracle.py#L751-L770):
-
-<!-- book-sync: RV32Oracle._exec_load..RV32Oracle._exec_store -->
-<<< @/systems/brain/sim/oracle.py#L719-L770
-
-Notice the identical guard near the top of both `_exec_load` and `_exec_store`:
-```python
-if (addr & (width - 1)) != 0:
-```
-Because `width` is always a power of two ($w = 2^k$ for $k \in \{0, 1, 2\}$), $w - 1 = 2^k - 1 = \sum_{i=0}^{k-1} 2^i$ masks the lowest $k$ bits. By Section 2's Euclidean decomposition ($\text{addr} = q \cdot 2^k + r$), `addr & (width - 1)` extracts the exact remainder $r = \text{addr} \bmod 2^k$, testing divisibility in a single gate level:
-- For `width = 1` ($k = 0$, `width - 1 = 0`): always `0`—every byte address is naturally aligned.
-- For `width = 2` ($k = 1$, `width - 1 = 1`): requires `Bit 0 == 0` (even addresses `0, 2, 4, ...`).
-- For `width = 4` ($k = 2$, `width - 1 = 3`): requires `Bits 1..0 == 0b00` (multiples of `4`: `0, 4, 8, ...`).
-
-*Why forbid misaligned accesses (like `lw` at `0x1000_0001`) by raising `CAUSE_LOAD_MISALIGNED` (`4`) or `CAUSE_STORE_MISALIGNED` (`6`)?* Physical on-chip `BRAM` and external `SDRAM` are organized as 32-bit-wide rows indexed by `addr[31:2]`. An aligned `lw` reads **one** row in **one** cycle. A misaligned `lw` at `+1` straddles **two** separate 32-bit memory words (`0x1000_0000` and `0x1000_0004`), which would force hardware to stall, issue two bus transactions, stitch bytes together, and handle cases where the second half faults on an unmapped address. Trapping misaligned pointers keeps the load-store unit fast, simple, and deterministic.
-
-### Little-Endian Byte Ordering & Lazy 4 KB Demand Paging (`SparseMemory`)
-
-When `sw x2, 0(x1)` writes a 4-byte word `0x1122_80FF` starting at address `0x1000_0000`, which byte lands at `0x1000_0000`—the most-significant byte `0x11` (**big-endian**, like network packet headers) or the least-significant byte `0xFF` (**little-endian**)?
-
-Decompose any unsigned 32-bit word $W \in [0, 2^{32} - 1]$ into four 8-bit digits in base $2^8 = 256$:
-
-$$W = \sum_{i=0}^{3} \text{byte}_i \cdot 2^{8i}, \qquad \text{byte}_i = \lfloor W / 2^{8i} \rfloor \bmod 256 = (W \gg 8i) \mathbin{\&} \text{0xFF}$$
-
-`RISC-V` (like `x86-64` and modern `ARM`) is **little-endian**: it stores $\text{byte}_i$ (the coefficient of $256^i$) at byte address `addr + i`. Inspect [`SparseMemory`](../sim/oracle.py#L244-L286):
-
-<!-- book-sync: MemoryAccessFault..SparseMemory -->
-<<< @/systems/brain/sim/oracle.py#L240-L286
-
-Little-endian provides a useful address invariance: **the memory address of an integer does not change when casting between widths.** Suppose pointer `p = 0x1000_0000` holds the 32-bit number `5` (`0x0000_0005`, stored as bytes `05 00 00 00`). Whether read with `lb` (1 byte), `lh` (2 bytes), or `lw` (4 bytes) at `0(p)`, **all three return `5` from base address `0x1000_0000`.** *(In big-endian, bytes would sit as `00 00 00 05`, so reading the low byte would require offsetting the pointer by `+3`.)*
-
-Trace the byte-lane operations from [`test_memory_loads_stores_mmio_stub_and_faults`](../tb/test_oracle.py#L239-L293) on `0x1122_80FF`:
-1. **`sw x2, 0(BRAM)`** (`x2 = 0x1122_80FF`): writes `[+0]=0xFF`, `[+1]=0x80`, `[+2]=0x22`, `[+3]=0x11`.
-2. **Narrow Loads from `+0` (inside `_exec_load`'s `funct3` dispatch)**:
-   - `lb` (`funct3 = 0`): reads `[+0] = 0xFF`, sign-extends bit `7` (`1`) across bits `31..8` → `0xFFFF_FFFF` (`-1`).
-   - `lbu` (`funct3 = 4`): reads `[+0] = 0xFF`, zero-extends bits `31..8` → `0x0000_00FF` (`+255`).
-   - `lh` (`funct3 = 1`): reads `[+1:+0] = 0x80FF`, sign-extends bit `15` (`1`) across bits `31..16` → `0xFFFF_80FF` (`-32,513`).
-   - `lhu` (`funct3 = 5`): reads `[+1:+0] = 0x80FF`, zero-extends bits `31..16` → `0x0000_80FF` (`+33,023`).
-3. **Partial Overwrites in `SDRAM + 0x1000` (initially `00 00 00 00`)**:
-   - `sh x2, 2(x3)` stores the low 16 bits of `x2` (`0x80FF`) at offsets `+2` and `+3` → bytes become `[+0]=0x00, [+1]=0x00, [+2]=0xFF, [+3]=0x80`.
-   - `sb x2, 1(x3)` stores the low 8 bits of `x2` (`0xFF`) at offset `+1` → bytes become `[+0]=0x00, [+1]=0xFF, [+2]=0xFF, [+3]=0x80`.
-   - `lw x9, 0(x3)` reassembles all four little-endian bytes (`[+3]<<24 | [+2]<<16 | [+1]<<8 | [+0]`) → **`0x80FF_FF00`**.
-   *(Notice the `StepTrace.mem_val` contract between `_exec_load` and `_exec_store`: loads record `u32(val)` after sign/zero extension, whereas stores record `store_val` masked strictly to the `width` written on the bus—`0xFF` for `sb`, `0xFFFF` for `sh`, and 32 bits for `sw`.)*
-
-Notice also how `SparseMemory` manages host RAM: the chip maps `16 MB` of `QSPI` Flash plus `32 MB` of `SDRAM` (`48 MB` total). Allocating `bytearray(48 * 1024 * 1024)` on every `RV32Oracle()` instantiation in a test suite would waste time zeroing unused pages. Instead, `_pages: dict[int, bytearray]` allocates `4,096`-byte (`4 KB`) pages lazily on first write and returns `0` for unvisited pages—mirroring how an operating system kernel implements zero-fill-on-demand virtual memory.
-
-### Memory-Mapped I/O (`MMIO`): Accessing Timers, Serial Ports & Buses via Pointers
-
-Inspect the System-on-Chip address constants ([`oracle.py` lines 47–74](../sim/oracle.py#L47-L74 "anchor: BOOT_ROM_BASE..MMIO_STUB_END")) and the system bus router ([`oracle.py` lines 418–501](../sim/oracle.py#L418-L501 "anchor: RV32Oracle._clint_read..RV32Oracle.bus_write")):
-
-<!-- book-sync: BOOT_ROM_BASE..MMIO_STUB_END -->
-<<< @/systems/brain/sim/oracle.py#L47-L74
-
-<!-- book-sync: RV32Oracle._clint_read..RV32Oracle.bus_write -->
-<<< @/systems/brain/sim/oracle.py#L418-L501
-
-When the CPU executes `lw` or `sw`, it does not distinguish between silicon RAM and a peripheral controller—it simply places the 32-bit `addr` onto the system bus (`bus_read` / `bus_write`):
-
-1. **Read-Only Code Regions (`Boot ROM` at `0x0000_0000` and `QSPI Flash` at `0x2000_0000`)**:
-   - Constructed with `writable=False`. If software executes `sw` targeting `0x0000_0000`, `write_bytes` raises `MemoryAccessFault`, which `_exec_store` converts into a hardware trap (`CAUSE_STORE_ACCESS_FAULT = 7`).
-   - Meanwhile, the loader methods ([`load_bytes`](../sim/oracle.py#L384-L391) and [`load_words`](../sim/oracle.py#L393-L400)) pass `bypass_ro=True` to model programming the `ROM`/Flash image before releasing CPU reset.
-2. **64-Bit Hardware Timer on a 32-Bit Bus (`CLINT` at `0x8000_0000`)**:
-   - At `50 MHz`, a **32-bit** cycle counter overflows every $2^{32} / (50 \times 10^6) \approx \mathbf{85.9\text{ seconds}}$, which is too short for monotonic system uptime. A **64-bit** counter (`mtime`), by contrast, runs for $2^{64} / (50 \times 10^6) \approx \mathbf{11{,}698\text{ years}}$ without wrapping.
-   - Because each `lw`/`sw` transfers `32` bits, `CLINT` exposes `mtime` and its alarm register `mtimecmp` as pairs of 32-bit aligned words (`0x00` `CLINT_MTIME_LO`, `0x04` `CLINT_MTIME_HI`, `0x08` `CLINT_MTIMECMP_LO`, `0x0C` `CLINT_MTIMECMP_HI`), and `bus_read`/`bus_write` (`CLINT_BASE` guards) strictly require `width == 4` and `(addr & 3) == 0` so hardware timer comparators avoid sub-word byte glitches.
-3. **Serial Console Port (`UART0` at `0x8001_0000`)**:
-   - Unlike `CLINT`, `UART0` (`bus_read`/`bus_write` `UART0_BASE` branches) permits **both** aligned 32-bit word accesses (`lw`/`sw`) and word-aligned single-byte accesses (`lb`/`lbu`/`sb`, `(addr & 3) == 0` and `width in (1, 4)`) so C code can access a register at `+0x00` or `+0x04` as either `volatile uint8_t *` or `volatile uint32_t *`, while trapping misaligned sub-word offsets (`+1`/`+2`/`+3`) or halfwords (`lh`/`sh`) before they pop the RX FIFO or push spurious TX bytes.
-   - **`UART0_TXDATA` (`+0x00`)**: Appends `val & 0xFF` to `self.uart_tx_buf` (and fires `uart_tx_callback` if attached) to model shifting a byte onto the USB-serial wire at `115,200` bits/sec.
-   - **`UART0_RXDATA` (`+0x04`)**: Pops and returns the oldest byte from the **First-In, First-Out (`FIFO`)** receive queue `self.uart_rx_fifo` (`popleft()`), or `0` if empty.
-   - **`UART0_STATUS` (`+0x08`)**: Returns `0x03 | (rx_valid << 2)`, where `Bit 0 = 1` (`tx_ready`) and `Bit 1 = 1` (`tx_empty`) indicate the oracle transmitter queue has space, and `Bit 2` (`0x04`, `rx_valid`) equals `1` whenever `self.uart_rx_fifo` is non-empty.
-   - **`UART0_BAUDDIV` (`+0x0C`)**: Stores the serial bit-rate clock divider (`SYS_CLK_HZ // UART_DEFAULT_BAUD = 50_000_000 // 115_200 = 434` system clock cycles per bit on reset), clamped via `max(1, u32(val))` inside `_uart_write` so software cannot configure a divide-by-zero serial clock.
-4. **Reserved Robot Spine `MMIO` Stub Window (`self.mmio_stub`, `0x8002_0000`–`0x8006_FFFF`)**:
-   - Notice in [`RV32Oracle.__init__`](../sim/oracle.py#L327-L343) that `self.mmio_stub` spans the five `64 KB` peripheral pages reserved for the robot's physical spine: the 4-wire **Serial Peripheral Interface (`SPI0`)** controller (`0x8002_0000`), dual `5 Mbps` differential **Controller Area Network Flexible Data-Rate (`CAN-FD`)** motor buses `CAN0`/`CAN1` (`0x8003_0000`–`0x8004_FFFF`), the sub-microsecond camera shutter `SYNC` generator (`0x8005_0000`), and **General-Purpose Input/Output (`GPIO`)** status pins (`0x8006_0000`).
-   - Why is `self.mmio_stub` routed in `bus_read`/`bus_write` (`self.mmio_stub.contains(addr, width)`) yet omitted from `self._mem_regions`? Because `self._mem_regions` lists program/data memories (`rom`, `bram`, `qspi`, `sdram`) where `load_words()` and `load_bytes()` load binaries, whereas `mmio_stub` acts strictly as read/write register scratch space so firmware drivers can probe spine addresses before full peripheral models attach.
+When `rs1` and `rs2` both pack `(-32768, -32768)` (`0x8000_8000`), `(-32768)^2 + (-32768)^2 = +2^31` exceeds `INT32_MAX` by `1`. Without `sat32` clamping down to `INT32_MAX`, standard two's-complement wrap-around would flip `+2^31` straight into `-2,147,483,648`!
 
 ---
 
-## 8. Control Flow, Atomic `Zicsr` Registers & Precise Trap Mechanics
+## 7. Unified Memory Map, Endianness, Alignment & Peripherals
 
-Sequential execution (`next_pc = cur_pc + 4`) is overridden in two ways: **explicit control-flow instructions** (`JAL`, `JALR`, `BRANCH`) and **privileged traps/interrupts**.
+In `RISC-V`, the CPU shares a **single 32-bit byte-addressed physical space (`0x0000_0000`–`0xFFFF_FFFF`)** across persistent code storage, scratchpad memory, external DRAM, and device control registers. Using **Memory-Mapped I/O (`MMIO`)**, hardware assigns device control and status registers normal memory addresses so standard `LW`/`SW`/`LB`/`SB` load and store instructions drive timers, serial ports, and motor buses through one unified bus:
 
-### Jumps, Subroutine Links, and Why `JALR` Clears Bit `0`
+| Region | Address Range | Size | Permissions | Purpose in `brain` System-on-Chip |
+| :--- | :--- | :--- | :--- | :--- |
+| **`Boot ROM`** | `0x0000_0000`–`0x0000_3FFF` | `16 KB` | Read-Only (loader bypassable) | Immutable power-on bootloader initializing clocks & loading firmware |
+| **`BRAM`** | `0x1000_0000`–`0x1000_FFFF` | `64 KB` | Read / Write | Single-cycle **Static RAM (`SRAM`)** for stack, **Interrupt Service Routine (`ISR`)** handlers & MLP weights |
+| **`QSPI Flash`** | `0x2000_0000`–`0x20FF_FFFF` | `16 MB` | Read-Only (**Execute-In-Place / `XIP`**) | **Quad Serial Peripheral Interface (`QSPI`)** 4-wire persistent code/weight storage |
+| **`SDRAM`** | `0x4000_0000`–`0x41FF_FFFF` | `32 MB` | Read / Write | Off-chip **Synchronous Dynamic RAM (`SDRAM`)** for heap & telemetry buffers |
+| **`CLINT`** | `0x8000_0000`–`0x8000_FFFF` | `64 KB` (`32b` only) | `R/W` MMIO (`0x00`..`0x0F`) | **Core-Local Interruptor (`CLINT`)** `64`-bit monotonic clock & timer alarm |
+| **`UART0`** | `0x8001_0000`–`0x8001_FFFF` | `64 KB` (`8b`/`32b` queue) | `R/W` MMIO (`0x00`..`0x0F`) | **Universal Asynchronous Receiver-Transmitter (`UART0`)** serial debug console |
+| **`mmio_stub`** | `0x8002_0000`–`0x8006_FFFF` | `320 KB` (`5 × 64 KB`) | Read / Write | Five reserved pages (`SPI0`, differential motor bus `CAN0`/`CAN1` via **CAN-FD**, `SYNC`, `GPIO`) stubbed as RAM |
 
-Inspect [`_exec_jal`](../sim/oracle.py#L663-L676), [`_exec_jalr`](../sim/oracle.py#L678-L689), and [`_exec_branch`](../sim/oracle.py#L691-L717):
+For simulation bring-up, [`RV32Oracle`](../sim/oracle.py#L334-L1127) exposes host-side loader and serial inspection methods: [`load_bytes`](../sim/oracle.py#L408-L415) and [`load_words`](../sim/oracle.py#L417-L424) populate `rom`, `bram`, `qspi`, and `sdram` (`_mem_regions`) using `bypass_ro=True` while intentionally excluding `mmio_stub` so firmware images cannot accidentally scribble over device registers; [`push_uart_rx`](../sim/oracle.py#L426-L430), [`read_uart_tx`](../sim/oracle.py#L432-L437), and `uart_tx_callback` inject test console input and capture transmitted bytes. Calling [`RV32Oracle.reset()`](../sim/oracle.py#L367-L396) resets registers, privileged **Control and Status Registers (`CSRs`, Section 8)**, timers, and `UART0` queues while keeping backing memory intact; accessing any unmapped address raises `MemoryAccessFault`, which [`step()`](../sim/oracle.py#L1002-L1109) converts into a fetch, load, or store access fault.
 
-<!-- book-sync: RV32Oracle._exec_jal..RV32Oracle._exec_branch -->
-<<< @/systems/brain/sim/oracle.py#L663-L717
+### Alignment Masks & Little-Endian Sparse Demand Paging
 
-- **Function Calls (`JAL` — Jump and Link)**: Adds a 21-bit signed `PC`-relative offset (`cur_pc + imm`) to jump to a function, while writing `next_pc` (`cur_pc + 4`, the **return link address**) into `rd` (by convention `x1`, or `x5` for leaf helpers). Unlike `x86`'s `CALL` instruction, which implicitly pushes the return address onto a memory stack, saving the return address in a register makes leaf function calls **zero-memory-access operations**.
-- **Indirect Jumps & Returns (`JALR` — Jump and Link Register)**: Computes `target = u32((rs1_u + imm) & ~1)`.
-  - *Why `& ~1` followed by `target & 3`?* Unlike `JAL`/`BRANCH`, `JALR` uses standard `I`-type encoding, so `imm` includes bit `0`. The `RISC-V` specification mandates clearing bit `0` (`& ~1`) so `JALR` stays compatible with 2-byte-aligned `16`-bit compressed instructions (and lets runtimes tag pointers in bit `0`), while the `if target & 3:` guard immediately below enforces strict `4`-byte instruction alignment on this `RV32IM` core—raising `CAUSE_INSN_MISALIGNED` (`0`) on `+2` targets before modifying `rd`. *(In `_exec_branch`, an untaken branch with a `+2` offset skips the `target & 3` check via `if not comparisons[funct3]: return next_pc` because `next_pc = cur_pc + 4` remains aligned.)*
+Physical 32-bit `SRAM` chips wire four independent byte-enable lanes across aligned 4-byte rows; unaligned multi-byte reads spanning row boundaries either stall the bus or fault cleanly. Here the oracle enforces **strict natural alignment** for instructions (`4`-byte aligned) and data (`width`-byte aligned, $w \in \{1, 2, 4\}$). Writing $w = 2^k$ ($k \in \{0, 1, 2\}$):
 
-### Privileged Control and Status Registers (`Zicsr`) & `WARL` Masking
+$$\text{addr} \equiv 0 \pmod{2^k} \iff \text{bottom } k \text{ bits of } \text{addr} = 0 \iff \text{addr} \mathbin{\&} (w - 1) = 0$$
 
-Where does the CPU transfer control when an illegal instruction, misaligned pointer, system call, or timer alarm occurs? To prevent ordinary application pointers from corrupting trap vectors, `RISC-V` places privileged configuration inside a separate **12-bit Control and Status Register (`CSR`)** address space (`0x000` to `0xFFF`).
+Inside [`_exec_load`](../sim/oracle.py#L769-L801) and [`_exec_store`](../sim/oracle.py#L803-L824), alignment (`(addr & (width - 1)) != 0`) is checked **before** probing the memory bus so an unaligned pointer inside unmapped space deterministically raises `CAUSE_LOAD_MISALIGNED` (`4`) or `CAUSE_STORE_MISALIGNED` (`6`) rather than an access fault (`5`/`7`).
 
-Every `CSR` in this Machine-Mode (`M`-mode) core begins with the prefix `m` (*Machine*—the highest hardware privilege level in `RISC-V`). Below is the map of all `17` CSRs implemented in [`oracle.py` lines 79–95](../sim/oracle.py#L79-L95 "anchor: CSR_MSTATUS..CSR_MHARTID"):
+All mapped storage uses **Little-Endian byte order** (identical to `x86-64` and standard `ARM`): the least-significant byte of a multi-byte integer lives at the lowest address (`addr + 0`):
 
-| CSR Name | Address | Expanded Name & Functional Role | Access |
-| :--- | :---: | :--- | :---: |
-| **`mstatus`** | `0x300` | **Machine Status**: Master interrupt enable (`MIE` at `Bit 3`), saved previous interrupt enable (`MPIE` at `Bit 7`), and **Machine Previous Privilege (`MPP` at `Bits 12..11`)** | Read/Write (`WARL`) |
-| **`misa`** | `0x301` | **Machine ISA**: Self-describing bitmask (`0x4080_1100`) advertising `RV32` + `I` + `M` + `X` custom extensions | Read-Only (`0` write traps) |
-| **`mie`** | `0x304` | **Machine Interrupt Enable**: Individual enable switches for software (`MSIE` `Bit 3`), timer (`MTIE` `Bit 7`), and external (`MEIE` `Bit 11`) interrupts | Read/Write (`WARL`) |
-| **`mtvec`** | `0x305` | **Machine Trap-Vector Base Address**: 4-byte-aligned handler entry address (`Bits 31..2`) plus dispatch `mode` (`Bits 1..0`: `0` = Direct, `1` = Vectored) | Read/Write (`WARL`) |
-| **`mscratch`** | `0x340` | **Machine Scratch Register**: Dedicated 32-bit holding slot so a trap handler can atomically swap in a kernel stack pointer without clobbering `x1..x31` | Read/Write |
-| **`mepc`** | `0x341` | **Machine Exception Program Counter**: Saved `PC` of the interrupted or faulting instruction where `MRET` will return | Read/Write (`~0x3` aligned) |
-| **`mcause`** | `0x342` | **Machine Trap Cause**: Reason code (`Bits 30..0`) plus `Bit 31` (`1` = asynchronous interrupt, `0` = synchronous exception) | Read/Write |
-| **`mtval`** | `0x343` | **Machine Trap Value**: Extra diagnostic payload—the faulting memory address on misaligned/access faults or the raw 32-bit instruction bits on illegal instructions | Read/Write |
-| **`mip`** | `0x344` | **Machine Interrupt Pending**: Live pending flags combining software/external bits (`MSIP` `Bit 3`, `MEIP` `Bit 11`) with the live hardware timer comparator (`MTIP` `Bit 7`) | Read/Write (partial) |
-| **`mcycle` / `mcycleh`** | `0xB00` / `0xB80` | **Machine Cycle Counter (Low / High 32 bits)**: 64-bit count of elapsed processor steps since reset | Read/Write |
-| **`minstret` / `minstreth`** | `0xB02` / `0xB82` | **Machine Instructions Retired (Low / High 32 bits)**: 64-bit count of instructions that completed without trapping | Read/Write |
-| **`mvendorid` / `marchid` / `mimpid`** | `0xF11`–`0xF13` | **Vendor / Architecture / Implementation IDs**: Fixed `0` for non-commercial open silicon | Read-Only (`0xC00+`) |
-| **`mhartid`** | `0xF14` | **Machine Hardware Thread (`hart`) ID**: Core index (`0` on this single-core processor; `"hart"` is `RISC-V` terminology for an independent physical hardware execution thread/core) | Read-Only (`0xC00+`) |
+$$\text{val} = \sum_{i=0}^{w-1} \text{mem}[\text{addr} + i] \cdot 2^{8i}$$
 
-Inspect [`_live_mip`](../sim/oracle.py#L514-L517), [`_read_csr`](../sim/oracle.py#L519-L549), and [`_write_csr`](../sim/oracle.py#L551-L593):
+Because `SDRAM` spans `32 MB` and `QSPI Flash` spans `16 MB`, allocating `48 MB` of Python bytearrays per test instance would waste gigabytes of RAM across thousands of fast tests. Instead, [`SparseMemory`](../sim/oracle.py#L258-L305) mimics virtual-memory **4 KB demand paging**: untouched pages return `0`, and allocating pages dynamically on write preserves multi-byte accesses that legitimately cross a `4096`-byte boundary (`SparseMemory.read_bytes` loops byte-by-byte across `i = 0..width-1`):
 
-<!-- book-sync: RV32Oracle._live_mip..RV32Oracle._write_csr -->
-<<< @/systems/brain/sim/oracle.py#L514-L593
+<!-- book-sync: SparseMemory.read_bytes -->
+<<< @/systems/brain/sim/oracle.py#L282-L293
 
-Three hardware invariants govern `_read_csr` and `_write_csr`:
-1. **Read-Only Convention & `WARL` (*Write Any Values, Reads Legal Values*) Masking**:
-   - In `RISC-V`, any CSR whose top two address bits `csr_addr[11:10]` equal `0b11` (`0xC00..0xFFF`, such as `mvendorid = 0xF11` and `mhartid = 0xF14`) is architecturally read-only (`_write_csr` returns `False`, triggering `CAUSE_ILLEGAL_INSN`). Similarly, `misa` (`0x301`) reports fixed silicon capabilities on this core, so writing `misa` also traps ([`test_zicsr_read_modify_write_and_warl_masks`](../tb/test_oracle.py#L403 "anchor: test_zicsr_read_modify_write_and_warl_masks['enc_i(CSR_MISA, 1']")).
-   - Writable CSRs follow **`WARL`** semantics: if software writes unsupported bits to `mstatus`, `mie`, `mtvec` (`mode > 1` snaps back to `0`), or `mepc` (`val & ~0x3` enforces 4-byte alignment), `_write_csr` masks out reserved bits rather than faulting or entering an undefined hardware state.
-2. **Why `MSTATUS_MPP_M` (`0b11 << 11`) Is Always Pinned (`addr == CSR_MSTATUS`)**:
-   - Full desktop `RISC-V` chips implement up to three privilege rings (`0b00` = User, `0b01` = Supervisor, `0b11` = Machine), and `MPP` (*Machine Previous Privilege*) remembers which ring was active before a trap. Because this real-time controller runs exclusively in Machine Mode (`0b11`), `MSTATUS_MPP_M` stays hardwired to `0b11` on reset, CSR writes, traps, and `MRET`.
-3. **Why `mip` Splits `self.mip_sw_ext` from Live `MTIP` (`_live_mip` & `addr == CSR_MIP`)**:
-   - Software-triggered and external pending flags (`MSIP` at `Bit 3` and `MEIP` at `Bit 11`) live in `self.mip_sw_ext` and can be latched via CSR writes. By contrast, `MTIP` (*Machine Timer Interrupt Pending*, `Bit 7`) is a **direct wire from the `CLINT` comparator** (`self.mtime >= self.mtimecmp`). Software *cannot* clear `MTIP` by writing `0` to `mip`—the only way to clear an active timer interrupt is to write a future deadline into `CLINT_MTIMECMP`.
+Notice also how [`StepTrace`](../sim/oracle.py#L308-L328) records **`mem_val`** differently on loads versus stores for lockstep comparison:
+- On **loads** (`LB`/`LH`/`LW`/`LBU`/`LHU`): `mem_val = u32(val)` holds the final 32-bit sign-extended or zero-extended register value (`lb` of `0xFF` logs `0xFFFF_FFFF`).
+- On **stores** (`SB`/`SH`/`SW`): `mem_val` logs the width-truncated bus payload (`rs2_u & 0xFF` for `sb`, `& 0xFFFF` for `sh`, full `u32` for `sw`).
 
-Inspect [`_exec_system`](../sim/oracle.py#L864-L911), which decodes both the privileged environment instructions (`funct3 == 0`) and the six atomic `Zicsr` read-modify-write instructions (`funct3 in (1, 2, 3, 5, 6, 7)`):
+### `CLINT` (`64`-Bit Monotonic Clock) & `UART0` Byte Queues (`FIFOs`)
 
-<!-- book-sync: RV32Oracle._exec_system -->
-<<< @/systems/brain/sim/oracle.py#L864-L911
+1. **`CLINT` (`0x8000_0000`, strictly `4`-byte aligned)**: Exposes four 32-bit registers covering a `64`-bit monotonic tick counter (`mtime` at offsets `0x00`/`0x04`) and a `64`-bit comparator alarm (`mtimecmp` at offsets `0x08`/`0x0C`). Why `64` bits instead of `32`? At the `brain` crystal rate of `50 MHz` (`50,000,000` ticks/s):
+   - A **`32`-bit** counter wraps every $2^{32} / 50{,}000{,}000 \approx \mathbf{85.9\text{ seconds}}$—forcing tricky rollover logic mid-walk.
+   - A **`64`-bit** counter lasts $2^{64} / (50 \times 10^6 \times 86{,}400 \times 365.25) \approx \mathbf{11{,}691\text{ years}}$ without overflowing!
+   Because the bus is 32 bits wide, [`_clint_write`](../sim/oracle.py#L454-L465) updates one half via read-modify-write masking while keeping the other 32 bits untouched, and unused offsets inside the `64 KB` window read `0` and ignore writes. Notice also that `reset()` initializes `mtimecmp = (1 << 64) - 1` so `mtime >= mtimecmp` never triggers a phantom boot interrupt.
 
-Both halves of `opcode = 0x73` (`SYSTEM`) execute as follows:
-1. **Four Privileged Environment Instructions (`funct3 == 0`)**:
-   - **`ECALL` (`0x0000_0073` — Environment Call)**: Synchronous system-call instruction requesting service from the Machine-Mode trap handler (`CAUSE_ECALL_M = 11`, `mtval = 0`).
-   - **`EBREAK` (`0x0010_0073` — Environment Breakpoint)**: Debugger/testbench trap instruction; sets `self.halted = True` and raises `CAUSE_BREAKPOINT = 3` with `mtval = cur_pc` so debuggers and `run(stop_on_ebreak=True)` stop at the exact breakpoint address.
-   - **`MRET` (`0x3020_0073` — Machine Trap Return)**: Restores `MIE <= MPIE`, sets `MPIE = 1`, and returns execution to `self.mepc & ~0x3`.
-   - **`WFI` (`0x1050_0073` — Wait For Interrupt)**: An idle hint telling physical hardware it may gate its clock until an interrupt becomes pending; in the sequential instruction-level oracle, `WFI` is a legal architectural no-op that advances to `next_pc`. Any other `funct3 == 0` bit pattern raises `CAUSE_ILLEGAL_INSN`.
-2. **Six Atomic Read-Modify-Write `Zicsr` Instructions (`funct3 in (1, 2, 3, 5, 6, 7)`)**:
-   - Suppose an `RTOS` kernel needs to swap an interrupted task's register in `x2` with a saved kernel stack pointer in `mscratch` (`0x340`) at the start of a trap handler without clobbering any register. `csrrw x2, mscratch, x2` (`funct3 = 1`) reads the *old* `mscratch` (`old_val`), writes `x2` into `mscratch`, and writes `old_val` into `x2` **atomically in one instruction**.
-   - `CSRRS` (`funct3 = 2`, **Control and Status Register Read and Set Bits**) sets bits wherever `src_val` has `1`s (`old_val | src_val`), while `CSRRC` (`funct3 = 3`, **Read and Clear Bits**) clears bits wherever `src_val` has `1`s (`old_val & ~src_val`). Setting bit `2` of `funct3` (`5, 6, 7`: `CSRRWI`, `CSRRSI`, `CSRRCI`) uses the 5-bit `rs1` register-index field (`0..31`) directly as a small unsigned 5-bit constant (`src_val = rs1 if (funct3 & 0x4) else rs1_u`).
-   - *Subtle `rs1 == 0` rule (`op == 1` vs. `op in (2, 3)`)*: For `CSRRS` (`op == 2`) and `CSRRC` (`op == 3`), if `rs1 == 0` (register `x0` or 5-bit immediate `0`), `do_write` is **`False`**. That is why reading a read-only CSR like `misa` (`0x301`) using `csrrs x10, misa, x0` (the standard `csrr x10, misa` pseudoinstruction) succeeds, whereas `csrrw x10, misa, x0` (`op == 1`) *always* sets `do_write = True` and traps.
+2. **`UART0` (`0x8001_0000`, `FIFO` Serial Console)**: Connects to two byte-oriented **First-In, First-Out (`FIFO`)** hardware queues (`read_u32` / `write_u32` or byte accesses at offset `0`):
+   - **`TXDATA` (`0x00`)**: Accepts `1`-byte (`sb`) or `4`-byte (`sw`) writes pushing `val & 0xFF` onto `uart_tx_buf`; reading `TXDATA` returns `0`.
+   - **`RXDATA` (`0x04`)**: Accepts `1`-byte (`lbu`) or `4`-byte (`lw`) reads destructively popping the oldest host-queued byte (returning `0` when empty).
+   - **`STATUS` (`0x08`, `4`-byte aligned only)**: Always read-only `0x03 | (rx_valid << 2)` (Bit `0` = TX ready, Bit `1` = TX empty, Bit `2` = RX queue non-empty).
+   - **`BAUDDIV` (`0x0C`, `4`-byte aligned only)**: Holds clock ticks per serial bit (initialized to `50_000_000 // 115_200 = 434`; writes clamp `max(1, u32(val))` to prevent divide-by-zero in hardware). Attempting a `1`-byte access on `STATUS` or `BAUDDIV`—or any `2`-byte halfword access anywhere in `UART0`—faults cleanly in [`bus_read`](../sim/oracle.py#L488-L509) and [`bus_write`](../sim/oracle.py#L511-L536).
 
-### Synchronous Exceptions vs. Asynchronous Interrupts (`_take_trap`, `_fetch_instruction` & `MRET`)
+---
 
-These mechanisms form the foundation of every operating system kernel: how hardware transitions safely from normal code into a privileged trap handler and back again.
+## 8. Control Flow, Privileged Control Registers (`Zicsr`) & Trap Choreography
+
+Sequential programs break out of `pc + 4` in two fundamentally different ways: **explicit software control transfers** (jumps and conditional branches) and **traps** (synchronous hardware faults and asynchronous external interrupts).
+
+### Conditional Branches & Register-Indirect Jumps (`JAL`, `JALR`)
+
+- **Conditional Branches (`BEQ`, `BNE`, `BLT`, `BGE`, `BLTU`, `BGEU`)**: Inside [`_exec_branch`](../sim/oracle.py#L739-L767), hardware compares `rs1` and `rs2` using signed (`BLT`/`BGE`) or unsigned (`BLTU`/`BGEU`) ordering and adds a `13`-bit signed even byte offset to `cur_pc` only when the predicate holds. Crucially, **an untaken branch ignores target alignment**—even if `bne x0, x0, +2` points to a misaligned halfword offset, because the branch is *not* taken, [`_exec_branch`](../sim/oracle.py#L739-L767) skips the alignment check and advances cleanly to `cur_pc + 4`.
+- **Direct Jump-and-Link (`JAL`)**: Inside [`_exec_jal`](../sim/oracle.py#L707-L722), hardware computes `target = u32(cur_pc + imm21)`, verifies 4-byte alignment (`target & 3 == 0`), and commits the return link (`cur_pc + 4`) to `rd` (`x1` for standard function calls, or `x0` for unconditional `j` gotos).
+- **Indirect Jump-and-Link (`JALR`)**: Inside [`_exec_jalr`](../sim/oracle.py#L724-L737), hardware computes `rs1_u + sign_extend(imm12, 12)` and **clears `Bit 0` first (`& (MASK32 ^ 1)`)**, then checks `(target & 3) != 0`. Clearing `Bit 0` matches the `RISC-V` specification rule allowing odd byte pointers to snap down to 2-byte boundaries before `IALIGN = 32` raises `CAUSE_INSN_MISALIGNED` if `Bit 1` remains set! Notice also that `rs1_u` is latched before `_set_reg(rd, next_pc)` executes, so self-overwriting calls such as `jalr x1, 0(x1)` jump to the **old** `x1` while saving `cur_pc + 4` into `x1`.
+
+### Privileged Control & Status Registers (`Zicsr` & `WARL`)
+
+To manage interrupt masks, trap handlers, and cycle counters without polluting general-purpose registers `x0..x31`, `RISC-V` defines a private `12`-bit address space (`4,096` slots) of **Control and Status Registers (`CSRs`)**, each accessed atomically on a single **Hardware Thread (`hart`)**. Most `CSR` fields follow **`WARL` (*Write Any Values, Reads Legal Values*)**: software may write arbitrary 32-bit bit masks without trapping, and hardware silently masks out unsupported bits so subsequent reads return only legal hardware configurations.
+
+| CSR Addr | Name | Access / `WARL` Rule | Role in the `brain` CPU |
+| :---: | :--- | :--- | :--- |
+| `0x300` | **`mstatus`** | `WARL`: `MIE` (Bit 3) & `MPIE` (Bit 7) writable; `MPP` fixed `0b11` | Global interrupt enable (`MIE`), prior enable (`MPIE`), and Machine mode (`MPP`) |
+| `0x301` | **`misa`** | Read-Only (`0x4080_1100`); writes **trap** | `Bits 31..30 = 0b01` (`RV32`); Bits `25..0` map `A`–`Z` at `ord(c)-ord('A')` (`X=23, M=12, I=8`) |
+| `0x304` | **`mie`** | `WARL`: only `MSIE` (3), `MTIE` (7), `MEIE` (11) writable | Per-source enable gates for Software, Timer, and External interrupts |
+| `0x305` | **`mtvec`** | `WARL`: `Bits 31..2` base; `mode` snaps `> 1` $\to$ `0` | Trap vector base address + dispatch mode (`0 = Direct`, `1 = Vectored`) |
+| `0x340` | **`mscratch`** | Full 32-bit `R/W` | Fast scratch pointer swapped on entry to interrupt handlers |
+| `0x341` | **`mepc`** | `WARL`: clears `Bits 1..0` (`IALIGN = 32`) | Exception return `PC` saved automatically on trap entry |
+| `0x342` | **`mcause`** | Full 32-bit `R/W` | `Bit 31 = 1` (interrupt) or `0` (exception) + numeric cause ID |
+| `0x343` | **`mtval`** | Full 32-bit `R/W` | Fault details: misaligned `PC`/address or offending 32-bit instruction word |
+| `0x344` | **`mip`** | `MSIP` (3) & `MEIP` (11) latched; **`MTIP` (7) live wire** | Pending interrupt flags; `_live_mip()` wires `MTIP = (mtime >= mtimecmp)` live |
+| `0xB00/B80` | **`mcycle`/`h`** | Full 64-bit `R/W` split across two 32-bit CSRs | Total stepped clock cycles (increments on both instructions and traps) |
+| `0xB02/B82` | **`minstret`/`h`** | Full 64-bit `R/W` split across two 32-bit CSRs | Retired non-trapping instructions (explicit writes suppress step tick) |
+| `0xF11..F14` | **`mvendorid`..`mhartid`** | Read-Only `0`; writes **trap** | Static Machine vendor, architecture, implementation, and core (`0`) IDs |
+
+Inspect [`_exec_system`](../sim/oracle.py#L923-L974) for how `funct3` decodes immediate vs. register `Zicsr` variants and prevents spurious traps when reading read-only CSRs like `misa` (`CSRR`):
+
+<!-- book-sync: RV32Oracle._exec_system['src_val = rs1'..'csr_addr in (CSR_MINSTRET'] -->
+<<< @/systems/brain/sim/oracle.py#L956-L969
+
+Notice how `Bit 2` of `funct3` (`funct3 & 0x4`) selects the 5-bit zero-extended immediate (`uimm`) packed directly inside `Bits 19..15` (`rs1`), while `op = funct3 & 0x3` selects one of three atomic operations:
+- **`CSRRW` / `CSRRWI` (`op = 1`)**: Atomic read-and-swap—**always** attempts a write, so `csrw misa, x0` (`CSRRW x0, misa, x0`) traps cleanly with `CAUSE_ILLEGAL_INSN`.
+- **`CSRRS` / `CSRRSI` (`op = 2`)** & **`CSRRC` / `CSRRCI` (`op = 3`)**: Read-and-set / read-and-clear bitmasks. Whenever `rs1 == x0` (or immediate `uimm == 0`), `do_write` is `False`: hardware skips `_write_csr()`, turning `csrr rd, misa` (`CSRRS rd, misa, x0`) into a **safe read-only query** with zero side effects! Notice also `CSRRC` uses `MASK32 ^ src_val` rather than Python's `~src_val` so bit-clearing stays purely unsigned in `[0, MASK32]`. Meanwhile, `ECALL`, `EBREAK`, `MRET`, and **Wait For Interrupt (`WFI`)** are matched by **exact 32-bit word equality** inside [`_exec_system`](../sim/oracle.py#L923-L974) so non-zero reserved `rs1`/`rd` bits raise an illegal-instruction trap cleanly.
+
+### Synchronous Exceptions vs. Asynchronous Interrupts & Trap Choreography
+
+When an instruction faults (`EBREAK`, `ECALL`, illegal opcode, misaligned fetch/load/store, or access fault) or an enabled pending interrupt arrives (`mstatus.MIE == 1` and `_live_mip() & mie != 0` in strict hardware priority **`MEIP` (External, `11`) > `MSIP` (Software, `3`) > `MTIP` (Timer, `7`)**), [`_take_trap`](../sim/oracle.py#L636-L656) executes four steps atomically inside a single `step()` call:
 
 ```mermaid
 sequenceDiagram
-    participant Main as Main Program
-    participant CPU as RV32Oracle Hardware
-    participant Handler as Trap Handler (mtvec)
-
-    Note over Main,CPU: Case A — Synchronous Exception (ECALL at PC = 0x14)
-    Main->>CPU: Fetch and decode ECALL at 0x14
-    CPU->>CPU: Save mepc = 0x14, mcause = 11 (Bit 31 = 0)
-    CPU->>CPU: Save MPIE = MIE (1), clear MIE = 0
-    CPU->>Handler: Jump PC to mtvec
-    Handler->>Handler: Handle syscall and advance mepc = mepc + 4 (0x18)
-    Handler->>CPU: Execute MRET (restore MIE = MPIE, PC = mepc)
-    CPU->>Main: Resume cleanly at 0x18
-
-    Note over Main,CPU: Case B — Asynchronous Interrupt (mtime >= mtimecmp before 0x18)
-    CPU->>CPU: Check interrupt BEFORE fetching 0x18
-    CPU->>CPU: Save mepc = 0x18, mcause = 0x8000_0007 (Bit 31 = 1), MIE = 0
-    CPU->>Handler: Jump PC to mtvec (or base + 28 if vectored)
-    Handler->>Handler: Schedule next mtimecmp alarm and keep mepc = 0x18
-    Handler->>CPU: Execute MRET (restore MIE = MPIE, PC = mepc)
-    CPU->>Main: Fetch and execute 0x18
+    participant T as CLINT / IRQ Line
+    participant C as RV32Oracle Core
+    participant R as CSRs (mepc/mstatus)
+    participant H as Handler (mtvec)
+    T->>C: Pending line & mie & MIE=1
+    C->>R: Save mepc (pc & 0xFFFF_FFFC), mcause, mtval
+    C->>R: Push MIE to MPIE, clear MIE=0
+    C->>H: Jump to base (or base + 4*cause)
+    H->>R: Run ISR (add 4 to mepc if ECALL)
+    H->>C: MRET sets MIE=MPIE, jumps to mepc
 ```
 
-Inspect [`_take_trap`](../sim/oracle.py#L595-L615), [`_check_pending_interrupt`](../sim/oracle.py#L640-L652), and [`_fetch_instruction`](../sim/oracle.py#L654-L661) side by side:
+Inspect [`_take_trap`](../sim/oracle.py#L636-L656) carefully—notice the interaction between `mepc` and `mtval` on misaligned instruction fetches:
 
-<!-- book-sync: RV32Oracle._take_trap..RV32Oracle._trap_trace -->
-<<< @/systems/brain/sim/oracle.py#L595-L628
+<!-- book-sync: RV32Oracle._take_trap -->
+<<< @/systems/brain/sim/oracle.py#L636-L656
 
-<!-- book-sync: RV32Oracle._check_pending_interrupt..RV32Oracle._fetch_instruction -->
-<<< @/systems/brain/sim/oracle.py#L640-L661
-
-Each pre-fetch and trap transition proceeds through six stages:
-
-1. **Interrupt Gating & `MEIP > MSIP > MTIP` Priority (`_check_pending_interrupt`)**:
-   Before fetching any instruction, `_check_pending_interrupt` requires the master switch `mstatus.MIE` (`Bit 3`) to be enabled, then masks pending flags against individual `mie` enables (`self._live_mip() & self.mie`) and dispatches in strict `RISC-V` hardware priority order: external interrupts (`MEIP` / `0x8000_000B`) first, software interrupts (`MSIP` / `0x8000_0003`) second, and timer interrupts (`MTIP` / `0x8000_0007` when `mtime >= mtimecmp`) third.
-2. **Instruction Fetch Alignment & Bus Faults (`_fetch_instruction`)**:
-   If no interrupt preempts the step, `_fetch_instruction` validates `cur_pc` before reading 4 instruction bytes from the system bus:
-   - If `(cur_pc & 3) != 0` (for instance, if `reset_pc` or an `MRET` target was misaligned), it immediately raises `CAUSE_INSN_MISALIGNED` (`0`) with `mtval = cur_pc`.
-   - If `bus_read(cur_pc, 4)` hits an unmapped address (such as `0x7000_0000` in [`test_oracle.py` lines 501–502](../tb/test_oracle.py#L501-L502 "anchor: test_illegal_instructions_and_misaligned_pc_traps['0x7000_0000'..'CAUSE_INSN_ACCESS_FAULT']")), the core surfaces the failed instruction fetch as `CAUSE_INSN_ACCESS_FAULT` (`1`) with `mtval = cur_pc`.
-3. **The Two-Deep Interrupt Enable Stack (`MIE` → `MPIE` in `_take_trap`)**:
-   Suppose `MIE == 1` when a timer interrupt fires. If `_take_trap` jumped to `mtvec` while leaving `MIE == 1`, then on the *very next cycle*, `mtime >= mtimecmp` would still hold (before the handler has updated `mtimecmp`), causing the CPU to interrupt its own interrupt handler, overwrite `mepc`, and lose the return address.
-   - `_take_trap` prevents that race automatically: it saves the old `MIE` bit into **`MPIE`** (*Machine Previous Interrupt Enable*, `Bit 7` of `mstatus`) and clears **`MIE = 0`**, atomically disabling nested interrupts while the handler saves registers.
-   - When the handler finishes and executes **`MRET`** (*Machine Trap Return* in `_exec_system`), hardware copies `MPIE` back into `MIE` (re-enabling interrupts as `PC` returns to `mepc`) and sets `MPIE = 1`.
-4. **Distinguishing Exceptions from Interrupts (`mcause` Bit `31`)**:
-   - **Synchronous Exceptions** (`ECALL = 11`, `Illegal Insn = 2`, `Load Misaligned = 4`, etc.) are caused *by* the instruction at `cur_pc`. Their `mcause` has **`Bit 31 = 0`**, and `mtval` records the offending memory address or instruction word so a crash handler knows *what* failed.
-   - **Asynchronous Interrupts** (`CAUSE_INT_M_TIMER = 0x8000_0007`) come from outside the instruction stream (`CLINT` timer) and are checked inside `step()` via `_check_pending_interrupt` **before** fetching `cur_pc`. Their `mcause` has **`Bit 31 = 1`** (`0x8000_0000 | 7`).
-5. **Direct vs. Vectored `mtvec` Dispatch (in `_take_trap`)**:
-   - Since instructions are 4-byte aligned, the bottom 2 bits of `mtvec` (`mode = mtvec & 0x3`) encode the dispatch mode.
-   - **`mode == 0` (Direct)**: All exceptions and interrupts jump to one unified entry point `base = mtvec & ~0x3`, which inspects `mcause` in software ([`test_oracle.py` lines 305–306](../tb/test_oracle.py#L305-L306 "anchor: test_clint_timer_interrupt_and_ecall_traps['CSR_MCAUSE, 0'..'beq   x25, x21']")).
-   - **`mode == 1` (Vectored)**: Synchronous exceptions still jump to `base`, while asynchronous interrupts jump directly to **`base + 4 * cause_code`** (so timer interrupt `#7` jumps straight to `base + 28`, eliminating software dispatch branching in hard real-time loops).
-6. **The Classic `mepc` vs. `mepc + 4` Rule**:
-   - On **`ECALL`** at `0x14`, `mepc` holds `0x14` (the `ECALL` itself). If the handler returned to `0x14` unchanged, the CPU would execute `ECALL` again in an infinite loop. So the `ECALL` handler adds `+4` to `mepc` ([`test_oracle.py` lines 310–312](../tb/test_oracle.py#L310-L312 "anchor: test_clint_timer_interrupt_and_ecall_traps['csrr  x26, mepc'..'csrw  mepc, x26']")) before `MRET`.
-   - On a **Timer Interrupt** before `0x18`, the instruction at `0x18` **has not yet executed**. So the timer handler leaves `mepc` untouched (`0x18`), clears the alarm by raising `mtimecmp`, and runs `MRET` to execute `0x18`.
+1. **`mepc[1:0] = 0` vs. `mtval` Precision**: Because this core fixes `IALIGN = 32`, `mepc` always clears its bottom two bits (`self.pc & 0xFFFF_FFFC`). If software jumps to an unaligned fetch address like `BOOT_ROM_BASE + 2`, `mtval` captures the exact offending address `0x0000_0002` for diagnostics while `mepc` safely stores `0x0000_0000`.
+2. **Direct vs. Vectored Dispatch (`mtvec.mode`)**: Synchronous exceptions **always** jump to `base = mtvec & 0xFFFF_FFFC`. Asynchronous interrupts (`is_interrupt == True`) in **Vectored mode (`mode == 1`)** jump directly into a dedicated 4-byte jump-table slot `base + 4 * cause_code`, bypassing a software dispatch `if/else` chain (e.g., Timer cause `7` jumps straight to `base + 28`).
+3. **`MIE -> MPIE` Stack & `MRET` Return Address (`mepc` vs. `mepc + 4`)**: Saving `MIE` into `MPIE` and setting `MIE = 0` prevents nested interrupt corruption while running early handler prologue code. Before executing **`MRET`** (which pops `MIE <- MPIE`, sets `MPIE <- 1`, and jumps to `mepc & 0xFFFF_FFFC`), an **interrupt** handler leaves `mepc` untouched so the preempted instruction re-executes cleanly, whereas an **`ECALL` / `EBREAK` trap handler** explicitly advances `mepc += 4` so the program does not re-execute the same syscall forever.
 
 ---
 
-## 9. Complete Execution Loop (`RV32Oracle.step()`), Trace Explorer & Exercises
+## 9. Single-Cycle Execution Loop (`step()` & `run()`) and Lockstep Verification
 
-The top-level instruction loop in [`RV32Oracle.step()`](../sim/oracle.py#L938-L1039) and bounded harness [`run()`](../sim/oracle.py#L1041-L1057) unify fetch, decode, execution, and trap handling across [`oracle.py`](../sim/oracle.py):
-
-<!-- book-sync: RV32Oracle.step..RV32Oracle.run -->
-<<< @/systems/brain/sim/oracle.py#L938-L1057
-
-Four implementation details in `step()` and `run()` complete the specification:
-- **Memory & Instruction-Stream Barriers (`FENCE` & `FENCE.I`, `opcode == 0x0F`)**: In multi-core systems or processors with separate instruction and data caches, `FENCE` (`funct3 = 0`) orders memory reads/writes across cores, and `FENCE.I` (`funct3 = 1`, *Fence Instruction Stream*) flushes fetched instructions after self-modifying code or bootloader firmware loads. In the sequential single-core oracle, every memory write takes effect immediately, so `FENCE` and `FENCE.I` validate `funct3 in (0, 1)` (trapping invalid encodings with `CAUSE_ILLEGAL_INSN`) and advance to `next_pc`.
-- **`mcycle` vs. `minstret`**: `self.mcycle += 1` runs at the top of `step()`, counting *every* step including traps and interrupts. `self.minstret += 1` executes at the bottom of `step()` **only** when an instruction finishes without trapping. That is why [`test_clint_timer_interrupt_and_ecall_traps`](../tb/test_oracle.py#L346 "anchor: test_clint_timer_interrupt_and_ecall_traps['cpu.mcycle > cpu.minstret']") asserts `cpu.mcycle > cpu.minstret` after handling an `ECALL` and a timer interrupt.
-- **`if not csr_wrote_minstret:`**: Per the `RISC-V` Privileged Specification, if software explicitly writes a value (say `0x0F`) to `minstret` via `CSRRW`, that exact value must appear in `minstret` after the instruction completes—not `0x10`. Setting `wrote_minstret = csr_addr in (CSR_MINSTRET, CSR_MINSTRETH)` inside `_exec_system` suppresses the automatic `+1` at the end of `step()`, honoring that specification requirement ([`test_oracle.py` lines 376–396](../tb/test_oracle.py#L376-L396 "anchor: test_zicsr_read_modify_write_and_warl_masks['CSR_MINSTRET, 1'..'cpu.regs[16] == 0x03']")).
-- **Bounded Testbench Execution (`run()`)**: `run(max_steps, stop_on_ebreak, stop_on_pc)` drives `step()` inside a bounded loop so unit tests and compiler testbenches never hang on an accidental infinite branch loop (`max_steps = 10_000`), while halting when a program hits an `EBREAK` instruction (`stop_on_ebreak=True`, `tr.trap_cause == CAUSE_BREAKPOINT`) or reaches a designated sentinel address (`stop_on_pc`).
-
-The interactive trace explorer below illustrates four representative execution scenarios:
+Trace four complete multi-instruction scenarios inside [`RV32Oracle.step()`](../sim/oracle.py#L1002-L1109) using the interactive explorer below—step forward instruction-by-instruction across subroutine calls (`JAL`/`JALR` + `x0`), little-endian byte/halfword memory lanes, `CSR` trap entry/`CLINT` timer preemption, and custom `Xapex MAC` dot products:
 
 <OracleStepTracer />
 
+Watch the exact pre-fetch ordering at the top of [`RV32Oracle.step()`](../sim/oracle.py#L1002-L1109):
+
+<!-- book-sync: RV32Oracle.step['cur_pc = self.pc'..'insn = fetched'] -->
+<<< @/systems/brain/sim/oracle.py#L1004-L1018
+
+Every iteration of `step()` enforces five invariants:
+1. **Pre-Fetch Clock Advance (`mcycle`, `mtime`)**: Both `self.mcycle += 1` and `self.mtime += 1` tick **before** sampling interrupts. That way, if `mtime` reaches `mtimecmp` on cycle $t$, [`_check_pending_interrupt`](../sim/oracle.py#L681-L695) detects the live `MTIP` signal immediately before fetching the instruction at `cur_pc`.
+2. **Interrupt Preemption Skips `minstret`**: When an enabled interrupt fires (or when `_fetch_instruction` raises a misaligned/access fault), `step()` returns early via `_trap_trace()`—`mcycle` incremented, while `minstret` counts only non-trapping **retired instructions**.
+3. **Decode & Operand Latch**: Register reads (`rs1_u`, `rs2_u`) latch before execution modifies `rd` or `pc`, matching combinational register-file read semantics.
+4. **Barriers (`FENCE`, `FENCE.I`, `WFI`)**: Because this golden oracle models strictly sequential execution with a coherent unified memory map, memory/instruction barriers (`FENCE` at `opcode = 0x0F, funct3 = 0`, `FENCE.I` at `funct3 = 1`) and Wait For Interrupt (`WFI` at `0x1050_0073`) commit cleanly as architectural no-ops advancing to `cur_pc + 4` (while invalid `funct3` bits on `0x0F` trap as illegal instructions).
+5. **`minstret` Write Suppression & Trace Return**: At retirement, `self.minstret` increments unless the instruction itself explicitly wrote `CSR_MINSTRET` or `CSR_MINSTRETH` (`csr_wrote_minstret`), ensuring software counter initialization is not clobbered by `+1` on that same cycle.
+
+For multi-instruction test execution, [`RV32Oracle.run()`](../sim/oracle.py#L1111-L1127) steps up to `max_steps` (default `10,000`), optionally halting when `EBREAK` raises `CAUSE_BREAKPOINT` (`stop_on_ebreak=True`) or when `self.pc` reaches a target breakpoint address (`stop_on_pc`, cleared `self.halted = False` at entry). Passing `stop_on_ebreak=False` lets unit tests inspect trap-handler execution immediately after an `EBREAK` transfers control to `mtvec`.
+
 ---
 
-## Chapter 1 Engineering Exercises
+## 10. Exercises & Self-Check Verification
 
-The following exercises verify understanding of the `brain` ISA contract and [`oracle.py`](../sim/oracle.py) semantics prior to `SystemVerilog` hardware design in Chapter 2. Work through each derivation alongside [`test_oracle.py`](../tb/test_oracle.py), then expand the worked solution to verify the result.
+Work each exercise with pencil and paper first before expanding the worked solution and cross-checking against [`test_oracle.py`](../tb/test_oracle.py).
 
-### Exercise 1: Synthesizing a Tricky 32-Bit Constant (`LUI` + `ADDI` Sign Borrow)
-Suppose the `SysC` compiler needs to load the exact 32-bit peripheral address `0x8001_0804` into register `x10` using a two-instruction `LUI` + `ADDI` sequence. What goes wrong if the compiler naively emits `lui x10, 0x80010` followed by `addi x10, x10, 0x804`, and what are the exact two 32-bit machine words (`enc_u` and `enc_i`) it must emit instead?
+### Exercise 1: Two's Complement Arithmetic & `LUI + ADDI` Bias
+1. Given the `32`-bit bit pattern `x = 0x8000_0005`, compute $U_{32}(x)$ and $S_{32}(x)$ using the derived relation $S_{32}(b) = U_{32}(b) - b_{31} \cdot 2^{32}$.
+2. Decompose `C = 0xDEAD_BEEF` into a (`LUI`, `ADDI`) instruction pair (`hi20`, `lo12`), showing both decimal signed values and hexadecimal machine operands. Why would omitting `+ 0x800` corrupt the result?
 
 <details>
 <summary>Worked Solution — Exercise 1</summary>
 
-1. **Why the naive split fails**: Look at the lower 12 bits `0x804` (`0b1000_0000_0100`). Because `Bit 11` is `1`, `_exec_op_imm` calls `sign_extend(0x804, 12)`, producing `(2052 ^ 2048) - 2048 = 4 - 2048 = -2044` (`0xFFFF_F804`). Adding that to `0x8001_0000` wraps to `0x8000_F804`—off by `-0x1000` (`-4,096`).
-2. **Compensating for the borrow**: Compute `upper = (0x8001_0804 + 0x800) & 0xFFFF_F000 = 0x8001_1000` (`hi20 = 0x80011`), and `lo12 = 0x804` (`-2044`).
-   - Instruction 1 (`lui x10, 0x80011`): `enc_u(0x8001_1000, rd=10, opcode=0x37)` = `0x8001_1000 | (10 << 7) | 0x37` = **`0x8001_1537`**, setting `x10 = 0x8001_1000`.
-   - Instruction 2 (`addi x10, x10, -2044`): `enc_i(0x804, rs1=10, funct3=0, rd=10, opcode=0x13)` = `(0x804 << 20) | (10 << 15) | (10 << 7) | 0x13` = **`0x8045_0513`**, computing `u32(0x8001_1000 + (-2044))` = **`0x8001_0804`**.
+1. **Unsigned vs. Signed Conversion**:
+   - $U_{32}(\texttt{0x8000\_0005}) = 2^{31} + 5 = 2{,}147{,}483{,}648 + 5 = 2{,}147{,}483{,}653$.
+   - Since `Bit 31 = 1` ($b_{31} = 1$), subtract $2^{32} = 4{,}294{,}967{,}296$:
+     $$S_{32}(\texttt{0x8000\_0005}) = 2^{31} + 5 - 2^{32} = -2^{31} + 5 = -2{,}147{,}483{,}643$$
+2. **`LUI + ADDI` Decomposition of `0xDEAD_BEEF`**:
+   - The bottom 12 bits are `0xEEF` (`3823`). Since `Bit 11 = 1` (`0xEEF >= 0x800`), `ADDI` sign-extends `0xEEF` into $S_{12}(\texttt{0xEEF}) = 3823 - 4096 = -273 = -\texttt{0x111}$.
+   - Apply the `+ 0x800` bias rule:
+     $$(\texttt{0xDEAD\_BEEF} + \texttt{0x800}) \mathbin{\&} \texttt{0xFFFF\_F000} = \texttt{0xDEAD\_C6EF} \mathbin{\&} \texttt{0xFFFF\_F000} = \texttt{0xDEAD\_C000}$$
+   - Verify: `LUI rd, 0xDEADC` loads `0xDEAD_C000`, and `ADDI rd, rd, -273` adds `-0x111`:
+     $$\texttt{0xDEAD\_C000} - \texttt{0x111} = \texttt{0xDEAD\_BEEF}$$
+   - Without `+ 0x800`, `LUI` would load `0xDEAD_B000`, yielding `0xDEAD_B000 - 0x111 = 0xDEAD_AEEF`—off by `4096` (`-0x1000`). Verified by [`test_rv32i_arithmetic_shifts_and_x0`](../tb/test_oracle.py#L98-L153).
 
 </details>
 
----
-
-### Exercise 2: Decoding a Raw 32-Bit Branch Word by Hand
-In [`test_branches_and_jumps_all_conditions`](../tb/test_oracle.py#L202-L236), instruction `0x14` is encoded by `enc_b(-8, 3, 2, 4)`, producing the 32-bit hex word `0xFE31_4CE3`. Slice all 32 bits (`Bits 31..0`) by hand to recover `opcode`, `funct3`, `rs1`, `rs2`, and reassemble the 13-bit signed byte offset to verify the branch target from `pc = 0x14`.
+### Exercise 2: Full `64`-Bit Products (`MULH*`) & Hardware Division (`DIV` / `REM`)
+1. Let `rs1 = 0xFFFF_FFFF` and `rs2 = 0x8000_0000`. Compute the `32`-bit results written to `rd` by `MUL`, `MULH`, `MULHSU`, and `MULHU`.
+2. Let `rs1 = -7` (`0xFFFF_FFF9`) and `rs2 = -3` (`0xFFFF_FFFD`). Compare Python's `(-7) // (-3)` and `(-7) % (-3)` against `RISC-V` `DIV` and `REM`, and evaluate both pairs (`//`, `%` vs. `DIV`, `REM`) when `rs1 = +7, rs2 = -3`.
 
 <details>
 <summary>Worked Solution — Exercise 2</summary>
 
-Write `0xFE31_4CE3` in 4-bit hex nibbles from `Bit 31` down to `Bit 0`:
-`1111_1110_0011_0001_0100_1100_1110_0011`
-
-Group the bits strictly along `B`-type column boundaries (`31 | 30..25 | 24..20 | 19..15 | 14..12 | 11..8 | 7 | 6..0`):
-- `Bits 6..0` (`opcode`): `1100011` = `0x63` (`BRANCH`).
-- `Bit 7` (`imm[11]`): `1`.
-- `Bits 11..8` (`imm[4:1]`): `1100` (`0xC`).
-- `Bits 14..12` (`funct3`): `100` (`4` = **`BLT`**, Branch if Less Than signed).
-- `Bits 19..15` (`rs1`): `00010` = **`x2`**.
-- `Bits 24..20` (`rs2`): `00011` = **`x3`**.
-- `Bits 30..25` (`imm[10:5]`): `111111` (`0x3F`).
-- `Bit 31` (`imm[12]` sign bit): `1`.
-
-Reassembling `imm[12:0]` with implicit `imm[0] = 0`:
-`imm[12:0] = 1_1_111111_1100_0` = `0b1_1111_1111_1000` = `0x1FF8`.
-Applying `sign_extend(0x1FF8, 13)` gives `(0x1FF8 ^ 0x1000) - 0x1000 = 0x0FF8 - 0x1000 = -8` bytes. From `cur_pc = 0x14`, `0x14 + (-8) = 0x0C`.
+1. **Multiplication (`rs1 = 0xFFFF_FFFF`, `rs2 = 0x8000_0000`)**:
+   - Interpretations: $S_{32}(\texttt{rs1}) = -1$, $U_{32}(\texttt{rs1}) = 2^{32} - 1$; $S_{32}(\texttt{rs2}) = -2^{31}$, $U_{32}(\texttt{rs2}) = +2^{31}$.
+   - **`MUL`** (all share lower 32 bits): `0x8000_0000`.
+   - **`MULH`** (`-1 * -2^31 = +2^31 = 0x0000_0000_8000_0000`): upper 32 bits = **`0x0000_0000`**.
+   - **`MULHSU`** (`-1 * +2^31 = -2^31 = 0xFFFF_FFFF_8000_0000`): upper 32 bits = **`0xFFFF_FFFF`**.
+   - **`MULHU`** (`(2^32 - 1) * 2^31 = 2^63 - 2^31 = 0x7FFF_FFFF_8000_0000`): upper 32 bits = **`0x7FFF_FFFF`**.
+2. **Truncation Toward Zero (`DIV` / `REM`) vs. Python Floor (`//`)**:
+   - For `7 / (-3)`: true quotient is `-2.333...`. Python evaluates `7 // (-3) == -3` (rem `-2`), whereas [`_exec_muldiv`](../sim/oracle.py#L861-L894) truncates magnitude toward `0`: **`DIV = -2` (`0xFFFF_FFFE`), `REM = +1`** (`(-2)*(-3) + 1 = 7`).
+   - For `(-7) / (-3)`: true quotient is `+2.333...`. Both Python and `RISC-V` give `DIV = +2`, while `REM` follows dividend sign: `(-7) - 2 * (-3) =` **`-1` (`0xFFFF_FFFF`)**. Verified in [`test_adversarial_arithmetic_trace_and_uart_byte_lane`](../tb/test_oracle.py#L716-L789).
 
 </details>
 
----
-
-### Exercise 3: Signed vs. Unsigned Upper Multiplication (`MULH` vs. `MULHU` vs. `MULHSU`)
-Suppose `x1 = 0xFFFF_FFFE` (`-2` signed, `4,294,967,294` unsigned) and `x2 = 0x0000_0005` (`+5`). Compute the exact 32-bit hex values written to `rd` by (a) `mul rd, x1, x2`, (b) `mulh rd, x1, x2`, (c) `mulhsu rd, x1, x2`, and (d) `mulhu rd, x1, x2`.
+### Exercise 3: `Xapex MAC` Bias Preloading & Saturation Corner
+Suppose firmware loads `x2 = u32(-500)`, `x3 = pack_i16(3, 4)`, and `x4 = pack_i16(10, 20)`, executes `mac.set x7, x2` followed by `mac x8, x3, x4`, and then loads `x1 = pack_i16(-32768, -32768)` and runs `mac.clr x10, x1, x1`. What values do `x7`, `x8`, `x10`, and `cpu.mac_acc` hold after each step?
 
 <details>
 <summary>Worked Solution — Exercise 3</summary>
 
-- **(a) `mul` (lower 32 bits)**: $(-2) \times 5 = -10 \equiv \mathbf{\text{0xFFFF\_FFF6}} \pmod{2^{32}}$.
-- **(b) `mulh` (signed × signed upper 32 bits)**: $(-2) \times 5 = -10$, which in 64-bit two's complement is `0xFFFF_FFFF_FFFF_FFF6`. Shifting right by 32 gives **`0xFFFF_FFFF`** (`-1`).
-- **(c) `mulhsu` (signed `x1` × unsigned `x2`)**: Since `x2 = +5` is positive in both signed and unsigned representations, $(-2) \times 5 = -10$ again, giving upper 32 bits = **`0xFFFF_FFFF`** (`-1`). *Note on operand order*: `MULHSU` is asymmetric—if you swap the registers and execute `mulhsu rd, x2, x1` (signed `+5` × unsigned `4,294,967,294`), the 64-bit product is `21,474,836,470 = 0x0000_0004_FFFF_FFF6`, yielding upper 32 bits = **`0x0000_0004`**.
-- **(d) `mulhu` (unsigned × unsigned upper 32 bits)**: $4{,}294{,}967{,}294 \times 5 = (2^{32} - 2) \times 5 = 5 \cdot 2^{32} - 10 = 4 \cdot 2^{32} + (2^{32} - 10) = \text{0x0000\_0004\_FFFF\_FFF6}$. Upper 32 bits = **`0x0000_0004`**.
+1. `mac.set x7, x2`: sets `mac_acc = s32(x2) = -500`, and copies `u32(-500) = 0xFFFF_FE0C` into `x7`.
+2. `mac x8, x3, x4`: unpacks `(3, 4)` and `(10, 20)`, computes `-500 + 3*10 + 4*20 = -500 + 30 + 80 = -390`, updates `mac_acc = -390`, and writes `u32(-390) = 0xFFFF_FE7A` to `x8`.
+3. `mac.clr x10, x1, x1`: resets `base_acc = 0`, computes `(-32768)*(-32768) + (-32768)*(-32768) = 2 * 2^30 = 2^31 = 2,147,483,648 = INT32_MAX + 1`, and clamps via [`sat32`](../sim/oracle.py#L155-L161) to **`INT32_MAX = 2,147,483,647` (`0x7FFF_FFFF`)** in both `mac_acc` and `x10`. Verified in [`test_interrupt_priority_csr_variants_and_mmio_bounds`](../tb/test_oracle.py#L523-L587) and [`test_adversarial_arithmetic_trace_and_uart_byte_lane`](../tb/test_oracle.py#L716-L789).
 
 </details>
 
----
-
-### Exercise 4: Safe 64-Bit `mtimecmp` Alarm Updates on a 32-Bit CPU
-Inspect [`test_clint_timer_interrupt_and_ecall_traps`](../tb/test_oracle.py#L314-L315 "anchor: test_clint_timer_interrupt_and_ecall_traps['enc_s(CLINT_MTIMECMP_LO, 23'..'enc_s(CLINT_MTIMECMP_HI, 23']"). Suppose `mtime` is currently `0x0000_0001_FFFF_FFF0`, `mtimecmp` is `0x0000_0001_FFFF_FFFF`, interrupts are enabled (`MIE = 1`, `MTIE = 1`), and the `RTOS` scheduler schedules the next alarm for `0x0000_0002_0000_0100`. Why does writing `CLINT_MTIMECMP_LO = 0x0000_0100` *first* and `CLINT_MTIMECMP_HI = 0x0000_0002` *second* cause a spurious premature timer interrupt, and what 3-write sequence guarantees glitch-free updates for any 64-bit target?
+### Exercise 4: `UART0` Bus Width Guards & `CLINT` `32`-Bit Carry
+1. Predict which of these bus transactions succeed vs. raise `MemoryAccessFault`: (a) `lbu UART0_RXDATA`, (b) `lw UART0_TXDATA`, (c) `lbu UART0_STATUS`, (d) `sh BRAM_BASE + 1`.
+2. If `cpu.mtime = 0xFFFF_FFFF` before calling `cpu.step()`, what do `cpu.read_u32(CLINT_BASE + CLINT_MTIME_LO)` and `cpu.read_u32(CLINT_BASE + CLINT_MTIME_HI)` return afterward?
 
 <details>
 <summary>Worked Solution — Exercise 4</summary>
 
-1. **The 32-bit tear hazard**: After the first `sw` writes `0x0000_0100` to `CLINT_MTIMECMP_LO`, the 64-bit `mtimecmp` register momentarily holds **`0x0000_0001_0000_0100`**. Since `mtime` (`0x0000_0001_FFFF_FFF0`) is **greater than** `0x0000_0001_0000_0100`, `_live_mip()` immediately asserts `MTIP = 1` and fires a spurious timer interrupt before the second `sw` can execute.
-2. **Glitch-free 3-write `mtimecmp` update sequence**: Park the upper (or lower) half at all-ones first so the intermediate 64-bit threshold can never dip below `mtime`:
-   - **Write 1**: `sw 0xFFFF_FFFF` → `CLINT_MTIMECMP_HI` (raises the `mtimecmp` ceiling to `0xFFFF_FFFF_FFFF_FFFF`, above any reachable `mtime`),
-   - **Write 2**: `sw 0x0000_0100` → `CLINT_MTIMECMP_LO` (`mtimecmp` is now `0xFFFF_FFFF_0000_0100`, still safely above `mtime`),
-   - **Write 3**: `sw 0x0000_0002` → `CLINT_MTIMECMP_HI` (atomically updates `mtimecmp` to the exact 64-bit target `0x0000_0002_0000_0100`).
-   *(Note: The `RISC-V` Privileged Specification also notes the dual sequence `CLINT_MTIMECMP_LO = 0xFFFF_FFFF` → `CLINT_MTIMECMP_HI = new_hi` → `CLINT_MTIMECMP_LO = new_lo`, which works identically whenever `new_hi >= old_hi`.)*
+1. **Bus Access Predictions**:
+   - **(a) `lbu UART0_RXDATA`** (`addr = 0x8001_0004, width = 1`): **Succeeds**, popping 1 byte from `uart_rx_fifo` (or returning `0` if empty).
+   - **(b) `lw UART0_TXDATA`** (`addr = 0x8001_0000, width = 4`): **Succeeds**, returning `0` (`_uart_read` returns `0` for `TXDATA`).
+   - **(c) `lbu UART0_STATUS`** (`addr = 0x8001_0008, width = 1`): **Faults (`MemoryAccessFault`)** because [`bus_read`](../sim/oracle.py#L488-L509) explicitly requires `4`-byte access on `UART0_STATUS` and `UART0_BAUDDIV`.
+   - **(d) `sh BRAM_BASE + 1`** (`width = 2`): **Raises `CAUSE_STORE_MISALIGNED`** inside `_exec_store` (`(addr & 1) == 1 != 0`).
+2. **`CLINT` Carry**: Calling `step()` increments `mtime` pre-fetch from `0x0000_0000_FFFF_FFFF` to `0x0000_0001_0000_0000`. Thus `MTIME_LO` reads **`0x0000_0000`** and `MTIME_HI` reads **`0x0000_0001`**. Verified in [`test_jalr_bit0_untaken_branch_clint_carry_and_page_boundary`](../tb/test_oracle.py#L664-L713).
 
 </details>
 
----
-
-### Exercise 5: Reading Read-Only CSRs Without Trapping (`CSRRS` vs. `CSRRW`)
-Suppose software reads `CSR_MISA` (`0x301`) into `x12`. Compare what [`_exec_system`](../sim/oracle.py#L887-L909 "anchor: RV32Oracle._exec_system['funct3 in (1, 2, 3, 5, 6, 7)'..'return wb_rd, wb_val, next_pc, wrote_minstret']") does for `enc_i(CSR_MISA, rs1=0, funct3=2, rd=12, opcode=0x73)` versus `enc_i(CSR_MISA, rs1=0, funct3=1, rd=12, opcode=0x73)`.
+### Exercise 5: `JALR` Bit-0 Clearing, Untaken Misaligned Branches & `mepc[1:0]`
+Suppose `x2 = BRAM_BASE` (`0x1000_0000`), and `BRAM_BASE` holds `bne x0, x0, +2` (`enc_b(2, 0, 0, 1)`). If the core executes `jalr x2, 1(x2)` followed by that `bne`:
+1. Why does `jalr x2, 1(x2)` not trap even though `BRAM_BASE + 1` is odd, and why does overwriting `x2` not corrupt the jump target?
+2. Why does `bne x0, x0, +2` not trap with `CAUSE_INSN_MISALIGNED`?
+3. What happens differently if software sets `self.pc = BOOT_ROM_BASE + 2` directly and calls `step()`? What are `mepc` and `mtval`?
 
 <details>
 <summary>Worked Solution — Exercise 5</summary>
 
-- Both instructions first read `old_val = self._read_csr(0x301) = 0x4080_1100` inside `_exec_system`.
-- For `funct3 = 2` (`op == 2`, `CSRRS`), `_exec_system` sets `do_write = (rs1 != 0)`, which evaluates to **`False`** because `rs1 == 0`. `_write_csr` is never called, and `0x4080_1100` commits to `x12`.
-- For `funct3 = 1` (`op == 1`, `CSRRW`), `_exec_system` sets `do_write = True` unconditionally (even when `rs1 == 0`, because `CSRRW` unconditionally overwrites the CSR with `x0 = 0`). Calling `_write_csr(0x301, 0)` returns `False` because `misa` is read-only, so `_exec_system` aborts with `CAUSE_ILLEGAL_INSN` (`2`) without modifying `x12`.
+1. Inside [`_exec_jalr`](../sim/oracle.py#L724-L737), hardware reads `rs1_u = 0x1000_0000` *before* writing `rd`, computes `(0x1000_0000 + 1) & (MASK32 ^ 1) = 0x1000_0000` (clearing `Bit 0`), sees `(target & 3) == 0`, jumps to `0x1000_0000`, and saves `BOOT_ROM_BASE + 4` in `x2`.
+2. Because `x0 == x0`, `bne x0, x0, +2` evaluates `False`; [`_exec_branch`](../sim/oracle.py#L739-L767) returns `next_pc = cur_pc + 4` immediately without inspecting `(cur_pc + 2) & 3`.
+3. Setting `self.pc = 0x0000_0002` fails `_fetch_instruction` with `CAUSE_INSN_MISALIGNED` (`0`). Inside [`_take_trap`](../sim/oracle.py#L636-L656), `mtval` preserves the exact offending PC (**`0x0000_0002`**) while `mepc` clears `Bits 1..0` under `IALIGN = 32` (**`0x0000_0000`**). Verified in [`test_jalr_bit0_untaken_branch_clint_carry_and_page_boundary`](../tb/test_oracle.py#L664-L713) and [`test_adversarial_arithmetic_trace_and_uart_byte_lane`](../tb/test_oracle.py#L716-L789).
 
 </details>
 
----
-
-### Exercise 6: Quantized Neural Layer Cycle Count (`Xapex mac` Speedup & Register Tiling)
-In Section 6, the `48 -> 128 -> 128 -> 12` locomotion policy network performs `24,064` scalar multiply-accumulates (`12,032` packed dual-`int16` pairs) across `128 + 128 + 12 = 268` neurons. Assume weights and activations reside in zero-wait-state on-chip `BRAM` (`0x1000_0000`), the `50 MHz` pipelined core retires `1` instruction per `20 ns` clock cycle, and each neuron requires `4` cycles of loop overhead (`mac.set` bias preload, clamping negative sums to zero via a **Rectified Linear Unit / `ReLU`** `max(0, x)` activation, and storing the output):
-- **(a)** Compute the cycle count and wall-clock latency in milliseconds for an uncached inner loop that executes `lw` (activation pair), `lw` (weight pair), and `mac` (`3` cycles per pair). Does it meet the `< 0.6 ms` `brain` real-time latency budget?
-- **(b)** Now unroll 4 neurons at a time so `1` `lw` activation load is shared across `4` neurons' weight loads and `mac` instructions (`1 + 4 × 2 = 9` cycles per `4` pairs = `2.25` cycles/pair). What is the new wall-clock latency at `50 MHz`?
+### Exercise 6: `Zicsr` Safety Rules & Asynchronous Timer Trap Latency
+1. Explain why `csrrw x0, misa, x0` raises `CAUSE_ILLEGAL_INSN` while `csrrsi x6, misa, 0` succeeds with `x6 = 0x4080_1100`.
+2. Suppose `mstatus.MIE = 1`, `mie.MTIE = 1`, `mtvec = BRAM_BASE | 1` (Vectored mode), `mtime = 99`, `mtimecmp = 100`, and `pc = BOOT_ROM_BASE + 8` pointing to an `ADDI` instruction. Walk through every CSR update (`mcycle`, `minstret`, `mtime`, `mepc`, `mcause`, `mstatus`, `pc`) across the next single `step()`, and state what the ISR must or must *not* add to `mepc` before `MRET`.
 
 <details>
 <summary>Worked Solution — Exercise 6</summary>
 
-1. **Part (a) — Unrolled-1 neuron loop (`3` cycles/pair)**:
-   - Dot-product inner loops: $12{,}032 \times 3 = 36{,}096\text{ cycles}$.
-   - Per-neuron bias + `ReLU` + store overhead: $268 \times 4 = 1{,}072\text{ cycles}$.
-   - Total cycles: $36{,}096 + 1{,}072 = 37{,}168\text{ cycles}$.
-   - At `50 MHz` (`20 ns` per cycle):
-     $$\frac{37{,}168\text{ cycles}}{50{,}000{,}000\text{ cycles/s}} = 0.00074336\text{ s} \approx \mathbf{0.743\text{ ms}}$$
-     That exceeds the `< 0.6 ms` budget by `0.143 ms` because re-loading the same activation vector from `BRAM` `128` separate times wastes one-third of the available execution cycles.
-2. **Part (b) — 4-neuron register-tiled loop (`2.25` cycles/pair)**:
-   - Sharing each loaded `int16x2` activation register across `4` neurons takes `1` activation `lw` + `4` weight `lw`s + `4` `mac` ops = `9` cycles for `4` pairs (`2.25` cycles/pair): $12{,}032 \times 2.25 = 27{,}072\text{ cycles}$.
-   - Adding the same $1{,}072\text{ cycles}$ of per-neuron overhead gives $27{,}072 + 1{,}072 = \mathbf{28{,}144\text{ cycles}}$:
-     $$\frac{28{,}144\text{ cycles}}{50{,}000{,}000\text{ cycles/s}} = 0.00056288\text{ s} \approx \mathbf{0.563\text{ ms} < 0.6\text{ ms}}$$
-     Register reuse combined with dual-`int16` `Xapex mac` keeps the 3-layer locomotion policy within the `< 0.6 ms` real-time budget on a `50 MHz` soft-core processor.
+1. `CSRRW` (`op = 1`) sets `do_write = True` unconditionally, calling `_write_csr(CSR_MISA, 0)` which returns `False` and traps. `CSRRSI` (`op = 2` with `uimm = 0`) sets `do_write = (rs1 != 0) = False`, skipping `_write_csr()` and writing `old_val = 0x4080_1100` cleanly to `x6`.
+2. In [`RV32Oracle.step()`](../sim/oracle.py#L1002-L1109):
+   - Pre-fetch increments tick `mcycle += 1` and **`mtime: 99 -> 100`**.
+   - `_live_mip()` immediately sees `mtime (100) >= mtimecmp (100)`, asserting `MTIP` (`Bit 7`).
+   - `_check_pending_interrupt` preempts `ADDI` **before fetch**, leaving **`minstret` unchanged**:
+     - `mepc = BOOT_ROM_BASE + 8` (address of preempted `ADDI`).
+     - `mcause = CAUSE_INT_M_TIMER = 0x8000_0007` (`Bit 31 = 1`, cause `7`).
+     - `mtval = 0`.
+     - `mstatus`: `MIE -> MPIE` (`1`), `MIE -> 0` (`MPIE=1, MIE=0, MPP=0b11`).
+     - `pc`: Vectored target `BRAM_BASE + 4 * 7 = BRAM_BASE + 28` (`0x1000_001C`).
+   - Because an interrupt preempted `ADDI` before it executed, the timer ISR **must NOT add `4` to `mepc`**—it clears the alarm (`mtimecmp = future`) and runs `MRET` directly to execute `ADDI` at `BOOT_ROM_BASE + 8`. Verified in [`test_clint_timer_interrupt_and_ecall_traps`](../tb/test_oracle.py#L296-L356) and [`test_warl_edge_cases_csrrw_misa_and_bauddiv_clamp`](../tb/test_oracle.py#L590-L661).
 
 </details>

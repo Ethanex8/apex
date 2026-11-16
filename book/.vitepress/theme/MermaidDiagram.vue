@@ -19,7 +19,24 @@ async function renderChart() {
       startOnLoad: false,
       theme: isDark.value ? 'dark' : 'neutral',
       securityLevel: 'strict',
-      fontFamily: 'var(--vp-font-family-base)',
+      fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      flowchart: {
+        useMaxWidth: true,
+        htmlLabels: true,
+        padding: 18,
+        nodeSpacing: 32,
+        rankSpacing: 38,
+      },
+      sequence: {
+        useMaxWidth: true,
+        diagramMarginX: 12,
+        diagramMarginY: 10,
+        actorMargin: 28,
+        width: 125,
+        boxMargin: 6,
+        noteMargin: 6,
+        messageMargin: 26,
+      },
     })
     const decoded = decodeURIComponent(props.code)
     const id = `mermaid-${Math.random().toString(36).slice(2, 10)}`

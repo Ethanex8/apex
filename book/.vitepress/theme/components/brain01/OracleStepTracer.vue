@@ -111,8 +111,9 @@ const scenarios: Scenario[] = [
     frames: [
       {
         stepNum: 0,
-        asm: 'Initial State: x1 = 0x1000_0000 (BRAM), x2 = 0x1122_80FF',
-        stageNote: '4 bytes at 0x1000_0000..03 start zeroed in SparseMemory.',
+        asm: 'Preloaded Test Setup: x1 = 0x1000_0000 (BRAM), x2 = 0x1122_80FF',
+        stageNote:
+          'Testbench preloads x1 (BRAM base) and x2 (4-byte test pattern) at PC = 0; 4 bytes at 0x1000_0000..03 start zeroed in SparseMemory.',
         pc: '0x0000_0000',
         insnHex: '—',
         nextPc: '0x0000_0000',
@@ -218,6 +219,7 @@ const scenarios: Scenario[] = [
         changedKey: '',
         csrs: {
           mstatus: 'MIE=1, MPIE=0',
+          mie: 'MTIE=1 (Bit 7)',
           mepc: '0x0000_0000',
           mcause: '0x0',
           'mtime / cmp': '0 / 4',
@@ -236,6 +238,7 @@ const scenarios: Scenario[] = [
         changedKey: '',
         csrs: {
           mstatus: 'MIE=0, MPIE=1',
+          mie: 'MTIE=1 (Bit 7)',
           mepc: '0x0000_0014',
           mcause: '11 (ECALL)',
           'mtime / cmp': '1 / 4',
@@ -254,6 +257,7 @@ const scenarios: Scenario[] = [
         changedKey: '',
         csrs: {
           mstatus: 'MIE=0, MPIE=1',
+          mie: 'MTIE=1 (Bit 7)',
           mepc: '0x0000_0018',
           mcause: '11 (ECALL)',
           'mtime / cmp': '2 / 4',
@@ -272,6 +276,7 @@ const scenarios: Scenario[] = [
         changedKey: '',
         csrs: {
           mstatus: 'MIE=1, MPIE=1',
+          mie: 'MTIE=1 (Bit 7)',
           mepc: '0x0000_0018',
           mcause: '11 (ECALL)',
           'mtime / cmp': '3 / 4',
@@ -290,6 +295,7 @@ const scenarios: Scenario[] = [
         changedKey: '',
         csrs: {
           mstatus: 'MIE=0, MPIE=1',
+          mie: 'MTIE=1 (Bit 7)',
           mepc: '0x0000_0018',
           mcause: '0x8000_0007',
           'mtime / cmp': '4 / 4',
@@ -308,6 +314,7 @@ const scenarios: Scenario[] = [
         changedKey: '',
         csrs: {
           mstatus: 'MIE=0, MPIE=1',
+          mie: 'MTIE=1 (Bit 7)',
           mepc: '0x0000_0018',
           mcause: '0x8000_0007',
           'mtime / cmp': '5 / MAX',
@@ -326,6 +333,7 @@ const scenarios: Scenario[] = [
         changedKey: '',
         csrs: {
           mstatus: 'MIE=1, MPIE=1',
+          mie: 'MTIE=1 (Bit 7)',
           mepc: '0x0000_0018',
           mcause: '0x8000_0007',
           'mtime / cmp': '6 / MAX',

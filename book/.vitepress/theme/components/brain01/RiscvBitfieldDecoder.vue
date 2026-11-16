@@ -288,16 +288,17 @@ const decoded = computed(() => {
     return {
       format: 'S-Type (Memory Store — Split 12-Bit Offset)',
       mnemonic: names[funct3] ?? 'Illegal Store Width (Trap Cause 2)',
-      immExplain: `Stores read both rs1 (base) and rs2 (data) with no rd, so the 12-bit offset splits across Bits 31..25 (upper 7 bits) and Bits 11..7 (lower 5 bits) → ${imm12}.`,
+      immExplain: `Stores read both rs1 (base) and rs2 (data) with no rd, so the 12-bit offset splits across Bits 31..25 (${b(31, 25)}) and Bits 11..7 (${b(11, 7)}) → signed offset ${imm12}.`,
       effect: names[funct3]
         ? `Writes low byte(s) of x${rs2} to memory address x${rs1} + (${imm12}).`
         : 'Traps with mcause = 2 (Illegal Instruction).',
+      scrambleNote: `Reassembly: Bits 31..25 (${b(31, 25)}) + Bits 11..7 (${b(11, 7)}) → 0b${imm12Raw.toString(2).padStart(12, '0')} = ${imm12}`,
       spans: [
-        { name: 'Offset Bits 11..5', range: 'Bits 31..25', bits: b(31, 25), value: 'upper 7b', color: '#8b5cf6', widthCols: 7 },
+        { name: 'Off 11..5', range: 'Bits 31..25', bits: b(31, 25), value: `0b${b(31, 25)}`, color: '#8b5cf6', widthCols: 7 },
         { name: 'rs2 (Data)', range: 'Bits 24..20', bits: b(24, 20), value: `x${rs2}`, color: '#f59e0b', widthCols: 5 },
         { name: 'rs1 (Base)', range: 'Bits 19..15', bits: b(19, 15), value: `x${rs1}`, color: '#10b981', widthCols: 5 },
         { name: 'funct3', range: 'Bits 14..12', bits: b(14, 12), value: `${funct3}`, color: '#06b6d4', widthCols: 3 },
-        { name: 'Offset Bits 4..0', range: 'Bits 11..7', bits: b(11, 7), value: 'lower 5b', color: '#8b5cf6', widthCols: 5 },
+        { name: 'Off 4..0', range: 'Bits 11..7', bits: b(11, 7), value: `0b${b(11, 7)}`, color: '#8b5cf6', widthCols: 5 },
         { name: 'opcode', range: 'Bits 6..0', bits: b(6, 0), value: '0x23', color: '#ec4899', widthCols: 7 },
       ],
     }
@@ -322,16 +323,17 @@ const decoded = computed(() => {
     return {
       format: 'B-Type (PC-Relative Conditional Branch)',
       mnemonic: names[funct3] ?? 'Illegal Branch Condition (Trap Cause 2)',
-      immExplain: `Bit 31 -> Offset Bit 12 (sign), Bit 7 -> Offset Bit 11, Bits 30..25 -> Offset Bits 10..5, Bits 11..8 -> Offset Bits 4..1, plus implicit Offset Bit 0 = 0 → ${imm13 >= 0 ? `+${imm13}` : imm13} bytes.`,
+      immExplain: `Bit 31 → Off Bit 12 (sign), Bit 7 → Off Bit 11, Bits 30..25 → Off Bits 10..5, Bits 11..8 → Off Bits 4..1, plus implicit Off Bit 0 = 0 → ${imm13 >= 0 ? `+${imm13}` : imm13} bytes.`,
       effect: names[funct3]
         ? `Compares x${rs1} and x${rs2}; if condition holds, jumps to PC + (${imm13}), else advances to PC + 4.`
         : 'Traps with mcause = 2 (Illegal Instruction).',
+      scrambleNote: `Reassembly: Bit 31 (${b(31, 31)}) · Bit 7 (${b(7, 7)}) · Bits 30..25 (${b(30, 25)}) · Bits 11..8 (${b(11, 8)}) · 0 → ${imm13 >= 0 ? `+${imm13}` : imm13} B`,
       spans: [
-        { name: 'Sign + Off 10..5', range: 'Bits 31..25', bits: b(31, 25), value: `sign=${(w >>> 31) & 1}`, color: '#8b5cf6', widthCols: 7 },
-        { name: 'rs2 (Source 2)', range: 'Bits 24..20', bits: b(24, 20), value: `x${rs2}`, color: '#f59e0b', widthCols: 5 },
-        { name: 'rs1 (Source 1)', range: 'Bits 19..15', bits: b(19, 15), value: `x${rs1}`, color: '#10b981', widthCols: 5 },
+        { name: 'Off 12 & 10..5', range: 'Bits 31..25', bits: b(31, 25), value: `0b${b(31, 25)}`, color: '#8b5cf6', widthCols: 7 },
+        { name: 'rs2 (Src 2)', range: 'Bits 24..20', bits: b(24, 20), value: `x${rs2}`, color: '#f59e0b', widthCols: 5 },
+        { name: 'rs1 (Src 1)', range: 'Bits 19..15', bits: b(19, 15), value: `x${rs1}`, color: '#10b981', widthCols: 5 },
         { name: 'funct3', range: 'Bits 14..12', bits: b(14, 12), value: `${funct3}`, color: '#06b6d4', widthCols: 3 },
-        { name: 'Off 4..1 + Bit 11', range: 'Bits 11..7', bits: b(11, 7), value: `${imm13 >= 0 ? `+${imm13}` : imm13}B`, color: '#8b5cf6', widthCols: 5 },
+        { name: 'Off 4..1 & 11', range: 'Bits 11..7', bits: b(11, 7), value: `0b${b(11, 7)}`, color: '#8b5cf6', widthCols: 5 },
         { name: 'opcode', range: 'Bits 6..0', bits: b(6, 0), value: '0x63', color: '#ec4899', widthCols: 7 },
       ],
     }
@@ -356,7 +358,7 @@ const decoded = computed(() => {
     }
   }
 
-  // J-Type
+  // J-Type (explicit 4 scrambled bit slices across Bits 31..12)
   if (opcode === 0x6f) {
     const imm21Raw =
       (((w >>> 31) & 1) << 20) |
@@ -367,10 +369,14 @@ const decoded = computed(() => {
     return {
       format: 'J-Type (21-Bit PC-Relative Jump)',
       mnemonic: 'jal (Jump and Link Subroutine)',
-      immExplain: `Bit 31 -> Offset Bit 20 (sign), Bits 19..12 -> Offset Bits 19..12, Bit 20 -> Offset Bit 11, Bits 30..21 -> Offset Bits 10..1, plus implicit Offset Bit 0 = 0 → ${imm21 >= 0 ? `+${imm21}` : imm21} bytes.`,
+      immExplain: `Bit 31 → Off Bit 20 (sign), Bits 19..12 → Off Bits 19..12, Bit 20 → Off Bit 11, Bits 30..21 → Off Bits 10..1, plus implicit Off Bit 0 = 0 → ${imm21 >= 0 ? `+${imm21}` : imm21} bytes.`,
       effect: `Saves return link address (PC + 4) into x${rd} and jumps to PC + (${imm21}).`,
+      scrambleNote: `Reassembly: Bit 31 (${b(31, 31)}) · Bits 19..12 (${b(19, 12)}) · Bit 20 (${b(20, 20)}) · Bits 30..21 (${b(30, 21)}) · 0 → ${imm21 >= 0 ? `+${imm21}` : imm21} B`,
       spans: [
-        { name: '21-Bit Signed Jump Offset (Even Bytes)', range: 'Bits 31..12', bits: b(31, 12), value: `${imm21 >= 0 ? `+${imm21}` : imm21} B`, color: '#8b5cf6', widthCols: 20 },
+        { name: 'S', range: '31', bits: b(31, 31), value: b(31, 31), color: '#7c3aed', widthCols: 1 },
+        { name: 'Off 10..1', range: 'Bits 30..21', bits: b(30, 21), value: `0b${b(30, 21)}`, color: '#8b5cf6', widthCols: 10 },
+        { name: '11', range: '20', bits: b(20, 20), value: b(20, 20), color: '#a855f7', widthCols: 1 },
+        { name: 'Off 19..12', range: 'Bits 19..12', bits: b(19, 12), value: `0b${b(19, 12)}`, color: '#9333ea', widthCols: 8 },
         { name: 'rd (Link)', range: 'Bits 11..7', bits: b(11, 7), value: `x${rd}`, color: '#3b82f6', widthCols: 5 },
         { name: 'opcode', range: 'Bits 6..0', bits: b(6, 0), value: '0x6f', color: '#ec4899', widthCols: 7 },
       ],
@@ -395,7 +401,7 @@ const decoded = computed(() => {
     <div class="hw-widget-header">
       <div class="hw-widget-title">
         <span class="hw-badge">Interactive Decoder</span>
-        <span>32-Bit RISC-V &amp; Xapex Instruction Inspector (Bits 31..0)</span>
+        <span>32-Bit Instruction Inspector (Bits 31..0)</span>
       </div>
       <div style="display: flex; align-items: center; gap: 6px">
         <span style="font-size: 12px; color: var(--vp-c-text-2)">Hex Word:</span>
@@ -432,10 +438,10 @@ const decoded = computed(() => {
       </button>
     </div>
 
-    <!-- Clickable 32 individual bits -->
-    <div style="overflow-x: auto; padding-bottom: 6px; margin-bottom: 10px">
+    <!-- Clickable 32 individual bits sized cleanly for VitePress desktop width -->
+    <div style="overflow-x: auto; padding-bottom: 4px; margin-bottom: 10px">
       <div class="hw-label">Toggle any instruction bit (Bit 31 down to Bit 0):</div>
-      <div style="display: grid; grid-template-columns: repeat(32, minmax(19px, 1fr)); gap: 2px; min-width: 640px">
+      <div style="display: grid; grid-template-columns: repeat(32, minmax(16px, 1fr)); gap: 1.5px; width: 100%; min-width: 558px">
         <button
           v-for="bitIdx in 32"
           :key="bitIdx"
@@ -447,13 +453,13 @@ const decoded = computed(() => {
             border: 1px solid var(--vp-c-divider);
             background: var(--vp-c-bg);
             cursor: pointer;
-            font-size: 11px;
+            font-size: 10.5px;
             text-align: center;
           "
           :title="`Bit ${32 - bitIdx}`"
           @click="flipBit(32 - bitIdx)"
         >
-          <div style="font-size: 8.5px; opacity: 0.6">{{ 32 - bitIdx }}</div>
+          <div style="font-size: 8px; opacity: 0.6">{{ 32 - bitIdx }}</div>
           <div style="font-weight: 700; color: var(--vp-c-brand-1)">
             {{ (insnWord >>> (32 - bitIdx)) & 1 }}
           </div>
@@ -464,10 +470,11 @@ const decoded = computed(() => {
       <div
         style="
           display: grid;
-          grid-template-columns: repeat(32, minmax(19px, 1fr));
-          gap: 3px;
-          margin-top: 6px;
-          min-width: 640px;
+          grid-template-columns: repeat(32, minmax(16px, 1fr));
+          gap: 1.5px;
+          margin-top: 5px;
+          width: 100%;
+          min-width: 558px;
         "
       >
         <div
@@ -477,21 +484,50 @@ const decoded = computed(() => {
             gridColumn: `span ${sp.widthCols}`,
             borderTop: `3px solid ${sp.color}`,
             background: 'var(--vp-c-bg)',
-            padding: '6px 6px',
-            borderRadius: '6px',
+            padding: sp.widthCols === 1 ? '4px 0' : '5px 5px',
+            borderRadius: '5px',
             borderLeft: '1px solid var(--vp-c-divider)',
             borderRight: '1px solid var(--vp-c-divider)',
             borderBottom: '1px solid var(--vp-c-divider)',
+            textAlign: sp.widthCols === 1 ? 'center' : 'left',
+            overflow: 'hidden',
           }"
         >
-          <div style="font-size: 10px; font-weight: 700" :style="{ color: sp.color }">
+          <div
+            style="font-weight: 700; white-space: nowrap"
+            :style="{ color: sp.color, fontSize: sp.widthCols === 1 ? '7.5px' : '9px' }"
+          >
             {{ sp.range }}
           </div>
-          <div style="font-size: 12px; font-weight: 700; margin: 1px 0">{{ sp.name }}</div>
-          <div class="hw-mono" style="font-size: 11.5px; color: var(--vp-c-text-2)">
+          <div
+            style="font-weight: 700; margin: 1px 0; white-space: nowrap"
+            :style="{ fontSize: sp.widthCols === 1 ? '9.5px' : '11px' }"
+          >
+            {{ sp.name }}
+          </div>
+          <div
+            class="hw-mono"
+            style="color: var(--vp-c-text-2); white-space: nowrap"
+            :style="{ fontSize: sp.widthCols === 1 ? '9.5px' : '10.5px' }"
+          >
             {{ sp.value }}
           </div>
         </div>
+      </div>
+
+      <div
+        v-if="'scrambleNote' in decoded && decoded.scrambleNote"
+        class="hw-mono"
+        style="
+          margin-top: 6px;
+          padding: 5px 8px;
+          border-radius: 6px;
+          background: rgba(139, 92, 246, 0.08);
+          border: 1px solid rgba(139, 92, 246, 0.3);
+          font-size: 11.5px;
+        "
+      >
+        {{ decoded.scrambleNote }}
       </div>
     </div>
 
@@ -499,7 +535,7 @@ const decoded = computed(() => {
     <div class="hw-grid-2">
       <div class="hw-card">
         <div class="hw-label">{{ decoded.format }}</div>
-        <div style="font-size: 14.5px; font-weight: 700; color: var(--vp-c-brand-1); margin-bottom: 4px">
+        <div style="font-size: 14px; font-weight: 700; color: var(--vp-c-brand-1); margin-bottom: 4px">
           {{ decoded.mnemonic }}
         </div>
         <div style="font-size: 12.5px; color: var(--vp-c-text-2)">

@@ -419,14 +419,14 @@ def test_uart0_console_tx_rx_and_bauddiv() -> None:
     cpu.regs[3] = ord("i")
     cpu.regs[8] = 25
     prog = [
-        enc_s(UART0_TXDATA, 2, 1, 0, 0x23),
-        enc_s(UART0_TXDATA, 3, 1, 0, 0x23),
-        enc_s(UART0_BAUDDIV, 8, 1, 2, 0x23),
-        enc_i(UART0_BAUDDIV, 1, 2, 9, 0x03),
-        enc_i(UART0_STATUS, 1, 2, 4, 0x03),
-        enc_i(UART0_RXDATA, 1, 2, 5, 0x03),
-        enc_i(UART0_RXDATA, 1, 2, 6, 0x03),
-        enc_i(UART0_STATUS, 1, 2, 7, 0x03),
+        enc_s(UART0_TXDATA, 2, 1, 0, 0x23),   # sb  x2, TXDATA(x1)  -> 'H'
+        enc_s(UART0_TXDATA, 3, 1, 0, 0x23),   # sb  x3, TXDATA(x1)  -> 'i'
+        enc_s(UART0_BAUDDIV, 8, 1, 2, 0x23),  # sw  x8, BAUDDIV(x1) -> 25
+        enc_i(UART0_BAUDDIV, 1, 2, 9, 0x03),  # lw  x9, BAUDDIV(x1)
+        enc_i(UART0_STATUS, 1, 2, 4, 0x03),   # lw  x4, STATUS(x1)  (RX non-empty)
+        enc_i(UART0_RXDATA, 1, 2, 5, 0x03),   # lw  x5, RXDATA(x1)  -> 'O'
+        enc_i(UART0_RXDATA, 1, 2, 6, 0x03),   # lw  x6, RXDATA(x1)  -> 'K'
+        enc_i(UART0_STATUS, 1, 2, 7, 0x03),   # lw  x7, STATUS(x1)  (RX empty)
         EBREAK,
     ]
     cpu.load_words(BOOT_ROM_BASE, prog)
@@ -571,6 +571,8 @@ def test_interrupt_priority_csr_variants_and_mmio_bounds() -> None:
         (CLINT_BASE, 1),
         (UART0_BASE + 1, 1),
         (UART0_BASE, 2),
+        (UART0_BASE + UART0_STATUS, 1),
+        (UART0_BASE + UART0_BAUDDIV, 1),
     ]:
         with pytest.raises(MemoryAccessFault):
             cpu.bus_read(bad_addr, width)
@@ -583,3 +585,205 @@ def test_interrupt_priority_csr_variants_and_mmio_bounds() -> None:
     cpu.load_words(BOOT_ROM_BASE, [enc_mac(10, 1, 1, funct3=1), EBREAK])
     cpu.run()
     assert cpu.regs[10] == INT32_MAX
+
+
+def test_warl_edge_cases_csrrw_misa_and_bauddiv_clamp() -> None:
+    """Verify UART0_BAUDDIV clamp, WARL CSRs, RO IDs, MIP latch, MRET MPIE=0, and mem_val trace."""
+    from oracle import (
+        CAUSE_BREAKPOINT,
+        CSR_MARCHID,
+        CSR_MIMPID,
+        CSR_MVENDORID,
+        MSTATUS_MPIE_BIT,
+        MSTATUS_MPP_M,
+        QSPI_BASE,
+    )
+
+    cpu = RV32Oracle()
+    # 1. UART0_BAUDDIV clamps 0 -> 1; invalid widths and out-of-bounds SparseMemory fault cleanly
+    cpu.write_u32(UART0_BASE + UART0_BAUDDIV, 0)
+    assert cpu.read_u32(UART0_BASE + UART0_BAUDDIV) == 1
+    with pytest.raises(MemoryAccessFault):
+        cpu.bus_read(BRAM_BASE, 3)
+    with pytest.raises(MemoryAccessFault):
+        cpu.bus_write(BRAM_BASE, 3, 0)
+    with pytest.raises(MemoryAccessFault):
+        cpu.bram.read_bytes(0x7000_0000, 1)
+    with pytest.raises(MemoryAccessFault):
+        cpu.bram.write_bytes(0x7000_0000, 1, 0)
+
+    # 2. CSR WARL masks: mstatus forces MPP=M, mie/mip drop unsupported bits, mepc clears [1:0]
+    cpu.regs[1] = 0xFFFF_FFFF
+    cpu.load_words(
+        BOOT_ROM_BASE,
+        [
+            enc_i(CSR_MSTATUS, 1, 1, 0, 0x73),  # csrw mstatus, all-ones
+            enc_i(CSR_MIE, 1, 1, 0, 0x73),      # csrw mie, all-ones (mip is still 0, no IRQ fires)
+            enc_i(CSR_MEPC, 1, 1, 0, 0x73),     # csrw mepc, all-ones
+            enc_i(0, 0, 1, 0, 0x0F),            # fence.i
+            EBREAK,
+            enc_i(CSR_MIP, 1, 1, 0, 0x73),      # csrw mip, all-ones (MTIP stays 0 while mtime < cmp)
+        ],
+    )
+    cpu.run(stop_on_pc=BOOT_ROM_BASE + 16)
+    assert cpu.mstatus == (MSTATUS_MIE_BIT | MSTATUS_MPIE_BIT | MSTATUS_MPP_M)
+    assert cpu.mie == (MIE_MSIE_BIT | MIE_MTIE_BIT | MIE_MEIE_BIT)
+    assert cpu.mepc == 0xFFFF_FFFC
+    ebrk_tr = cpu.step()
+    assert ebrk_tr.trap_cause == CAUSE_BREAKPOINT
+    assert cpu.mstatus == (MSTATUS_MPIE_BIT | MSTATUS_MPP_M)  # MIE moved to MPIE on trap; IRQs masked
+    cpu.pc = BOOT_ROM_BASE + 20
+    cpu.step()  # Executes csrw mip safely with MIE=0
+    assert cpu._live_mip() == (MIE_MSIE_BIT | MIE_MEIE_BIT)
+
+    # 3. MRET with MPIE=0 clears MIE and sets MPIE=1; ID CSRs read 0 and trap on write; QSPI RO
+    cpu.reset()
+    cpu.mstatus = MSTATUS_MIE_BIT | MSTATUS_MPP_M
+    cpu.mepc = BRAM_BASE
+    cpu.load_words(BOOT_ROM_BASE, [MRET])
+    cpu.step()
+    assert cpu.mstatus == (MSTATUS_MPIE_BIT | MSTATUS_MPP_M)
+    assert cpu.pc == BRAM_BASE
+
+    cpu.reset()
+    cpu.regs[1] = 0
+    for ro_csr in (CSR_MISA, CSR_MVENDORID, CSR_MARCHID, CSR_MIMPID):
+        cpu.reset()
+        cpu.load_words(BOOT_ROM_BASE, [enc_i(ro_csr, 0, 2, 10, 0x73), enc_i(ro_csr, 1, 1, 0, 0x73)])
+        tr_ro = cpu.step()
+        assert tr_ro.trap_cause is None
+        assert cpu.regs[10] == (0x4080_1100 if ro_csr == CSR_MISA else 0)
+        assert cpu.step().trap_cause == CAUSE_ILLEGAL_INSN
+
+    cpu.reset()
+    cpu.regs[1] = QSPI_BASE
+    cpu.load_words(BOOT_ROM_BASE, [enc_s(0, 0, 1, 2, 0x23)])
+    assert cpu.step().trap_cause == CAUSE_STORE_ACCESS_FAULT
+
+
+def test_jalr_bit0_untaken_branch_clint_carry_and_page_boundary() -> None:
+    """Verify JALR Bit-0 clear, untaken misaligned branch, CLINT 32-bit carry, MAC x0, and run limits."""
+    cpu = RV32Oracle()
+    # 1. JALR clears Bit 0 (`1(x2)` -> aligned) and handles self-clobber (`jalr x2, 0(x2)`)
+    cpu.regs[2] = BRAM_BASE
+    cpu.load_words(BOOT_ROM_BASE, [enc_i(1, 2, 0, 2, 0x67)])  # jalr x2, 1(x2)
+    cpu.load_words(BRAM_BASE, [enc_b(2, 0, 0, 1), enc_mac(0, 3, 4, funct3=1), EBREAK])  # bne x0,x0,+2 (untaken)
+    cpu.regs[3] = pack_i16(3, 4)
+    cpu.regs[4] = pack_i16(5, 6)
+    traces = cpu.run(max_steps=2, stop_on_ebreak=False)
+    assert len(traces) == 2
+    assert cpu.regs[2] == BOOT_ROM_BASE + 4  # Old BRAM_BASE used for jump before x2 overwritten
+    assert cpu.pc == BRAM_BASE + 4
+
+    # 2. mac x0 still updates mac_acc while keeping x0 == 0
+    cpu.step()
+    assert cpu.regs[0] == 0
+    assert cpu.mac_acc == 3 * 5 + 4 * 6
+
+    # 3. CLINT mtime_lo carry into mtime_hi + SparseMemory 4 KB page boundary
+    cpu.reset()
+    cpu.mtime = 0xFFFF_FFFF
+    cpu.step()
+    assert cpu.mtime == 0x1_0000_0000
+    assert cpu.read_u32(CLINT_BASE + CLINT_MTIME_LO) == 0
+    assert cpu.read_u32(CLINT_BASE + CLINT_MTIME_HI) == 1
+
+    cpu.load_bytes(BRAM_BASE + 4094, b"\x11\x22\x33\x44")
+    cpu.regs[1] = BRAM_BASE + 4094
+    cpu.load_words(
+        BOOT_ROM_BASE,
+        [
+            enc_i(0, 1, 5, 5, 0x03),  # lhu x5, 0(x1) -> page 0 end (0x2211)
+            enc_i(2, 1, 5, 6, 0x03),  # lhu x6, 2(x1) -> page 1 start (0x4433)
+            EBREAK,
+        ],
+    )
+    cpu.run()
+    assert cpu.regs[5] == 0x2211
+    assert cpu.regs[6] == 0x4433
+    assert cpu.bus_read(BRAM_BASE + 4095, 2) == 0x3322  # Direct cross-page read on SparseMemory
+
+    # 4. stop_on_ebreak=False allows trap handler continuation
+    cpu.reset()
+    cpu.mtvec = BRAM_BASE
+    cpu.load_words(BOOT_ROM_BASE, [EBREAK])
+    cpu.load_words(BRAM_BASE, [enc_i(99, 0, 0, 10, 0x13)])
+    cpu.run(max_steps=2, stop_on_ebreak=False)
+    assert cpu.halted
+    assert cpu.regs[10] == 99
+
+
+def test_adversarial_arithmetic_trace_and_uart_byte_lane() -> None:
+    """Verify MULHSU MSB, negative-divisor DIV/REM, shamt&31, SLTIU -1, StepTrace, UART byte, and mac.set."""
+    cpu = RV32Oracle()
+    # 1. Arithmetic edges: MULH vs MULHSU with rs2>=2^31, DIV/REM negative divisor, rs2=35, SLTIU -1
+    cpu.regs[1] = u32(-1)
+    cpu.regs[2] = 0x8000_0000
+    cpu.regs[3] = 7
+    cpu.regs[4] = u32(-3)
+    cpu.regs[5] = u32(-7)
+    cpu.regs[6] = 35
+    cpu.load_words(
+        BOOT_ROM_BASE,
+        [
+            enc_r(0x01, 2, 1, 1, 10, 0x33),  # mulh   x10, -1, 0x8000_0000 (-1*-2^31 -> upper 0)
+            enc_r(0x01, 2, 1, 2, 11, 0x33),  # mulhsu x11, -1, 0x8000_0000 (-1*+2^31 -> 0xFFFF_FFFF)
+            enc_r(0x01, 2, 1, 3, 12, 0x33),  # mulhu  x12, -1, 0x8000_0000
+            enc_r(0x01, 4, 3, 4, 13, 0x33),  # div    x13, 7, -3  -> -2
+            enc_r(0x01, 4, 3, 6, 14, 0x33),  # rem    x14, 7, -3  -> +1
+            enc_r(0x01, 4, 5, 4, 15, 0x33),  # div    x15, -7, -3 -> +2
+            enc_r(0x01, 4, 5, 6, 16, 0x33),  # rem    x16, -7, -3 -> -1
+            enc_r(0x00, 6, 3, 1, 17, 0x33),  # sll    x17, 7, 35  -> 7 << 3 = 56
+            enc_i(-1, 3, 3, 18, 0x13),       # sltiu  x18, 7, -1  -> 1
+            enc_i(CSR_MINSTRET, 0, 2, 19, 0x73),  # csrr x19, minstret (does not suppress tick)
+            enc_i(5, 0, 0, 0, 0x13),         # addi   x0, x0, 5   (StepTrace rd=0, rd_val=0)
+            EBREAK,
+        ],
+    )
+    traces = cpu.run()
+    assert cpu.regs[10] == 0 and cpu.regs[11] == 0xFFFF_FFFF and cpu.regs[12] == 0x7FFF_FFFF
+    assert cpu.regs[13] == u32(-2) and cpu.regs[14] == 1
+    assert cpu.regs[15] == 2 and cpu.regs[16] == u32(-1)
+    assert cpu.regs[17] == 56 and cpu.regs[18] == 1
+    assert cpu.regs[19] == 9 and cpu.minstret == 11
+    assert traces[10].rd == 0 and traces[10].rd_val == 0
+
+    # 2. StepTrace.mem_val extension/masking, 2-byte misalignment, mepc[1:0]=0 & mtval on misaligned PC
+    cpu.reset()
+    cpu.regs[1] = BRAM_BASE
+    cpu.regs[2] = 0x1234_80FF
+    cpu.load_words(
+        BOOT_ROM_BASE,
+        [
+            enc_s(0, 2, 1, 0, 0x23),  # sb x2, 0(BRAM) -> mem_val = 0xFF
+            enc_i(0, 1, 0, 3, 0x03),  # lb x3, 0(BRAM) -> mem_val = 0xFFFF_FFFF
+            enc_i(1, 1, 1, 4, 0x03),  # lh x4, 1(BRAM) -> misaligned
+        ],
+    )
+    t_sb, t_lb, t_lh = cpu.step(), cpu.step(), cpu.step()
+    assert t_sb.mem_val == 0xFF and t_lb.mem_val == 0xFFFF_FFFF
+    assert t_lh.trap_cause == CAUSE_LOAD_MISALIGNED and cpu.mtval == BRAM_BASE + 1
+
+    cpu.reset(reset_pc=BOOT_ROM_BASE + 2)
+    assert cpu.step().trap_cause == CAUSE_INSN_MISALIGNED
+    assert cpu.mepc == BOOT_ROM_BASE and cpu.mtval == BOOT_ROM_BASE + 2
+
+    # 3. UART0 1-byte RXDATA read, TXDATA reads 0, and mac.set negative bias
+    cpu.reset()
+    cpu.push_uart_rx("Z")
+    cpu.regs[1] = UART0_BASE
+    cpu.regs[2] = u32(-500)
+    cpu.regs[3] = pack_i16(3, 4)
+    cpu.regs[4] = pack_i16(10, 20)
+    cpu.load_words(
+        BOOT_ROM_BASE,
+        [
+            enc_i(UART0_RXDATA, 1, 4, 5, 0x03),  # lbu x5, RXDATA(UART0) -> 'Z'
+            enc_i(UART0_TXDATA, 1, 2, 6, 0x03),  # lw  x6, TXDATA(UART0) -> 0
+            enc_mac(7, 2, 0, funct3=2),          # mac.set x7, -500
+            enc_mac(8, 3, 4, funct3=0),          # mac x8, (3,4), (10,20) -> -500+110=-390
+            EBREAK,
+        ],
+    )
+    cpu.run()
+    assert cpu.regs[5] == ord("Z") and cpu.regs[6] == 0 and cpu.regs[8] == u32(-390)
