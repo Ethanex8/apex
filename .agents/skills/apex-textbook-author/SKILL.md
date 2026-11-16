@@ -30,7 +30,7 @@ Never write a chapter in a single hurried pass. Execute all four passes in order
 4. For each planned section, define:
    - **Direct Definition & Software-Systems Anchor**: State what the hardware mechanism **is** and **does** directly, then bridge from a familiar CS primitive (hash map, ring buffer, state machine, mutex, try/catch).
    - **Design Trade-Off & Physical Constraint**: After defining the mechanism, show the physical or silicon constraint that motivates it (e.g., why a naive alternative stalls, overflows, or wastes area).
-   - **Mathematical / Bit-Level Derivation**: Exact step-by-step proof or numerical trace (never assert bitwise tricks or physical formulas without proving *why* they work).
+   - **Mathematical / Bit-Level Derivation**: Follow deductive textbook flow (**Generalized Definition → Algebraic Derivation → Corollaries & Code → Numerical Check**). Define symbolic $N$-bit or physical variables with explicit domains and asymmetric bounds (e.g., $1 \le k < 32$, $[-2^{15}, 2^{15}-1]$), and derive formulas by equating or expanding definitions (summations, geometric series, Euclidean division, product expansions) before specializing to code (`s32`, `s16`, `hi20`)—never assert a formula in prose and jump straight to plugging in numbers.
    - **Live Code Transclusion**: Plan `<!-- book-sync: <spec> -->` + `<<< @/systems/...#L<start>-L<end>` slices using zero-clutter symbol/pattern anchors (`scripts/code_anchors.py`), never adding `#region` comments into source code.
 
 ### Pass 2: Uncompressed Multi-Chunk Drafting
@@ -41,11 +41,12 @@ Never write a chapter in a single hurried pass. Execute all four passes in order
    - Anchor every `#L...` link via either a backticked symbol label (e.g., `` [`sign_extend`](../sim/oracle.py#L138-L143) ``) or a `"anchor: <spec>"` link title, and keep file line counts synced via `([`file.py`](...) (\`1,027\` lines))`.
    - **Never write unanchored bare prose line numbers** (`line 142` or `lines 50–60`); name the function/branch/constant visible in the transcluded block or use an anchored `#L` link.
 4. **Directness & Zero Meta-Commentary**: Introduce every subsystem, section, and mechanism directly by what it **is** and **does**. Never open with meta-commentary about engineering curricula, reader transitions, or what the reader doesn't need to know yet (silently defer out-of-scope future stages to their own chapters), and never introduce a system by listing what unrelated technologies fail to do.
+5. **Algebraic Continuity Across Sections**: Carry proven identities forward into later sections (e.g., reusing the derived two's complement conversion identity to prove instruction-split carry rules, upper-half multiplication, and alignment masks) rather than re-arguing from informal prose or case-splitting where one algebraic chain suffices.
 
 ### Pass 3: Adversarial "Cold-Reader" Subagent Critique
 Invoke an isolated `research` subagent (`invoke_subagent`, `Model: 'inherit'`, `Workspace: 'inherit'`) role-playing a senior software engineer with **zero prior RISC-V, RTL, EDA, or EE background**. Instruct it to read the drafted chapter and source file cold and audit against 7 defect categories:
 1. **Unexplained Jargon / Acronym Soup**: Any hardware acronym, mnemonic, or register name used before plain-English mechanism + spelled-out expansion.
-2. **Hand-Waved Derivations**: Any equation, bitwise identity, or corner case stated without proof or concrete numbers.
+2. **Hand-Waved Derivations & Arithmetic Slips**: Any equation, bitwise identity, or corner case stated without an explicit algebraic bridge, missing parameter domain/asymmetric bound, or any hex/decimal/binary conversion error (cross-check every worked number independently).
 3. **Unmotivated Bit Layouts / Magic Numbers**: Any constant, address, or bit scramble presented as an arbitrary rule without explaining the physical trade-off.
 4. **Rushed Pacing**: Any section reading like terse reference notes rather than patient textbook prose.
 5. **Uncovered Deliverable Logic**: Any function, state field, or fault branch in the step's code left unexplained.
