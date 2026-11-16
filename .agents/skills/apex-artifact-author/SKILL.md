@@ -57,6 +57,8 @@ Run and pass **all** checks cleanly before considering the artifact complete:
 ```bash
 python3 scripts/check_code.py
 python3 scripts/sync_book.py --check   # or run scripts/sync_book.py when updating/creating chapters
+python3 scripts/check_book.py
 uv run --with pyyaml python3 scripts/build.py --check
 ```
-Plus the step's unit/simulation test suite with `--cov-fail-under=95` (for Python) or `Verilator`/`Yosys`/`nextpnr` verification.
+Plus the step's unit/simulation test suite with `--cov-fail-under=95` (for Python) or `Verilator`/`Yosys`/`nextpnr` verification. Record any recurring review failure modes in `references/calibration_log.md` (`apex-skill-healer`).
+

@@ -45,6 +45,8 @@ jobs:
           uv run --with pyyaml python3 scripts/build.py --check
           npm --prefix book ci
           npm --prefix book run build
+          uv run --with playwright playwright install --with-deps chromium
+          uv run --with playwright python3 scripts/check_visuals.py --base "/${{ github.event.repository.name }}/"
 
       - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v3

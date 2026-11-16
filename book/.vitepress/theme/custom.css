@@ -96,12 +96,37 @@ html.book-serif-mode .vp-doc blockquote {
   opacity: 0.75;
 }
 
-/* MathJax Overflow Hygiene on Mobile */
-mjx-container[display='true'] {
+/* MathJax Overflow Hygiene on Mobile (both display blocks and long inline expressions) */
+mjx-container {
+  max-width: 100%;
   overflow-x: auto;
   overflow-y: hidden;
+}
+
+mjx-container[display='true'] {
   padding: 0.5rem 0;
-  max-width: 100%;
+}
+
+mjx-container:not([display='true']) {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+@media (max-width: 767px) {
+  .VPNavBarTitle .title {
+    font-size: 14px;
+    max-width: 148px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .reader-font-toggle {
+    margin-left: 6px;
+    padding: 2px 7px;
+    font-size: 11px;
+    flex-shrink: 0;
+  }
 }
 
 /* Mermaid Figure Card */

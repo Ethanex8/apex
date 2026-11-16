@@ -39,14 +39,21 @@ jobs:
           npm --prefix book ci
           npm --prefix book run build
 
+      - name: Run headless Chromium visual, Mermaid SVG, and contrast gate
+        run: |
+          uv run --with playwright playwright install --with-deps chromium
+          uv run --with playwright python3 scripts/check_visuals.py --base "/${{ github.event.repository.name }}/"
+
       - name: Run repo tooling unit tests with >=95% line coverage
         run: >
-          PYTHONPATH=scripts uv run --with pytest --with pytest-cov --with pyyaml
+          PYTHONPATH=scripts uv run --with pytest --with pytest-cov --with pyyaml --with playwright
           pytest -v --cov=code_anchors --cov=sync_book --cov=check_book --cov=check_code
-          --cov=build --cov=step --cov-report=term-missing --cov-fail-under=95 scripts/tests/
+          --cov=check_visuals --cov=harvest_feedback --cov=build --cov=step
+          --cov-report=term-missing --cov-fail-under=95 scripts/tests/
 
       - name: Run brain oracle unit tests with >=95% line coverage
         run: >
           uv run --with pytest --with pytest-cov
           pytest -v --cov=systems/brain/sim --cov-report=term-missing --cov-fail-under=95
           systems/brain/tb/test_oracle.py
+

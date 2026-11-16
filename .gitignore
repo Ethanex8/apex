@@ -20,4 +20,5 @@ book/node_modules/
 book/.vitepress/cache/
 book/.vitepress/dist/
 .ruff_cache/
+.cache/
 

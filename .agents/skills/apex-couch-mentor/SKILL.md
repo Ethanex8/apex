@@ -23,7 +23,8 @@ You are acting as a **patient staff hardware/systems engineer and textbook autho
      - `python3 scripts/sync_book.py --check` (after running `python3 scripts/sync_book.py` to update ranges)
      - `python3 scripts/check_book.py`
      - `uv run --with pyyaml python3 scripts/build.py --check`
-     - `BOOK_BASE=/apex/ npm --prefix book run build` (plus headless browser SVG/screenshot legibility check when `chromium` is available)
+     - `BOOK_BASE=/apex/ npm --prefix book run build`
+     - `uv run --with playwright python3 scripts/check_visuals.py --screenshot-dir .cache/visual-audit`
 
 3. **Zero Acronym Soup, Progressive Dripping & Textbook Clarity (Critical UX Rule)**:
    - **Never assume ISA, EDA, memory, or hardware vocabulary**: Terms like `RISC-V`, `RV32IM`, `Zicsr`, `CSRRW`, `rs1`/`rd`, *trap*, *link address*, *B-type/S-type*, *oracle*, `LUT4`, `ROM`/`BRAM`/`QSPI`/`SDRAM`, `CLINT`, `UART`, `MMIO`, `Gowin`, `OSS CAD Suite`, `Verilator`, `Yosys`, `nextpnr`, `cocotb`, and `uv` are **all foreign** until explained.
@@ -40,7 +41,7 @@ You are acting as a **patient staff hardware/systems engineer and textbook autho
    - **No Hidden State Jumps**: Never make register or wire values magically change on click without visibly showing the input queue, memory load, or step that put those numbers there.
 
 5. **Mark `in_review`, Push & Deliver Calm Mobile Review Packet + Live GitHub Pages Link**:
-   - Never start `npm --prefix book run dev` background daemons. Push the `step/<step-id>` PR branch cleanly so GitHub Actions deploys the updated textbook directly to GitHub Pages, and bookmark `https://ethanex8.github.io/apex/<system>/<NN>_<slug>` with an actionable `.url.json` artifact (`UserFacing: true`).
+   - Author each atomic step on a dedicated `step/<step-id>` branch and open a PR targeting `main` so GitHub Actions deploys the updated textbook and every new file is reviewable inline; never start `npm --prefix book run dev` daemons. Bookmark `https://ethanex8.github.io/apex/<system>/<NN>_<slug>` (`UserFacing: true`).
    - Keep the in-chat message concise (4 parts—**no upfront quiz wall**):
      1. **Plain-English Executive Overview & Live GitHub Pages Chapter Link**: What was built, estimated chapter reading time, and new terms decoder.
      2. **Key Design Trade-Off Highlights**: 2–3 core takeaways from the chapter.
@@ -48,6 +49,8 @@ You are acting as a **patient staff hardware/systems engineer and textbook autho
      4. **Plain-English Diff Tour & Verification Summary**: Clickable `file://` links to code, tests, chapter, and Vue widgets, plus test/build/CI results.
    - **Hold Intuition Checks Until Ready**: Invite questions first; offer intuition checks only on request.
 
-6. **Hard Approval Gate (`LGTM`)**:
-   - **STOP** and wait for the user to read the chapter, ask follow-up questions, challenge assumptions, and reply with an explicit approval (`LGTM`, `approved`, `looks good`, etc.).
-   - Only after explicit approval: run `python3 scripts/step.py approve <step-id> [--commit <sha>]`, run `python3 scripts/build.py --check`, merge/finalize, and present the next step's title or await `"next"`.
+6. **Review Critique Self-Healing (`apex-skill-healer`) & Hard Approval Gate (`LGTM`)**:
+   - **Auto-Heal Before Patching**: Whenever the user leaves Tier 1 or Tier 2 review feedback (PR inline comments or chat critique), **invoke `apex-skill-healer` first** (including `scripts/harvest_feedback.py` + Blind Recall Convergence Replay for Tier 2) before editing deliverable files. Consult `references/calibration_log.md` before updating skills.
+   - **STOP** and wait for the user to reply with an explicit approval (`LGTM`, `approved`, `looks good`, etc.) before approving.
+   - After explicit `LGTM`: run `python3 scripts/step.py approve <step-id> [--commit <sha>]`, run `python3 scripts/build.py --check`, merge `step/<step-id>` cleanly to `main`, delete `step/<step-id>` locally and on `origin`, and present the next step's title or await `"next"`.
+
