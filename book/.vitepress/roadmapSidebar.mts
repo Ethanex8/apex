@@ -39,18 +39,6 @@ interface RoadmapData {
   }
 }
 
-function extractReadingTime(mdPath: string): string | null {
-  try {
-    const head = fs.readFileSync(mdPath, 'utf-8').slice(0, 1200)
-    const match = head.match(/\*\*Reading Time\*\*:\s*([^\n\r]+)/)
-    if (!match) return null
-    const mins = match[1].match(/(\d+(?:[–-]\d+)?)\s*min/)
-    return mins ? `${mins[1]}m` : null
-  } catch {
-    return null
-  }
-}
-
 export function buildTextbookSidebar(repoRoot: string): DefaultTheme.SidebarItem[] {
   const roadmapPath = path.join(repoRoot, 'roadmap.yaml')
   const raw = fs.readFileSync(roadmapPath, 'utf-8')
@@ -62,7 +50,7 @@ export function buildTextbookSidebar(repoRoot: string): DefaultTheme.SidebarItem
       collapsed: false,
       items: [
         { text: 'About This Book', link: '/' },
-        { text: 'Prologue: System Architecture & Contracts', link: '/vision' },
+        { text: 'Prologue — System Architecture and Contracts', link: '/vision' },
       ],
     },
   ]
@@ -76,10 +64,8 @@ export function buildTextbookSidebar(repoRoot: string): DefaultTheme.SidebarItem
       const mdPath = path.join(chapDir, `${chap.slug}.md`)
       if (fs.existsSync(mdPath)) {
         hasPublished = true
-        const readBadge = extractReadingTime(mdPath)
-        const badge = readBadge ? ` (${readBadge})` : ''
         partItems.push({
-          text: `${chap.number}. ${chap.title}${badge}`,
+          text: `${chap.number}. ${chap.title}`,
           link: `/${part.system}/${chap.slug}`,
         })
       } else {
@@ -90,7 +76,7 @@ export function buildTextbookSidebar(repoRoot: string): DefaultTheme.SidebarItem
     }
 
     sidebar.push({
-      text: `Part ${part.number}: ${part.title}`,
+      text: `Part ${part.number} — ${part.title}`,
       collapsed: !hasPublished,
       items: partItems,
     })

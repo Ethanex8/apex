@@ -19,22 +19,22 @@ const presets: DivPreset[] = [
     dividend: -7,
     divisor: 0,
     isSentinel: true,
-    sentinelTitle: 'Zero-Divisor Hardware Sentinel Outputs (Zero Pipeline Trap)',
+    sentinelTitle: 'Zero-Divisor Hardware Sentinel Outputs (No Hardware Trap)',
     sentinelRows: [
       {
-        insn: 'DIV (-7 ÷ 0)',
+        insn: 'div (-7 ÷ 0)',
         result: '-1 (0xFFFF_FFFF)',
         explain: 'Signed divide by zero always returns all-1s (-1) without jumping to a trap handler.',
         color: 'var(--vp-c-brand-1)',
       },
       {
-        insn: 'DIVU (0xFFFF_FFF9 ÷ 0)',
+        insn: 'divu (0xFFFF_FFF9 ÷ 0)',
         result: '0xFFFF_FFFF (UINT32_MAX)',
         explain: 'Unsigned divide by zero returns 2^32 - 1 so hardware never needs a division-fault line.',
         color: 'var(--hw-green)',
       },
       {
-        insn: 'REM / REMU (-7 % 0)',
+        insn: 'rem / remu (-7 % 0)',
         result: '-7 / 0xFFFF_FFF9 (Dividend)',
         explain: 'Preserves Euclidean identity q × 0 + rem = dividend cleanly by returning rs1 unchanged.',
         color: 'var(--hw-purple)',
@@ -49,13 +49,13 @@ const presets: DivPreset[] = [
     sentinelTitle: "Two's-Complement Asymmetric Range Overflow (-2^31 ÷ -1)",
     sentinelRows: [
       {
-        insn: 'DIV (INT32_MIN ÷ -1)',
+        insn: 'div (INT32_MIN ÷ -1)',
         result: 'INT32_MIN (-2,147,483,648)',
         explain: 'True quotient +2^31 exceeds INT32_MAX (2^31 - 1); signed hardware wraps once to INT32_MIN without trapping.',
         color: 'var(--hw-amber)',
       },
       {
-        insn: 'REM (INT32_MIN % -1)',
+        insn: 'rem (INT32_MIN % -1)',
         result: '0 (Zero Remainder)',
         explain: 'Exact divisibility holds (-1 divides -2^31 evenly), so remainder returns 0 cleanly.',
         color: 'var(--hw-green)',
@@ -77,17 +77,21 @@ const calc = computed(() => {
   const pyQ = Math.floor(exact)
   const pyR = n - pyQ * d
 
-  // Map [-4, +4] onto SVG x range [40, 560]
-  const toX = (val: number) => 300 + val * 65
+  // Map [-4, +4] onto compact SVG x range [36, 364] inside viewBox 0..400 so mobile never clips
+  const toX = (val: number) => 200 + val * 41
+  const clampLabelX = (x: number, pad = 74) => Math.min(400 - pad, Math.max(pad, x))
   return {
     exactStr: exact.toFixed(2),
     exactX: toX(exact),
+    exactLabelX: clampLabelX(toX(exact), 48),
     hwQ,
     hwR,
     hwX: toX(hwQ),
+    hwLabelX: clampLabelX(toX(hwQ), 76),
     pyQ,
     pyR,
     pyX: toX(pyQ),
+    pyLabelX: clampLabelX(toX(pyQ), 78),
     n,
     d,
     ticks: [-4, -3, -2, -1, 0, 1, 2, 3, 4].map((t) => ({ val: t, x: toX(t) })),
@@ -119,9 +123,9 @@ const calc = computed(() => {
 
     <!-- Finite Division Visual Comparator -->
     <div v-if="calc">
-      <div class="hw-card" style="margin-bottom: 10px; overflow-x: auto">
+      <div class="hw-card" style="margin-bottom: 10px">
         <div class="hw-label">Number-Line Step Direction (Real Quotient = {{ calc.exactStr }})</div>
-        <svg viewBox="0 0 600 124" style="width: 100%; min-width: 480px; height: auto; display: block">
+        <svg viewBox="0 0 400 124" style="width: 100%; height: auto; display: block">
           <defs>
             <marker id="div-arrow-brand" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
               <path d="M 0 1 L 10 5 L 0 9 z" fill="var(--vp-c-brand-1)" />
@@ -132,8 +136,8 @@ const calc = computed(() => {
           </defs>
 
           <!-- Zero Baseline Highlight -->
-          <line x1="300" y1="14" x2="300" y2="96" stroke="var(--vp-c-divider)" stroke-width="2" stroke-dasharray="4 3" />
-          <line x1="32" y1="56" x2="568" y2="56" stroke="var(--vp-c-text-2)" stroke-width="2" />
+          <line x1="200" y1="14" x2="200" y2="96" stroke="var(--vp-c-divider)" stroke-width="2" stroke-dasharray="4 3" />
+          <line x1="20" y1="56" x2="380" y2="56" stroke="var(--vp-c-text-2)" stroke-width="2" />
 
           <!-- Integer Ticks -->
           <g v-for="t in calc.ticks" :key="t.val">
@@ -142,7 +146,7 @@ const calc = computed(() => {
               :x="t.x"
               y="76"
               text-anchor="middle"
-              font-size="11"
+              font-size="10.5"
               font-family="var(--vp-font-family-mono)"
               :font-weight="t.val === 0 ? '800' : '600'"
               :fill="t.val === 0 ? 'var(--vp-c-text-1)' : 'var(--vp-c-text-2)'"
@@ -161,25 +165,25 @@ const calc = computed(() => {
             stroke-width="2.5"
             marker-end="url(#div-arrow-brand)"
           />
-          <circle :cx="calc.hwX" cy="56" r="6" fill="var(--vp-c-brand-1)" />
+          <circle :cx="calc.hwX" cy="56" r="5.5" fill="var(--vp-c-brand-1)" />
           <text
-            :x="calc.hwX"
+            :x="calc.hwLabelX"
             y="18"
             text-anchor="middle"
-            font-size="11"
+            font-size="10"
             font-weight="800"
             fill="var(--vp-c-brand-1)"
           >
-            RV32M DIV = {{ calc.hwQ }} (Toward 0)
+            RV32M div = {{ calc.hwQ }} (Toward 0)
           </text>
 
           <!-- Exact Real Quotient Marker -->
-          <circle :cx="calc.exactX" cy="56" r="5" fill="var(--hw-amber)" />
+          <circle :cx="calc.exactX" cy="56" r="4.5" fill="var(--hw-amber)" />
           <text
-            :x="calc.exactX"
+            :x="calc.exactLabelX"
             y="45"
             text-anchor="middle"
-            font-size="10.5"
+            font-size="9.5"
             font-weight="700"
             fill="var(--hw-amber)"
           >
@@ -197,13 +201,13 @@ const calc = computed(() => {
             stroke-width="2.5"
             marker-end="url(#div-arrow-red)"
           />
-          <circle v-if="calc.pyQ !== calc.hwQ" :cx="calc.pyX" cy="56" r="5.5" fill="var(--hw-red)" opacity="0.85" />
+          <circle v-if="calc.pyQ !== calc.hwQ" :cx="calc.pyX" cy="56" r="5" fill="var(--hw-red)" opacity="0.85" />
           <text
             v-if="calc.pyQ !== calc.hwQ"
-            :x="calc.pyX"
+            :x="calc.pyLabelX"
             y="110"
             text-anchor="middle"
-            font-size="10.5"
+            font-size="9.5"
             font-weight="800"
             fill="var(--hw-red)"
           >
@@ -216,7 +220,7 @@ const calc = computed(() => {
         <div class="hw-card" style="border-left: 3px solid var(--vp-c-brand-1)">
           <div class="hw-label" style="color: var(--vp-c-brand-1)">RISC-V Hardware (Truncates Toward Zero)</div>
           <div class="hw-mono" style="font-size: 13.5px; font-weight: 700; margin-bottom: 4px">
-            DIV = {{ calc.hwQ }}, REM = {{ calc.hwR }}
+            div = {{ calc.hwQ }}, rem = {{ calc.hwR }}
           </div>
           <div class="hw-mono" style="font-size: 12px; color: var(--vp-c-text-2)">
             Check: ({{ calc.hwQ }}) × ({{ calc.d }}) + ({{ calc.hwR }}) = {{ calc.hwQ * calc.d + calc.hwR }}
@@ -235,7 +239,7 @@ const calc = computed(() => {
             Check: ({{ calc.pyQ }}) × ({{ calc.d }}) + ({{ calc.pyR }}) = {{ calc.pyQ * calc.d + calc.pyR }}
           </div>
           <div style="font-size: 12px; color: var(--vp-c-text-2); margin-top: 4px">
-            {{ calc.hwQ === calc.pyQ ? 'Coincides here only because quotient is positive.' : 'Differs from RISC-V! Oracle must use trunc_div_s32().' }}
+            {{ calc.hwQ === calc.pyQ ? 'Coincides here only because quotient is positive.' : 'Differs from RISC-V; the oracle uses trunc_div_s32().' }}
           </div>
         </div>
       </div>

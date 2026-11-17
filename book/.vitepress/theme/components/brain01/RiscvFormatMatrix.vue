@@ -23,7 +23,7 @@ const activeFormat = ref<string>('B')
 const formatRows: FormatRow[] = [
   {
     id: 'R',
-    title: 'R-Type (ALU / M)',
+    title: 'R-Type (Registers)',
     summary: 'Three active register columns (rs1, rs2, rd) leave 10 bits (funct7 + funct3) for operation selection and no embedded constant.',
     cells: [
       { label: 'funct7 (Op Mode)', range: 'Bits 31..25', cols: 7, kind: 'funct3' },
@@ -36,10 +36,10 @@ const formatRows: FormatRow[] = [
   },
   {
     id: 'I',
-    title: 'I-Type (Imm / Load)',
+    title: 'I-Type (Immediate)',
     summary: 'Contiguous 12-bit constant replaces rs2 + funct7 while keeping rs1 (Bits 19..15) and rd (Bits 11..7) pinned in identical columns.',
     cells: [
-      { label: 'S', range: 'b31', cols: 1, kind: 'sign' },
+      { label: 'S', range: 'B31', cols: 1, kind: 'sign' },
       { label: 'Imm 10..5', range: 'Bits 30..25', cols: 6, kind: 'imm' },
       { label: 'Imm 4..0', range: 'Bits 24..20', cols: 5, kind: 'imm' },
       { label: 'rs1', range: 'Bits 19..15', cols: 5, kind: 'rs1' },
@@ -53,7 +53,7 @@ const formatRows: FormatRow[] = [
     title: 'S-Type (Stores)',
     summary: 'Stores read rs1 (base) and rs2 (data) without writing rd; splitting the 12-bit offset into Bits 31..25 and Bits 11..7 keeps rs2 pinned.',
     cells: [
-      { label: 'S', range: 'b31', cols: 1, kind: 'sign' },
+      { label: 'S', range: 'B31', cols: 1, kind: 'sign' },
       { label: 'Off 10..5', range: 'Bits 30..25', cols: 6, kind: 'imm' },
       { label: 'rs2 (Data)', range: 'Bits 24..20', cols: 5, kind: 'rs2' },
       { label: 'rs1 (Base)', range: 'Bits 19..15', cols: 5, kind: 'rs1' },
@@ -65,15 +65,15 @@ const formatRows: FormatRow[] = [
   {
     id: 'B',
     title: 'B-Type (Branches)',
-    summary: 'Reuses S-type hardware wires! Bit 7 carries Offset Bit 11 instead of Bit 0 (implicit 0 for 2-byte step alignment) while Bit 31 stays Sign.',
+    summary: 'Reuses S-type hardware wires: Bit 7 carries Offset Bit 11 instead of Bit 0 (implicit 0 for 2-byte step alignment) while Bit 31 stays Sign.',
     cells: [
-      { label: 'S', range: 'b31', cols: 1, kind: 'sign' },
+      { label: 'S', range: 'B31', cols: 1, kind: 'sign' },
       { label: 'Off 10..5', range: 'Bits 30..25', cols: 6, kind: 'imm' },
       { label: 'rs2', range: 'Bits 24..20', cols: 5, kind: 'rs2' },
       { label: 'rs1', range: 'Bits 19..15', cols: 5, kind: 'rs1' },
       { label: 'f3', range: '14..12', cols: 3, kind: 'funct3' },
       { label: 'Off 4..1', range: 'Bits 11..8', cols: 4, kind: 'imm' },
-      { label: '11', range: 'b7', cols: 1, kind: 'imm' },
+      { label: '11', range: 'B7', cols: 1, kind: 'imm' },
       { label: 'opcode', range: 'Bits 6..0', cols: 7, kind: 'opcode' },
     ],
   },
@@ -82,7 +82,7 @@ const formatRows: FormatRow[] = [
     title: 'U-Type (Upper)',
     summary: 'Drops rs1 and rs2 to free a contiguous 20-bit upper payload (Bits 31..12) directly aligned to destination Bits 31..12 with zero bit shuffling.',
     cells: [
-      { label: 'S', range: 'b31', cols: 1, kind: 'sign' },
+      { label: 'S', range: 'B31', cols: 1, kind: 'sign' },
       { label: 'Upper Constant Bits 30..12', range: 'Bits 30..12', cols: 19, kind: 'imm' },
       { label: 'rd', range: 'Bits 11..7', cols: 5, kind: 'rd' },
       { label: 'opcode', range: 'Bits 6..0', cols: 7, kind: 'opcode' },
@@ -90,12 +90,12 @@ const formatRows: FormatRow[] = [
   },
   {
     id: 'J',
-    title: 'J-Type (JAL)',
+    title: 'J-Type (Jumps)',
     summary: 'Slices Bits 19..12, Bit 20, and Bits 10..1 to share wire positions with U-type (Bits 19..12) and I/B-type (Bits 30..21) while keeping Bit 31 Sign.',
     cells: [
-      { label: 'S', range: 'b31', cols: 1, kind: 'sign' },
+      { label: 'S', range: 'B31', cols: 1, kind: 'sign' },
       { label: 'Off Bits 10..1', range: 'Bits 30..21', cols: 10, kind: 'imm' },
-      { label: '11', range: 'b20', cols: 1, kind: 'imm' },
+      { label: '11', range: 'B20', cols: 1, kind: 'imm' },
       { label: 'Off Bits 19..12', range: 'Bits 19..12', cols: 8, kind: 'imm' },
       { label: 'rd', range: 'Bits 11..7', cols: 5, kind: 'rd' },
       { label: 'opcode', range: 'Bits 6..0', cols: 7, kind: 'opcode' },
@@ -158,6 +158,7 @@ function cellColor(kind: FormatCell['kind']): string {
       </div>
     </div>
 
+    <div class="hw-mobile-scroll-hint">↔ Swipe horizontally to inspect all 32 bit columns</div>
     <div style="overflow-x: auto; padding-bottom: 6px">
       <div class="hw-grid-32-scroll">
         <!-- Column Bit Index Ruler -->
@@ -253,7 +254,7 @@ function cellColor(kind: FormatCell['kind']): string {
     </div>
 
     <div class="hw-mono" style="font-size: 11px; color: var(--vp-c-text-2); margin-bottom: 6px">
-      Legend: <strong>S (b31)</strong> = Sign bit pinned at Bit 31; <strong>11 (b7 / b20)</strong> = Offset Bit 11; <strong>f3 (14..12)</strong> = funct3 sub-opcode.
+      Legend: <strong>S (B31)</strong> = Sign bit pinned at Bit 31; <strong>11 (B7 / B20)</strong> = Offset Bit 11; <strong>f3 (14..12)</strong> = funct3 sub-operation selector.
     </div>
 
     <div class="hw-card" style="margin-top: 4px; font-size: 13px">

@@ -76,7 +76,7 @@ const groupedLower12 = computed(() => {
           type="range"
           min="-2048"
           max="2047"
-          style="width: 220px; accent-color: var(--vp-c-brand-1)"
+          style="width: 220px; max-width: 100%; accent-color: var(--vp-c-brand-1)"
         />
       </div>
 
@@ -102,7 +102,7 @@ const groupedLower12 = computed(() => {
               background: var(--vp-c-bg-soft);
               border: 1px solid var(--vp-c-divider);
             "
-            title="Original 12-bit constant grouped in 4-bit nibbles"
+            title="Original 12-bit constant in 4-bit groups"
           >
             Bits 11..0: <strong style="color: var(--vp-c-brand-1)">{{ groupedLower12.slice(0, 1) }}</strong>{{ groupedLower12.slice(1) }}
           </span>
@@ -113,7 +113,7 @@ const groupedLower12 = computed(() => {
 
     <div class="hw-grid-2">
       <div class="hw-card">
-        <div class="hw-label">Branchless Software Check: sign_extend(val, 12)</div>
+        <div class="hw-label">Branchless Software Check: <code>sign_extend(val, 12)</code></div>
         <ol class="hw-mono" style="margin: 6px 0 0 18px; padding: 0; font-size: 12px; line-height: 1.75">
           <li>masked = val &amp; 0xFFF = {{ raw12 }} ({{ hex12(raw12) }})</li>
           <li>sign_bit = 1 &lt;&lt; 11 = 2048 (0x800)</li>
@@ -127,7 +127,7 @@ const groupedLower12 = computed(() => {
 
       <div class="hw-card">
         <div style="display: flex; justify-content: space-between; align-items: center">
-          <div class="hw-label">Right-Shift View (Distance k = {{ shiftAmount }})</div>
+          <div class="hw-label">Right-Shift View (Distance <code>k = {{ shiftAmount }}</code>)</div>
           <input
             v-model.number="shiftAmount"
             type="range"

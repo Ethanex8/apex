@@ -71,9 +71,7 @@
   line-height: 1.78;
 }
 
-html.book-serif-mode .vp-doc p,
-html.book-serif-mode .vp-doc li,
-html.book-serif-mode .vp-doc blockquote {
+html.book-serif-mode .vp-doc :is(p, li, blockquote):not(.hw-widget *, .mermaid-book-figure *) {
   font-family: Charter, 'Bitstream Charter', 'Sitka Text', Cambria, Georgia, serif;
   font-size: 17.5px;
   line-height: 1.82;
@@ -149,6 +147,23 @@ mjx-container:not([display='true']) {
   border: 1px solid var(--vp-c-divider);
   background: var(--vp-c-bg-soft);
   overflow-x: auto;
+}
+
+.hw-mobile-scroll-hint {
+  display: none;
+  font-size: 11px;
+  color: var(--vp-c-text-2);
+  margin-bottom: 4px;
+}
+
+@media (max-width: 767px) {
+  .mermaid-book-figure {
+    padding: 0.85rem 0.55rem;
+  }
+
+  .hw-mobile-scroll-hint {
+    display: block;
+  }
 }
 
 .mermaid-svg-wrap {
@@ -239,6 +254,15 @@ mjx-container:not([display='true']) {
   font-family: var(--vp-font-family-base);
   font-size: 14px;
   line-height: 1.5;
+}
+
+.vp-doc .hw-widget p {
+  line-height: 1.5;
+  margin: 0.35rem 0;
+}
+
+.vp-doc .hw-widget li + li {
+  margin-top: 2px;
 }
 
 .hw-widget-header {
@@ -335,6 +359,15 @@ mjx-container:not([display='true']) {
   letter-spacing: 0.03em;
   color: var(--vp-c-text-2);
   margin-bottom: 4px;
+}
+
+.hw-label code {
+  text-transform: none;
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.98em;
+  background: transparent;
+  padding: 0;
+  color: inherit;
 }
 
 /* Muted Upcoming Chapters in VitePress Sidebar & Cover Syllabus */

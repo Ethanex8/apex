@@ -60,7 +60,7 @@ def _make_git_book_repo(tmp_path: Path) -> tuple[Path, Path]:
     chap = _write_text(
         tmp_path / "systems" / "demo" / "chapters" / "01_alu.md",
         "# Chapter 1\n\n"
-        "## Section One: Adder\n\n"
+        "## Section One Adder\n\n"
         "See [`add`](../sim/alu.py#L1) in [`alu.py`](../sim/alu.py) (`1` lines).\n\n"
         "<!-- book-sync: add -->\n"
         "<<< @/systems/demo/sim/alu.py#L1\n",
@@ -172,8 +172,8 @@ def test_sync_book_rewrites_and_fences(tmp_path: Path) -> None:
     chap = _write_text(
         tmp_path / "systems" / "demo" / "chapters" / "01.md",
         "# Ch 1\n\n"
-        "Call [`compute(x)`](../sim/alu.py#L1) or [body lines 1–1](../sim/alu.py#L1 \"anchor: compute['val = x * 2'..'return val + 1']\").\n"
-        "File [`alu.py`](../sim/alu.py) (`1` lines), [external](https://example.com#L1), inline `[compute](alu.py#L1)`, [miss](nope.py#L1).\n\n"
+        "Call [`compute(x)`](../sim/alu.py#L1), [`compute`](../sim/alu.py), or [body lines 1–1](../sim/alu.py#L1 \"anchor: compute['val = x * 2'..'return val + 1']\").\n"
+        "File [`alu.py`](../sim/alu.py) (`1` lines), [`unknown_sym`](../sim/alu.py), [external](https://example.com#L1), inline `[compute](alu.py#L1)`, [miss](nope.py#L1).\n\n"
         "<!-- book-sync: compute -->\n"
         "<<< @/systems/demo/sim/alu.py#L1\n\n"
         "```md\n"
@@ -194,11 +194,17 @@ def test_sync_book_rewrites_and_fences(tmp_path: Path) -> None:
     assert changed2 == [chap]
     updated = chap.read_text(encoding="utf-8")
     assert "[`compute(x)`](../sim/alu.py#L3-L5)" in updated
+    assert "[`compute`](../sim/alu.py#L3-L5)" in updated
+    assert "[`unknown_sym`](../sim/alu.py)" in updated
     assert '[body lines 4–5](../sim/alu.py#L4-L5 "anchor: compute[\'val = x * 2\'..\'return val + 1\']")' in updated
     assert f"(`{len(src.read_text().splitlines())}` lines)" in updated
     assert "<<< @/systems/demo/sim/alu.py#L3-L5" in updated
     # Fenced example must stay untouched
     assert "<<< @/systems/demo/sim/alu.py#L1" in updated
+
+    chap.write_text(chap.read_text(encoding="utf-8") + '\n[bad](../sim/alu.py "anchor: no_such_sym")\n', encoding="utf-8")
+    _, bad_anchor_errs = sync_book.sync_all_chapters(tmp_path, check_only=True)
+    assert bad_anchor_errs
 
 
 def test_sync_book_prose_impact_and_cli(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -224,7 +230,7 @@ def test_sync_book_prose_impact_and_cli(tmp_path: Path, monkeypatch: pytest.Monk
     )
     impacts = sync_book.detect_prose_impact("HEAD", tmp_path)
     assert len(impacts) == 1
-    assert "Section One: Adder" in impacts[0]
+    assert "Section One Adder" in impacts[0]
     assert "(add)" in impacts[0]
 
     monkeypatch.setattr(sync_book, "ROOT_DIR", tmp_path)

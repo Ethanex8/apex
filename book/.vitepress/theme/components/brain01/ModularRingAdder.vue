@@ -92,10 +92,10 @@ const wheelSlots = computed(() => {
     </div>
 
     <p style="margin: 0 0 12px 0; color: var(--vp-c-text-2); font-size: 13.5px">
-      Think of a 4-bit register like a 16-hour clock face (<code>0000</code> at 12 o'clock). Notice that
-      <strong>Bit 3</strong> carries weight <code>+8</code> in unsigned view (<code>u4</code>) and
-      <code>-8</code> in two's complement view (<code>s4</code>), yet stepping clockwise around the ring computes
-      both sums with the exact same hardware adder.
+      Think of a 4-bit register like a 16-slot clock face (<code>0000</code> at 12 o'clock). Notice that
+      <strong>Bit 3</strong> carries weight <code>+8</code> in unsigned reading (<code>0..15</code>) and
+      <code>-8</code> in two's-complement signed reading (<code>-8..+7</code>), yet stepping clockwise around the ring
+      computes both sums with the exact same binary adder.
     </p>
 
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; align-items: center">
@@ -118,8 +118,12 @@ const wheelSlots = computed(() => {
               <div style="font-size: 15px; font-weight: 700">{{ (aU4 >> bit) & 1 }}</div>
             </button>
           </div>
-          <div class="hw-mono" style="font-size: 12px; color: var(--vp-c-text-2); white-space: nowrap">
-            Unsigned <code>u4</code> = <strong>{{ aU4 }}</strong> · Signed <code>s4</code> = <strong>{{ fmtS4(aS4) }}</strong>
+          <div
+            class="hw-mono"
+            style="font-size: 12px; color: var(--vp-c-text-2); display: flex; flex-wrap: wrap; gap: 2px 10px"
+          >
+            <span style="white-space: nowrap">Unsigned (0..15) = <strong>{{ aU4 }}</strong></span>
+            <span style="white-space: nowrap">Signed (-8..+7) = <strong>{{ fmtS4(aS4) }}</strong></span>
           </div>
         </div>
 
@@ -141,8 +145,12 @@ const wheelSlots = computed(() => {
               <div style="font-size: 15px; font-weight: 700">{{ (bU4 >> bit) & 1 }}</div>
             </button>
           </div>
-          <div class="hw-mono" style="font-size: 12px; color: var(--vp-c-text-2); white-space: nowrap">
-            Unsigned <code>u4</code> = <strong>{{ bU4 }}</strong> · Signed <code>s4</code> = <strong>{{ fmtS4(bS4) }}</strong>
+          <div
+            class="hw-mono"
+            style="font-size: 12px; color: var(--vp-c-text-2); display: flex; flex-wrap: wrap; gap: 2px 10px"
+          >
+            <span style="white-space: nowrap">Unsigned (0..15) = <strong>{{ bU4 }}</strong></span>
+            <span style="white-space: nowrap">Signed (-8..+7) = <strong>{{ fmtS4(bS4) }}</strong></span>
           </div>
         </div>
 

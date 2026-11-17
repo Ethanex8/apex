@@ -41,7 +41,7 @@ Compare blind findings (plus deterministic outputs from `check_code.py`, `check_
 
 For every **`MISSED`** generalizable item, ask *"Why did our pipeline miss this without user help?"* and heal **upstream first**:
 1. **Deterministic Gate First (Preferred)**: If mechanically checkable (line length, slice size, syntax, ASCII fences, abrupt heading openings, tuple returns, local imports, compound asserts, SVG clipping, viewport overflow, contrast), add it to `scripts/check_book.py`, `scripts/check_code.py`, or `scripts/check_visuals.py` plus regression tests in `scripts/tests/`.
-2. **Skill Prompt + Calibration Ledger**: If judgment/pedagogical/architectural, sharpen the rule in `.agents/skills/<skill>/SKILL.md`—splitting overloaded single-subagent reviews into parallel specialist lenses where attention dilution occurred, keeping every `SKILL.md <= 120` lines—and append a root-cause entry (`Defect`, `Why Missed`, `Gate/Skill Fix`) to `references/calibration_log.md`.
+2. **Skill Prompt + Calibration Ledger + Active Registry Sync**: If judgment/pedagogical/architectural, sharpen the rule in `.agents/skills/<skill>/SKILL.md` and `GEMINI.md`—keeping every `SKILL.md <= 120` lines—append a root-cause entry (`Defect`, `Why Missed`, `Gate/Skill Fix`) to `references/calibration_log.md`, and immediately sync modified skills into `~/.gemini` via `save_skill(skill_dir=..., overwrite=True)` so `lookup_skills` and subagents never read stale rules.
 
 ---
 
@@ -53,10 +53,10 @@ Re-run deterministic checks AND the **fresh** isolated parallel specialist subag
 
 ---
 
-## Step 5: Heal Deliverable & Post-Fix Re-Review Convergence
+## Step 5: Heal Deliverable, Converge & Update Open PR Without Closing
 
 Only after Step 4 convergence (and before pushing/re-requesting review):
 1. Apply all fixes cleanly to deliverable source code, tests, chapter prose, CSS, and Vue widgets via `apex-artifact-author` and `apex-textbook-author`.
 2. Run the full static, visual, and coverage verification suite (`check_code.py`, `sync_book.py --check`, `check_book.py`, `build.py --check`, `BOOK_BASE=/apex/ npm --prefix book run build`, `check_visuals.py --screenshot-dir .cache/visual-audit`, and `pytest --cov-fail-under=95`).
 3. **Mandatory Post-Edit Re-Review Convergence**: Run the full multi-specialist clean-room subagent review team on the modified deliverables + regenerated `.cache/visual-audit/` PNGs; if any P0/P1/P2 defects remain after edits, patch, rebuild, and spawn a fresh Round $r+1$ specialist round until a full pass returns zero defects.
-4. Include a brief **Pipeline Self-Healing Note** in the reply listing which gate/skill/calibration updates now prevent recurrence automatically.
+4. **Preserve Open Review PRs**: Push a fast-forward commit to the open PR branch—**never** close/merge the PR before explicit final user `LGTM`, and **never** force-push away already-reviewed commits so inline threads and *"Changes since last review"* stay intact. Include a brief **Pipeline Self-Healing Note** in the reply.

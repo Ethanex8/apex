@@ -25,9 +25,9 @@ interface Scenario {
 const scenarios: Scenario[] = [
   {
     id: 'loop_call',
-    title: '1. Subroutine Call & Return (JAL, JALR & Hardwired x0)',
+    title: '1. Subroutine Call & Return (jal, jalr & Hardwired x0)',
     summary:
-      'Loads 1 and 2, calls a helper via JAL (saving return link PC + 4 in x5), and returns via JALR x0, 0(x5) (discarding the unused link write into hardwired x0).',
+      'Loads 1 and 2, calls a helper via jal (saving return link PC + 4 in x5), and returns via jalr x0, 0(x5) (discarding the unused link write into hardwired x0).',
     frames: [
       {
         stepNum: 0,
@@ -44,7 +44,7 @@ const scenarios: Scenario[] = [
       {
         stepNum: 1,
         asm: '0x00: addi x1, x0, 1   # Add Immediate: x1 = 0 + 1',
-        stageNote: 'Reads x0 (0) + sign_extend(1, 12) -> commits 1 to x1; PC advances to 0x04.',
+        stageNote: 'Reads x0 (0) + sign_extend(1, 12) → commits 1 to x1; PC advances to 0x04.',
         pc: '0x0000_0000',
         insnHex: '0x0010_0093',
         nextPc: '0x0000_0004',
@@ -56,7 +56,7 @@ const scenarios: Scenario[] = [
       {
         stepNum: 2,
         asm: '0x04: addi x2, x0, 2   # Add Immediate: x2 = 0 + 2',
-        stageNote: 'Reads x0 (0) + 2 -> commits 2 to x2; PC advances to 0x08.',
+        stageNote: 'Reads x0 (0) + 2 → commits 2 to x2; PC advances to 0x08.',
         pc: '0x0000_0004',
         insnHex: '0x0020_0113',
         nextPc: '0x0000_0008',
@@ -80,7 +80,7 @@ const scenarios: Scenario[] = [
       {
         stepNum: 4,
         asm: '0x10: add x1, x1, x2   # Add Registers: x1 = 1 + 2 = 3',
-        stageNote: 'Adds x1 (1) + x2 (2) -> writes 3 to x1; PC advances to 0x14.',
+        stageNote: 'Adds x1 (1) + x2 (2) → writes 3 to x1; PC advances to 0x14.',
         pc: '0x0000_0010',
         insnHex: '0x0020_80B3',
         nextPc: '0x0000_0014',
@@ -105,9 +105,9 @@ const scenarios: Scenario[] = [
   },
   {
     id: 'endian_mem',
-    title: '2. Little-Endian Byte Lanes (SW, LB vs LBU & SH)',
+    title: '2. Little-Endian Byte Lanes (sw, lb vs lbu & sh)',
     summary:
-      'Stores 0x1122_80FF at BRAM (0x1000_0000), compares signed byte load LB (-1) vs unsigned LBU (+255), and overwrites upper halfword (+2..+3) via SH.',
+      'Stores 0x1122_80FF at BRAM (0x1000_0000), compares signed byte load lb (-1) vs unsigned lbu (+255), and overwrites upper halfword (+2..+3) via sh.',
     frames: [
       {
         stepNum: 0,
@@ -149,7 +149,7 @@ const scenarios: Scenario[] = [
       {
         stepNum: 2,
         asm: '0x04: lb x4, 0(x1)     # Load Signed Byte from +0',
-        stageNote: 'Reads 0xFF (Bit 7 = 1) -> sign_extend(0xFF, 8) = -1 -> 0xFFFF_FFFF in x4.',
+        stageNote: 'Reads 0xFF (Bit 7 = 1) → sign_extend(0xFF, 8) = -1 → 0xFFFF_FFFF in x4.',
         pc: '0x0000_0004',
         insnHex: '0x0000_8203',
         nextPc: '0x0000_0008',
@@ -167,7 +167,7 @@ const scenarios: Scenario[] = [
       {
         stepNum: 3,
         asm: '0x08: lbu x5, 0(x1)    # Load Unsigned Byte from +0',
-        stageNote: 'Reads same 0xFF byte -> zero-extends Bits 31..8 -> 0x0000_00FF (255) in x5.',
+        stageNote: 'Reads same 0xFF byte → zero-extends Bits 31..8 → 0x0000_00FF (255) in x5.',
         pc: '0x0000_0008',
         insnHex: '0x0000_C283',
         nextPc: '0x0000_000C',
@@ -206,18 +206,19 @@ const scenarios: Scenario[] = [
     id: 'trap_irq',
     title: '3. Exact Trap & Timer Preemption (1 Instruction per Step)',
     summary:
-      'Executes one RV32Oracle.step() call per frame with vectored mtvec = 0x1000_0001: ECALL traps to 0x1000_0000 (advancing mepc to 0x18), then CLINT preempts 0x18 at mtime = 4 and branches to 0x1000_001C.',
+      'Executes one RV32Oracle.step() call per frame with vectored mtvec = 0x1000_0001: ecall traps to 0x1000_0000 (advancing mepc to 0x18), then CLINT preempts 0x18 at mtime = 4 and branches to 0x1000_001C.',
     frames: [
       {
         stepNum: 0,
         asm: 'Initial State: PC=0x14, mtvec=0x1000_0001 (Vectored), mtimecmp=4',
-        stageNote: 'Preloaded: x1=0x18 (next PC after ECALL), x2=0x8000_0000 (CLINT), x3=0xFFFF_FFFF.',
+        stageNote: 'Preloaded: x1=0x18 (next PC after ecall), x2=0x8000_0000 (CLINT), x3=0xFFFF_FFFF.',
         pc: '0x0000_0014',
         insnHex: '—',
         nextPc: '0x0000_0014',
         regs: { x1: '0x0000_0018', x2: '0x8000_0000', x3: '0xFFFF_FFFF', x20: '0x0000_0000' },
         changedKey: '',
         csrs: {
+          mtvec: '0x1000_0001 (Vectored)',
           mstatus: 'MIE=1, MPIE=0',
           mie: 'MTIE=1 (Bit 7)',
           mepc: '0x0000_0000',
@@ -230,17 +231,18 @@ const scenarios: Scenario[] = [
       {
         stepNum: 1,
         asm: '0x0000_0014: ecall                  # Synchronous Environment Call',
-        stageNote: 'Saves mepc=0x14, mcause=11, shifts MIE->MPIE, clears MIE=0, jumps to mtvec base 0x1000_0000 (minstret stays 0).',
+        stageNote: 'Saves mepc=0x14, mcause=11, shifts MIE→MPIE, clears MIE=0, jumps to mtvec base 0x1000_0000 (minstret stays 0).',
         pc: '0x0000_0014',
         insnHex: '0x0000_0073',
         nextPc: '0x1000_0000',
         regs: { x1: '0x0000_0018', x2: '0x8000_0000', x3: '0xFFFF_FFFF', x20: '0x0000_0000' },
         changedKey: '',
         csrs: {
+          mtvec: '0x1000_0001 (Vectored)',
           mstatus: 'MIE=0, MPIE=1',
           mie: 'MTIE=1 (Bit 7)',
           mepc: '0x0000_0014',
-          mcause: '11 (ECALL)',
+          mcause: '11 (ecall)',
           'mtime / cmp': '1 / 0x0000_0000_0000_0004',
           'mcycle / minstret': '1 / 0',
         },
@@ -248,18 +250,19 @@ const scenarios: Scenario[] = [
       },
       {
         stepNum: 2,
-        asm: '0x1000_0000: csrrw x0, mepc, x1     # Advance mepc to 0x18 (past ECALL)',
-        stageNote: 'Exception handler writes x1 (0x18) into mepc so MRET will not re-run ECALL.',
+        asm: '0x1000_0000: csrrw x0, mepc, x1     # Advance mepc to 0x18 (past ecall)',
+        stageNote: 'Exception handler writes x1 (0x18) into mepc so mret will not re-run ecall.',
         pc: '0x1000_0000',
         insnHex: '0x3410_9073',
         nextPc: '0x1000_0004',
         regs: { x1: '0x0000_0018', x2: '0x8000_0000', x3: '0xFFFF_FFFF', x20: '0x0000_0000' },
         changedKey: '',
         csrs: {
+          mtvec: '0x1000_0001 (Vectored)',
           mstatus: 'MIE=0, MPIE=1',
           mie: 'MTIE=1 (Bit 7)',
           mepc: '0x0000_0018',
-          mcause: '11 (ECALL)',
+          mcause: '11 (ecall)',
           'mtime / cmp': '2 / 0x0000_0000_0000_0004',
           'mcycle / minstret': '2 / 1',
         },
@@ -267,7 +270,7 @@ const scenarios: Scenario[] = [
       },
       {
         stepNum: 3,
-        asm: '0x1000_0004: mret                   # Return from ECALL handler',
+        asm: '0x1000_0004: mret                   # Return from ecall handler',
         stageNote: 'Restores mstatus.MIE = 1 (from MPIE) and jumps PC back to mepc = 0x18.',
         pc: '0x1000_0004',
         insnHex: '0x3020_0073',
@@ -275,10 +278,11 @@ const scenarios: Scenario[] = [
         regs: { x1: '0x0000_0018', x2: '0x8000_0000', x3: '0xFFFF_FFFF', x20: '0x0000_0000' },
         changedKey: '',
         csrs: {
+          mtvec: '0x1000_0001 (Vectored)',
           mstatus: 'MIE=1, MPIE=1',
           mie: 'MTIE=1 (Bit 7)',
           mepc: '0x0000_0018',
-          mcause: '11 (ECALL)',
+          mcause: '11 (ecall)',
           'mtime / cmp': '3 / 0x0000_0000_0000_0004',
           'mcycle / minstret': '3 / 2',
         },
@@ -294,6 +298,7 @@ const scenarios: Scenario[] = [
         regs: { x1: '0x0000_0018', x2: '0x8000_0000', x3: '0xFFFF_FFFF', x20: '0x0000_0000' },
         changedKey: '',
         csrs: {
+          mtvec: '0x1000_0001 (Vectored)',
           mstatus: 'MIE=0, MPIE=1',
           mie: 'MTIE=1 (Bit 7)',
           mepc: '0x0000_0018',
@@ -313,6 +318,7 @@ const scenarios: Scenario[] = [
         regs: { x1: '0x0000_0018', x2: '0x8000_0000', x3: '0xFFFF_FFFF', x20: '0x0000_0000' },
         changedKey: '',
         csrs: {
+          mtvec: '0x1000_0001 (Vectored)',
           mstatus: 'MIE=0, MPIE=1',
           mie: 'MTIE=1 (Bit 7)',
           mepc: '0x0000_0018',
@@ -332,6 +338,7 @@ const scenarios: Scenario[] = [
         regs: { x1: '0x0000_0018', x2: '0x8000_0000', x3: '0xFFFF_FFFF', x20: '0x0000_0000' },
         changedKey: '',
         csrs: {
+          mtvec: '0x1000_0001 (Vectored)',
           mstatus: 'MIE=1, MPIE=1',
           mie: 'MTIE=1 (Bit 7)',
           mepc: '0x0000_0018',
@@ -351,6 +358,7 @@ const scenarios: Scenario[] = [
         regs: { x1: '0x0000_0018', x2: '0x8000_0000', x3: '0xFFFF_FFFF', x20: '0x0000_002A (+42)' },
         changedKey: 'x20',
         csrs: {
+          mtvec: '0x1000_0001 (Vectored)',
           mstatus: 'MIE=1, MPIE=1',
           mie: 'MTIE=1 (Bit 7)',
           mepc: '0x0000_0018',
@@ -364,7 +372,7 @@ const scenarios: Scenario[] = [
   },
   {
     id: 'xapex_mac',
-    title: '4. Custom Xapex MAC (Dual-Int16 SIMD & Saturation)',
+    title: '4. Custom Xapex MAC (Parallel Dual-Int16 Lanes & Saturation)',
     summary:
       'Displays all packed input registers alongside destination registers, executing one Xapex instruction per step and saturating overflow at INT32_MAX.',
     frames: [
@@ -454,7 +462,7 @@ const scenarios: Scenario[] = [
       },
       {
         stepNum: 4,
-        asm: '0x0C: mac x15, x6, x6       # + 2,147,352,578 -> Clamps at INT32_MAX',
+        asm: '0x0C: mac x15, x6, x6       # + 2,147,352,578 → Clamps at INT32_MAX',
         stageNote: 'True sum +4,294,705,156 exceeds INT32_MAX; sat32() clamps at +2,147,483,647 rather than wrapping negative.',
         pc: '0x0000_000C',
         insnHex: '0x0063_078B',
@@ -615,7 +623,7 @@ function pickScenario(id: string) {
         </div>
 
         <div v-if="currentFrame.memBytes" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--vp-c-divider)">
-          <div class="hw-label">BRAM Byte Lanes @ 0x1000_0000 (Little-Endian)</div>
+          <div class="hw-label">BRAM Byte Lanes @ <code>0x1000_0000</code> (Little-Endian)</div>
           <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; text-align: center">
             <div
               v-for="cell in currentFrame.memBytes"

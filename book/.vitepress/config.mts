@@ -9,9 +9,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = path.resolve(__dirname, '../..')
 
 export default defineConfig({
-  title: 'Apex Systems Textbook',
+  title: 'Apex Systems Engineering',
   description:
-    'Digital Silicon, Circuit Boards, Compilers, Real-Time Operating Systems & Quadruped Robotics — An Integrated Systems Engineering Textbook',
+    'Digital Silicon, Circuit Boards, Compilers, Real-Time Operating Systems, and Quadruped Robotics',
   base: process.env.BOOK_BASE ?? '/',
   srcDir: '..',
   cleanUrls: true,
@@ -44,6 +44,16 @@ export default defineConfig({
   markdown: {
     math: true,
     lineNumbers: true,
+    anchor: {
+      slugify: (str) =>
+        str
+          .trim()
+          .toLowerCase()
+          .replace(/[\u2013\u2014]/g, '-')
+          .replace(/[^\w\u00C0-\u024f\s-]/g, '')
+          .replace(/[\s_-]+/g, '-')
+          .replace(/^-+|-+$/g, ''),
+    },
     config: (md) => {
       repoCodeLinksPlugin(md, REPO_ROOT)
 
@@ -113,25 +123,25 @@ export default defineConfig({
       {
         text: 'Parts',
         items: [
-          { text: 'Part I — Digital Logic & Processor Architecture', link: '/#part-i-digital-logic-and-processor-architecture' },
-          { text: 'Part II — High-Speed Board Physics & SoC', link: '/#part-ii-high-speed-board-physics-and-system-on-chip-interconnects' },
-          { text: 'Part III — Compilers, RTOS & Silicon Validation', link: '/#part-iii-compilers-real-time-operating-systems-and-silicon-validation' },
-          { text: 'Part IV — Brushless Electromechanics & FOC', link: '/#part-iv-brushless-electromechanics-power-inverters-and-force-actuation' },
-          { text: 'Part V — Electrochemical Energy & Protection', link: '/#part-v-electrochemical-energy-and-solid-state-power-protection' },
-          { text: 'Part VI — Spatial Kinematics & Compliant Limbs', link: '/#part-vi-spatial-kinematics-dynamics-and-compliant-limbs' },
-          { text: 'Part VII — Whole-Body Control & RL Locomotion', link: '/#part-vii-whole-body-optimal-control-and-learned-locomotion' },
-          { text: 'Part VIII — Stereo Vision & Autonomous Navigation', link: '/#part-viii-stereo-vision-state-estimation-and-autonomous-navigation' },
+          { text: 'Part I — Digital Logic and Processor Architecture', link: '/#part-i-digital-logic-and-processor-architecture' },
+          { text: 'Part II — Circuit-Board Physics and Memory Interconnects', link: '/#part-ii-circuit-board-physics-and-memory-interconnects' },
+          { text: 'Part III — Compilers and Real-Time Operating Systems', link: '/#part-iii-compilers-and-real-time-operating-systems' },
+          { text: 'Part IV — Brushless Motors and Power Inverters', link: '/#part-iv-brushless-motors-and-power-inverters' },
+          { text: 'Part V — Battery Systems and Solid-State Protection', link: '/#part-v-battery-systems-and-solid-state-protection' },
+          { text: 'Part VI — Rigid-Body Kinematics and Compliant Limbs', link: '/#part-vi-rigid-body-kinematics-and-compliant-limbs' },
+          { text: 'Part VII — Optimal Balance and Learned Locomotion', link: '/#part-vii-optimal-balance-and-learned-locomotion' },
+          { text: 'Part VIII — Stereo Vision and Autonomous Navigation', link: '/#part-viii-stereo-vision-and-autonomous-navigation' },
         ],
       },
       {
         text: 'Subsystems',
         items: [
-          { text: '1. brain — CPU, PCB, Compiler & RTOS', link: '/brain/' },
-          { text: '2. drive — FOC Motor & Gearbox', link: '/drive/' },
-          { text: '3. power — Electronic Breaker & BMS', link: '/power/' },
-          { text: '4. limb — 3-DOF Leg & Hopping', link: '/limb/' },
-          { text: '5. walker — Quadruped & Sim-to-Real RL', link: '/walker/' },
-          { text: '6. sight — Stereo Vision & Navigation', link: '/sight/' },
+          { text: '1. brain — Processor, Board, Compiler, and RTOS', link: '/brain/' },
+          { text: '2. drive — Brushless Actuator and Gearbox', link: '/drive/' },
+          { text: '3. power — Battery Spine and Protection', link: '/power/' },
+          { text: '4. limb — Articulated Hopping Leg', link: '/limb/' },
+          { text: '5. walker — Dynamic Quadruped Platform', link: '/walker/' },
+          { text: '6. sight — Stereo Vision and Navigation', link: '/sight/' },
         ],
       },
     ],

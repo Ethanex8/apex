@@ -45,19 +45,33 @@ MAX_TRANSCLUSION_LINES = 25
 MAX_ASCII_FENCE_COLS = 80
 MAX_CODE_FENCE_COLS = 100
 MAX_SKILL_LINES = 120
+MAX_CHAPTER_TITLE_WORDS = 6
+MAX_SECTION_HEADING_WORDS = 8
+MAX_PROSE_BOLD_WORDS = 6
 ASCII_FENCE_LANGS = {"", "text", "txt", "ascii", "diagram"}
 REQUIRED_CALIBRATED_SKILLS = ("apex-couch-mentor", "apex-textbook-author", "apex-artifact-author")
+PROSE_NON_CODE_TERMS = frozenset({
+    "HDL", "ISA", "ISAs", "ALU", "FPGA", "FPGAs", "RTL", "EDA", "DSP", "LUT", "LUT4",
+    "MMIO", "FIFO", "FIFOs", "CSR", "CSRs", "WARL", "IRQ", "IRQs", "ISR", "ISRs",
+    "MLP", "SIMD", "RTOS", "PCB", "PCBA", "RAM", "ROM", "SRAM", "BRAM", "SDRAM", "DRAM",
+    "QSPI", "QSPI Flash", "Boot ROM", "XIP", "DMA", "SPI", "CAN", "CAN-FD", "GPIO",
+    "CLINT", "UART", "RISC-V", "RV32", "RV32I", "RV32M", "RV32IM", "Zicsr", "Xapex",
+    "Xapex MAC", "MAC", "SystemVerilog", "Verilog", "Verilator", "Yosys", "nextpnr",
+    "KiCad", "MuJoCo", "Python", "Linux", "ARM", "x86", "x86-64", "JVM", "POSIX",
+    "CPU", "SoC", "NPU", "GPU", "M-mode", "RO", "WO",
+    "MIE", "MPIE", "MPP", "MSIE", "MTIE", "MEIE", "MSIP", "MTIP", "MEIP",
+})
 
 LEGACY_EXPECT_RE = re.compile(r"^<!--\s*expect-symbol:\s*(.+?)\s*-->$")
 BOOK_GATE_RE = re.compile(
-    r"^<!--\s*book-gate:\s*(allow-long-slice|allow-wide-fence|allow-wide-mermaid|allow-ascii-fence)"
-    r"\s*\(([^)]*)\)\s*-->$"
+    r"^<!--\s*book-gate:\s*(allow-long-slice|allow-wide-fence|allow-wide-mermaid|allow-ascii-fence|allow-multi-sentence-line)"
+    r"\s*\(([^)]*)\s*\)\s*-->$"
 )
 TRANSCLUDE_RE = re.compile(
     r"^<<<\s+(@/[^\s{#\[]+|\.\.?/[^\s{#\[]+)(?:#L(\d+)(?:-L?(\d+))?)?"
 )
 BARE_PROSE_LINE_RE = re.compile(r"\blines?\s+`?\d+(?:\s*[–-]\s*\d+)?", re.IGNORECASE)
-INLINE_CODE_RE = re.compile(r"(`+)(?:\\.|.)*?\1")
+INLINE_CODE_RE = re.compile(r"(`+)((?:\\.|.)*?)\1")
 INLINE_MATH_RE = re.compile(
     r"(?<!\\)\$\$(?:\\.|[^$])*?(?<!\\)\$\$|(?<!\\)\$(?:\\.|[^$\\])*?(?<!\\)\$"
 )
@@ -65,10 +79,31 @@ MERMAID_LR_RE = re.compile(r"^(?:flowchart|graph)\s+LR\b")
 MERMAID_ARROW_RE = re.compile(r"-->|---|-\.->|==>")
 HTML_ENTITY_RE = re.compile(r"&(?:[A-Za-z][A-Za-z0-9]+|#[0-9]+|#x[0-9A-Fa-f]+);")
 SEQ_MSG_SEMI_RE = re.compile(r"^[^\n:]+(?:->|--?>|->>|-->>|-x|--x|-\)|--\))[^\n:]*:.*;")
+H1_HEADING_RE = re.compile(r"^#\s+(.+)$")
 HEADING_RE = re.compile(r"^(#{2,3})\s+(.+)$")
 EXERCISE_HEADING_RE = re.compile(r"\bExercise(?:\s+\d+)?\b", re.IGNORECASE)
+EXERCISE_PREFIX_RE = re.compile(r"^Exercise\s+\d+:\s*(.+)$", re.IGNORECASE)
+SECTION_NUM_PREFIX_RE = re.compile(r"^\d+(?:\.\d+)*\.?\s+")
+CHAPTER_PREFIX_RE = re.compile(r"^Chapter\s+\d+:\s*", re.IGNORECASE)
+CHAPTER_BANNER_NOISE_RE = re.compile(
+    r"\b(?:Reading Time|Interactive Figures|Primary Modules)\b|\*\*Part\s+[IVX]+:",
+    re.IGNORECASE,
+)
 VUE_TAG_RE = re.compile(r"^<[A-Z][A-Za-z0-9]*(?:\s|/>|>)")
+HTML_TAG_LINE_RE = re.compile(r"^<!--.*-->$|^</?[A-Za-z][^>]*>(?:.*</[A-Za-z][^>]*>)?$")
 LIST_OPEN_RE = re.compile(r"^(?:[-*+]|\d+[.)])\s+")
+LIST_LEAD_BOLD_RE = re.compile(r"^(?:\s*(?:[-*+]|\d+[.)])\s+)\*\*([^*]+)\*\*")
+BOLD_SPAN_RE = re.compile(r"\*\*([^*\n]+)\*\*")
+DETACHED_TERM_DEF_RE = re.compile(r"—[^—\n]{3,120}\(\*\*[^*]+\*\*\)")
+TEX_IN_CODE_RE = re.compile(r"[_^]\{[^`]+\}")
+COMMA_NUM_IN_CODE_RE = re.compile(r"(?<![A-Za-z0-9_\"'])[+-]?\d{1,3}(?:,\d{3})+(?:\.\d+)?(?![A-Za-z0-9_\"'])")
+BACKTICK_NUM_HYPHEN_RE = re.compile(r"`\d+`-(?:bit|byte|entry|wire|cycle|stage)\b")
+BACKTICK_UNIT_RE = re.compile(r"`\d+(?:[.,]\d+)*\s+(?:MHz|kHz|GHz|Hz|ms|µs|us|ns|KB|MB|GB|W)`")
+BACKTICK_COUNT_NOUN_RE = re.compile(
+    r"`(?:[2-9]|\d{2,})`\s+(?:wires?|bits?|bytes?|patterns?|registers?|entries|lanes?|joints?|legs?|motors?|weights?|words?|slots?|pages?)\b"
+)
+ABBREV_RE = re.compile(r"\b(?:e\.g|i\.e|vs|cf|etc|approx|Sec|Ch|Fig|Eq|No)\.", re.IGNORECASE)
+MULTI_SENTENCE_RE = re.compile(r"[.!?](?:['\")\]*]+)?\s+[A-Z\"`*($]")
 ABRUPT_IMPERATIVE_RE = re.compile(r"^(?:Trace|Examine|Inspect|Click|Play with|Experiment with)\b")
 CONVERSATIONAL_CRUTCH_RE = re.compile(r"\b(?:Wait:\s+why|Hold on:|Wait a second:)", re.IGNORECASE)
 DATASHEET_SHORTHAND_RE = re.compile(r"imm\[[^\]]*\|[^\]]*\]|\[\d+\|imm|\[[\d.]+\|[\d.]+\]")
@@ -131,10 +166,11 @@ def _validate_transclusion(
     root_dir: Path,
     pending_anchor: tuple[int, str] | None,
     allow_long_slice: bool,
+    allow_wide_fence: bool,
     file_cache: dict[Path, list[str]],
     errors: list[str],
 ) -> bool:
-    """Validate one `<<<` transclusion against its `book-sync` anchor and length cap."""
+    """Validate one `<<<` transclusion against its `book-sync` anchor, length cap, and column width."""
     tr_match = TRANSCLUDE_RE.match(raw_line.strip())
     if not tr_match:
         return False
@@ -188,6 +224,15 @@ def _validate_transclusion(
             f"[{rel_chap}:{idx}] Transclusion '{spec}' spans {exp_e - exp_s + 1} lines (limit {MAX_TRANSCLUSION_LINES}); "
             "move mechanics to inline source comments or add '<!-- book-gate: allow-long-slice (<reason>) -->'",
         )
+    if not allow_wide_fence:
+        for offset, src_raw in enumerate(src_lines[exp_s - 1 : exp_e], start=exp_s):
+            if len(src_raw) > MAX_CODE_FENCE_COLS:
+                _append_unique(
+                    errors,
+                    f"[{rel_chap}:{idx}] Transcluded line {target_path.name}:{offset} is {len(src_raw)} chars "
+                    f"(limit {MAX_CODE_FENCE_COLS}); wrap source comment/code or add '<!-- book-gate: allow-wide-fence (<reason>) -->'",
+                )
+                break
     return True
 
 
@@ -285,6 +330,170 @@ def _check_prose_hygiene(raw_line: str, idx: int, rel_chap: Path, errors: list[s
         )
 
 
+def _validate_heading_style(
+    rel_chap: Path, idx: int, stripped: str, state: _ChapterScanState, errors: list[str]
+) -> bool:
+    """Validate `#`/`##`/`###` conciseness and punctuation, updating `state` and returning True on headings."""
+    if h1_m := H1_HEADING_RE.match(stripped):
+        state.seen_h1 = True
+        state.seen_h1_prose = False
+        core = CHAPTER_PREFIX_RE.sub("", h1_m.group(1).strip()).strip()
+        if len(core.split()) > MAX_CHAPTER_TITLE_WORDS or any(ch in core for ch in ("&", ":", ",")):
+            _append_unique(
+                errors,
+                f"[{rel_chap}:{idx}] Chapter H1 title '{core}' must be concise "
+                f"(<= {MAX_CHAPTER_TITLE_WORDS} words, primary topic only without '&', ':', or ',')",
+            )
+        return True
+
+    hm = HEADING_RE.match(stripped)
+    if not hm:
+        return False
+    hashes, body = hm.group(1), hm.group(2).strip()
+    if hashes == "##":
+        if not state.seen_h2 and state.seen_h1 and not state.seen_h1_prose:
+            _append_unique(
+                errors,
+                f"[{rel_chap}:{idx}] Chapter jumps straight from H1 into '{body}' without introductory prose",
+            )
+        state.seen_h2 = True
+    ex_m = EXERCISE_PREFIX_RE.match(body)
+    core = ex_m.group(1).strip() if ex_m else SECTION_NUM_PREFIX_RE.sub("", body).strip()
+    if ":" in core:
+        _append_unique(
+            errors,
+            f"[{rel_chap}:{idx}] Section heading '{body}' contains ':'; "
+            "use a single direct topic phrase without 'Hook: Subtitle' colons",
+        )
+    if "&" in core:
+        _append_unique(
+            errors,
+            f"[{rel_chap}:{idx}] Section heading '{body}' uses '&'; write 'and' or focus on the primary topic",
+        )
+    if "(" in core or ")" in core:
+        _append_unique(
+            errors,
+            f"[{rel_chap}:{idx}] Section heading '{body}' contains parenthetical clutter; "
+            "move symbols and details into prose",
+        )
+    if "`" in core:
+        _append_unique(
+            errors,
+            f"[{rel_chap}:{idx}] Section heading '{body}' wraps words in backticks; use plain English in headings",
+        )
+    if len(core.split()) > MAX_SECTION_HEADING_WORDS:
+        _append_unique(
+            errors,
+            f"[{rel_chap}:{idx}] Section heading '{core}' exceeds {MAX_SECTION_HEADING_WORDS} words "
+            f"({len(core.split())}); tighten to the primary topic",
+        )
+    state.pending_heading = None if EXERCISE_HEADING_RE.search(body) else (idx, body)
+    return True
+
+
+def _check_frontmatter_banner(
+    rel_chap: Path, idx: int, stripped: str, state: _ChapterScanState, errors: list[str]
+) -> None:
+    """Ban front-matter metadata blockquotes, reading-time tags, and figure inventories before first `##`."""
+    if state.seen_h2 or not stripped:
+        return
+    if stripped.startswith(">"):
+        _append_unique(
+            errors,
+            f"[{rel_chap}:{idx}] Front-matter blockquote banner before first '##' section is banned; "
+            "open directly with introductory prose",
+        )
+    elif not HTML_TAG_LINE_RE.match(stripped):
+        state.seen_h1_prose = True
+    if m := CHAPTER_BANNER_NOISE_RE.search(stripped):
+        _append_unique(
+            errors,
+            f"[{rel_chap}:{idx}] Front-matter metadata/TOC/figure inventory ('{m.group(0)}') is banned; "
+            "let the sidebar TOC speak for itself",
+        )
+
+
+def _check_backtick_hygiene(raw_line: str, idx: int, rel_chap: Path, errors: list[str]) -> None:
+    """Ban inline backticks around English acronyms, proper nouns, prose numbers/units, and raw TeX math."""
+    for match in INLINE_CODE_RE.finditer(raw_line):
+        code_txt = match.group(2).strip()
+        if code_txt in PROSE_NON_CODE_TERMS:
+            _append_unique(
+                errors,
+                f"[{rel_chap}:{idx}] Non-code acronym or proper noun '`{code_txt}`' wrapped in backticks; "
+                "reserve backticks for literal code identifiers, instructions, and paths",
+            )
+        if not code_txt.startswith(('f"', "f'", 'F"', "F'")) and TEX_IN_CODE_RE.search(code_txt):
+            _append_unique(
+                errors,
+                f"[{rel_chap}:{idx}] Raw LaTeX subscript/superscript inside backticks '`{code_txt}`'; "
+                "render math with '$...$' instead of code font",
+            )
+        if cm := COMMA_NUM_IN_CODE_RE.search(code_txt):
+            _append_unique(
+                errors,
+                f"[{rel_chap}:{idx}] Comma-formatted prose number '{cm.group(0)}' inside backticks '`{code_txt}`'; "
+                "use plain prose numbers or Python '_' digit separators",
+            )
+    without_math = INLINE_MATH_RE.sub("", raw_line)
+    for pat in (BACKTICK_NUM_HYPHEN_RE, BACKTICK_UNIT_RE, BACKTICK_COUNT_NOUN_RE):
+        if m := pat.search(without_math):
+            _append_unique(
+                errors,
+                f"[{rel_chap}:{idx}] Prose number/measurement '{m.group(0)}' uses backticks; "
+                "write plain numbers and units without backticks",
+            )
+
+
+def _check_bold_and_term_adjacency(raw_line: str, idx: int, rel_chap: Path, errors: list[str]) -> None:
+    """Require `( **term** )` immediately adjacent to its noun phrase and cap rhetorical bold spans."""
+    code_masked = INLINE_MATH_RE.sub("MATH", INLINE_CODE_RE.sub("CODE", raw_line))
+    if m := DETACHED_TERM_DEF_RE.search(code_masked):
+        _append_unique(
+            errors,
+            f"[{rel_chap}:{idx}] Detached term definition '{m.group(0)}'; "
+            "place (**term**) immediately after the noun phrase it defines",
+        )
+    if raw_line.lstrip().startswith("|"):
+        return
+    body = LIST_LEAD_BOLD_RE.sub("", code_masked)
+    for bm in BOLD_SPAN_RE.finditer(body):
+        span = bm.group(1).strip()
+        if len(span.split()) > MAX_PROSE_BOLD_WORDS:
+            _append_unique(
+                errors,
+                f"[{rel_chap}:{idx}] Overlong bold phrase '**{span}**' ({len(span.split())} words > "
+                f"{MAX_PROSE_BOLD_WORDS}); reserve boldface for defined technical terms",
+            )
+
+
+def _check_semantic_line_breaks(
+    raw_line: str, idx: int, rel_chap: Path, allow_multi: bool, errors: list[str]
+) -> None:
+    """Enforce one sentence per Markdown prose line without trailing two-space hard `<br>` breaks."""
+    if raw_line.endswith("  "):
+        _append_unique(
+            errors,
+            f"[{rel_chap}:{idx}] Trailing two-space hard '<br>' break; "
+            "use single-newline semantic line breaks (one sentence per line)",
+        )
+    stripped = raw_line.strip()
+    if allow_multi or not stripped or stripped.startswith(("#", "|")) or HTML_TAG_LINE_RE.match(stripped):
+        return
+    unlinked = MD_LINK_RE.sub(lambda m: m.group(1), stripped)
+    masked = INLINE_MATH_RE.sub("MATH", INLINE_CODE_RE.sub("CODE", unlinked))
+    masked = re.sub(r"^(?:>\s*)+", "", masked)
+    masked = LIST_OPEN_RE.sub("", masked)
+    masked = ABBREV_RE.sub("ABBR", masked)
+    if MULTI_SENTENCE_RE.search(masked):
+        _append_unique(
+            errors,
+            f"[{rel_chap}:{idx}] Multiple sentences on one Markdown line; "
+            "break prose into one sentence per line for clean PR review",
+        )
+
+
+
 def _mermaid_header_and_body(non_empty: list[tuple[int, str]]) -> MermaidBlock | None:
     """Return `MermaidBlock` skipping YAML frontmatter and `%%` comments, or None if empty."""
     in_yaml = False
@@ -377,7 +586,7 @@ def _flush_unused_gates(
 ) -> None:
     """Report and clear unused `book-gate` directives before unrelated chapter content."""
     for kind in list(pending_gates):
-        if keep_slice and kind == "allow-long-slice":
+        if keep_slice and kind in ("allow-long-slice", "allow-wide-fence"):
             continue
         gate_ln, _ = pending_gates.pop(kind)
         _append_unique(
@@ -470,6 +679,9 @@ class _ChapterScanState:
     active_fence: tuple[str, int] | None = None
     fence_meta: FenceBlock | None = None
     in_math: bool = False
+    seen_h1: bool = False
+    seen_h1_prose: bool = False
+    seen_h2: bool = False
     pending_anchor: tuple[int, str] | None = None
     pending_heading: tuple[int, str] | None = None
     anchor_count: int = 0
@@ -502,6 +714,36 @@ def _process_chapter_directive(
         state.pending_anchor = (idx, dir_m.group(1))
         return True
     return False
+
+
+def _validate_prose_line(
+    raw_line: str,
+    stripped: str,
+    idx: int,
+    rel_chap: Path,
+    resolved_chap: Path,
+    resolved_root: Path,
+    state: _ChapterScanState,
+    file_cache: dict[Path, list[str]],
+    errors: list[str],
+) -> None:
+    """Validate headings, front-matter banners, links, backticks, bold spans, and line breaks."""
+    if _validate_heading_style(rel_chap, idx, stripped, state, errors):
+        _flush_unused_gates(rel_chap, state.pending_gates, keep_slice=False, errors=errors)
+        return
+
+    allow_multi = bool(stripped and state.pending_gates.pop("allow-multi-sentence-line", None) is not None)
+    if stripped:
+        _flush_unused_gates(rel_chap, state.pending_gates, keep_slice=False, errors=errors)
+    _check_frontmatter_banner(rel_chap, idx, stripped, state, errors)
+    state.pending_heading = _check_heading_opening(rel_chap, state.pending_heading, stripped, False, errors)
+    state.anchor_count += _validate_markdown_links(
+        raw_line, idx, rel_chap, resolved_chap, resolved_root, file_cache, errors
+    )
+    _check_prose_hygiene(raw_line, idx, rel_chap, errors)
+    _check_backtick_hygiene(raw_line, idx, rel_chap, errors)
+    _check_bold_and_term_adjacency(raw_line, idx, rel_chap, errors)
+    _check_semantic_line_breaks(raw_line, idx, rel_chap, allow_multi, errors)
 
 
 def _validate_single_chapter(
@@ -538,31 +780,37 @@ def _validate_single_chapter(
             continue
 
         allow_slice = "allow-long-slice" in state.pending_gates
+        allow_wide = "allow-wide-fence" in state.pending_gates
         if _validate_transclusion(
-            raw_line, idx, rel_chap, resolved_chap, resolved_root, state.pending_anchor, allow_slice, file_cache, errors
+            raw_line,
+            idx,
+            rel_chap,
+            resolved_chap,
+            resolved_root,
+            state.pending_anchor,
+            allow_slice,
+            allow_wide,
+            file_cache,
+            errors,
         ):
             state.pending_heading = _check_heading_opening(rel_chap, state.pending_heading, stripped, False, errors)
             state.anchor_count += 1
             state.pending_anchor = None
             state.pending_gates.pop("allow-long-slice", None)
+            state.pending_gates.pop("allow-wide-fence", None)
             _flush_unused_gates(rel_chap, state.pending_gates, keep_slice=False, errors=errors)
             continue
 
         if state.pending_anchor is not None and stripped:
             _flush_unused_anchor(rel_chap, state.pending_anchor, errors)
             state.pending_anchor = None
-        if stripped:
-            _flush_unused_gates(rel_chap, state.pending_gates, keep_slice=False, errors=errors)
         if state.in_math:
+            if stripped:
+                _flush_unused_gates(rel_chap, state.pending_gates, keep_slice=False, errors=errors)
             continue
-        if (hm := HEADING_RE.match(stripped)) and not EXERCISE_HEADING_RE.search(hm.group(2)):
-            state.pending_heading = (idx, hm.group(2).strip())
-            continue
-        state.pending_heading = _check_heading_opening(rel_chap, state.pending_heading, stripped, False, errors)
-        state.anchor_count += _validate_markdown_links(
-            raw_line, idx, rel_chap, resolved_chap, resolved_root, file_cache, errors
+        _validate_prose_line(
+            raw_line, stripped, idx, rel_chap, resolved_chap, resolved_root, state, file_cache, errors
         )
-        _check_prose_hygiene(raw_line, idx, rel_chap, errors)
 
     _flush_unused_anchor(rel_chap, state.pending_anchor, errors)
     _flush_unused_gates(rel_chap, state.pending_gates, keep_slice=False, errors=errors)

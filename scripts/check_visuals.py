@@ -7,8 +7,8 @@ Purpose:
   (`1280x900`) and mobile (`390x844`) viewports:
     - Zero JS `pageerror`, `console.error`, HTTP `>= 400`, or `.mermaid-error`.
     - Zero card/article horizontal overflow (`scrollWidth <= clientWidth + 2`).
-    - Legible Mermaid scale (`renderedWidth / viewBoxWidth >= 0.48` desktop) and
-      zero clipped `<foreignObject>` SVG text labels.
+    - Legible Mermaid scale (`renderedWidth / viewBoxWidth >= 0.48` desktop,
+      `>= 0.52` mobile) and zero clipped `<foreignObject>` SVG text labels.
     - Interactive `.hw-widget` button click/hover stability and `>= 3.5:1` WCAG
       text contrast (catching active-hover color-on-color regressions).
 
@@ -38,10 +38,11 @@ DEFAULT_DIST = ROOT_DIR / "book" / ".vitepress" / "dist"
 DEFAULT_BASE = "/apex/"
 VIEWPORTS: tuple[tuple[str, int, int], ...] = (("desktop", 1280, 900), ("mobile", 390, 844))
 MIN_MERMAID_SCALE = 0.48
+MIN_MERMAID_SCALE_MOBILE = 0.52
 MIN_BTN_CONTRAST = 3.5
 
 # Evaluated per route+viewport to detect container overflow, tiny Mermaid SVGs, and clipped SVG HTML labels.
-LAYOUT_AUDIT_JS = """(minScale) => {
+LAYOUT_AUDIT_JS = """([minDesktopScale, minMobileScale]) => {
   const issues = [];
   const docOverflow = document.documentElement.scrollWidth - document.documentElement.clientWidth;
   if (docOverflow > 2) issues.push(`Document horizontal overflow by ${docOverflow}px`);
@@ -64,7 +65,8 @@ LAYOUT_AUDIT_JS = """(minScale) => {
       Boolean(svg.closest('details:not([open])')) ||
       (typeof svg.checkVisibility === 'function' && !svg.checkVisibility());
     if (hidden) return;
-    if (vb.length === 4 && vb[2] > 0 && window.innerWidth >= 900) {
+    if (vb.length === 4 && vb[2] > 0) {
+      const minScale = window.innerWidth >= 900 ? minDesktopScale : minMobileScale;
       const scale = rect.width / vb[2];
       if (scale < minScale) {
         issues.push(`Mermaid[${idx}] scaled down to ${(scale * 100).toFixed(0)}% (< ${(minScale * 100).toFixed(0)}%)`);
@@ -85,6 +87,18 @@ LAYOUT_AUDIT_JS = """(minScale) => {
         }
       });
     });
+  });
+
+  const normPath = (p) => p.replace(/\\/index\\.html$/, '/').replace(/\\/+$/, '') || '/';
+  const curPath = normPath(window.location.pathname);
+  document.querySelectorAll('a[href*="#"]').forEach((a) => {
+    try {
+      const u = new URL(a.href, window.location.href);
+      if (u.origin === window.location.origin && normPath(u.pathname) === curPath && u.hash.length > 1) {
+        const id = decodeURIComponent(u.hash.slice(1));
+        if (!document.getElementById(id)) issues.push(`Broken hash anchor '${u.hash}'`);
+      }
+    } catch (_) {}
   });
   return issues;
 }"""
@@ -270,21 +284,30 @@ def _audit_widget_buttons(page: object, route: str, errors: list[str]) -> None:
         page.evaluate("document.documentElement.classList.remove('dark')")
 
 
-def _capture_route_screenshots(page: object, route: str, shot_root: Path) -> None:
-    """Save visible Mermaid SVG and Vue widget PNG snapshots for visual subagent inspection."""
+def _capture_route_screenshots(page: object, route: str, shot_root: Path, vp_name: str = "desktop") -> None:
+    """Save visible Mermaid SVG and Vue widget PNG snapshots without sticky-navbar occlusion."""
     slug = route.strip("/").replace("/", "__") or "index"
     out_dir = shot_root / slug
     out_dir.mkdir(parents=True, exist_ok=True)
-    mermaids = page.locator(".mermaid-book-figure")
-    for idx in range(mermaids.count()):
-        item = mermaids.nth(idx)
-        if item.is_visible():
-            item.screenshot(path=str(out_dir / f"mermaid_{idx}.png"))
-    widgets = page.locator(".hw-widget")
-    for idx in range(widgets.count()):
-        item = widgets.nth(idx)
-        if item.is_visible():
-            item.screenshot(path=str(out_dir / f"widget_{idx}.png"))
+    suffix = "" if vp_name == "desktop" else f"_{vp_name}"
+    page.evaluate(
+        "document.querySelectorAll('.VPNav, .VPLocalNav, .book-progress-track').forEach((el) => (el.style.visibility = 'hidden'))"
+    )
+    try:
+        mermaids = page.locator(".mermaid-book-figure")
+        for idx in range(mermaids.count()):
+            item = mermaids.nth(idx)
+            if item.is_visible():
+                item.screenshot(path=str(out_dir / f"mermaid_{idx}{suffix}.png"))
+        widgets = page.locator(".hw-widget")
+        for idx in range(widgets.count()):
+            item = widgets.nth(idx)
+            if item.is_visible():
+                item.screenshot(path=str(out_dir / f"widget_{idx}{suffix}.png"))
+    finally:
+        page.evaluate(
+            "document.querySelectorAll('.VPNav, .VPLocalNav, .book-progress-track').forEach((el) => (el.style.visibility = ''))"
+        )
 
 
 def _drain_page_errors(page_errs: list[str], route: str, vp_name: str, errors: list[str]) -> None:
@@ -329,13 +352,14 @@ def _run_browser_audit(
                     page.goto(full_url, wait_until="networkidle")
                     page.wait_for_timeout(450)
                     _drain_page_errors(page_errs, route, vp_name, errors)
-                    for issue in page.evaluate(LAYOUT_AUDIT_JS, MIN_MERMAID_SCALE):
+                    scales = [MIN_MERMAID_SCALE, MIN_MERMAID_SCALE_MOBILE]
+                    for issue in page.evaluate(LAYOUT_AUDIT_JS, scales):
                         errors.append(f"[{route}:{vp_name}] {issue}")
                     if vp_name == "desktop":
                         _audit_widget_buttons(page, route, errors)
                         _drain_page_errors(page_errs, route, vp_name, errors)
-                        if screenshot_dir is not None:
-                            _capture_route_screenshots(page, route, screenshot_dir)
+                    if screenshot_dir is not None:
+                        _capture_route_screenshots(page, route, screenshot_dir, vp_name)
             finally:
                 page.close()
     finally:

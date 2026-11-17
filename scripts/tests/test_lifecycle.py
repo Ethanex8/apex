@@ -271,6 +271,8 @@ def test_metrics_badges_and_dynamic_markdown_rendering() -> None:
     """Verify progress bars, badge errors, active/completed queues, and dynamic step counts."""
     assert build.render_progress_bar(50.0, width=10) == "█████░░░░░"
     assert build.status_badge("in_review") == "🔍 In Review"
+    with pytest.raises(ValueError, match="Invalid step status"):
+        build.status_badge("unknown")
     assert build.mode_badge("couch") == "🛋️ Couch"
     with pytest.raises(ValueError, match="Invalid step mode"):
         build.mode_badge("teleport")
@@ -378,7 +380,7 @@ def test_validate_book_outline_parts_and_chapters() -> None:
                     "id": "ch-dup",
                     "number": 4,
                     "slug": "04_beta_extra",
-                    "title": "T2",
+                    "title": "Instruction Set Architecture & Fixed-Width Binary Arithmetic",
                     "summary": "S2",
                     "steps": ["alpha-01"],
                 },
@@ -396,6 +398,7 @@ def test_validate_book_outline_parts_and_chapters() -> None:
         "Chapter 'steps' must be a non-empty list",
         "Missing or duplicate part id 'part-x'",
         "Missing or duplicate chapter id 'ch-dup'",
+        "Chapter title 'Instruction Set Architecture & Fixed-Width Binary Arithmetic' must be concise",
         "references unknown step 'ghost-01'",
         "belongs to 'alpha', not 'beta'",
         "assigned to multiple chapters",

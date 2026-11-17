@@ -1,17 +1,24 @@
-"""Unit tests for the golden RV32IM + Zicsr + CLINT + UART0 + Xapex MAC emulator.
+"""Unit tests for the golden Reduced Instruction Set Computer, Fifth Generation (RISC-V) emulator.
 
 Purpose:
-  Verify every instruction family, arithmetic/overflow edge case, CSR WARL mask,
-  CLINT timer and priority interrupts, UART0 FIFO handshake, Xapex MAC accumulator,
-  and alignment/bus fault trap in `systems/brain/sim/oracle.py`.
+  Verify every 32-bit Arithmetic Logic Unit (ALU) and multiply/divide instruction family (RV32IM),
+  control-and-status register Write-Any/Read-Legal (WARL) bitmask,
+  64-bit Core-Local Interruptor (CLINT) timer and priority interrupts,
+  Universal Asynchronous Receiver-Transmitter (UART0) First-In/First-Out (FIFO) queues,
+  on-chip Block RAM (BRAM), external Synchronous Dynamic RAM (SDRAM),
+  Quad Serial Peripheral Interface (QSPI) Execute-in-Place (XIP) flash,
+  Memory-Mapped Input/Output (MMIO) peripheral windows,
+  dual-16-bit saturating Multiply-Accumulate (Xapex MAC) accumulator,
+  and alignment or memory-access fault traps in `systems/brain/sim/oracle.py`.
 
 Usage:
   uv run --with pytest --with pytest-cov pytest -v \\
     --cov=systems/brain/sim --cov-fail-under=95 systems/brain/tb/test_oracle.py
 
 Invariants:
-  - Achieves >=95% line coverage across `systems/brain/sim/oracle.py`.
-  - Validates exact RISC-V trap causes, priority ordering (`MEIP > MSIP > MTIP`), and MMIO bounds.
+  - Achieves >=95% line and branch coverage across `systems/brain/sim/oracle.py`.
+  - Validates exact RISC-V trap causes, priority ordering (Machine External >
+    Machine Software > Machine Timer, or MEIP > MSIP > MTIP), and peripheral bounds.
 """
 
 from __future__ import annotations
@@ -92,6 +99,7 @@ from oracle import (  # noqa: E402 — sys.path adjusted for repo-local sim pack
     F3_MULHSU,
     F3_MULHU,
     F3_OR,
+    F3_PRIV,
     F3_REM,
     F3_REMU,
     F3_SB,
@@ -130,6 +138,7 @@ from oracle import (  # noqa: E402 — sys.path adjusted for repo-local sim pack
     MSTATUS_MIE_BIT,
     MSTATUS_MPIE_BIT,
     MSTATUS_MPP_M,
+    MTVEC_MODE_DIRECT,
     MTVEC_MODE_MASK,
     MTVEC_MODE_VECTORED,
     OPCODE_AUIPC,
@@ -181,87 +190,90 @@ INVALID_MISC_MEM_FUNCT3 = 2
 INVALID_FUNCT3 = 3
 INVALID_MAC_FUNCT3 = 7
 RESERVED_ZICSR_FUNCT3 = 4
+RESERVED_MTVEC_MODE_2 = 2
+RESERVED_MTVEC_MODE_3 = 3
 INVALID_FUNCT7 = 0x7F
-SYSTEM_UNKNOWN_PRIV = 0x7FF0_0073
+SYSTEM_UNKNOWN_PRIV = enc_i(0x7FF, 0, F3_PRIV, 0, OPCODE_SYSTEM)
 
 
 def pack_i16(lo: int, hi: int) -> int:
-    """Pack two signed 16-bit integers into one 32-bit word `[hi:lo]`."""
+    """Pack `lo` (Bits 15..0) and `hi` (Bits 31..16) signed 16-bit lanes into a 32-bit word."""
     return ((hi & 0xFFFF) << 16) | (lo & 0xFFFF)
 
 
 def _alu_i(funct3: int, rd: int, rs1: int, imm: int) -> int:
-    """Encode an `OP-IMM` instruction (`ADDI`/`SLTI`/`SLTIU`/`XORI`/`ORI`/`ANDI`)."""
+    """Encode an `OPCODE_OP_IMM` instruction (`addi`, `slti`, `sltiu`, `xori`, `ori`, `andi`)."""
     return enc_i(imm, rs1, funct3, rd, OPCODE_OP_IMM)
 
 
 def _shift_i(funct3: int, rd: int, rs1: int, shamt: int, funct7: int = F7_BASE) -> int:
-    """Encode a shift-immediate instruction (`SLLI`/`SRLI`/`SRAI`) with `funct7` mode bits."""
-    return enc_i(((funct7 & FUNCT7_MASK) << 5) | (shamt & REG_MASK), rs1, funct3, rd, OPCODE_OP_IMM)
+    """Encode a shift-immediate instruction (`slli`, `srli`, `srai`) with `funct7` mode bits."""
+    imm12 = ((funct7 & FUNCT7_MASK) << 5) | (shamt & REG_MASK)
+    return enc_i(imm12, rs1, funct3, rd, OPCODE_OP_IMM)
 
 
 def _alu_r(funct3: int, rd: int, rs1: int, rs2: int, funct7: int = F7_BASE) -> int:
-    """Encode an RV32I register-register ALU instruction (`ADD`/`SUB`/`SLL`/etc.)."""
+    """Encode an RV32I register-register arithmetic instruction (`add`, `sub`, `sll`, etc.)."""
     return enc_r(funct7, rs2, rs1, funct3, rd, OPCODE_OP)
 
 
 def _muldiv(funct3: int, rd: int, rs1: int, rs2: int) -> int:
-    """Encode an RV32M multiply/divide instruction (`MUL`/`MULH*`/`DIV*`/`REM*`)."""
+    """Encode an RV32M op (`mul`, `mulh`, `mulhsu`, `mulhu`, `div`, `divu`, `rem`, `remu`)."""
     return enc_r(F7_MULDIV, rs2, rs1, funct3, rd, OPCODE_OP)
 
 
 def _load(funct3: int, rd: int, rs1: int, offset: int) -> int:
-    """Encode a memory load instruction (`LB`/`LH`/`LW`/`LBU`/`LHU`)."""
+    """Encode a memory load instruction (`lb`, `lh`, `lw`, `lbu`, `lhu`)."""
     return enc_i(offset, rs1, funct3, rd, OPCODE_LOAD)
 
 
 def _store(funct3: int, rs2: int, rs1: int, offset: int) -> int:
-    """Encode a memory store instruction (`SB`/`SH`/`SW`)."""
+    """Encode a memory store instruction (`sb`, `sh`, `sw`)."""
     return enc_s(offset, rs2, rs1, funct3, OPCODE_STORE)
 
 
 def _branch(funct3: int, rs1: int, rs2: int, offset: int) -> int:
-    """Encode a B-type conditional branch (`BEQ`/`BNE`/`BLT`/`BGE`/`BLTU`/`BGEU`)."""
+    """Encode a B-type conditional branch (`beq`, `bne`, `blt`, `bge`, `bltu`, `bgeu`)."""
     return enc_b(offset, rs2, rs1, funct3, OPCODE_BRANCH)
 
 
 def _jal(rd: int, offset: int) -> int:
-    """Encode a J-type direct jump-and-link (`JAL`) instruction."""
+    """Encode a J-type direct jump-and-link (`jal`) instruction."""
     return enc_j(offset, rd, OPCODE_JAL)
 
 
 def _jalr(rd: int, rs1: int, offset: int) -> int:
-    """Encode an I-type indirect jump-and-link (`JALR`) instruction."""
+    """Encode an I-type indirect jump-and-link (`jalr`) instruction."""
     return enc_i(offset, rs1, F3_JALR, rd, OPCODE_JALR)
 
 
 def _lui(rd: int, upper_bits: int) -> int:
-    """Encode a `LUI` instruction with `Bits 31..12` pre-aligned."""
+    """Encode a `lui` instruction with `upper_bits` pre-aligned in Bits 31..12."""
     return enc_u(upper_bits, rd, OPCODE_LUI)
 
 
 def _auipc(rd: int, upper_bits: int) -> int:
-    """Encode an `AUIPC` instruction with `Bits 31..12` pre-aligned."""
+    """Encode an `auipc` instruction with `upper_bits` pre-aligned in Bits 31..12."""
     return enc_u(upper_bits, rd, OPCODE_AUIPC)
 
 
 def _csr_reg(funct3: int, rd: int, csr_addr: int, rs1: int) -> int:
-    """Encode a register-operand `Zicsr` instruction (`CSRRW`/`CSRRS`/`CSRRC`)."""
+    """Encode a register-operand Zicsr instruction (`csrrw`, `csrrs`, `csrrc`)."""
     return enc_i(csr_addr, rs1, funct3, rd, OPCODE_SYSTEM)
 
 
 def _csr_imm(funct3: int, rd: int, csr_addr: int, uimm: int) -> int:
-    """Encode an immediate-operand `Zicsr` instruction (`CSRRWI`/`CSRRSI`/`CSRRCI`)."""
+    """Encode an immediate-operand Zicsr instruction (`csrrwi`, `csrrsi`, `csrrci`)."""
     return enc_i(csr_addr, uimm, funct3, rd, OPCODE_SYSTEM)
 
 
 def _mac_op(funct3: int, rd: int, rs1: int = 0, rs2: int = 0) -> int:
-    """Encode an Xapex `custom-0` dual-int16 MAC instruction."""
+    """Encode an Xapex custom-0 dual-16-bit Multiply-Accumulate (`mac`) instruction."""
     return enc_mac(rd, rs1, rs2, funct3=funct3)
 
 
 def test_rv32i_arithmetic_shifts_and_x0() -> None:
-    """Verify RV32I ALU/immediate ops, barrel-shift sign rules, LUI/AUIPC, and hardwired x0."""
+    """Verify RV32I ALU/immediate ops, shift sign rules, `lui`/`auipc`, and hardwired `x0`."""
     cpu = RV32Oracle()
     r_neg5, r_three, r_mask = 1, 2, 3
     r_add, r_sub, r_slt, r_sltu = 4, 5, 6, 7
@@ -273,7 +285,7 @@ def test_rv32i_arithmetic_shifts_and_x0() -> None:
 
     auipc_insn = _auipc(rd=r_auipc, upper_bits=0x0000_1000)
     prog = [
-        _alu_i(F3_ADD_SUB, rd=0, rs1=0, imm=10),              # addi x0 discards write
+        _alu_i(F3_ADD_SUB, rd=0, rs1=0, imm=10),              # `addi` to `x0` discards write
         _alu_i(F3_ADD_SUB, rd=r_neg5, rs1=0, imm=-5),         # r_neg5 = -5
         _alu_i(F3_ADD_SUB, rd=r_three, rs1=0, imm=3),         # r_three = 3
         _alu_r(F3_ADD_SUB, rd=r_add, rs1=r_neg5, rs2=r_three),
@@ -325,7 +337,7 @@ def test_rv32i_arithmetic_shifts_and_x0() -> None:
 
 
 def test_alu_wraparound_large_shifts_and_sltiu_sign_extend() -> None:
-    """Verify 32-bit modulo arithmetic wrap, barrel-shift masking for rs2 >= 32, and SLTIU -1."""
+    """Verify 32-bit modulo wrap, shift-amount masking for `rs2 >= 32`, and `sltiu` `-1`."""
     cpu = RV32Oracle()
     r_max, r_seven, r_sh35, r_neg16, r_msb = 1, 2, 3, 4, 5
     r_addi_w, r_add_w, r_sub_w, r_sll, r_srl, r_sra, r_sltiu = 10, 11, 12, 13, 14, 15, 16
@@ -344,7 +356,7 @@ def test_alu_wraparound_large_shifts_and_sltiu_sign_extend() -> None:
             _alu_r(F3_SLL, rd=r_sll, rs1=r_seven, rs2=r_sh35),
             _alu_r(F3_SRL_SRA, rd=r_srl, rs1=r_msb, rs2=r_sh35),
             _alu_r(F3_SRL_SRA, rd=r_sra, rs1=r_neg16, rs2=r_sh35, funct7=F7_ALT),
-            _alu_i(F3_SLTU, rd=r_sltiu, rs1=r_seven, imm=-1),  # 7 < u32(-1) == 0xFFFF_FFFF -> 1
+            _alu_i(F3_SLTU, rd=r_sltiu, rs1=r_seven, imm=-1),  # 7 < u32(-1) -> 1
             INSN_EBREAK,
         ],
     )
@@ -358,7 +370,7 @@ def test_alu_wraparound_large_shifts_and_sltiu_sign_extend() -> None:
     assert cpu.regs[r_sra] == u32(-2)
     assert cpu.regs[r_sltiu] == 1
 
-    # AUIPC wraps cleanly modulo 2^32 when upper20 pushes past 0xFFFF_FFFF (BRAM + 0xF000_1000)
+    # `auipc` wraps cleanly modulo 2^32 when upper_bits pushes past 0xFFFF_FFFF
     cpu.reset(reset_pc=BRAM_BASE)
     cpu.load_words(BRAM_BASE, [_auipc(rd=r_auipc_wrap, upper_bits=0xF000_1000)])
     cpu.step()
@@ -366,7 +378,7 @@ def test_alu_wraparound_large_shifts_and_sltiu_sign_extend() -> None:
 
 
 def test_barrier_and_wait_nops() -> None:
-    """Verify FENCE, FENCE.I, and WFI retire cleanly as sequential no-ops advancing PC + 4."""
+    """Verify `fence`, `fence.i`, and `wfi` retire cleanly as sequential no-ops (`pc + 4`)."""
     cpu = RV32Oracle()
     cpu.load_words(BOOT_ROM_BASE, [INSN_FENCE, INSN_FENCE_I, INSN_WFI])
     for step_idx in range(3):
@@ -378,7 +390,7 @@ def test_barrier_and_wait_nops() -> None:
 
 
 def test_rv32m_multiplication_variants_and_truncation() -> None:
-    """Verify MUL low-word truncation plus MULH/MULHSU/MULHU upper-32-bit sign divergence."""
+    """Verify `mul` low-word truncation plus `mulh`/`mulhsu`/`mulhu` upper-word sign divergence."""
     cpu = RV32Oracle()
     r_neg7, r_three, r_neg1, r_msb, r_pow16 = 1, 2, 3, 4, 5
     r_mul_lo, r_mul_wrap, r_mulhu_carry = 10, 11, 12
@@ -401,7 +413,7 @@ def test_rv32m_multiplication_variants_and_truncation() -> None:
             _muldiv(F3_MULHU, rd=r_mulhu_7, rs1=r_neg7, rs2=r_three),       # 2
             _muldiv(F3_MULH, rd=r_mulh_edge, rs1=r_neg1, rs2=r_msb),        # (-1)*(-2^31) -> hi 0
             _muldiv(F3_MULHSU, rd=r_mulhsu_edge, rs1=r_neg1, rs2=r_msb),    # (-1)*(+2^31) -> hi -1
-            _muldiv(F3_MULHU, rd=r_mulhu_edge, rs1=r_neg1, rs2=r_msb),      # (2^32-1)*2^31 -> 0x7FFF_FFFF
+            _muldiv(F3_MULHU, rd=r_mulhu_edge, rs1=r_neg1, rs2=r_msb),      # -> 0x7FFF_FFFF
             INSN_EBREAK,
         ],
     )
@@ -419,7 +431,7 @@ def test_rv32m_multiplication_variants_and_truncation() -> None:
 
 
 def test_rv32m_division_truncation_overflow_and_div_by_zero() -> None:
-    """Verify truncation-toward-zero DIV/REM, unsigned MSB=1 DIVU/REMU, /0, and INT32_MIN/-1."""
+    """Verify truncating `div`/`rem`, unsigned `divu`/`remu`, divide-by-zero, and `INT32_MIN`."""
     cpu = RV32Oracle()
     r_pos7, r_neg7, r_pos3, r_neg3 = 1, 2, 3, 4
     r_imin, r_neg1, r_zero, r_big_u = 5, 6, 7, 8
@@ -434,7 +446,7 @@ def test_rv32m_division_truncation_overflow_and_div_by_zero() -> None:
     cpu.regs[r_imin] = u32(INT32_MIN)
     cpu.regs[r_neg1] = u32(-1)
     cpu.regs[r_zero] = 0
-    cpu.regs[r_big_u] = 0x8000_0005                       # Bit 31 set: tests unsigned DIVU/REMU
+    cpu.regs[r_big_u] = 0x8000_0005                       # Bit 31 set: tests unsigned `divu`/`remu`
 
     cpu.load_words(
         BOOT_ROM_BASE,
@@ -475,7 +487,7 @@ def test_rv32m_division_truncation_overflow_and_div_by_zero() -> None:
 
 
 def test_conditional_branches_and_subroutine_calls() -> None:
-    """Verify all six branch conditions (taken & untaken) and JAL/JALR subroutine linkage."""
+    """Verify all six branch conditions (taken and untaken) and `jal`/`jalr` subroutine linkage."""
     cpu = RV32Oracle()
     r_sum, r_i, r_limit, r_link = 1, 2, 3, 5
     r_neg1, r_pos1 = 10, 11
@@ -488,9 +500,9 @@ def test_conditional_branches_and_subroutine_calls() -> None:
         _alu_r(F3_ADD_SUB, rd=r_sum, rs1=r_sum, rs2=r_i),  # 0x0C: sum += i
         _alu_i(F3_ADD_SUB, rd=r_i, rs1=r_i, imm=1),      # 0x10: i += 1
         _branch(F3_BLT, rs1=r_i, rs2=r_limit, offset=-8),  # 0x14: loop -> 0x0C while i < 6
-        _branch(F3_BEQ, rs1=r_i, rs2=r_limit, offset=8),   # 0x18: beq 6, 6 (taken -> 0x20)
+        _branch(F3_BEQ, rs1=r_i, rs2=r_limit, offset=8),   # 0x18: `beq` 6, 6 (taken -> 0x20)
         INSN_EBREAK,                                     # 0x1C: skipped
-        _branch(F3_BNE, rs1=r_i, rs2=r_limit, offset=8),   # 0x20: bne 6, 6 (untaken -> 0x24)
+        _branch(F3_BNE, rs1=r_i, rs2=r_limit, offset=8),   # 0x20: `bne` 6, 6 (untaken -> 0x24)
         _branch(F3_BGE, rs1=r_neg1, rs2=r_pos1, offset=8),   # 0x24: untaken
         _branch(F3_BLTU, rs1=r_neg1, rs2=r_pos1, offset=8),  # 0x28: untaken
         _branch(F3_BGEU, rs1=r_pos1, rs2=r_neg1, offset=8),  # 0x2C: untaken
@@ -513,7 +525,7 @@ def test_conditional_branches_and_subroutine_calls() -> None:
 
 
 def test_large_branch_and_jal_immediate_encodings() -> None:
-    """Exercise upper scrambled immediate bits (B-type Bits 11..12; J-type Bits 11 & 19..12)."""
+    """Exercise upper scrambled immediate bits (B-type Bits 12..11; J-type Bits 11 and 19..12)."""
     cpu = RV32Oracle()
     r_link_fwd, r_link_back, r_ok = 1, 2, 3
     # 1. BRAM (64 KB): forward B-type +2052 exercises Bit 11; negative -2048 hits Bit 12
@@ -528,13 +540,16 @@ def test_large_branch_and_jal_immediate_encodings() -> None:
     assert cpu.halted
     assert cpu.mepc == back_landing_pc
 
-    # 2. SDRAM (32 MB): forward +0x2_2800 & backward -0x2_27FC hit Bits 19..12, Bit 11, and Bit 20
+    # 2. SDRAM (32 MB): +0x2_2800 and -0x2_27FC exercise Bits 19..12, Bit 11, and Bit 20
     sdram_start = SDRAM_BASE + 0x0010_0000
     jal_target = sdram_start + 0x0002_2800
     cpu.reset(reset_pc=sdram_start)
     cpu.load_words(sdram_start, [_jal(rd=r_link_fwd, offset=0x0002_2800)])
     cpu.load_words(jal_target, [_jal(rd=r_link_back, offset=INSN_SIZE_BYTES - 0x0002_2800)])
-    cpu.load_words(sdram_start + INSN_SIZE_BYTES, [_alu_i(F3_ADD_SUB, rd=r_ok, rs1=0, imm=99), INSN_EBREAK])
+    cpu.load_words(
+        sdram_start + INSN_SIZE_BYTES,
+        [_alu_i(F3_ADD_SUB, rd=r_ok, rs1=0, imm=99), INSN_EBREAK],
+    )
     cpu.run(max_steps=4)
     assert cpu.halted
     assert cpu.mepc == sdram_start + 2 * INSN_SIZE_BYTES
@@ -544,7 +559,7 @@ def test_large_branch_and_jal_immediate_encodings() -> None:
 
 
 def test_negative_jal_jalr_offsets() -> None:
-    """Verify negative JAL and JALR byte offsets preserve return addresses cleanly."""
+    """Verify negative `jal` and `jalr` byte offsets preserve return addresses cleanly."""
     cpu = RV32Oracle()
     r_fwd, r_back = 6, 7
     cpu.reset(reset_pc=BRAM_BASE)
@@ -563,17 +578,18 @@ def test_negative_jal_jalr_offsets() -> None:
 
 
 def test_load_bytes_and_stop_on_pc() -> None:
-    """Verify host load_bytes image loading and exact run(stop_on_pc=...) termination."""
+    """Verify host `load_bytes` image loading and exact `run(stop_on_pc=...)` termination."""
     cpu = RV32Oracle()
     r_out = 10
     cpu.reset(reset_pc=BRAM_BASE)
-    cpu.load_bytes(BRAM_BASE, _alu_i(F3_ADD_SUB, rd=r_out, rs1=0, imm=37).to_bytes(4, "little"))
+    insn_bytes = _alu_i(F3_ADD_SUB, rd=r_out, rs1=0, imm=37).to_bytes(4, "little")
+    cpu.load_bytes(BRAM_BASE, insn_bytes)
     cpu.run(stop_on_pc=BRAM_BASE + INSN_SIZE_BYTES)
     assert cpu.regs[r_out] == 37
 
 
 def test_memory_loads_stores_and_mmio_stub() -> None:
-    """Verify little-endian byte/half/word loads & stores plus all 5 reserved MMIO stub pages."""
+    """Verify little-endian byte/half/word loads and stores plus all 5 reserved MMIO stub pages."""
     cpu = RV32Oracle()
     r_bram, r_val, r_sdram, r_stub, r_stub_hi = 1, 2, 3, 10, 12
     r_lb, r_lbu, r_lh, r_lhu, r_sh_lhu, r_mixed_lw, r_stub_lw, r_stub_lb, r_stub_lh = (
@@ -585,7 +601,7 @@ def test_memory_loads_stores_and_mmio_stub() -> None:
     cpu.regs[r_stub] = MMIO_STUB_BASE
     cpu.regs[r_stub_hi] = MMIO_STUB_BASE + 0x4_0000     # 5th stub page (0x8006_0000)
 
-    # Little-endian byte layout at SDRAM+0x1000: SW 0 -> SH 0x80FF at +2 -> SB 0xFF at +1 => 0x80FF_FF00
+    # Little-endian bytes at SDRAM+0x1000: `sw` 0 -> `sh` 0x80FF at +2 -> `sb` 0xFF at +1
     prog = [
         _store(F3_SW, rs2=r_val, rs1=r_bram, offset=-8),
         _load(F3_LB, rd=r_lb, rs1=r_bram, offset=-8),
@@ -618,7 +634,7 @@ def test_memory_loads_stores_and_mmio_stub() -> None:
     assert cpu.regs[r_stub_lb] == UINT32_MAX
     assert cpu.regs[r_stub_lh] == 0xFFFF_80FF
 
-    # Verify middle stub pages (SPI0/CAN0/CAN1/SYNC) retain data independently
+    # Verify middle reserved peripheral stub pages retain 32-bit words independently
     for page_offset in (0x1_0000, 0x2_0000, 0x3_0000):
         cpu.write_u32(MMIO_STUB_BASE + page_offset, 0xA5A5_0000 | page_offset)
         assert cpu.read_u32(MMIO_STUB_BASE + page_offset) == (0xA5A5_0000 | page_offset)
@@ -628,7 +644,7 @@ def test_memory_loads_stores_and_mmio_stub() -> None:
 
 
 def test_memory_region_bounds_and_qspi_xip_exec() -> None:
-    """Verify valid region end words, unmapped boundary faults, QSPI XIP exec, and loader bounds."""
+    """Verify region end words, unmapped boundary faults, QSPI XIP fetch, and loader bounds."""
     cpu = RV32Oracle()
     r_qspi = 5
     for base, size in [
@@ -654,7 +670,7 @@ def test_memory_region_bounds_and_qspi_xip_exec() -> None:
         with pytest.raises(MemoryAccessFault):
             cpu.read_u32(first_unmapped)
 
-    # Read and execute directly from QSPI NOR Flash XIP window at its last valid word
+    # Read and execute directly from the external QSPI XIP flash window at its last valid word
     qspi_last_word = QSPI_BASE + QSPI_SIZE - INSN_SIZE_BYTES
     cpu.reset(reset_pc=qspi_last_word)
     cpu.load_words(qspi_last_word, [_alu_i(F3_ADD_SUB, rd=r_qspi, rs1=0, imm=77)])
@@ -668,7 +684,7 @@ def test_memory_region_bounds_and_qspi_xip_exec() -> None:
 
 
 def test_load_store_alignment_and_ro_traps() -> None:
-    """Verify misalignment/RO/unmapped traps preserve rd & minstret and set exact mtval/mepc."""
+    """Verify alignment, read-only, and unmapped traps keep `rd`/`minstret` and set `mtval`."""
     cpu = RV32Oracle()
     r_addr, r_data = 1, 2
     cases = [
@@ -679,7 +695,11 @@ def test_load_store_alignment_and_ro_traps() -> None:
         (_load(F3_LW, rd=r_data, rs1=r_addr, offset=0), UNMAPPED_BUS_ADDR, CAUSE_LOAD_ACCESS_FAULT),
         (_store(F3_SW, rs2=r_data, rs1=r_addr, offset=0), BOOT_ROM_BASE, CAUSE_STORE_ACCESS_FAULT),
         (_store(F3_SW, rs2=r_data, rs1=r_addr, offset=0), QSPI_BASE, CAUSE_STORE_ACCESS_FAULT),
-        (_store(F3_SW, rs2=r_data, rs1=r_addr, offset=0), UNMAPPED_BUS_ADDR, CAUSE_STORE_ACCESS_FAULT),
+        (
+            _store(F3_SW, rs2=r_data, rs1=r_addr, offset=0),
+            UNMAPPED_BUS_ADDR,
+            CAUSE_STORE_ACCESS_FAULT,
+        ),
     ]
     for insn, fault_addr, expected_cause in cases:
         cpu.reset(reset_pc=BOOT_ROM_BASE)
@@ -698,7 +718,7 @@ def test_load_store_alignment_and_ro_traps() -> None:
 
 
 def test_step_trace_store_load_and_misalign_payloads() -> None:
-    """Verify StepTrace fields across byte store, sign-extended load, and misaligned trap."""
+    """Verify `StepTrace` fields across byte store, sign-extended load, and misaligned trap."""
     cpu = RV32Oracle()
     r_base, r_val, r_lb, r_lh = 1, 2, 3, 4
     cpu.regs[r_base] = BRAM_BASE
@@ -723,12 +743,12 @@ def test_step_trace_store_load_and_misalign_payloads() -> None:
 
 
 def test_jalr_bit0_snap_and_untaken_misaligned_branch() -> None:
-    """Verify JALR Bit-0 snap with rd == rs1 and untaken misaligned branch skipping trap."""
+    """Verify `jalr` Bit-0 snap with `rd == rs1` and untaken misaligned branch skipping trap."""
     cpu = RV32Oracle()
     r_link_ptr = 2
     cpu.regs[r_link_ptr] = BRAM_BASE
     cpu.load_words(BOOT_ROM_BASE, [_jalr(rd=r_link_ptr, rs1=r_link_ptr, offset=1)])
-    # Untaken branch with misaligned offset=2 must not trap because alignment applies only when taken
+    # Untaken branch with misaligned offset=2 must not trap because alignment applies when taken
     cpu.load_words(BRAM_BASE, [_branch(F3_BNE, rs1=0, rs2=0, offset=2), INSN_EBREAK])
     traces = cpu.run(max_steps=2, stop_on_ebreak=False)
     assert len(traces) == 2
@@ -738,7 +758,7 @@ def test_jalr_bit0_snap_and_untaken_misaligned_branch() -> None:
 
 
 def test_sparse_memory_4kb_page_crossing() -> None:
-    """Verify SparseMemory multi-byte reads across a 4 KB page boundary."""
+    """Verify `SparseMemory` multi-byte reads across a 4 KB chunk boundary."""
     cpu = RV32Oracle()
     r_ptr, r_lo, r_hi = 1, 5, 6
     cross_addr = BRAM_BASE + SparseMemory.PAGE_SIZE - 2
@@ -759,7 +779,7 @@ def test_sparse_memory_4kb_page_crossing() -> None:
 
 
 def test_clint_timer_interrupt_and_ecall_handler() -> None:
-    """Verify synchronous ECALL + asynchronous CLINT timer IRQ inside a shared M-mode handler."""
+    """Verify synchronous `ecall` and CLINT timer interrupt inside a shared M-mode handler."""
     cpu = RV32Oracle()
     handler_addr = BRAM_BASE
     r_done, r_timer_cause, r_clint, r_clint_max = 20, 21, 22, 23
@@ -768,7 +788,7 @@ def test_clint_timer_interrupt_and_ecall_handler() -> None:
     cpu.regs[r_clint] = CLINT_BASE
     cpu.regs[r_clint_max] = UINT32_MAX
 
-    # Shared handler dispatches on mcause: timer branch skips 7 sync insns (8 * 4 = 32 bytes incl. BEQ)
+    # Shared handler dispatches on `mcause`: timer branch skips 7 sync insns (8 * 4 = 32 bytes)
     timer_branch_offset = 8 * INSN_SIZE_BYTES
     handler = [
         _csr_reg(F3_CSRRS, rd=r_cause, csr_addr=CSR_MCAUSE, rs1=0),
@@ -803,7 +823,7 @@ def test_clint_timer_interrupt_and_ecall_handler() -> None:
         _csr_reg(F3_CSRRW, rd=0, csr_addr=CSR_MSTATUS, rs1=r_mstatus),
         INSN_ECALL,
         _alu_i(F3_ADD_SUB, rd=r_spins, rs1=r_spins, imm=1),        # spin loop body
-        _branch(F3_BNE, rs1=r_done, rs2=r_target, offset=-INSN_SIZE_BYTES),  # loop while r_done != r_target
+        _branch(F3_BNE, rs1=r_done, rs2=r_target, offset=-INSN_SIZE_BYTES),  # until r_done set
         INSN_EBREAK,
     ]
     cpu.load_words(BOOT_ROM_BASE, main_prog)
@@ -811,7 +831,7 @@ def test_clint_timer_interrupt_and_ecall_handler() -> None:
 
     assert cpu.halted
     assert cpu.mscratch == 1
-    # 5 setup + 1 ECALL + 9 ECALL-ISR = 15 cycles before loop; timer fires at mtime=30 (7 full iters + exit pass)
+    # 5 setup + 1 `ecall` + 9 trap-handler steps = 15 cycles before loop; timer fires at mtime=30
     assert cpu.regs[r_spins] == 8
     assert cpu.regs[r_done] == 0x123
     assert any(t.trap_cause == CAUSE_ECALL_M for t in traces)
@@ -820,7 +840,7 @@ def test_clint_timer_interrupt_and_ecall_handler() -> None:
 
 
 def test_vectored_mtvec_dispatch_and_sync_ecall_fallback() -> None:
-    """Verify vectored mtvec interrupt slot jumps, CSR trap entry fields, and sync ECALL fallback."""
+    """Verify vectored `mtvec` interrupt slots, trap CSRs, and synchronous `ecall` base jump."""
     cpu = RV32Oracle()
     for irq_bit, cause in [
         (MIE_MTIE_BIT, CAUSE_INT_M_TIMER),
@@ -844,7 +864,7 @@ def test_vectored_mtvec_dispatch_and_sync_ecall_fallback() -> None:
         assert cpu.mtval == 0
         assert cpu.mstatus == (MSTATUS_MPIE_BIT | MSTATUS_MPP_M)
 
-    # Vectored mode (MODE=1): synchronous ECALL still jumps to base (not base + 4 * 11)
+    # Vectored mode (`MTVEC_MODE_VECTORED`): synchronous `ecall` still jumps to base
     cpu.reset(reset_pc=BOOT_ROM_BASE)
     cpu.mtvec = BRAM_BASE | MTVEC_MODE_VECTORED
     cpu.load_words(BOOT_ROM_BASE, [INSN_ECALL])
@@ -857,7 +877,7 @@ def test_vectored_mtvec_dispatch_and_sync_ecall_fallback() -> None:
 
 
 def test_interrupt_masking_and_64bit_timer_threshold() -> None:
-    """Verify mstatus.MIE / mie masking, 64-bit Bit-63 threshold, and EBREAK preemption + MRET."""
+    """Verify `MSTATUS_MIE_BIT`/`mie` masking, 64-bit threshold, and `ebreak` + `mret`."""
     cpu = RV32Oracle()
     r_out, r_ok = 10, 1
     for mstatus_val, mie_val in [(0, MIE_MTIE_BIT), (MSTATUS_MIE_BIT, 0)]:
@@ -870,7 +890,7 @@ def test_interrupt_masking_and_64bit_timer_threshold() -> None:
         assert tr_suppressed.trap_cause is None
         assert cpu.regs[r_out] == 42
 
-    # Exact 64-bit Bit-63 threshold: timer preempts EBREAK pre-fetch, ISR MRETs back to run EBREAK
+    # Exact 64-bit Bit-63 threshold: timer preempts `ebreak` pre-fetch, handler runs `mret` back
     cpu.reset(reset_pc=BOOT_ROM_BASE)
     cpu.mtvec = BRAM_BASE
     cpu.mstatus = MSTATUS_MIE_BIT
@@ -887,17 +907,17 @@ def test_interrupt_masking_and_64bit_timer_threshold() -> None:
     )
     assert cpu.step().trap_cause is None                 # mtime reaches mtimecmp - 1 (< mtimecmp)
     assert cpu.regs[r_ok] == 7
-    tr_irq = cpu.step()                                  # mtime hits mtimecmp -> preempts EBREAK!
+    tr_irq = cpu.step()                                  # mtime hits mtimecmp -> preempts `ebreak`
     assert tr_irq.trap_cause == CAUSE_INT_M_TIMER
     assert not cpu.halted
     assert cpu.mepc == BOOT_ROM_BASE + INSN_SIZE_BYTES
-    cpu.run(max_steps=5)                                 # clears timer, MRETs to EBREAK, halts
+    cpu.run(max_steps=5)                                 # clears timer, `mret` to `ebreak`, halts
     assert cpu.halted
     assert cpu.mcause == CAUSE_BREAKPOINT
 
 
 def test_interrupt_priority_and_masked_fallthrough() -> None:
-    """Verify MEIP > MSIP > MTIP priority ordering and masked higher-IRQ fallthrough via CSR_MIP."""
+    """Verify External > Software > Timer priority and masked fallthrough via `CSR_MIP`."""
     r_mip, r_mie, r_mstatus = 1, 2, 3
     for mie_mask, expected_cause in [
         (MIE_MEIE_BIT | MIE_MSIE_BIT | MIE_MTIE_BIT, CAUSE_INT_M_EXT),
@@ -927,7 +947,7 @@ def test_interrupt_priority_and_masked_fallthrough() -> None:
 
 
 def test_zicsr_immediate_variants_and_rd_eq_rs1_swap() -> None:
-    """Verify CSRRWI/CSRRSI/CSRRCI, safe uimm=0/rs1=0 RO queries, and atomic CSRRW rd == rs1."""
+    """Verify `csrrwi`/`csrrsi`/`csrrci`, `uimm=0` read-only queries, and `csrrw` `rd == rs1`."""
     cpu = RV32Oracle()
     r_swap, r_pat, r_cwr, r_csi, r_cci, r_ro_i, r_ro_c, r_cause = 1, 2, 3, 4, 5, 6, 8, 7
     cpu.regs[r_swap] = 0xAA
@@ -935,12 +955,12 @@ def test_zicsr_immediate_variants_and_rd_eq_rs1_swap() -> None:
     prog = [
         _csr_reg(F3_CSRRW, rd=0, csr_addr=CSR_MCAUSE, rs1=r_pat),
         _csr_reg(F3_CSRRS, rd=r_cause, csr_addr=CSR_MCAUSE, rs1=0),
-        _csr_reg(F3_CSRRW, rd=r_swap, csr_addr=CSR_MSCRATCH, rs1=r_swap),   # swap preserves x1 pre-write
+        _csr_reg(F3_CSRRW, rd=r_swap, csr_addr=CSR_MSCRATCH, rs1=r_swap),  # preserves pre-write x1
         _csr_imm(F3_CSRRWI, rd=r_cwr, csr_addr=CSR_MSCRATCH, uimm=0x0A),
         _csr_imm(F3_CSRRSI, rd=r_csi, csr_addr=CSR_MSCRATCH, uimm=0x05),
         _csr_imm(F3_CSRRCI, rd=r_cci, csr_addr=CSR_MSCRATCH, uimm=0x03),
-        _csr_imm(F3_CSRRSI, rd=r_ro_i, csr_addr=CSR_MISA, uimm=0),         # uimm=0 safely reads misa
-        _csr_imm(F3_CSRRCI, rd=r_ro_c, csr_addr=CSR_MISA, uimm=0),         # uimm=0 CSRRCI also safe
+        _csr_imm(F3_CSRRSI, rd=r_ro_i, csr_addr=CSR_MISA, uimm=0),         # uimm=0 reads `misa`
+        _csr_imm(F3_CSRRCI, rd=r_ro_c, csr_addr=CSR_MISA, uimm=0),         # `csrrci` uimm=0 safe
         INSN_EBREAK,
     ]
     cpu.load_words(BOOT_ROM_BASE, prog)
@@ -957,14 +977,14 @@ def test_zicsr_immediate_variants_and_rd_eq_rs1_swap() -> None:
 
 
 def test_zicsr_csrrc_mtval_mip_and_counters() -> None:
-    """Verify CSRRC, mtval/mip CSR access, exact mcycle cadence, and minstret suppression."""
+    """Verify `csrrc`, `mtval`/`mip` access, exact `mcycle` cadence, and `minstret` suppression."""
     cpu = RV32Oracle()
     r_0f, r_03, r_csrrc, r_mtval, r_mip, r_cyc_lo, r_cyc_hi, r_ret_lo, r_ret_hi, r_ret_wi = (
         1, 2, 10, 11, 12, 13, 14, 15, 16, 17
     )
     cpu.regs[r_0f] = 0x0F
     cpu.regs[r_03] = 0x03
-    # Index 6 sets mcycle=0x0F; index 7 ticks to 0x10; index 8 reads pre-retire mcycle (0x11)
+    # Index 6 sets `mcycle=0x0F`; index 7 ticks to 0x10; index 8 reads pre-retire `mcycle` (0x11)
     prog = [
         _csr_reg(F3_CSRRW, rd=0, csr_addr=CSR_MSCRATCH, rs1=r_0f),
         _csr_reg(F3_CSRRC, rd=r_csrrc, csr_addr=CSR_MSCRATCH, rs1=r_03),
@@ -999,14 +1019,14 @@ def test_zicsr_csrrc_mtval_mip_and_counters() -> None:
 
 
 def test_clint_lo_hi_register_reads_and_writes() -> None:
-    """Verify 32-bit CLINT mtime/mtimecmp LO/HI R/W, mtime tick advance, and unused offset reads."""
+    """Verify 32-bit CLINT `mtime`/`mtimecmp` reads/writes, tick advance, and unused offsets."""
     cpu = RV32Oracle()
     r_0f, r_03, r_clint, r_mt_lo, r_mt_hi, r_cmp_lo, r_cmp_hi = 1, 2, 3, 18, 19, 20, 21
     cpu.regs[r_0f] = 0x0F
     cpu.regs[r_03] = 0x03
     cpu.regs[r_clint] = CLINT_BASE
     cpu.mtimecmp = 0x1122_3344_5566_7788
-    # Store MTIME_LO=0x0F, then store MTIME_HI ticks mtime->0x10, then load MTIME_LO ticks->0x11
+    # Store `CLINT_MTIME_LO=0x0F`, store `CLINT_MTIME_HI` ticks to 0x10, load ticks to 0x11
     prog = [
         _store(F3_SW, rs2=r_0f, rs1=r_clint, offset=CLINT_MTIME_LO),
         _store(F3_SW, rs2=r_03, rs1=r_clint, offset=CLINT_MTIME_HI),
@@ -1031,7 +1051,7 @@ def test_clint_lo_hi_register_reads_and_writes() -> None:
 
 
 def test_counter_carry_and_64bit_rollover() -> None:
-    """Verify 32-bit low->high carry on mtime/mcycle/minstret and full 64-bit MASK64 rollover."""
+    """Verify 32-bit low-to-high carry on `mtime`/`mcycle`/`minstret` and `MASK64` rollover."""
     cpu = RV32Oracle()
     r_tmp = 1
     cpu.mtime = UINT32_MAX
@@ -1057,17 +1077,17 @@ def test_counter_carry_and_64bit_rollover() -> None:
 
 
 def test_csr_warl_masks_and_mret_stack() -> None:
-    """Verify CSR WARL masking, mtvec mode snapping, EBREAK MPIE push, and MRET MPIE->MIE pop."""
+    """Verify CSR WARL masking, `mtvec` mode snapping, `ebreak` push, and `mret` pop."""
     cpu = RV32Oracle()
     r_all1, r_mode2, r_mode3, r_mip_rd = 1, 2, 3, 10
     cpu.regs[r_all1] = UINT32_MAX
-    cpu.regs[r_mode2] = BRAM_BASE | 2                    # Reserved mtvec.mode=2 snaps to 0
-    cpu.regs[r_mode3] = BRAM_BASE | 3                    # Reserved mtvec.mode=3 snaps to 0
+    cpu.regs[r_mode2] = BRAM_BASE | RESERVED_MTVEC_MODE_2
+    cpu.regs[r_mode3] = BRAM_BASE | RESERVED_MTVEC_MODE_3
     prog = [
         _csr_reg(F3_CSRRW, rd=0, csr_addr=CSR_MSTATUS, rs1=r_all1),
         _csr_reg(F3_CSRRW, rd=0, csr_addr=CSR_MIE, rs1=r_all1),
         _csr_reg(F3_CSRRW, rd=0, csr_addr=CSR_MEPC, rs1=r_all1),
-        INSN_EBREAK,                                     # index 3: stops run(), pushes MIE->MPIE
+        INSN_EBREAK,                                     # index 3: stops `run()`, pushes MIE->MPIE
         _csr_reg(F3_CSRRW, rd=0, csr_addr=CSR_MIP, rs1=r_all1),
         _csr_reg(F3_CSRRS, rd=r_mip_rd, csr_addr=CSR_MIP, rs1=0),
         _csr_reg(F3_CSRRW, rd=0, csr_addr=CSR_MTVEC, rs1=r_mode2),
@@ -1087,7 +1107,7 @@ def test_csr_warl_masks_and_mret_stack() -> None:
     cpu.pc = post_ebreak_pc
     cpu.run(max_steps=4, stop_on_ebreak=False)
     assert cpu.regs[r_mip_rd] == (MIE_MSIE_BIT | MIE_MEIE_BIT)
-    assert (cpu.mtvec & MTVEC_MODE_MASK) == 0
+    assert (cpu.mtvec & MTVEC_MODE_MASK) == MTVEC_MODE_DIRECT
 
     cpu.reset(reset_pc=BOOT_ROM_BASE)
     cpu.mstatus = MSTATUS_MIE_BIT | MSTATUS_MPP_M
@@ -1099,7 +1119,7 @@ def test_csr_warl_masks_and_mret_stack() -> None:
 
 
 def test_ro_and_unimplemented_csr_trap_rules() -> None:
-    """Verify RO CSRs allow rs1=x0 reads and trap on non-zero rs1 writes (even if reg == 0)."""
+    """Verify read-only CSRs allow `rs1=0` reads and trap on non-zero `rs1` writes."""
     cpu = RV32Oracle()
     r_wr_src, r_zero_reg, r_ro_dst = 1, 2, 10
     for ro_csr in (CSR_MISA, CSR_MVENDORID, CSR_MARCHID, CSR_MIMPID, CSR_MHARTID):
@@ -1133,7 +1153,7 @@ def test_ro_and_unimplemented_csr_trap_rules() -> None:
 
 
 def test_uart0_console_tx_rx_and_mmio_bounds() -> None:
-    """Verify UART0 TX/RX FIFOs, SW byte mask, LB sign-ext, lw x0 pop, STATUS RO, and BAUDDIV."""
+    """Verify UART0 queues, `sw` mask, `lb` sign-extend, `lw` `x0` pop, status, and baud divider."""
     tx_seen: list[int] = []
     cpu = RV32Oracle(uart_tx_callback=tx_seen.append)
     cpu.push_uart_rx(bytes([ord("O"), ord("K"), ord("Z"), 0x80, ord("Q")]))
@@ -1154,14 +1174,14 @@ def test_uart0_console_tx_rx_and_mmio_bounds() -> None:
         _store(F3_SW, rs2=r_sw_a, rs1=r_uart, offset=UART0_TXDATA),
         _store(F3_SW, rs2=r_baud_set, rs1=r_uart, offset=UART0_BAUDDIV),
         _load(F3_LW, rd=r_baud_rd, rs1=r_uart, offset=UART0_BAUDDIV),
-        _store(F3_SW, rs2=r_baud_set, rs1=r_uart, offset=UART0_STATUS),  # RO ignored
+        _store(F3_SW, rs2=r_baud_set, rs1=r_uart, offset=UART0_STATUS),  # read-only ignored
         _load(F3_LW, rd=r_stat_pre, rs1=r_uart, offset=UART0_STATUS),
         _load(F3_LW, rd=r_rx1, rs1=r_uart, offset=UART0_RXDATA),
         _load(F3_LW, rd=r_rx2, rs1=r_uart, offset=UART0_RXDATA),
         _load(F3_LBU, rd=r_rx3, rs1=r_uart, offset=UART0_RXDATA),
         _load(F3_LB, rd=r_rx_lb, rs1=r_uart, offset=UART0_RXDATA),       # 0x80 -> 0xFFFF_FF80
         _load(F3_LW, rd=0, rs1=r_uart, offset=UART0_RXDATA),             # pops 'Q' even if rd==x0
-        _load(F3_LW, rd=r_tx_rd, rs1=r_uart, offset=UART0_TXDATA),       # WO TXDATA reads 0
+        _load(F3_LW, rd=r_tx_rd, rs1=r_uart, offset=UART0_TXDATA),       # write-only TXDATA -> 0
         _load(F3_LW, rd=r_stat_post, rs1=r_uart, offset=UART0_STATUS),
         INSN_EBREAK,
     ]
@@ -1187,10 +1207,13 @@ def test_uart0_console_tx_rx_and_mmio_bounds() -> None:
     cpu.write_u32(UART0_BASE + UNMAPPED_MMIO_OFFSET, 0x1234)
     assert cpu.read_u32(UART0_BASE + UNMAPPED_MMIO_OFFSET) == 0
     assert cpu.read_u32(UART0_BASE + UART0_RXDATA) == 0
+    no_cb_cpu = RV32Oracle()
+    no_cb_cpu.write_u32(UART0_BASE + UART0_TXDATA, ord("!"))
+    assert no_cb_cpu.read_uart_tx() == b"!"
 
 
 def test_bus_invalid_widths_and_sparse_region_faults() -> None:
-    """Verify host bus_read/bus_write and SparseMemory reject bad widths or unmapped addresses."""
+    """Verify host `bus_read`/`bus_write` and `SparseMemory` reject bad widths or addresses."""
     cpu = RV32Oracle()
     for bad_addr, width in [
         (CLINT_BASE + 1, 4),
@@ -1213,21 +1236,30 @@ def test_bus_invalid_widths_and_sparse_region_faults() -> None:
 
 
 def test_cpu_mmio_width_traps_and_non_executable_fetches() -> None:
-    """Verify CPU traps on bad CLINT/UART widths and refuses to execute CLINT/UART/stub/unmapped."""
+    """Verify CPU traps on bad CLINT/UART0 widths and refuses non-executable instruction fetches."""
     cpu = RV32Oracle()
     r_ptr, r_dst = 1, 2
-    for bad_insn, ptr, expected_cause in [
+    bad_mmio_cases = [
         (_load(F3_LB, rd=r_dst, rs1=r_ptr, offset=0), CLINT_BASE, CAUSE_LOAD_ACCESS_FAULT),
         (_load(F3_LH, rd=r_dst, rs1=r_ptr, offset=0), UART0_BASE, CAUSE_LOAD_ACCESS_FAULT),
-        (_store(F3_SB, rs2=0, rs1=r_ptr, offset=UART0_STATUS), UART0_BASE, CAUSE_STORE_ACCESS_FAULT),
-        (_store(F3_SB, rs2=0, rs1=r_ptr, offset=UART0_BAUDDIV), UART0_BASE, CAUSE_STORE_ACCESS_FAULT),
-    ]:
+        (
+            _store(F3_SB, rs2=0, rs1=r_ptr, offset=UART0_STATUS),
+            UART0_BASE,
+            CAUSE_STORE_ACCESS_FAULT,
+        ),
+        (
+            _store(F3_SB, rs2=0, rs1=r_ptr, offset=UART0_BAUDDIV),
+            UART0_BASE,
+            CAUSE_STORE_ACCESS_FAULT,
+        ),
+    ]
+    for bad_insn, ptr, expected_cause in bad_mmio_cases:
         cpu.reset(reset_pc=BOOT_ROM_BASE)
         cpu.regs[r_ptr] = ptr
         cpu.load_words(BOOT_ROM_BASE, [bad_insn])
         assert cpu.step().trap_cause == expected_cause
 
-    # Fetching from UART0_RXDATA must trap WITHOUT popping queued RX FIFO
+    # Fetching from `UART0_RXDATA` must trap WITHOUT popping queued RX FIFO
     cpu.reset(reset_pc=UART0_BASE + UART0_RXDATA)
     cpu.push_uart_rx("A")
     assert cpu.step().trap_cause == CAUSE_INSN_ACCESS_FAULT
@@ -1239,7 +1271,7 @@ def test_cpu_mmio_width_traps_and_non_executable_fetches() -> None:
 
 
 def test_xapex_custom_mac_dot_product_and_saturation() -> None:
-    """Verify Xapex dual-int16 SIMD MAC ops (mac, mac.clr, mac.set, mac.get), x0 wb, and +/- sat."""
+    """Verify Xapex `mac`, `mac.clr`, `mac.set`, and `mac.get`, `x0` writeback, and saturation."""
     cpu = RV32Oracle()
     r_bias, r_p1_a, r_p1_b, r_p2_a, r_p2_b, r_max, r_min = 1, 2, 3, 4, 5, 6, 7
     r_set, r_acc1, r_acc2, r_get, r_hi, r_pos_sat, r_neg_sat, r_neg_stay = (
@@ -1254,16 +1286,16 @@ def test_xapex_custom_mac_dot_product_and_saturation() -> None:
     cpu.regs[r_min] = pack_i16(-32768, -32768)
 
     prog = [
-        _mac_op(MAC_F3_SET, rd=r_set, rs1=r_bias),               # mac.set -> 1000
-        _mac_op(MAC_F3_ACC, rd=r_acc1, rs1=r_p1_a, rs2=r_p1_b),  # 1000 + (50 - 120) = 930
-        _mac_op(MAC_F3_ACC, rd=r_acc2, rs1=r_p2_a, rs2=r_p2_b),  # 930 + (-210 - 320) = 400
-        _mac_op(MAC_F3_GET, rd=r_get),                           # 400
-        _mac_op(MAC_F3_CLR, rd=r_hi, rs1=r_max, rs2=r_max),      # 2 * 32767^2
-        _mac_op(MAC_F3_ACC, rd=r_pos_sat, rs1=r_max, rs2=r_max), # + clamp -> INT32_MAX
-        _mac_op(MAC_F3_CLR, rd=0, rs1=r_min, rs2=r_min),         # (-32768)^2 * 2 -> INT32_MAX, x0=0
-        _mac_op(MAC_F3_CLR, rd=r_neg_sat, rs1=r_max, rs2=r_min), # -2 * 32767 * 32768
-        _mac_op(MAC_F3_ACC, rd=r_neg_sat, rs1=r_max, rs2=r_min), # - clamp -> INT32_MIN
-        _mac_op(MAC_F3_ACC, rd=r_neg_stay, rs1=r_max, rs2=r_min),# remains INT32_MIN
+        _mac_op(MAC_F3_SET, rd=r_set, rs1=r_bias),                # `mac.set` -> 1000
+        _mac_op(MAC_F3_ACC, rd=r_acc1, rs1=r_p1_a, rs2=r_p1_b),   # 1000 + (50 - 120) = 930
+        _mac_op(MAC_F3_ACC, rd=r_acc2, rs1=r_p2_a, rs2=r_p2_b),   # 930 + (-210 - 320) = 400
+        _mac_op(MAC_F3_GET, rd=r_get),                            # 400
+        _mac_op(MAC_F3_CLR, rd=r_hi, rs1=r_max, rs2=r_max),       # 2 * 32767^2
+        _mac_op(MAC_F3_ACC, rd=r_pos_sat, rs1=r_max, rs2=r_max),  # + clamp -> INT32_MAX
+        _mac_op(MAC_F3_CLR, rd=0, rs1=r_min, rs2=r_min),          # -> INT32_MAX, x0=0
+        _mac_op(MAC_F3_CLR, rd=r_neg_sat, rs1=r_max, rs2=r_min),  # -2 * 32767 * 32768
+        _mac_op(MAC_F3_ACC, rd=r_neg_sat, rs1=r_max, rs2=r_min),  # - clamp -> INT32_MIN
+        _mac_op(MAC_F3_ACC, rd=r_neg_stay, rs1=r_max, rs2=r_min),  # remains INT32_MIN
         INSN_EBREAK,
     ]
     cpu.load_words(BOOT_ROM_BASE, prog)
@@ -1282,7 +1314,7 @@ def test_xapex_custom_mac_dot_product_and_saturation() -> None:
 
 
 def test_illegal_instructions_and_misaligned_pc_traps() -> None:
-    """Verify illegal opcodes/funct fields, misaligned targets, and exact mtval/mepc/mcause."""
+    """Verify illegal encodings, misaligned targets, and exact `mtval`/`mepc`/`mcause` values."""
     cpu = RV32Oracle()
     r_base, r_dst = 1, 2
     cpu.reset(reset_pc=BOOT_ROM_BASE + 2)
@@ -1291,24 +1323,31 @@ def test_illegal_instructions_and_misaligned_pc_traps() -> None:
     assert cpu.mtval == BOOT_ROM_BASE + 2
     assert cpu.minstret == 0
 
+    bad_jalr_f3 = enc_i(0, r_base, INVALID_JALR_FUNCT3, r_dst, OPCODE_JALR)
+    bad_alu_f7 = _alu_r(F3_ADD_SUB, rd=r_dst, rs1=0, rs2=0, funct7=INVALID_FUNCT7)
+    bad_mac_f3 = enc_r(F7_BASE, 0, 0, INVALID_MAC_FUNCT3, r_dst, OPCODE_CUSTOM0)
+    bad_mac_f7 = enc_r(F7_MULDIV, 0, 0, MAC_F3_ACC, r_dst, OPCODE_CUSTOM0)
+    bad_misc_f3 = enc_i(0, 0, INVALID_MISC_MEM_FUNCT3, r_dst, OPCODE_MISC_MEM)
+    bad_zicsr_f3 = _csr_reg(RESERVED_ZICSR_FUNCT3, rd=r_dst, csr_addr=CSR_MISA, rs1=0)
+    ill = CAUSE_ILLEGAL_INSN
     trap_cases = [
         (_branch(F3_BEQ, rs1=0, rs2=0, offset=2), 0, CAUSE_INSN_MISALIGNED, BOOT_ROM_BASE + 2),
         (_jal(rd=r_dst, offset=2), 0, CAUSE_INSN_MISALIGNED, BOOT_ROM_BASE + 2),
         (_jalr(rd=r_dst, rs1=r_base, offset=2), BRAM_BASE, CAUSE_INSN_MISALIGNED, BRAM_BASE + 2),
-        (enc_i(0, r_base, INVALID_JALR_FUNCT3, r_dst, OPCODE_JALR), BRAM_BASE, CAUSE_ILLEGAL_INSN, None),
-        (_alu_r(F3_ADD_SUB, rd=r_dst, rs1=0, rs2=0, funct7=INVALID_FUNCT7), 0, CAUSE_ILLEGAL_INSN, None),
-        (enc_r(F7_BASE, 0, 0, INVALID_MAC_FUNCT3, r_dst, OPCODE_CUSTOM0), 0, CAUSE_ILLEGAL_INSN, None),
-        (enc_r(F7_MULDIV, 0, 0, 0, r_dst, OPCODE_CUSTOM0), 0, CAUSE_ILLEGAL_INSN, None),
-        (_branch(INVALID_BRANCH_FUNCT3, rs1=0, rs2=0, offset=4), 0, CAUSE_ILLEGAL_INSN, None),
-        (_load(INVALID_FUNCT3, rd=r_dst, rs1=r_base, offset=0), BRAM_BASE, CAUSE_ILLEGAL_INSN, None),
-        (_store(INVALID_FUNCT3, rs2=r_dst, rs1=r_base, offset=0), BRAM_BASE, CAUSE_ILLEGAL_INSN, None),
-        (_shift_i(F3_SLL, rd=r_dst, rs1=0, shamt=0, funct7=F7_MULDIV), 0, CAUSE_ILLEGAL_INSN, None),
-        (_shift_i(F3_SRL_SRA, rd=r_dst, rs1=0, shamt=0, funct7=F7_MULDIV), 0, CAUSE_ILLEGAL_INSN, None),
-        (_alu_r(F3_SLL, rd=r_dst, rs1=0, rs2=0, funct7=F7_ALT), 0, CAUSE_ILLEGAL_INSN, None),
-        (enc_i(0, 0, INVALID_MISC_MEM_FUNCT3, r_dst, OPCODE_MISC_MEM), 0, CAUSE_ILLEGAL_INSN, None),
-        (SYSTEM_UNKNOWN_PRIV, 0, CAUSE_ILLEGAL_INSN, None),
-        (_csr_reg(RESERVED_ZICSR_FUNCT3, rd=r_dst, csr_addr=CSR_MISA, rs1=0), 0, CAUSE_ILLEGAL_INSN, None),
-        (INVALID_INSN_WORD, 0, CAUSE_ILLEGAL_INSN, None),
+        (bad_jalr_f3, BRAM_BASE, ill, None),
+        (bad_alu_f7, 0, ill, None),
+        (bad_mac_f3, 0, ill, None),
+        (bad_mac_f7, 0, ill, None),
+        (_branch(INVALID_BRANCH_FUNCT3, rs1=0, rs2=0, offset=4), 0, ill, None),
+        (_load(INVALID_FUNCT3, rd=r_dst, rs1=r_base, offset=0), BRAM_BASE, ill, None),
+        (_store(INVALID_FUNCT3, rs2=r_dst, rs1=r_base, offset=0), BRAM_BASE, ill, None),
+        (_shift_i(F3_SLL, rd=r_dst, rs1=0, shamt=0, funct7=F7_MULDIV), 0, ill, None),
+        (_shift_i(F3_SRL_SRA, rd=r_dst, rs1=0, shamt=0, funct7=F7_MULDIV), 0, ill, None),
+        (_alu_r(F3_SLL, rd=r_dst, rs1=0, rs2=0, funct7=F7_ALT), 0, ill, None),
+        (bad_misc_f3, 0, ill, None),
+        (SYSTEM_UNKNOWN_PRIV, 0, ill, None),
+        (bad_zicsr_f3, 0, ill, None),
+        (INVALID_INSN_WORD, 0, ill, None),
     ]
     for insn, base_val, expected_cause, mtval_override in trap_cases:
         cpu.reset(reset_pc=BOOT_ROM_BASE)
@@ -1325,7 +1364,7 @@ def test_illegal_instructions_and_misaligned_pc_traps() -> None:
 
 
 def test_run_after_ebreak_trap_dispatch() -> None:
-    """Verify run(stop_on_ebreak=False) continues stepping inside the trap handler."""
+    """Verify `run(stop_on_ebreak=False)` continues stepping inside the trap handler."""
     cpu = RV32Oracle()
     r_handler_ran = 10
     cpu.mtvec = BRAM_BASE

@@ -19,3 +19,10 @@ Persistent ledger of workflow, PR hygiene, and review-loop lessons graduated int
 - **Healed By**:
   1. Upgraded `apex-textbook-author` Pass 3 to **3 parallel specialist subagents** (*Sequential Novice Cold-Reader*, *Editorial Pacing & Math Editor*, *Visual Pedagogy & Diagram Critic*) and `apex-artifact-author` Pass 3 to **2 parallel specialist subagents** (*Architecture & Spec Auditor*, *Code Readability & Literary Clarity Critic*).
   2. Added **Mandatory Post-Edit Re-Review Convergence** across `apex-couch-mentor`, `apex-textbook-author`, `apex-artifact-author`, and `apex-skill-healer`: any deliverable change triggers fresh clean-room Round $r+1$ specialist audits until zero P0/P1/P2 defects remain.
+
+## Entry 003 — Iterative Open-PR Review Loop & Active Skill Registry Sync (2026-11-17)
+
+- **Trigger**: User workflow instruction (`W1`) on PR #4 (*"Let's keep the PR open until I give final approval. I'll leave feedback, you fix it, and we repeat until we're done. Obviously, this should become part of your repo instructions"*) + discovery that `~/.gemini` cached skills had drifted behind `.agents/skills/*/SKILL.md`.
+- **Healed By**:
+  1. Codified the **Iterative Open-PR Review Loop** across `GEMINI.md`, `apex-couch-mentor/SKILL.md`, and `apex-skill-healer/SKILL.md`: keep review/step PRs open across all feedback -> `apex-skill-healer` -> fix -> fast-forward push rounds (never closing/merging early and never force-pushing away reviewed commits) until explicit final user `LGTM`.
+  2. Required `save_skill(skill_dir=..., overwrite=True)` in `apex-skill-healer` Step 3 whenever `.agents/skills/*` is updated so active sessions and subagents always read the latest repo skills.

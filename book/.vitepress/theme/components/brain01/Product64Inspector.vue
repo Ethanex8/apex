@@ -25,13 +25,13 @@ const presets: MulPreset[] = [
     label: '65536 × 65536 (32-Bit Carry)',
     rs1U: 0x00010000,
     rs2U: 0x00010000,
-    note: 'Two positive 16-bit-shifted numbers multiply to 2^32: MUL returns 0 (the lower 32 bits), while MULH/MULHSU/MULHU return 1.',
+    note: 'Two positive 16-bit-shifted numbers multiply to 2^32: mul returns 0 (the lower 32 bits), while mulh/mulhsu/mulhu return 1.',
   },
   {
     label: '-3 × -4 (Negative × Negative)',
     rs1U: 0xfffffffd,
     rs2U: 0xfffffffc,
-    note: 'Signed (-3) × (-4) = +12 fits inside Bits 31..0 (MULH = 0), whereas unsigned 4.29B × 4.29B generates huge upper carry bits.',
+    note: 'Signed (-3) × (-4) = +12 fits inside Bits 31..0 (mulh = 0), whereas unsigned 4.29B × 4.29B generates huge upper carry bits.',
   },
 ]
 
@@ -80,9 +80,9 @@ const rows = computed(() => {
   }
 
   return [
-    split('MULH', 'Signed × Signed', r1s, r2s, prodSS, 'var(--vp-c-brand-1)'),
-    split('MULHSU', 'Signed × Unsigned', r1s, r2u, prodSU, 'var(--hw-purple)'),
-    split('MULHU', 'Unsigned × Unsigned', r1u, r2u, prodUU, 'var(--hw-amber)'),
+    split('mulh', 'Signed × Signed', r1s, r2s, prodSS, 'var(--vp-c-brand-1)'),
+    split('mulhsu', 'Signed × Unsigned', r1s, r2u, prodSU, 'var(--hw-purple)'),
+    split('mulhu', 'Unsigned × Unsigned', r1u, r2u, prodUU, 'var(--hw-amber)'),
   ]
 })
 
@@ -113,7 +113,7 @@ const sharedLowHex = computed(() => rows.value[0].loHex)
 
     <div class="hw-grid-2" style="margin-bottom: 10px">
       <div class="hw-card">
-        <div class="hw-label">Raw Input Wire rs1</div>
+        <div class="hw-label">Raw Input Wire <code>rs1</code></div>
         <div class="hw-mono" style="font-size: 14px; font-weight: 700; color: var(--hw-green)">
           {{ fmtHex32(toU32(current.rs1U)) }}
         </div>
@@ -122,7 +122,7 @@ const sharedLowHex = computed(() => rows.value[0].loHex)
         </div>
       </div>
       <div class="hw-card">
-        <div class="hw-label">Raw Input Wire rs2</div>
+        <div class="hw-label">Raw Input Wire <code>rs2</code></div>
         <div class="hw-mono" style="font-size: 14px; font-weight: 700; color: var(--hw-amber)">
           {{ fmtHex32(toU32(current.rs2U)) }}
         </div>
@@ -169,7 +169,7 @@ const sharedLowHex = computed(() => rows.value[0].loHex)
             "
           >
             <div style="font-size: 10px; font-weight: 700; color: var(--hw-green)">
-              Lower 32 Bits (Bits 31..0) — Shared by MUL:
+              Lower 32 Bits (Bits 31..0) — Shared by mul:
             </div>
             <div class="hw-mono" style="font-size: 13.5px; font-weight: 800">{{ r.loHex }}</div>
           </div>
@@ -178,7 +178,7 @@ const sharedLowHex = computed(() => rows.value[0].loHex)
     </div>
 
     <div class="hw-card" style="margin-top: 10px; font-size: 13px">
-      <strong style="color: var(--hw-green)">Invariant Check (MUL = {{ sharedLowHex }}): </strong>
+      <strong style="color: var(--hw-green)">Invariant Check (mul = {{ sharedLowHex }}): </strong>
       <span>{{ current.note }}</span>
     </div>
   </div>

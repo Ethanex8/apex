@@ -74,7 +74,11 @@ class _FakeGhRunner:
 def test_check_book_slices_fences_and_mermaid_gates(tmp_path: Path) -> None:
     """Verify check_book enforces excerpt caps, fence column widths, Mermaid guards, and exemptions."""
     src_lines = "\n".join(f"    x += {i}" for i in range(28))
-    _write(tmp_path / "systems" / "demo" / "sim" / "big.py", f"def big() -> int:\n    x = 0\n{src_lines}\n    return x\n")
+    wide_comment = "# " + "w" * 102
+    _write(
+        tmp_path / "systems" / "demo" / "sim" / "big.py",
+        f"def big() -> int:\n    {wide_comment}\n    x = 0\n{src_lines}\n    return x\n",
+    )
     wide_ascii = "A" * 85
     wide_code = "x = " + "1" * 102
 
@@ -85,7 +89,7 @@ def test_check_book_slices_fences_and_mermaid_gates(tmp_path: Path) -> None:
         "<!-- book-gate: allow-wide-mermaid (unused) -->\n"
         "Unrelated paragraph\n"
         "<!-- book-sync: big -->\n"
-        "<<< @/systems/demo/sim/big.py#L1-L31\n\n"
+        "<<< @/systems/demo/sim/big.py#L1-L32\n\n"
         f"```text\n{wide_ascii}\n```\n\n"
         f"```python\n{wide_code}\n```\n\n"
         "```mermaid\n---\ntitle: Wide\n---\n%% comment\nflowchart LR\n  A-->B-->C-->D-->E\n```\n\n"
@@ -100,7 +104,8 @@ def test_check_book_slices_fences_and_mermaid_gates(tmp_path: Path) -> None:
     for needle in (
         "Empty reason inside book-gate directive",
         "Unused book-gate directive 'allow-wide-mermaid'",
-        "spans 31 lines (limit 25)",
+        "spans 32 lines (limit 25)",
+        "Transcluded line big.py:2 is 108 chars (limit 100)",
         "Raw ASCII/text diagram fence ('text') banned",
         "Fenced line is 85 chars (limit 80 for 'text')",
         "Fenced line is 106 chars (limit 100 for 'python')",
@@ -116,8 +121,9 @@ def test_check_book_slices_fences_and_mermaid_gates(tmp_path: Path) -> None:
     bad_chap.write_text(
         "# Ch1\n\n"
         "<!-- book-gate: allow-long-slice (full dispatcher contrast) -->\n"
+        "<!-- book-gate: allow-wide-fence (verbatim wide comment fixture) -->\n"
         "<!-- book-sync: big -->\n"
-        "<<< @/systems/demo/sim/big.py#L1-L31\n\n"
+        "<<< @/systems/demo/sim/big.py#L1-L32\n\n"
         "<!-- book-gate: allow-ascii-fence (verbatim hardware bus printout) -->\n"
         f"<!-- book-gate: allow-wide-fence (exact hardware bus table) -->\n```text\n{wide_ascii}\n```\n\n"
         "<!-- book-gate: allow-wide-mermaid (4-node comparison layout) -->\n"
@@ -160,6 +166,7 @@ def test_check_book_pedagogy_gates_and_widget_shorthand(tmp_path: Path) -> None:
     )
     chap_errs = "\n".join(check_book.validate_chapters(tmp_path).errors)
     for expected in (
+        "Chapter jumps straight from H1 into 'Jump Fence' without introductory prose",
         "jumps straight into a code/diagram block",
         "jumps straight into a Vue widget",
         "jumps straight into a code transclusion",
@@ -170,9 +177,71 @@ def test_check_book_pedagogy_gates_and_widget_shorthand(tmp_path: Path) -> None:
         "Cryptic bit-slice shorthand '[30..25|10..5]'",
     ):
         assert expected in chap_errs
-    assert "jumps straight" not in chap_errs.split("## Graded")[1] if "## Graded" in chap_errs else True
+    assert "Graded Engineering Exercises" not in chap_errs
+    assert "Exercise 1" not in chap_errs
     widget_errs = "\n".join(check_book.validate_widgets(tmp_path))
     assert "Cryptic bit-slice shorthand 'imm[12|10:5]'" in widget_errs
+
+
+def test_check_book_editorial_typography_and_line_break_gates(tmp_path: Path) -> None:
+    """Verify H1/H2 conciseness, banner bans, code-only backticks, term adjacency, bold caps, and 1-sentence lines."""
+    chap = _write(
+        tmp_path / "systems" / "demo" / "chapters" / "01.md",
+        "# Chapter 1: Instruction Set Architecture & Fixed-Width Binary Arithmetic\n\n"
+        "> **Part I: Custom Silicon · Reading Time**: 35 minutes\n\n"
+        "Primary Modules and Interactive Figures live below.\n\n"
+        "<!-- book-gate: allow-multi-sentence-line (unused before heading) -->\n"
+        "## 1. Why Software First: The Golden Model & `ISA` (RV32I) For Real Chips Today\n\n"
+        "Hardware uses `HDL` in `SystemVerilog` with `32`-bit words, `50 MHz` clocks, `4,096` slots, and `32` wires.\n"
+        "Math in code like `Z_{2^N}` fails while f-strings like `f\"x_{i}\"` stay allowed.\n"
+        "Selectors—the circuit equivalent of `a ? b : c` (**multiplexers**)—route signals.\n"
+        "Every wire updates **simultaneously on every tick of a fast clock**.\n"
+        "First sentence ends here. Second sentence shares the same line!  \n"
+        "$$\n"
+        "<!-- book-gate: allow-multi-sentence-line (unused in math) -->\n"
+        "x = 1\n"
+        "$$\n",
+    )
+    errs = "\n".join(check_book.validate_chapters(tmp_path).errors)
+    for expected in (
+        "Chapter H1 title 'Instruction Set Architecture & Fixed-Width Binary Arithmetic' must be concise",
+        "Front-matter blockquote banner before first '##'",
+        "Front-matter metadata/TOC/figure inventory",
+        "Unused book-gate directive 'allow-multi-sentence-line'",
+        "contains ':'",
+        "uses '&'",
+        "contains parenthetical clutter",
+        "wraps words in backticks",
+        "exceeds 8 words",
+        "Non-code acronym or proper noun '`HDL`'",
+        "Prose number/measurement '`32`-bit'",
+        "Prose number/measurement '`50 MHz`'",
+        "Comma-formatted prose number '4,096'",
+        "Prose number/measurement '`32` wires'",
+        "Raw LaTeX subscript/superscript inside backticks '`Z_{2^N}`'",
+        "Detached term definition",
+        "Overlong bold phrase '**simultaneously on every tick of a fast clock**'",
+        "Multiple sentences on one Markdown line",
+        "Trailing two-space hard '<br>' break",
+    ):
+        assert expected in errs
+    assert "f\"x_{i}\"" not in errs
+
+    chap.write_text(
+        "# Chapter 1: Instruction Set Architecture\n\n"
+        "Every processor begins with an instruction contract.\n\n"
+        "## 1. Why Chip Design Starts in Software\n\n"
+        "Hardware selector switches (**multiplexers**) choose one input wire, e.g. `x0`.\n"
+        "- **Hardware Cost**: Every 32-bit adder runs in parallel.\n"
+        "| Col | Val |\n"
+        "| --- | --- |\n"
+        "| **Very Long Bold Cell Inside Table Row Is Allowed** | ok |\n"
+        "<!-- book-gate: allow-multi-sentence-line (quoted dual-sentence motto) -->\n"
+        "First sentence. Second sentence with explicit exemption.\n",
+        encoding="utf-8",
+    )
+    assert check_book.validate_chapters(tmp_path).errors == []
+
 
 
 def test_check_code_tuple_import_and_assert_gates(tmp_path: Path) -> None:
@@ -321,7 +390,9 @@ def test_check_visuals_chromium_clean_and_defect_detection(tmp_path: Path) -> No
     )
     assert check_visuals.main(["--dist", str(dist), "--base", "/apex/", "--screenshot-dir", str(shots), "clean"]) == 0
     assert (shots / "clean" / "mermaid_0.png").is_file()
+    assert (shots / "clean" / "mermaid_0_mobile.png").is_file()
     assert (shots / "clean" / "widget_0.png").is_file()
+    assert (shots / "clean" / "widget_0_mobile.png").is_file()
 
     # Broken HTML hitting overflow, shrunken SVG, clipped foreignObject, dark contrast, post-click error, and 404
     _write(
@@ -344,6 +415,7 @@ def test_check_visuals_chromium_clean_and_defect_detection(tmp_path: Path) -> No
         "  <div style='width:500px;height:5px;'>widget wide</div>"
         "  <button class='hw-btn bad bad-dark' onclick=\"throw new Error('clickboom');\">BlueOnBlue</button>"
         "</div>"
+        "<a href='#missing-part-slug'>BadHash</a>"
         "<img src='/apex/missing_asset.png'/>"
         "<script>console.error('boom');</script>"
         "</body></html>",
@@ -353,8 +425,10 @@ def test_check_visuals_chromium_clean_and_defect_detection(tmp_path: Path) -> No
         "Document horizontal overflow",
         "overflows by",
         "Mermaid render error",
-        "scaled down to",
+        "[/broken:desktop] Mermaid[0] scaled down to 25% (< 48%)",
+        "[/broken:mobile] Mermaid[0] scaled down to 25% (< 52%)",
         "clips foreignObject box",
+        "Broken hash anchor '#missing-part-slug'",
         "Low idle contrast",
         "Low active/hover contrast",
         "Low dark-idle contrast",

@@ -158,6 +158,7 @@ def _resolve_link_rewrite(
     new_label, new_href = label, href
     anchor_spec = title.strip()[len("anchor:") :].strip() if title and title.strip().startswith("anchor:") else None
     is_line_frag = bool(frag and re.match(r"^L\d+(?:-L?\d+)?$", frag))
+    has_line_badge = bool(not frag and target_path.is_file() and LINE_BADGE_RE.match(line[match.end() :]))
 
     if is_line_frag and target_path.is_file():
         spec = anchor_spec or infer_implicit_symbol(label)
@@ -169,12 +170,22 @@ def _resolve_link_rewrite(
             else:
                 new_href = f"{file_part}{format_line_fragment(s_ln, e_ln)}"
                 new_label = format_label_lines(label, s_ln, e_ln)
+    elif not frag and target_path.is_file() and not has_line_badge:
+        spec = anchor_spec or infer_implicit_symbol(label)
+        if spec is not None and spec not in {target_path.name, target_path.stem}:
+            try:
+                s_ln, e_ln = resolve_anchor(target_path, spec)
+            except AnchorError as exc:
+                if anchor_spec is not None:
+                    errors.append(f"[{rel_chap}:{line_num}] {exc}")
+            else:
+                new_href = f"{file_part}{format_line_fragment(s_ln, e_ln)}"
 
     title_part = f' "{title}"' if title is not None else ""
     new_link = f"[{new_label}]({new_href}{title_part})"
     end_pos = match.end()
 
-    if not frag and target_path.is_file() and (badge_m := LINE_BADGE_RE.match(line[end_pos:])):
+    if has_line_badge and (badge_m := LINE_BADGE_RE.match(line[end_pos:])):
         if target_path not in line_count_cache:
             line_count_cache[target_path] = len(target_path.read_text(encoding="utf-8").splitlines())
         prefix, _, suffix = badge_m.groups()

@@ -28,7 +28,7 @@ const presets: MacPreset[] = [
     a1: -20,
     b0: 5,
     b1: 6,
-    explain: 'Dual 18×18 multipliers compute (10×5) + (-20×6) = -70 in one cycle and add onto preloaded bias +1000 -> +930.',
+    explain: 'Dual 16-bit multiplier lanes compute (10×5) + (-20×6) = -70 in one cycle and add onto preloaded bias +1000 → +930.',
   },
   {
     label: '2. Discard rd = x0 (mac.clr)',
@@ -52,7 +52,7 @@ const presets: MacPreset[] = [
     a1: -32768,
     b0: -32768,
     b1: -32768,
-    explain: 'Unclamped sum = +2,147,483,648 (+2^31), which exceeds INT32_MAX by 1! sat32 clamps to +2,147,483,647 instead of wrapping to negative!',
+    explain: 'Unclamped sum = +2,147,483,648 (+2^31), which exceeds INT32_MAX by 1; sat32 clamps to +2,147,483,647 instead of wrapping negative.',
   },
   {
     label: '4. -Sat Clamp (INT32_MIN Guard)',
@@ -127,17 +127,19 @@ const trace = computed(() => {
       <!-- Stage 1: Lane Unpack -->
       <div class="hw-card" style="border-top: 3px solid var(--hw-green)">
         <div class="hw-label" style="color: var(--hw-green)">1. Unpack Two 16-Bit Signed Lanes</div>
-        <div class="hw-mono" style="font-size: 12px; margin-bottom: 4px">
+        <div class="hw-mono" style="font-size: 12px; margin-bottom: 2px">
           <strong>rs1</strong> ({{ trace.rs1Hex }}):
         </div>
-        <div class="hw-mono" style="font-size: 11.5px; color: var(--vp-c-text-2); margin-bottom: 6px">
-          Bits 31..16 (a1) = {{ cur.a1 }} | Bits 15..0 (a0) = {{ cur.a0 }}
+        <div class="hw-mono" style="font-size: 11.5px; color: var(--vp-c-text-2); margin-bottom: 6px; line-height: 1.45">
+          <div>Bits 31..16 (a1) = {{ cur.a1 }}</div>
+          <div>Bits 15..0 (a0) = {{ cur.a0 }}</div>
         </div>
-        <div class="hw-mono" style="font-size: 12px; margin-bottom: 4px">
+        <div class="hw-mono" style="font-size: 12px; margin-bottom: 2px">
           <strong>rs2</strong> ({{ trace.rs2Hex }}):
         </div>
-        <div class="hw-mono" style="font-size: 11.5px; color: var(--vp-c-text-2)">
-          Bits 31..16 (b1) = {{ cur.b1 }} | Bits 15..0 (b0) = {{ cur.b0 }}
+        <div class="hw-mono" style="font-size: 11.5px; color: var(--vp-c-text-2); line-height: 1.45">
+          <div>Bits 31..16 (b1) = {{ cur.b1 }}</div>
+          <div>Bits 15..0 (b0) = {{ cur.b0 }}</div>
         </div>
       </div>
 
@@ -164,7 +166,7 @@ const trace = computed(() => {
         :style="{ borderTop: `3px solid ${trace.didClamp ? 'var(--hw-red)' : 'var(--vp-c-brand-1)'}` }"
       >
         <div class="hw-label" :style="{ color: trace.didClamp ? 'var(--hw-red)' : 'var(--vp-c-brand-1)' }">
-          3. sat32 Clamp → mac_acc & x{{ cur.rd }}
+          3. <code>sat32</code> Clamp → <code>mac_acc</code> &amp; <code>x{{ cur.rd }}</code>
         </div>
         <div
           class="hw-mono"
@@ -177,7 +179,7 @@ const trace = computed(() => {
           mac_acc = {{ trace.clamped.toLocaleString() }}
         </div>
         <div class="hw-mono" style="font-size: 12px; color: var(--vp-c-text-2)">
-          Register x{{ cur.rd }} = {{ cur.rd === 0 ? '0 (discarded by x0!)' : trace.clamped.toLocaleString() }}
+          Register x{{ cur.rd }} = {{ cur.rd === 0 ? '0 (discarded by x0)' : trace.clamped.toLocaleString() }}
         </div>
       </div>
     </div>

@@ -246,6 +246,12 @@ def _validate_book_chapter(
     for req in ("title", "summary"):
         if not chap.get(req):
             errors.append(f"[{cid or part_id}] Chapter missing '{req}'")
+    c_title = str(chap.get("title") or "").strip()
+    if c_title and (len(c_title.split()) > 6 or any(ch in c_title for ch in ("&", ":", ","))):
+        errors.append(
+            f"[{cid or part_id}] Chapter title '{c_title}' must be concise (<= 6 words, "
+            "focused on the primary topic without '&', ':', or comma lists)"
+        )
     c_steps = chap.get("steps")
     if not isinstance(c_steps, list) or not c_steps:
         errors.append(f"[{cid or part_id}] Chapter 'steps' must be a non-empty list")
@@ -461,11 +467,14 @@ def compute_metrics(data: dict) -> dict:
 
 def status_badge(status: str) -> str:
     """Return human-friendly emoji badge string for step `status`."""
-    return {
+    badges = {
         "approved": "✅ Approved",
         "in_review": "🔍 In Review",
         "pending": "⬜ Pending",
-    }[status]
+    }
+    if status not in badges:
+        raise ValueError(f"Invalid step status '{status}' (expected one of {sorted(badges)})")
+    return badges[status]
 
 
 def mode_badge(mode: str) -> str:

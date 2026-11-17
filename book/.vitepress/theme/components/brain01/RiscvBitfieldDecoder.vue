@@ -8,18 +8,18 @@ interface PresetInsn {
 }
 
 const presets: PresetInsn[] = [
-  { label: 'I-Type: ADDI', asm: 'addi x1, x0, -5', word: 0xffb00093 },
-  { label: 'Shift-Imm: SRAI', asm: 'srai x7, x1, 1', word: 0x4010d393 },
-  { label: 'R-Type: ADD', asm: 'add x3, x1, x2', word: 0x002081b3 },
-  { label: 'R-Type: SUB', asm: 'sub x4, x1, x2', word: 0x40208233 },
-  { label: 'RV32M: DIV', asm: 'div x14, x1, x2', word: 0x0220c733 },
-  { label: 'Xapex: MAC', asm: 'mac x11, x2, x3', word: 0x0031058b },
-  { label: 'Load: LH', asm: 'lh x6, 0(x1)', word: 0x00009303 },
-  { label: 'S-Type: SW', asm: 'sw x2, 12(x1)', word: 0x0020a623 },
-  { label: 'B-Type: BLT', asm: 'blt x2, x3, -8', word: 0xfe314ce3 },
-  { label: 'U-Type: LUI', asm: 'lui x22, 0x12345', word: 0x12345b37 },
-  { label: 'J-Type: JAL', asm: 'jal x5, +8', word: 0x008002ef },
-  { label: 'Zicsr: CSRRS', asm: 'csrrs x25, mcause, x0', word: 0x34202cf3 },
+  { label: 'I-Type: addi', asm: 'addi x1, x0, -5', word: 0xffb00093 },
+  { label: 'Shift-Imm: srai', asm: 'srai x7, x1, 1', word: 0x4010d393 },
+  { label: 'R-Type: add', asm: 'add x3, x1, x2', word: 0x002081b3 },
+  { label: 'R-Type: sub', asm: 'sub x4, x1, x2', word: 0x40208233 },
+  { label: 'RV32M: div', asm: 'div x14, x1, x2', word: 0x0220c733 },
+  { label: 'Xapex: mac', asm: 'mac x11, x2, x3', word: 0x0031058b },
+  { label: 'Load: lh', asm: 'lh x6, 0(x1)', word: 0x00009303 },
+  { label: 'S-Type: sw', asm: 'sw x2, 12(x1)', word: 0x0020a623 },
+  { label: 'B-Type: blt', asm: 'blt x2, x3, -8', word: 0xfe314ce3 },
+  { label: 'U-Type: lui', asm: 'lui x22, 0x12345', word: 0x12345b37 },
+  { label: 'J-Type: jal', asm: 'jal x5, +8', word: 0x008002ef },
+  { label: 'Zicsr: csrrs', asm: 'csrrs x25, mcause, x0', word: 0x34202cf3 },
 ]
 
 const insnWord = ref<number>(0xffb00093)
@@ -141,8 +141,8 @@ const decoded = computed(() => {
     }
     const spans: FieldSpan[] = [
       { name: 'funct7', range: 'Bits 31..25', bits: b(31, 25), value: fmtHex2(funct7), color: 'var(--hw-purple)', widthCols: 7 },
-      { name: 'rs2 (Source 2)', range: 'Bits 24..20', bits: b(24, 20), value: `x${rs2}`, color: 'var(--hw-amber)', widthCols: 5 },
-      { name: 'rs1 (Source 1)', range: 'Bits 19..15', bits: b(19, 15), value: `x${rs1}`, color: 'var(--hw-green)', widthCols: 5 },
+      { name: 'rs2 (Src 2)', range: 'Bits 24..20', bits: b(24, 20), value: `x${rs2}`, color: 'var(--hw-amber)', widthCols: 5 },
+      { name: 'rs1 (Src 1)', range: 'Bits 19..15', bits: b(19, 15), value: `x${rs1}`, color: 'var(--hw-green)', widthCols: 5 },
       { name: 'funct3', range: 'Bits 14..12', bits: b(14, 12), value: `${funct3}`, color: 'var(--hw-cyan)', widthCols: 3 },
       { name: 'rd (Dest)', range: 'Bits 11..7', bits: b(11, 7), value: `x${rd}`, color: 'var(--vp-c-brand-1)', widthCols: 5 },
       { name: 'opcode', range: 'Bits 6..0', bits: b(6, 0), value: fmtHex2(opcode), color: 'var(--hw-pink)', widthCols: 7 },
@@ -174,7 +174,7 @@ const decoded = computed(() => {
       spans: [
         { name: 'funct7 (Shift Mode)', range: 'Bits 31..25', bits: b(31, 25), value: fmtHex2(funct7), color: 'var(--hw-purple)', widthCols: 7 },
         { name: 'shamt (Count)', range: 'Bits 24..20', bits: b(24, 20), value: `${shamt}`, color: 'var(--hw-amber)', widthCols: 5 },
-        { name: 'rs1 (Source 1)', range: 'Bits 19..15', bits: b(19, 15), value: `x${rs1}`, color: 'var(--hw-green)', widthCols: 5 },
+        { name: 'rs1 (Src 1)', range: 'Bits 19..15', bits: b(19, 15), value: `x${rs1}`, color: 'var(--hw-green)', widthCols: 5 },
         { name: 'funct3', range: 'Bits 14..12', bits: b(14, 12), value: `${funct3}`, color: 'var(--hw-cyan)', widthCols: 3 },
         { name: 'rd (Dest)', range: 'Bits 11..7', bits: b(11, 7), value: `x${rd}`, color: 'var(--vp-c-brand-1)', widthCols: 5 },
         { name: 'opcode', range: 'Bits 6..0', bits: b(6, 0), value: '0x13', color: 'var(--hw-pink)', widthCols: 7 },
@@ -235,8 +235,8 @@ const decoded = computed(() => {
       immExplain: `Bits 31..20 hold unsigned 12-bit CSR address ${csrHex}${isImm ? `; Bits 19..15 hold unsigned 5-bit constant uimm = ${rs1}` : ''}.`,
       effect: csrEffect,
       spans: [
-        { name: 'CSR Address (12b)', range: 'Bits 31..20', bits: b(31, 20), value: csrHex, color: 'var(--hw-purple)', widthCols: 12 },
-        { name: isImm ? 'uimm (5b Const)' : 'rs1 (Source 1)', range: 'Bits 19..15', bits: b(19, 15), value: isImm ? `${rs1}` : `x${rs1}`, color: 'var(--hw-green)', widthCols: 5 },
+        { name: 'CSR Address (12-Bit)', range: 'Bits 31..20', bits: b(31, 20), value: csrHex, color: 'var(--hw-purple)', widthCols: 12 },
+        { name: isImm ? 'uimm (5-Bit)' : 'rs1 (Src 1)', range: 'Bits 19..15', bits: b(19, 15), value: isImm ? `${rs1}` : `x${rs1}`, color: 'var(--hw-green)', widthCols: 5 },
         { name: 'funct3', range: 'Bits 14..12', bits: b(14, 12), value: `${funct3}`, color: 'var(--hw-cyan)', widthCols: 3 },
         { name: 'rd (Dest)', range: 'Bits 11..7', bits: b(11, 7), value: `x${rd}`, color: 'var(--vp-c-brand-1)', widthCols: 5 },
         { name: 'opcode', range: 'Bits 6..0', bits: b(6, 0), value: '0x73', color: 'var(--hw-pink)', widthCols: 7 },
@@ -274,7 +274,7 @@ const decoded = computed(() => {
         ? `Computes byte address x${rs1} + (${imm12}), reads little-endian memory, and writes x${rd}${rdSuffix(rd)}.`
         : 'Traps with mcause = 2 (Illegal Instruction).'
     } else if (opcode === 0x67) {
-      opName = funct3 === 0 ? 'jalr (Jump and Link Register)' : 'Illegal JALR funct3 (Trap Cause 2)'
+      opName = funct3 === 0 ? 'jalr (Jump and Link Register)' : 'Illegal jalr funct3 (Trap Cause 2)'
       effect = funct3 === 0
         ? `Saves return address (PC + 4) into x${rd}${rdSuffix(rd)} and jumps to (x${rs1} + (${imm12})) & ~1.`
         : 'Traps with mcause = 2 (Illegal Instruction).'
@@ -284,7 +284,7 @@ const decoded = computed(() => {
           ? 'fence (Memory Ordering Barrier)'
           : funct3 === 1
             ? 'fence.i (Instruction Stream Barrier)'
-            : 'Illegal FENCE funct3 (Trap Cause 2)'
+            : 'Illegal fence funct3 (Trap Cause 2)'
       effect =
         funct3 === 0 || funct3 === 1
           ? 'Synchronizes memory/instruction order; advances PC to PC + 4 in sequential oracle.'
@@ -297,7 +297,7 @@ const decoded = computed(() => {
       effect,
       spans: [
         { name: '12-Bit Constant', range: 'Bits 31..20', bits: b(31, 20), value: `${imm12}`, color: 'var(--hw-purple)', widthCols: 12 },
-        { name: 'rs1 (Source 1)', range: 'Bits 19..15', bits: b(19, 15), value: `x${rs1}`, color: 'var(--hw-green)', widthCols: 5 },
+        { name: 'rs1 (Src 1)', range: 'Bits 19..15', bits: b(19, 15), value: `x${rs1}`, color: 'var(--hw-green)', widthCols: 5 },
         { name: 'funct3', range: 'Bits 14..12', bits: b(14, 12), value: `${funct3}`, color: 'var(--hw-cyan)', widthCols: 3 },
         { name: 'rd (Dest)', range: 'Bits 11..7', bits: b(11, 7), value: `x${rd}`, color: 'var(--vp-c-brand-1)', widthCols: 5 },
         { name: 'opcode', range: 'Bits 6..0', bits: b(6, 0), value: fmtHex2(opcode), color: 'var(--hw-pink)', widthCols: 7 },
@@ -358,11 +358,13 @@ const decoded = computed(() => {
         : 'Traps with mcause = 2 (Illegal Instruction).',
       scrambleNote: `Reassembly: Bit 31 (${b(31, 31)}) · Bit 7 (${b(7, 7)}) · Bits 30..25 (${b(30, 25)}) · Bits 11..8 (${b(11, 8)}) · 0 → ${imm13 >= 0 ? `+${imm13}` : imm13} B`,
       spans: [
-        { name: 'Off 12 & 10..5', range: 'Bits 31..25', bits: b(31, 25), value: `0b${b(31, 25)}`, color: 'var(--hw-purple)', widthCols: 7 },
+        { name: 'S', range: 'B31', bits: b(31, 31), value: b(31, 31), color: 'var(--hw-purple)', widthCols: 1, title: 'Bit 31 -> Offset Bit 12 (Sign)' },
+        { name: 'Off 10..5', range: 'Bits 30..25', bits: b(30, 25), value: `0b${b(30, 25)}`, color: 'var(--hw-purple)', widthCols: 6 },
         { name: 'rs2 (Src 2)', range: 'Bits 24..20', bits: b(24, 20), value: `x${rs2}`, color: 'var(--hw-amber)', widthCols: 5 },
         { name: 'rs1 (Src 1)', range: 'Bits 19..15', bits: b(19, 15), value: `x${rs1}`, color: 'var(--hw-green)', widthCols: 5 },
         { name: 'funct3', range: 'Bits 14..12', bits: b(14, 12), value: `${funct3}`, color: 'var(--hw-cyan)', widthCols: 3 },
-        { name: 'Off 4..1 & 11', range: 'Bits 11..7', bits: b(11, 7), value: `0b${b(11, 7)}`, color: 'var(--hw-purple)', widthCols: 5 },
+        { name: 'Off 4..1', range: 'Bits 11..8', bits: b(11, 8), value: `0b${b(11, 8)}`, color: 'var(--hw-purple)', widthCols: 4 },
+        { name: '11', range: 'B7', bits: b(7, 7), value: b(7, 7), color: 'var(--hw-purple)', widthCols: 1, title: 'Bit 7 -> Offset Bit 11' },
         { name: 'opcode', range: 'Bits 6..0', bits: b(6, 0), value: '0x63', color: 'var(--hw-pink)', widthCols: 7 },
       ],
     }
@@ -472,6 +474,7 @@ const decoded = computed(() => {
     <!-- Clickable 32 individual bits sized cleanly for VitePress desktop width -->
     <div style="overflow-x: auto; padding-bottom: 4px; margin-bottom: 10px">
       <div class="hw-label">Toggle any instruction bit (Bit 31 down to Bit 0):</div>
+      <div class="hw-mobile-scroll-hint">↔ Swipe horizontally to inspect all 32 bit columns</div>
       <div class="hw-grid-32-scroll" style="display: grid; grid-template-columns: repeat(32, minmax(0, 1fr)); gap: 1px">
         <button
           v-for="bitIdx in 32"
@@ -515,7 +518,7 @@ const decoded = computed(() => {
             gridColumn: `span ${sp.widthCols}`,
             borderTop: `3px solid ${sp.color}`,
             background: 'var(--vp-c-bg)',
-            padding: sp.widthCols === 1 ? '4px 0' : '5px 5px',
+            padding: sp.widthCols === 1 ? '4px 0' : sp.widthCols <= 4 ? '4px 2px' : '5px 5px',
             borderRadius: '5px',
             borderLeft: '1px solid var(--vp-c-divider)',
             borderRight: '1px solid var(--vp-c-divider)',
@@ -526,24 +529,37 @@ const decoded = computed(() => {
         >
           <div
             style="font-weight: 700; white-space: nowrap"
-            :style="{ color: sp.color, fontSize: sp.widthCols === 1 ? '7.5px' : '9px' }"
+            :style="{ color: sp.color, fontSize: sp.widthCols === 1 ? '7.5px' : sp.widthCols <= 4 ? '8px' : '9px' }"
           >
             {{ sp.range }}
           </div>
           <div
             style="font-weight: 700; margin: 1px 0; white-space: nowrap"
-            :style="{ fontSize: sp.widthCols === 1 ? '8.5px' : '11px' }"
+            :style="{ fontSize: sp.widthCols === 1 ? '8.5px' : sp.widthCols <= 4 ? '10px' : '11px' }"
           >
             {{ sp.name }}
           </div>
           <div
             class="hw-mono"
             style="color: var(--vp-c-text-2); white-space: nowrap"
-            :style="{ fontSize: sp.widthCols === 1 ? '9px' : '10.5px' }"
+            :style="{ fontSize: sp.widthCols === 1 ? '9px' : sp.widthCols <= 4 ? '9.5px' : '10.5px' }"
           >
             {{ sp.value }}
           </div>
         </div>
+      </div>
+
+      <div
+        v-if="decoded.spans.some((sp) => sp.widthCols === 1)"
+        class="hw-mono"
+        style="margin-top: 5px; font-size: 11px; color: var(--vp-c-text-2)"
+      >
+        <template v-if="(insnWord & 0x7f) === 0x63">
+          Legend: <strong>S (B31)</strong> = Sign bit pinned at Bit 31 (Offset Bit 12); <strong>11 (B7)</strong> = Offset Bit 11 at Bit 7.
+        </template>
+        <template v-else>
+          Legend: <strong>S (B31)</strong> = Sign bit pinned at Bit 31 (Offset Bit 20); <strong>11 (B20)</strong> = Offset Bit 11 at Bit 20.
+        </template>
       </div>
 
       <div
@@ -574,7 +590,7 @@ const decoded = computed(() => {
         </div>
       </div>
       <div class="hw-card">
-        <div class="hw-label">What RV32Oracle.step() Executes</div>
+        <div class="hw-label">What <code>RV32Oracle.step()</code> Executes</div>
         <div style="font-size: 13px">
           {{ decoded.effect }}
         </div>
