@@ -35,6 +35,11 @@ const groupedUpper20 = computed(() => {
   const b = String(signBit12.value).repeat(20)
   return `${b.slice(0, 4)}_${b.slice(4, 8)}_${b.slice(8, 12)}_${b.slice(12, 16)}_${b.slice(16, 20)}`
 })
+
+const groupedLower12 = computed(() => {
+  const b = raw12.value.toString(2).padStart(12, '0')
+  return `${b.slice(0, 4)}_${b.slice(4, 8)}_${b.slice(8, 12)}`
+})
 </script>
 
 <template>
@@ -82,7 +87,7 @@ const groupedUpper20 = computed(() => {
             style="
               padding: 4px 8px;
               border-radius: 6px;
-              background: rgba(37, 99, 235, 0.14);
+              background: var(--vp-c-brand-soft);
               border: 1px solid var(--vp-c-brand-1);
               font-weight: 700;
             "
@@ -97,9 +102,9 @@ const groupedUpper20 = computed(() => {
               background: var(--vp-c-bg-soft);
               border: 1px solid var(--vp-c-divider);
             "
-            title="Original 12-bit constant"
+            title="Original 12-bit constant grouped in 4-bit nibbles"
           >
-            Bits 11..0: <strong>{{ signBit12 }}</strong>{{ (raw12 & 0x7ff).toString(2).padStart(11, '0') }}
+            Bits 11..0: <strong style="color: var(--vp-c-brand-1)">{{ groupedLower12.slice(0, 1) }}</strong>{{ groupedLower12.slice(1) }}
           </span>
           <span>→ <strong>{{ hex32(u32Extended) }}</strong></span>
         </div>
@@ -109,12 +114,12 @@ const groupedUpper20 = computed(() => {
     <div class="hw-grid-2">
       <div class="hw-card">
         <div class="hw-label">Branchless Software Check: sign_extend(val, 12)</div>
-        <ol class="hw-mono" style="margin: 6px 0 0 18px; padding: 0; font-size: 12.5px; line-height: 1.7">
-          <li><code>val &amp; 0xFFF</code> = {{ raw12 }} (<code>{{ hex12(raw12) }}</code>)</li>
-          <li><code>sign_bit = 1 &lt;&lt; 11</code> = 2048 (<code>0x800</code>)</li>
-          <li><code>val ^ sign_bit</code> = {{ raw12 }} ^ 2048 = <strong>{{ xorStep }}</strong></li>
+        <ol class="hw-mono" style="margin: 6px 0 0 18px; padding: 0; font-size: 12px; line-height: 1.75">
+          <li>masked = val &amp; 0xFFF = {{ raw12 }} ({{ hex12(raw12) }})</li>
+          <li>sign_bit = 1 &lt;&lt; 11 = 2048 (0x800)</li>
+          <li>masked ^ 0x800 = {{ raw12 }} ^ 2048 = <strong>{{ xorStep }}</strong></li>
           <li>
-            <code>(val ^ sign_bit) - sign_bit</code> = {{ xorStep }} - 2048 =
+            (masked ^ 0x800) - 0x800 = {{ xorStep }} - 2048 =
             <strong style="color: var(--vp-c-brand-1)">{{ subStep }}</strong>
           </li>
         </ol>
@@ -122,7 +127,7 @@ const groupedUpper20 = computed(() => {
 
       <div class="hw-card">
         <div style="display: flex; justify-content: space-between; align-items: center">
-          <div class="hw-label">Right-Shift View (Shift Distance k = {{ shiftAmount }})</div>
+          <div class="hw-label">Right-Shift View (Distance k = {{ shiftAmount }})</div>
           <input
             v-model.number="shiftAmount"
             type="range"
@@ -133,11 +138,11 @@ const groupedUpper20 = computed(() => {
         </div>
         <div style="font-size: 12.5px; margin-top: 6px; display: flex; flex-direction: column; gap: 6px">
           <div>
-            <strong>Logical Right Shift (<code>SRLI</code> — shifts in <code>0</code>s):</strong><br />
+            <strong>Logical Right Shift (fills left with '0' bits):</strong><br />
             <code class="hw-mono">{{ hex32(srlResult) }}</code> (unsigned {{ srlResult }})
           </div>
           <div>
-            <strong>Arithmetic Right Shift (<code>SRAI</code> — copies Bit 31 = <code>{{ signBit12 }}</code>):</strong><br />
+            <strong>Arithmetic Right Shift (copies Bit 31 = <code>{{ signBit12 }}</code>):</strong><br />
             <code class="hw-mono">{{ hex32(sraResult) }}</code> (signed <strong>{{ sraSigned }}</strong>)
           </div>
         </div>

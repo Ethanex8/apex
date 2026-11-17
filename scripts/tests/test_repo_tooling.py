@@ -185,11 +185,13 @@ def test_sync_book_rewrites_and_fences(tmp_path: Path) -> None:
         "$$\n",
     )
     changed, errors = sync_book.sync_all_chapters(tmp_path, check_only=True)
-    assert errors == [] and changed == [chap]
+    assert errors == []
+    assert changed == [chap]
     assert "#L1" in chap.read_text(encoding="utf-8")
 
     changed2, errors2 = sync_book.sync_all_chapters(tmp_path, check_only=False)
-    assert errors2 == [] and changed2 == [chap]
+    assert errors2 == []
+    assert changed2 == [chap]
     updated = chap.read_text(encoding="utf-8")
     assert "[`compute(x)`](../sim/alu.py#L3-L5)" in updated
     assert '[body lines 4–5](../sim/alu.py#L4-L5 "anchor: compute[\'val = x * 2\'..\'return val + 1\']")' in updated
@@ -221,7 +223,9 @@ def test_sync_book_prose_impact_and_cli(tmp_path: Path, monkeypatch: pytest.Monk
         encoding="utf-8",
     )
     impacts = sync_book.detect_prose_impact("HEAD", tmp_path)
-    assert len(impacts) == 1 and "Section One: Adder" in impacts[0] and "(add)" in impacts[0]
+    assert len(impacts) == 1
+    assert "Section One: Adder" in impacts[0]
+    assert "(add)" in impacts[0]
 
     monkeypatch.setattr(sync_book, "ROOT_DIR", tmp_path)
     assert sync_book.main(["--check"]) == 1  # Drift before sync
@@ -320,7 +324,8 @@ def test_check_code_python_shell_rtl_and_ruff(tmp_path: Path, monkeypatch: pytes
     py_errs = "\n".join(check_code.check_python_file(bad_py, tmp_path))
     assert "Missing module docstring" in py_errs
     assert "Missing docstring on function 'nodoc'" in py_errs
-    assert "exceeds" not in py_errs and "limit 80" in py_errs
+    assert "exceeds" not in py_errs
+    assert "limit 80" in py_errs
     assert "Unexplained '# noqa'" in py_errs
     assert check_code.check_python_file(exempt_py, tmp_path) == []
 
@@ -471,7 +476,8 @@ def test_hardened_check_gates_and_linters(tmp_path: Path, monkeypatch: pytest.Mo
     paths, path_errs = check_code.collect_target_files(
         tmp_path, [str(tmp_path / "nope.py"), str(tmp_path / "systems" / "demo" / "chapters" / "01.md")]
     )
-    assert paths == [] and len(path_errs) == 2
+    assert paths == []
+    assert len(path_errs) == 2
 
     bad_sh = _write_text(
         tmp_path / "scripts" / "dot.sh",

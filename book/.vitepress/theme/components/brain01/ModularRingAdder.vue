@@ -24,6 +24,10 @@ function toSigned4(u: number): number {
   return v & 0x8 ? v - 16 : v
 }
 
+function fmtS4(s: number): string {
+  return s > 0 ? `+${s}` : `${s}`
+}
+
 function bin4(u: number): string {
   return (u & 0xf).toString(2).padStart(4, '0')
 }
@@ -115,7 +119,7 @@ const wheelSlots = computed(() => {
             </button>
           </div>
           <div class="hw-mono" style="font-size: 12px; color: var(--vp-c-text-2); white-space: nowrap">
-            Unsigned <code>u4</code>=<strong>{{ aU4 }}</strong> · Signed <code>s4</code>=<strong>{{ aS4 >= 0 ? `+${aS4}` : aS4 }}</strong>
+            Unsigned <code>u4</code> = <strong>{{ aU4 }}</strong> · Signed <code>s4</code> = <strong>{{ fmtS4(aS4) }}</strong>
           </div>
         </div>
 
@@ -138,7 +142,7 @@ const wheelSlots = computed(() => {
             </button>
           </div>
           <div class="hw-mono" style="font-size: 12px; color: var(--vp-c-text-2); white-space: nowrap">
-            Unsigned <code>u4</code>=<strong>{{ bU4 }}</strong> · Signed <code>s4</code>=<strong>{{ bS4 >= 0 ? `+${bS4}` : bS4 }}</strong>
+            Unsigned <code>u4</code> = <strong>{{ bU4 }}</strong> · Signed <code>s4</code> = <strong>{{ fmtS4(bS4) }}</strong>
           </div>
         </div>
 
@@ -152,17 +156,17 @@ const wheelSlots = computed(() => {
             <div>
               <strong>Unsigned:</strong> {{ aU4 }} + {{ bU4 }} →
               <code class="hw-mono">{{ sumBits4 }}</code>
-              <span v-if="unsignedOverflow" style="color: #d97706; font-weight: 600">
+              <span v-if="unsignedOverflow" style="color: var(--hw-amber); font-weight: 600">
                 (wrapped from {{ rawSumU }})
               </span>
             </div>
             <div>
-              <strong>Signed:</strong> ({{ aS4 }}) + ({{ bS4 }}) →
-              <code class="hw-mono">{{ sumS4 >= 0 ? `+${sumS4}` : sumS4 }}</code>
-              <span v-if="signedOverflow" style="color: #dc2626; font-weight: 600">
-                (signed overflow: true sum {{ aS4 + bS4 }} outside [-8..+7])
+              <strong>Signed:</strong> ({{ fmtS4(aS4) }}) + ({{ fmtS4(bS4) }}) →
+              <code class="hw-mono">{{ fmtS4(sumS4) }}</code>
+              <span v-if="signedOverflow" style="color: var(--hw-red); font-weight: 600">
+                (signed overflow: true sum {{ aS4 + bS4 }} outside -8..+7)
               </span>
-              <span v-else style="color: #10b981; font-weight: 600"> (exact)</span>
+              <span v-else style="color: var(--hw-green); font-weight: 600"> (exact)</span>
             </div>
           </div>
         </div>
@@ -188,7 +192,7 @@ const wheelSlots = computed(() => {
               :cy="slot.y"
               r="18.5"
               fill="none"
-              stroke="#10b981"
+              stroke="var(--hw-green)"
               stroke-width="2.5"
             />
             <!-- Middle Amber Halo when B hits this slot -->
@@ -198,7 +202,7 @@ const wheelSlots = computed(() => {
               :cy="slot.y"
               r="15.5"
               fill="none"
-              stroke="#f59e0b"
+              stroke="var(--hw-amber)"
               stroke-width="2.5"
             />
             <!-- Inner Slot Disc (Blue if Sum) -->
@@ -220,19 +224,19 @@ const wheelSlots = computed(() => {
               text-anchor="middle"
               font-size="9.5"
               font-weight="700"
-              :fill="slot.u === sumBits4 ? '#ffffff' : 'currentColor'"
+              :fill="slot.u === sumBits4 ? 'var(--vp-c-bg)' : 'currentColor'"
             >
-              {{ slot.s >= 0 ? `+${slot.s}` : slot.s }}
+              {{ fmtS4(slot.s) }}
             </text>
           </g>
-          <text x="125" y="109" text-anchor="middle" font-size="10" fill="#10b981" font-weight="700">
-            Green halo = A ({{ aS4 >= 0 ? `+${aS4}` : aS4 }})
+          <text x="125" y="109" text-anchor="middle" font-size="10" fill="var(--hw-green)" font-weight="700">
+            Green halo = A ({{ fmtS4(aS4) }})
           </text>
-          <text x="125" y="124" text-anchor="middle" font-size="10" fill="#d97706" font-weight="700">
-            Amber halo = B ({{ bS4 >= 0 ? `+${bS4}` : bS4 }})
+          <text x="125" y="124" text-anchor="middle" font-size="10" fill="var(--hw-amber)" font-weight="700">
+            Amber halo = B ({{ fmtS4(bS4) }})
           </text>
           <text x="125" y="141" text-anchor="middle" font-size="10.5" font-weight="700" fill="var(--vp-c-brand-1)">
-            Blue fill = Sum ({{ bin4(sumBits4) }})
+            Blue fill = Sum {{ fmtS4(sumS4) }} ({{ bin4(sumBits4) }})
           </text>
         </svg>
         <div

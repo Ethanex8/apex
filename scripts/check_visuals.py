@@ -352,6 +352,7 @@ def audit_pages(
     if not dist_dir.is_dir():
         return [f"Built dist directory missing: '{dist_dir}' (run 'npm --prefix book run build' first)"]
     try:
+        # code-gate: allow-local-import (optional browser dependency checked gracefully at runtime)
         from playwright.sync_api import sync_playwright
     except ImportError:
         return ["Missing required dependency 'playwright'; invoke via 'uv run --with playwright python3 scripts/check_visuals.py'"]

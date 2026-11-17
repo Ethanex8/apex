@@ -24,6 +24,7 @@ import argparse
 import sys
 from datetime import date, datetime
 from pathlib import Path
+from typing import NamedTuple
 
 import yaml
 
@@ -35,6 +36,14 @@ import build  # noqa: E402 — repo scripts run standalone without package insta
 
 ROOT_DIR = SCRIPT_DIR.parent
 ROADMAP_YAML_PATH = ROOT_DIR / "roadmap.yaml"
+
+
+class BookChapterMatch(NamedTuple):
+    """Matched book part, chapter metadata, and 1-based step position within the chapter."""
+
+    part: dict
+    chapter: dict
+    step_index: int
 
 
 def load_roadmap() -> dict:
@@ -73,14 +82,14 @@ def find_step(data: dict, step_id: str) -> dict | None:
     return None
 
 
-def find_book_chapter(data: dict, step_id: str) -> tuple[dict, dict, int] | None:
-    """Return `(part, chapter, 1_based_step_index)` for `step_id`, or None if unmapped."""
+def find_book_chapter(data: dict, step_id: str) -> BookChapterMatch | None:
+    """Return `BookChapterMatch` for `step_id`, or None if unmapped."""
     target = step_id.strip().lower()
     for part in (data.get("book") or {}).get("parts") or []:
         for chap in part.get("chapters") or []:
             for idx, sid in enumerate(chap.get("steps") or [], 1):
                 if str(sid).lower() == target:
-                    return part, chap, idx
+                    return BookChapterMatch(part=part, chapter=chap, step_index=idx)
     return None
 
 

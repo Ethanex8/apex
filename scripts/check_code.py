@@ -37,8 +37,12 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 IGNORED_PARTS = {".git", ".tools", ".venv", "__pycache__", "node_modules", "dist"}
 SUPPORTED_EXTS = {".py", ".sh", ".sv", ".v", ".c", ".h"}
 MAX_PY_FUNC_LINES = 80
+MAX_RETURN_TUPLE_ITEMS = 2
 
-EXEMPTION_RE = re.compile(r"#\s*code-gate:\s*allow-long-dispatch\s*\(([^)]+)\)")
+CODE_GATE_RE = re.compile(
+    r"#\s*code-gate:\s*(allow-long-dispatch|allow-tuple-return|allow-local-import|allow-compound-assert)"
+    r"\s*\(([^)]+)\)"
+)
 PRAGMA_RE = re.compile(r"#\s*(?:ruff:\s*noqa|noqa|type:\s*ignore)\b")
 NOQA_EXPLAINED_RE = re.compile(r"#\s*(?:ruff:\s*noqa|noqa|type:\s*ignore)\b[^\n]*?(?:—|--|-)\s+\S+")
 SH_FUNC_RE = re.compile(r"^\s*(?:function\s+)?([A-Za-z_]\w*)\s*\(\s*\)\s*\{")
@@ -77,16 +81,23 @@ def collect_target_files(
     return sorted(candidates), []
 
 
-def _has_long_dispatch_exemption(
-    lines: list[str], node: ast.FunctionDef | ast.AsyncFunctionDef
+def _has_code_gate_exemption(
+    lines: list[str], start_lineno: int, gate_name: str, allow_inline: bool = False
 ) -> bool:
-    """Return True if a `# code-gate: allow-long-dispatch (<reason>)` precedes `node`."""
-    first_ln = min([d.lineno for d in node.decorator_list] + [node.lineno])
-    idx = first_ln - 2
+    """Return True if a `# code-gate: <gate_name> (<reason>)` precedes (or sits on) `start_lineno`."""
+    if (
+        allow_inline
+        and 1 <= start_lineno <= len(lines)
+        and (m := CODE_GATE_RE.search(lines[start_lineno - 1]))
+        and m.group(1) == gate_name
+        and m.group(2).strip()
+    ):
+        return True
+    idx = start_lineno - 2
     while idx >= 0 and not lines[idx].strip():
         idx -= 1
     while idx >= 0 and lines[idx].lstrip().startswith("#"):
-        if (m := EXEMPTION_RE.search(lines[idx])) and m.group(1).strip():
+        if (m := CODE_GATE_RE.search(lines[idx])) and m.group(1) == gate_name and m.group(2).strip():
             return True
         idx -= 1
     return False
@@ -128,8 +139,46 @@ def _check_python_pragmas(text: str, lines: list[str], rel: Path) -> list[str]:
     return errors
 
 
+def _large_return_tuple_arity(ret_node: ast.expr | None) -> int | None:
+    """Return element count if `ret_node` contains a positional `tuple[...]` exceeding `MAX_RETURN_TUPLE_ITEMS`."""
+    if ret_node is None:
+        return None
+    for sub in ast.walk(ret_node):
+        if not isinstance(sub, ast.Subscript) or not isinstance(sub.slice, ast.Tuple):
+            continue
+        is_tuple = (isinstance(sub.value, ast.Name) and sub.value.id in {"tuple", "Tuple"}) or (
+            isinstance(sub.value, ast.Attribute) and sub.value.attr in {"tuple", "Tuple"}
+        )
+        if is_tuple and len(sub.slice.elts) > MAX_RETURN_TUPLE_ITEMS:
+            return len(sub.slice.elts)
+    return None
+
+
+def _check_python_function(
+    node: ast.FunctionDef | ast.AsyncFunctionDef, lines: list[str], rel: Path, errors: list[str]
+) -> None:
+    """Enforce docstring, length cap, and return-tuple clarity on a Python function or method."""
+    if not ast.get_docstring(node):
+        errors.append(f"[{rel}:{node.lineno}] Missing docstring on function '{node.name}'")
+    first_ln = min([d.lineno for d in node.decorator_list] + [node.lineno])
+    end_ln = node.end_lineno or node.lineno
+    length = end_ln - node.lineno + 1
+    if length > MAX_PY_FUNC_LINES and not _has_code_gate_exemption(lines, first_ln, "allow-long-dispatch"):
+        errors.append(
+            f"[{rel}:{node.lineno}] Function '{node.name}' is {length} lines "
+            f"(limit {MAX_PY_FUNC_LINES}; split or add '# code-gate: allow-long-dispatch (<reason>)')"
+        )
+    if (arity := _large_return_tuple_arity(node.returns)) is not None and not _has_code_gate_exemption(
+        lines, first_ln, "allow-tuple-return"
+    ):
+        errors.append(
+            f"[{rel}:{node.lineno}] Function '{node.name}' returns a {arity}-item positional tuple "
+            f"(limit {MAX_RETURN_TUPLE_ITEMS}); return a @dataclass or NamedTuple"
+        )
+
+
 def check_python_file(path: Path, root_dir: Path) -> list[str]:
-    """Validate AST docstrings, function lengths, and explained suppressions on one `.py` file."""
+    """Validate AST docstrings, function lengths, tuple returns, top imports, and test asserts on one `.py` file."""
     rel = path.relative_to(root_dir) if path.is_relative_to(root_dir) else path
     text = path.read_text(encoding="utf-8")
     lines = text.splitlines()
@@ -143,18 +192,35 @@ def check_python_file(path: Path, root_dir: Path) -> list[str]:
     if not ast.get_docstring(tree):
         errors.append(f"[{rel}:1] Missing module docstring")
 
+    seen_imports: set[tuple[int, int]] = set()
+    is_test_file = path.name.startswith("test_")
     for node in ast.walk(tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and not ast.get_docstring(node):
-            kind = "class" if isinstance(node, ast.ClassDef) else "function"
-            errors.append(f"[{rel}:{node.lineno}] Missing docstring on {kind} '{node.name}'")
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            end_ln = node.end_lineno or node.lineno
-            length = end_ln - node.lineno + 1
-            if length > MAX_PY_FUNC_LINES and not _has_long_dispatch_exemption(lines, node):
-                errors.append(
-                    f"[{rel}:{node.lineno}] Function '{node.name}' is {length} lines "
-                    f"(limit {MAX_PY_FUNC_LINES}; split or add '# code-gate: allow-long-dispatch (<reason>)')"
-                )
+        if isinstance(node, ast.ClassDef) and not ast.get_docstring(node):
+            errors.append(f"[{rel}:{node.lineno}] Missing docstring on class '{node.name}'")
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            _check_python_function(node, lines, rel, errors)
+            for sub in ast.walk(node):
+                if isinstance(sub, (ast.Import, ast.ImportFrom)):
+                    key = (sub.lineno, sub.col_offset)
+                    if key not in seen_imports and not _has_code_gate_exemption(
+                        lines, sub.lineno, "allow-local-import", allow_inline=True
+                    ):
+                        seen_imports.add(key)
+                        errors.append(
+                            f"[{rel}:{sub.lineno}] Local import inside function; move to module top "
+                            "or add '# code-gate: allow-local-import (<reason>)'"
+                        )
+        elif (
+            is_test_file
+            and isinstance(node, ast.Assert)
+            and isinstance(node.test, ast.BoolOp)
+            and isinstance(node.test.op, ast.And)
+            and not _has_code_gate_exemption(lines, node.lineno, "allow-compound-assert", allow_inline=True)
+        ):
+            errors.append(
+                f"[{rel}:{node.lineno}] Compound 'assert ... and ...' in test file; "
+                "split into one invariant per assert"
+            )
 
     errors.extend(_check_python_pragmas(text, lines, rel))
     return errors

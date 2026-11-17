@@ -1,6 +1,6 @@
 ---
 name: apex-artifact-author
-description: Author and refactor Apex Python, Shell, SystemVerilog, and C artifacts using a mandatory 4-pass Staff-Engineer pipeline (Architecture & Modularity Blueprint, Self-Documenting Contract Implementation, Isolated Adversarial Subagent Audit, and Automated AST/Ruff/ShellCheck/Coverage Verification).
+description: Author and refactor Apex Python, Shell, SystemVerilog, and C artifacts using a mandatory 4-pass Staff-Engineer pipeline (Architecture & Modularity Blueprint, Self-Documenting Contract Implementation, 2-Specialist Parallel Audit with Convergence, and Automated AST/Ruff/ShellCheck/Coverage Verification).
 ---
 
 # Apex 4-Pass Technical Artifact Authoring Skill
@@ -9,7 +9,7 @@ Use this skill for **every** code, testbench, hardware-description, firmware, an
 
 ## Core Quality Standard
 
-Every line of code in Apex is both **working engineering hardware/software** and **primary textbook source code**. It must read as though reviewed by a principal hardware/systems engineer: modular, fail-fast, self-documenting, CWD-independent, free of path-stuttering or magic constants, and protected by `>= 95%` test coverage.
+Every line of code in Apex is both **working engineering hardware/software** and **primary textbook source code**. It must read as though reviewed by a principal hardware/systems engineer: modular, fail-fast, self-documenting, CWD-independent, free of magic literals or opaque tuple puzzles, and protected by `>= 95%` test coverage.
 
 ---
 
@@ -20,45 +20,36 @@ Before writing code:
 1. **Path-Stutter-Free Naming**: Name files for their role relative to their directory (`systems/brain/sim/oracle.py`, never `sim/rv32_oracle.py`; `systems/brain/rtl/core.sv`, never `rtl/brain_core.sv`).
 2. **Single-Responsibility Modular Decomposition (`<= 80` LOC/unit)**:
    - Decompose every Python/C function and SystemVerilog `always` block into focused, cleanly named helpers of `<= 80` lines so each unit verifies one clear invariant and transcludes cleanly into the textbook.
-   - Never hide multi-line logic inside nested closures or dump helper functions ungrouped at the bottom of a file.
-   - Only flat, single-level opcode dispatchers (like `RV32Oracle.step`) may exceed 80 lines, and only with an explicit `# code-gate: allow-long-dispatch (<reason>)` annotation.
+   - Only flat, single-level opcode dispatchers may exceed 80 lines, with an explicit `# code-gate: allow-long-dispatch (<reason>)` annotation.
 3. **Failure-Mode & Precondition Matrix**:
    - Enumerate all illegal encodings, alignment errors, access faults, OS/CPU mismatches, and missing prerequisites up front.
-   - **Fail fast with actionable errors** naming the exact missing dependency, unsupported host platform, or offending address—never leave dead/untested fallback branches (e.g., silent `else python3 -m venv` fallbacks when `uv` is required).
+   - **Fail fast with actionable errors** naming the exact missing dependency, platform, or offending address—never leave dead/untested fallback branches.
 
-### Pass 2: Self-Documenting Contract Implementation
-1. **Top-of-File Contract Header** on every `.py`, `.sh`, `.sv`, `.c`, and `.h` file:
-   - Python: module docstring with summary, `Purpose:`, `Usage:`, and `Invariants:`/`Outputs:`.
-   - Shell: banner containing `Purpose:`, `Usage:`, `Optional Environment Variables:` (if any), `Outputs:`, and an explicit `# Bump policy:` comment above any pinned tool/package tag (deriving stamps dynamically, e.g., `${tag//-/}`, never duplicating strings).
-   - SystemVerilog / C: block header documenting `Purpose:`, `Ports & Clock Domain` / `API`, `Parameters`, and reset/timing invariants.
-2. **100% Docstrings & Rich Pedagogical Inline Comments**:
-   - Every Python class, method, and function—**including every `test_*` function**—must have a concise docstring stating *what architectural invariant or failure mode* it enforces or proves.
-   - Trace/interface dataclasses and structs must document field-level width/sign semantics (e.g., extended load value vs. width-masked store lane), and helper functions should decode narrow bitfields locally rather than hiding them across caller parameters.
-   - **Explain Code Mechanics Inline (`#` / `//`)**: Because every file in `systems/` is primary textbook source code—and textbook chapters must NOT embed large multi-dozen-line code blocks just to paraphrase them in prose—explain *what* non-obvious blocks do and *why* directly inline inside the code. Document every architectural state field in `__init__`/`reset`, every constant group/hardware register bit, every spec/hardware invariant (e.g., `WARL` masking, read-only bit behavior, counter timing, unused operand fields), and every host-language bit trick (preferring explicit masks like `0xFFFF_FFFF_0000_0000` over negative-int `~MASK32`, and noting `>>` sign-bit replication or `//` floor-vs-truncation) right next to the lines they govern.
-   - Every Bash function `<name>() {` must have an explanatory `#` comment directly above it.
-   - Every `# shellcheck`, `# noqa`, `# type: ignore`, and `/* verilator lint_off */` suppression must carry a plain-English reason explaining *why* the rule cannot apply cleanly.
-3. **CWD-Safe Paths**:
-   - Always resolve paths relative to `BASH_SOURCE[0]` (Bash) or `Path(__file__).resolve()` (Python). Never print CWD-fragile hints like `source .tools/env.sh`; print the resolved path (`source ${ENV_FILE}`).
+### Pass 2: Self-Documenting Contract & Literary Readability Implementation
+1. **Top-of-File Contract Header** on every `.py`, `.sh`, `.sv`, `.c`, and `.h` file (`Purpose:`, `Usage:`, `Invariants:`/`Outputs:`, plus `# Bump policy:` above pinned tool tags in shell scripts and `Ports & Clock Domain` in SV).
+2. **Named Constants & Uniform Self-Documenting Contracts**:
+   - Define grouped named constants (`OPCODE_*`, `F3_*`, `F7_*`, `INSN_*`, `WORD_ALIGN_MASK`)—never dispatch or build test words from raw magic hex/integer literals.
+   - Keep sibling helpers on **one uniform return/error contract** (e.g., `ExecOutcome | StepTrace`), replace `>= 3`-item positional return tuples with `@dataclass` or `NamedTuple` (`check_code.py` rejects `> 2`-item tuple returns unless exempted), and deduplicate shared arithmetic/MMIO guard helpers.
+   - Trace/interface dataclasses must document field-level width/sign semantics, and helpers should decode narrow bitfields locally.
+3. **100% Docstrings, Clean Tests & Rich Inline Commentary**:
+   - Keep all imports at module top (`check_code.py` flags local imports inside functions unless exempted for optional runtime dependencies).
+   - Every Python class, method, and function—**including every `test_*` function**—must have a concise docstring. Build readable test stimuli in natural operand order (`rd, rs1, rs2/imm`), avoid dead setup statements, and enforce **one invariant per `assert`** in `test_*.py` (`check_code.py` rejects `assert a and b`).
+   - Explain non-obvious mechanics, architectural state fields, CSR/WARL masks, hardware/host semantic traps (`0xFFFF_FFFF_0000_0000` vs negative `~`, `>>` sign replication, `//` floor vs truncation), and linter pragmas inline right beside the code.
+4. **CWD-Safe Paths**: Always resolve paths relative to `BASH_SOURCE[0]` (Bash) or `Path(__file__).resolve()` (Python).
 
-### Pass 3: Isolated Adversarial Staff-Engineer Audit (`research` Subagent)
-Invoke an isolated `research` subagent (`invoke_subagent`, `Model: 'inherit'`, `Workspace: 'inherit'`, `Role: Adversarial Staff Code Reviewer`) on all created/modified code and tests, grading against:
-1. Function modularity & size (`<= 80` lines, zero god-functions or nested closures).
-2. Naming clarity & logical top-to-bottom file structure.
-3. Complete headers, 100% docstrings, grounded constants, and explained linter pragmas.
-4. **Rich Standalone Inline Commentary**: Can a software engineer with zero prior hardware/RISC-V background understand state fields, register constants, edge-case guards, and spec invariants directly from inline comments in the file without needing a prose paraphrase in a chapter?
-5. CWD-independence, fail-fast errors, and zero dead fallback branches.
-6. Hardware safety (for `.sv`: zero inferred latches, synchronous reset polarity consistency, clean clock boundaries).
-7. Adversarial test thoroughness (negative paths, boundary overflow/underflow, misaligned/invalid inputs, `>= 95%` line coverage).
+### Pass 3: 2-Specialist Parallel Audit (`research` Subagents) & Convergence
+Invoke **2 parallel isolated `research` subagents** (`Model: 'inherit'`, `Workspace: 'inherit'`) across all created/modified code and tests:
+1. **`Architecture & Spec-Correctness Auditor`**: Audits spec/hardware edge cases, fail-fast invariants, CWD independence, hardware safety (no inferred RTL latches, reset polarity), zero dead branches, and `>= 95%` adversarial coverage.
+2. **`Code Readability & Literary Clarity Critic`**: Reads code and test files cold as textbook source prose; flags magic hex literals, positional tuple returns, inconsistent sibling helper contracts, duplicated bit/guard logic, local imports, dead assertions, and cramped tests.
 
-Resolve **100%** of tickets before moving to Pass 4.
+- **Mandatory Post-Refactor Convergence Loop**: After any edit resolving Round $r$ tickets, re-run verification and spawn **fresh clean-room Round $r+1$ specialist subagents** until zero P0/P1/P2 defects remain.
 
 ### Pass 4: Automated Static Analysis, Coverage & Book Sync Gate
-Run and pass **all** checks cleanly before considering the artifact complete:
+Run and pass **all** checks cleanly:
 ```bash
 python3 scripts/check_code.py
-python3 scripts/sync_book.py --check   # or run scripts/sync_book.py when updating/creating chapters
+python3 scripts/sync_book.py --check
 python3 scripts/check_book.py
 uv run --with pyyaml python3 scripts/build.py --check
 ```
-Plus the step's unit/simulation test suite with `--cov-fail-under=95` (for Python) or `Verilator`/`Yosys`/`nextpnr` verification. Record any recurring review failure modes in `references/calibration_log.md` (`apex-skill-healer`).
-
+Plus the unit/simulation test suite with `--cov-fail-under=95` (or `Verilator`/`Yosys`/`nextpnr`). Record new lessons in `references/calibration_log.md`.

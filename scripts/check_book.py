@@ -19,7 +19,9 @@ from __future__ import annotations
 
 import re
 import sys
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import NamedTuple
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
@@ -43,11 +45,13 @@ MAX_TRANSCLUSION_LINES = 25
 MAX_ASCII_FENCE_COLS = 80
 MAX_CODE_FENCE_COLS = 100
 MAX_SKILL_LINES = 120
+ASCII_FENCE_LANGS = {"", "text", "txt", "ascii", "diagram"}
 REQUIRED_CALIBRATED_SKILLS = ("apex-couch-mentor", "apex-textbook-author", "apex-artifact-author")
 
 LEGACY_EXPECT_RE = re.compile(r"^<!--\s*expect-symbol:\s*(.+?)\s*-->$")
 BOOK_GATE_RE = re.compile(
-    r"^<!--\s*book-gate:\s*(allow-long-slice|allow-wide-fence|allow-wide-mermaid)\s*\(([^)]*)\)\s*-->$"
+    r"^<!--\s*book-gate:\s*(allow-long-slice|allow-wide-fence|allow-wide-mermaid|allow-ascii-fence)"
+    r"\s*\(([^)]*)\)\s*-->$"
 )
 TRANSCLUDE_RE = re.compile(
     r"^<<<\s+(@/[^\s{#\[]+|\.\.?/[^\s{#\[]+)(?:#L(\d+)(?:-L?(\d+))?)?"
@@ -61,6 +65,42 @@ MERMAID_LR_RE = re.compile(r"^(?:flowchart|graph)\s+LR\b")
 MERMAID_ARROW_RE = re.compile(r"-->|---|-\.->|==>")
 HTML_ENTITY_RE = re.compile(r"&(?:[A-Za-z][A-Za-z0-9]+|#[0-9]+|#x[0-9A-Fa-f]+);")
 SEQ_MSG_SEMI_RE = re.compile(r"^[^\n:]+(?:->|--?>|->>|-->>|-x|--x|-\)|--\))[^\n:]*:.*;")
+HEADING_RE = re.compile(r"^(#{2,3})\s+(.+)$")
+EXERCISE_HEADING_RE = re.compile(r"\bExercise(?:\s+\d+)?\b", re.IGNORECASE)
+VUE_TAG_RE = re.compile(r"^<[A-Z][A-Za-z0-9]*(?:\s|/>|>)")
+LIST_OPEN_RE = re.compile(r"^(?:[-*+]|\d+[.)])\s+")
+ABRUPT_IMPERATIVE_RE = re.compile(r"^(?:Trace|Examine|Inspect|Click|Play with|Experiment with)\b")
+CONVERSATIONAL_CRUTCH_RE = re.compile(r"\b(?:Wait:\s+why|Hold on:|Wait a second:)", re.IGNORECASE)
+DATASHEET_SHORTHAND_RE = re.compile(r"imm\[[^\]]*\|[^\]]*\]|\[\d+\|imm|\[[\d.]+\|[\d.]+\]")
+
+
+@dataclass
+class MermaidBlock:
+    """Parsed Mermaid diagram header line number, header text, and body lines."""
+
+    header_line: int
+    header_text: str
+    body_lines: list[tuple[int, str]]
+
+
+@dataclass
+class FenceBlock:
+    """Active fenced block metadata accumulated between opening and closing delimiters."""
+
+    open_line: int
+    lang: str
+    allow_wide_fence: bool
+    allow_wide_mermaid: bool
+    allow_ascii_fence: bool
+    lines: list[tuple[int, str]] = field(default_factory=list)
+
+
+class ChapterValidationResult(NamedTuple):
+    """Summary returned by `validate_chapters` across all textbook chapters."""
+
+    errors: list[str]
+    chapter_count: int
+    anchor_count: int
 
 
 def _append_unique(errors: list[str], msg: str) -> None:
@@ -215,13 +255,23 @@ def _validate_markdown_links(
 
 
 def _check_prose_hygiene(raw_line: str, idx: int, rel_chap: Path, errors: list[str]) -> None:
-    """Reject accidental GFM strikethrough tildes and unanchored bare prose line numbers."""
+    """Reject accidental GFM strikethrough, bare prose line numbers, filler crutches, and bit shorthand."""
     prose_only = _strip_inline_code_and_math(raw_line)
     if prose_only.count("~") >= 2 and "~~" not in prose_only:
         _append_unique(
             errors,
             f"[{rel_chap}:{idx}] Multiple '~' in prose triggers GFM strikethrough; "
             "use 'about'/'roughly' or wrap in backticks",
+        )
+    if m := CONVERSATIONAL_CRUTCH_RE.search(prose_only):
+        _append_unique(
+            errors,
+            f"[{rel_chap}:{idx}] Conversational crutch '{m.group(0)}'; state the technical motivation directly",
+        )
+    if m := DATASHEET_SHORTHAND_RE.search(raw_line):
+        _append_unique(
+            errors,
+            f"[{rel_chap}:{idx}] Cryptic bit-slice shorthand '{m.group(0)}'; use explicit 'Bits A..B' labels",
         )
 
     without_links = MD_LINK_RE.sub("", raw_line)
@@ -235,10 +285,8 @@ def _check_prose_hygiene(raw_line: str, idx: int, rel_chap: Path, errors: list[s
         )
 
 
-def _mermaid_header_and_body(
-    non_empty: list[tuple[int, str]],
-) -> tuple[int, str, list[tuple[int, str]]] | None:
-    """Return `(header_line_no, header_text, body_lines)` skipping YAML frontmatter and `%%` comments."""
+def _mermaid_header_and_body(non_empty: list[tuple[int, str]]) -> MermaidBlock | None:
+    """Return `MermaidBlock` skipping YAML frontmatter and `%%` comments, or None if empty."""
     in_yaml = False
     for idx, (ln_no, txt) in enumerate(non_empty):
         if in_yaml:
@@ -250,50 +298,59 @@ def _mermaid_header_and_body(
             continue
         if txt.startswith("%%"):
             continue
-        return ln_no, txt, non_empty[idx + 1 :]
+        return MermaidBlock(header_line=ln_no, header_text=txt, body_lines=non_empty[idx + 1 :])
     return None
 
 
-def _validate_fenced_block(
-    rel_chap: Path,
-    lang: str,
-    block_lines: list[tuple[int, str]],
-    allow_wide_fence: bool,
-    allow_wide_mermaid: bool,
-    errors: list[str],
+def _validate_mermaid_block(
+    rel_chap: Path, block: FenceBlock, errors: list[str]
 ) -> None:
-    """Enforce fence column width caps and readable Mermaid diagram topology/syntax."""
-    norm_lang = lang.strip().split()[0].lower() if lang.strip() else ""
-    if norm_lang == "mermaid":
-        non_empty = [(ln_no, txt.strip()) for ln_no, txt in block_lines if txt.strip()]
-        parsed = _mermaid_header_and_body(non_empty)
-        if parsed is not None:
-            header_ln, header_txt, body_lines = parsed
-            arrows = sum(
-                len(MERMAID_ARROW_RE.findall(txt)) for _, txt in body_lines if not txt.startswith("%%")
-            )
-            if MERMAID_LR_RE.match(header_txt) and arrows >= 4 and not allow_wide_mermaid:
+    """Validate Mermaid topology (`flowchart TD` vs wide `LR`) and `sequenceDiagram` semicolons."""
+    non_empty = [(ln_no, txt.strip()) for ln_no, txt in block.lines if txt.strip()]
+    parsed = _mermaid_header_and_body(non_empty)
+    if parsed is None:
+        return
+    arrows = sum(len(MERMAID_ARROW_RE.findall(txt)) for _, txt in parsed.body_lines if not txt.startswith("%%"))
+    if MERMAID_LR_RE.match(parsed.header_text) and arrows >= 4 and not block.allow_wide_mermaid:
+        _append_unique(
+            errors,
+            f"[{rel_chap}:{parsed.header_line}] Wide horizontal Mermaid diagram ({arrows} edges) shrinks in VitePress; "
+            "use 'flowchart TD' or add '<!-- book-gate: allow-wide-mermaid (<reason>) -->'",
+        )
+    if parsed.header_text.startswith("sequenceDiagram"):
+        for ln_no, txt in parsed.body_lines:
+            if txt.startswith("%%"):
+                continue
+            if SEQ_MSG_SEMI_RE.match(HTML_ENTITY_RE.sub("", txt)):
                 _append_unique(
                     errors,
-                    f"[{rel_chap}:{header_ln}] Wide horizontal Mermaid diagram ({arrows} edges) shrinks in VitePress; "
-                    "use 'flowchart TD' or add '<!-- book-gate: allow-wide-mermaid (<reason>) -->'",
+                    f"[{rel_chap}:{ln_no}] Semicolon ';' inside Mermaid sequenceDiagram message triggers parse failure",
                 )
-            if header_txt.startswith("sequenceDiagram"):
-                for ln_no, txt in body_lines:
-                    if txt.startswith("%%"):
-                        continue
-                    cleaned = HTML_ENTITY_RE.sub("", txt)
-                    if SEQ_MSG_SEMI_RE.match(cleaned):
-                        _append_unique(
-                            errors,
-                            f"[{rel_chap}:{ln_no}] Semicolon ';' inside Mermaid sequenceDiagram message triggers parse failure",
-                        )
 
-    is_ascii = norm_lang in {"", "text", "txt", "ascii", "diagram"}
-    max_cols = MAX_ASCII_FENCE_COLS if is_ascii else MAX_CODE_FENCE_COLS
-    if allow_wide_fence:
+
+def _validate_fenced_block(rel_chap: Path, block: FenceBlock, errors: list[str]) -> None:
+    """Enforce zero raw ASCII-art fences, column width caps, and readable Mermaid topology."""
+    norm_lang = block.lang.strip().split()[0].lower() if block.lang.strip() else ""
+    if norm_lang == "mermaid":
+        _validate_mermaid_block(rel_chap, block, errors)
+
+    is_ascii = norm_lang in ASCII_FENCE_LANGS
+    if is_ascii and not block.allow_ascii_fence:
+        _append_unique(
+            errors,
+            f"[{rel_chap}:{block.open_line}] Raw ASCII/text diagram fence ('{norm_lang or 'unlabelled'}') banned; "
+            "use a Vue widget or Mermaid figure (or add '<!-- book-gate: allow-ascii-fence (<reason>) -->')",
+        )
+    for ln_no, raw in block.lines:
+        if m := DATASHEET_SHORTHAND_RE.search(raw):
+            _append_unique(
+                errors,
+                f"[{rel_chap}:{ln_no}] Cryptic bit-slice shorthand '{m.group(0)}'; use explicit 'Bits A..B' labels",
+            )
+    if block.allow_wide_fence:
         return
-    for ln_no, raw in block_lines:
+    max_cols = MAX_ASCII_FENCE_COLS if is_ascii else MAX_CODE_FENCE_COLS
+    for ln_no, raw in block.lines:
         if len(raw) > max_cols:
             _append_unique(
                 errors,
@@ -331,23 +388,120 @@ def _flush_unused_gates(
 
 def _handle_fence_transition(
     rel_chap: Path,
+    line_num: int,
     stripped: str,
     prev_fence: tuple[str, int] | None,
-    fence_meta: tuple[str, bool, bool, list[tuple[int, str]]] | None,
+    fence_meta: FenceBlock | None,
     pending_gates: dict[str, tuple[int, str]],
     errors: list[str],
-) -> tuple[str, bool, bool, list[tuple[int, str]]] | None:
+) -> FenceBlock | None:
     """Manage fence metadata on open and validate accumulated block contents on close."""
     if prev_fence is None:
         fm = FENCE_OPEN_RE.match(stripped)
         lang = fm.group(2).strip() if fm else ""
         allow_wf = pending_gates.pop("allow-wide-fence", None) is not None
         allow_wm = pending_gates.pop("allow-wide-mermaid", None) is not None
+        allow_af = pending_gates.pop("allow-ascii-fence", None) is not None
         _flush_unused_gates(rel_chap, pending_gates, keep_slice=False, errors=errors)
-        return (lang, allow_wf, allow_wm, [])
+        return FenceBlock(line_num, lang, allow_wf, allow_wm, allow_af)
     if fence_meta is not None:
-        _validate_fenced_block(rel_chap, fence_meta[0], fence_meta[3], fence_meta[1], fence_meta[2], errors)
+        _validate_fenced_block(rel_chap, fence_meta, errors)
     return None
+
+
+def _check_heading_opening(
+    rel_chap: Path,
+    pending_heading: tuple[int, str] | None,
+    stripped: str,
+    opened_fence: bool,
+    errors: list[str],
+) -> tuple[int, str] | None:
+    """Ensure every non-Exercise `##`/`###` heading opens with a calm introductory prose sentence."""
+    if pending_heading is None:
+        return None
+    if not stripped or stripped.startswith("<!--"):
+        return pending_heading
+    h_ln, h_txt = pending_heading
+    if opened_fence:
+        _append_unique(
+            errors,
+            f"[{rel_chap}:{h_ln}] Heading '{h_txt}' jumps straight into a code/diagram block without an intro sentence",
+        )
+    elif VUE_TAG_RE.match(stripped):
+        _append_unique(
+            errors,
+            f"[{rel_chap}:{h_ln}] Heading '{h_txt}' jumps straight into a Vue widget without an intro sentence",
+        )
+    elif stripped.startswith("<<<"):
+        _append_unique(
+            errors,
+            f"[{rel_chap}:{h_ln}] Heading '{h_txt}' jumps straight into a code transclusion without an intro sentence",
+        )
+    elif stripped.startswith("|") or LIST_OPEN_RE.match(stripped) or stripped == "$$":
+        _append_unique(
+            errors,
+            f"[{rel_chap}:{h_ln}] Heading '{h_txt}' jumps straight into a list/table/equation without an intro sentence",
+        )
+    elif m := ABRUPT_IMPERATIVE_RE.match(stripped):
+        _append_unique(
+            errors,
+            f"[{rel_chap}:{h_ln}] Heading '{h_txt}' opens abruptly with '{m.group(0)}...'; add a conceptual bridge first",
+        )
+    return None
+
+
+def _load_checked_chapter_text(
+    resolved_chap: Path, resolved_root: Path, rel_chap: Path, errors: list[str]
+) -> str:
+    """Read chapter text and record any `sync_book` drift errors."""
+    orig_text = resolved_chap.read_text(encoding="utf-8")
+    synced_text, sync_errs = sync_chapter_text(resolved_chap, resolved_root)
+    for err in sync_errs:
+        _append_unique(errors, err)
+    if not sync_errs and synced_text != orig_text:
+        _append_unique(errors, f"[{rel_chap}] Line references or badge out of sync (run 'python3 scripts/sync_book.py')")
+    return orig_text
+
+
+@dataclass
+class _ChapterScanState:
+    """Mutable per-chapter parser state tracked across lines during validation."""
+
+    active_fence: tuple[str, int] | None = None
+    fence_meta: FenceBlock | None = None
+    in_math: bool = False
+    pending_anchor: tuple[int, str] | None = None
+    pending_heading: tuple[int, str] | None = None
+    anchor_count: int = 0
+    pending_gates: dict[str, tuple[int, str]] = field(default_factory=dict)
+
+
+def _process_chapter_directive(
+    rel_chap: Path,
+    idx: int,
+    stripped: str,
+    state: _ChapterScanState,
+    errors: list[str],
+) -> bool:
+    """Handle `book-gate`, legacy `expect-symbol`, and `book-sync` HTML directives; return True if consumed."""
+    if gate_m := BOOK_GATE_RE.match(stripped):
+        if not gate_m.group(2).strip():
+            _append_unique(errors, f"[{rel_chap}:{idx}] Empty reason inside book-gate directive")
+        else:
+            state.pending_gates[gate_m.group(1)] = (idx, gate_m.group(2).strip())
+        return True
+    if LEGACY_EXPECT_RE.match(stripped):
+        _append_unique(
+            errors,
+            f"[{rel_chap}:{idx}] Legacy '<!-- expect-symbol: ... -->' must be upgraded to '<!-- book-sync: <anchor> -->'",
+        )
+        return True
+    if dir_m := SYNC_DIRECTIVE_RE.match(stripped):
+        _flush_unused_anchor(rel_chap, state.pending_anchor, errors)
+        _flush_unused_gates(rel_chap, state.pending_gates, keep_slice=True, errors=errors)
+        state.pending_anchor = (idx, dir_m.group(1))
+        return True
+    return False
 
 
 def _validate_single_chapter(
@@ -356,79 +510,71 @@ def _validate_single_chapter(
     """Validate one textbook chapter file and return verified anchor count."""
     resolved_chap, resolved_root = chap_path.resolve(), root_dir.resolve()
     rel_chap = resolved_chap.relative_to(resolved_root)
-    orig_text = resolved_chap.read_text(encoding="utf-8")
-    synced_text, sync_errs = sync_chapter_text(resolved_chap, resolved_root)
-    for err in sync_errs:
-        _append_unique(errors, err)
-    if not sync_errs and synced_text != orig_text:
-        _append_unique(errors, f"[{rel_chap}] Line references or badge out of sync (run 'python3 scripts/sync_book.py')")
-
-    active_fence: tuple[str, int] | None = None
-    fence_meta: tuple[str, bool, bool, list[tuple[int, str]]] | None = None
-    in_math, pending_anchor, anchor_count = False, None, 0
-    pending_gates: dict[str, tuple[int, str]] = {}
+    orig_text = _load_checked_chapter_text(resolved_chap, resolved_root, rel_chap, errors)
+    state = _ChapterScanState()
 
     for idx, raw_line in enumerate(orig_text.splitlines(), start=1):
         stripped = raw_line.strip()
-        prev_fence = active_fence
-        active_fence, toggled = update_fence_state(stripped, active_fence)
+        prev_fence = state.active_fence
+        state.active_fence, toggled = update_fence_state(stripped, state.active_fence)
         if toggled:
-            _flush_unused_anchor(rel_chap, pending_anchor, errors)
-            pending_anchor = None
-            fence_meta = _handle_fence_transition(rel_chap, stripped, prev_fence, fence_meta, pending_gates, errors)
+            _flush_unused_anchor(rel_chap, state.pending_anchor, errors)
+            state.pending_anchor = None
+            state.pending_heading = _check_heading_opening(
+                rel_chap, state.pending_heading, stripped, opened_fence=(prev_fence is None), errors=errors
+            )
+            state.fence_meta = _handle_fence_transition(
+                rel_chap, idx, stripped, prev_fence, state.fence_meta, state.pending_gates, errors
+            )
             continue
-        if active_fence is not None and fence_meta is not None:
-            fence_meta[3].append((idx, raw_line))
+        if state.active_fence is not None and state.fence_meta is not None:
+            state.fence_meta.lines.append((idx, raw_line))
             continue
         if stripped == "$$":
-            in_math = not in_math
+            state.pending_heading = _check_heading_opening(rel_chap, state.pending_heading, stripped, False, errors)
+            state.in_math = not state.in_math
             continue
-        if gate_m := BOOK_GATE_RE.match(stripped):
-            if not gate_m.group(2).strip():
-                _append_unique(errors, f"[{rel_chap}:{idx}] Empty reason inside book-gate directive")
-            else:
-                pending_gates[gate_m.group(1)] = (idx, gate_m.group(2).strip())
-            continue
-        if LEGACY_EXPECT_RE.match(stripped):
-            _append_unique(errors, f"[{rel_chap}:{idx}] Legacy '<!-- expect-symbol: ... -->' must be upgraded to '<!-- book-sync: <anchor> -->'")
-            continue
-        if dir_m := SYNC_DIRECTIVE_RE.match(stripped):
-            _flush_unused_anchor(rel_chap, pending_anchor, errors)
-            _flush_unused_gates(rel_chap, pending_gates, keep_slice=True, errors=errors)
-            pending_anchor = (idx, dir_m.group(1))
+        if _process_chapter_directive(rel_chap, idx, stripped, state, errors):
             continue
 
-        allow_slice = "allow-long-slice" in pending_gates
+        allow_slice = "allow-long-slice" in state.pending_gates
         if _validate_transclusion(
-            raw_line, idx, rel_chap, resolved_chap, resolved_root, pending_anchor, allow_slice, file_cache, errors
+            raw_line, idx, rel_chap, resolved_chap, resolved_root, state.pending_anchor, allow_slice, file_cache, errors
         ):
-            anchor_count += 1
-            pending_anchor = None
-            pending_gates.pop("allow-long-slice", None)
-            _flush_unused_gates(rel_chap, pending_gates, keep_slice=False, errors=errors)
+            state.pending_heading = _check_heading_opening(rel_chap, state.pending_heading, stripped, False, errors)
+            state.anchor_count += 1
+            state.pending_anchor = None
+            state.pending_gates.pop("allow-long-slice", None)
+            _flush_unused_gates(rel_chap, state.pending_gates, keep_slice=False, errors=errors)
             continue
 
-        if pending_anchor is not None and stripped:
-            _flush_unused_anchor(rel_chap, pending_anchor, errors)
-            pending_anchor = None
+        if state.pending_anchor is not None and stripped:
+            _flush_unused_anchor(rel_chap, state.pending_anchor, errors)
+            state.pending_anchor = None
         if stripped:
-            _flush_unused_gates(rel_chap, pending_gates, keep_slice=False, errors=errors)
-        if in_math:
+            _flush_unused_gates(rel_chap, state.pending_gates, keep_slice=False, errors=errors)
+        if state.in_math:
             continue
-        anchor_count += _validate_markdown_links(raw_line, idx, rel_chap, resolved_chap, resolved_root, file_cache, errors)
+        if (hm := HEADING_RE.match(stripped)) and not EXERCISE_HEADING_RE.search(hm.group(2)):
+            state.pending_heading = (idx, hm.group(2).strip())
+            continue
+        state.pending_heading = _check_heading_opening(rel_chap, state.pending_heading, stripped, False, errors)
+        state.anchor_count += _validate_markdown_links(
+            raw_line, idx, rel_chap, resolved_chap, resolved_root, file_cache, errors
+        )
         _check_prose_hygiene(raw_line, idx, rel_chap, errors)
 
-    _flush_unused_anchor(rel_chap, pending_anchor, errors)
-    _flush_unused_gates(rel_chap, pending_gates, keep_slice=False, errors=errors)
-    if active_fence is not None:
+    _flush_unused_anchor(rel_chap, state.pending_anchor, errors)
+    _flush_unused_gates(rel_chap, state.pending_gates, keep_slice=False, errors=errors)
+    if state.active_fence is not None:
         _append_unique(errors, f"[{rel_chap}] Unclosed fenced code block at end of file")
-    if in_math:
+    if state.in_math:
         _append_unique(errors, f"[{rel_chap}] Unclosed '$$' math block at end of file")
-    return anchor_count
+    return state.anchor_count
 
 
-def validate_chapters(root_dir: Path | None = None) -> tuple[list[str], int, int]:
-    """Return `(errors, chapter_count, verified_anchor_count)` across `systems/*/chapters/*.md`."""
+def validate_chapters(root_dir: Path | None = None) -> ChapterValidationResult:
+    """Return `ChapterValidationResult` across all `systems/*/chapters/*.md`."""
     resolved_root = (root_dir or ROOT_DIR).resolve()
     errors: list[str] = []
     file_cache: dict[Path, list[str]] = {}
@@ -437,7 +583,25 @@ def validate_chapters(root_dir: Path | None = None) -> tuple[list[str], int, int
         _validate_single_chapter(chap_path, resolved_root, file_cache, errors)
         for chap_path in chapter_paths
     )
-    return errors, len(chapter_paths), anchor_count
+    return ChapterValidationResult(errors=errors, chapter_count=len(chapter_paths), anchor_count=anchor_count)
+
+
+def validate_widgets(root_dir: Path | None = None) -> list[str]:
+    """Scan interactive Vue widgets for cryptic datasheet bit-slice shorthand (`imm[12|10:5]`)."""
+    resolved_root = (root_dir or ROOT_DIR).resolve()
+    comp_dir = resolved_root / "book" / ".vitepress" / "theme" / "components"
+    if not comp_dir.is_dir():
+        return []
+    errors: list[str] = []
+    for vue_path in sorted(comp_dir.rglob("*.vue")):
+        rel_vue = vue_path.relative_to(resolved_root)
+        for idx, line in enumerate(vue_path.read_text(encoding="utf-8").splitlines(), start=1):
+            if m := DATASHEET_SHORTHAND_RE.search(line):
+                _append_unique(
+                    errors,
+                    f"[{rel_vue}:{idx}] Cryptic bit-slice shorthand '{m.group(0)}'; use explicit 'Bits A..B' labels",
+                )
+    return errors
 
 
 def validate_skills(root_dir: Path | None = None) -> tuple[list[str], int]:
@@ -479,8 +643,10 @@ def validate_skills(root_dir: Path | None = None) -> tuple[list[str], int]:
 
 
 def main() -> int:
-    """CLI entry point for textbook and skill validation."""
-    errors, chap_count, anchor_count = validate_chapters(ROOT_DIR)
+    """CLI entry point for textbook, widget, and skill validation."""
+    result = validate_chapters(ROOT_DIR)
+    errors = list(result.errors)
+    errors.extend(validate_widgets(ROOT_DIR))
     skill_errors, skill_count = validate_skills(ROOT_DIR)
     errors.extend(skill_errors)
     if errors:
@@ -489,7 +655,7 @@ def main() -> int:
             print(f"  - {err}", file=sys.stderr)
         return 1
     print(
-        f"OK: Validated {chap_count} textbook chapter(s), {anchor_count} code/file anchor(s), "
+        f"OK: Validated {result.chapter_count} textbook chapter(s), {result.anchor_count} code/file anchor(s), "
         f"and {skill_count} skill(s) with zero drift."
     )
     return 0

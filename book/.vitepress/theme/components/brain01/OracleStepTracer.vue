@@ -92,12 +92,12 @@ const scenarios: Scenario[] = [
       {
         stepNum: 5,
         asm: '0x14: jalr x0, 0(x5)   # Jump and Link Register: return to 0x0C',
-        stageNote: '_set_reg(0, 0x18) discards write to x0; PC jumps back to caller at 0x0C.',
+        stageNote: '_set_reg(0, 0x18) discards write so x0 remains 0x0000_0000; PC jumps back to caller at 0x0C.',
         pc: '0x0000_0014',
         insnHex: '0x0002_8067',
         nextPc: '0x0000_000C',
         regs: { x0: '0x0000_0000', x1: '0x0000_0003', x2: '0x0000_0002', x5: '0x0000_000C' },
-        changedKey: 'x0',
+        changedKey: '',
         csrs: { mcycle: '5', minstret: '5' },
         traceReceipt: 'StepTrace(pc=0x14, insn=0x00028067, next_pc=0x0C, rd=0, rd_val=0)',
       },
@@ -222,7 +222,7 @@ const scenarios: Scenario[] = [
           mie: 'MTIE=1 (Bit 7)',
           mepc: '0x0000_0000',
           mcause: '0x0',
-          'mtime / cmp': '0 / 4',
+          'mtime / cmp': '0 / 0x0000_0000_0000_0004',
           'mcycle / minstret': '0 / 0',
         },
         traceReceipt: 'Interrupts enabled; main program at PC = 0x14',
@@ -241,7 +241,7 @@ const scenarios: Scenario[] = [
           mie: 'MTIE=1 (Bit 7)',
           mepc: '0x0000_0014',
           mcause: '11 (ECALL)',
-          'mtime / cmp': '1 / 4',
+          'mtime / cmp': '1 / 0x0000_0000_0000_0004',
           'mcycle / minstret': '1 / 0',
         },
         traceReceipt: 'StepTrace(pc=0x14, insn=0x00000073, next_pc=0x10000000, trap_cause=11)',
@@ -260,7 +260,7 @@ const scenarios: Scenario[] = [
           mie: 'MTIE=1 (Bit 7)',
           mepc: '0x0000_0018',
           mcause: '11 (ECALL)',
-          'mtime / cmp': '2 / 4',
+          'mtime / cmp': '2 / 0x0000_0000_0000_0004',
           'mcycle / minstret': '2 / 1',
         },
         traceReceipt: 'StepTrace(pc=0x10000000, insn=0x34109073, next_pc=0x10000004)',
@@ -279,7 +279,7 @@ const scenarios: Scenario[] = [
           mie: 'MTIE=1 (Bit 7)',
           mepc: '0x0000_0018',
           mcause: '11 (ECALL)',
-          'mtime / cmp': '3 / 4',
+          'mtime / cmp': '3 / 0x0000_0000_0000_0004',
           'mcycle / minstret': '3 / 2',
         },
         traceReceipt: 'StepTrace(pc=0x10000004, insn=0x30200073, next_pc=0x00000018)',
@@ -298,7 +298,7 @@ const scenarios: Scenario[] = [
           mie: 'MTIE=1 (Bit 7)',
           mepc: '0x0000_0018',
           mcause: '0x8000_0007',
-          'mtime / cmp': '4 / 4',
+          'mtime / cmp': '4 / 0x0000_0000_0000_0004',
           'mcycle / minstret': '4 / 2',
         },
         traceReceipt: 'StepTrace(pc=0x18, next_pc=0x1000001C, trap_cause=0x80000007, interrupt=True)',
@@ -306,7 +306,7 @@ const scenarios: Scenario[] = [
       {
         stepNum: 5,
         asm: '0x1000_001C: sw x3, 12(x2)          # Write 0xFFFF_FFFF to mtimecmp_hi',
-        stageNote: 'Timer handler silences alarm by raising mtimecmp ceiling, leaving mepc = 0x18 unchanged.',
+        stageNote: 'Raises upper 32 bits of mtimecmp to 0xFFFF_FFFF_0000_0004, silencing the alarm while keeping mepc = 0x18.',
         pc: '0x1000_001C',
         insnHex: '0x0031_2623',
         nextPc: '0x1000_0020',
@@ -317,7 +317,7 @@ const scenarios: Scenario[] = [
           mie: 'MTIE=1 (Bit 7)',
           mepc: '0x0000_0018',
           mcause: '0x8000_0007',
-          'mtime / cmp': '5 / MAX',
+          'mtime / cmp': '5 / 0xFFFF_FFFF_0000_0004',
           'mcycle / minstret': '5 / 3',
         },
         traceReceipt: 'StepTrace(pc=0x1000001C, mem_addr=0x8000000C, mem_val=0xFFFFFFFF, mem_write=True)',
@@ -336,7 +336,7 @@ const scenarios: Scenario[] = [
           mie: 'MTIE=1 (Bit 7)',
           mepc: '0x0000_0018',
           mcause: '0x8000_0007',
-          'mtime / cmp': '6 / MAX',
+          'mtime / cmp': '6 / 0xFFFF_FFFF_0000_0004',
           'mcycle / minstret': '6 / 4',
         },
         traceReceipt: 'StepTrace(pc=0x10000020, insn=0x30200073, next_pc=0x00000018)',
@@ -348,13 +348,14 @@ const scenarios: Scenario[] = [
         pc: '0x0000_0018',
         insnHex: '0x02A0_0A13',
         nextPc: '0x0000_001C',
-        regs: { x1: '0x0000_0018', x2: '0x8000_0000', x3: '0xFFFF_FFFF', x20: '0x0000_002A (42)' },
+        regs: { x1: '0x0000_0018', x2: '0x8000_0000', x3: '0xFFFF_FFFF', x20: '0x0000_002A (+42)' },
         changedKey: 'x20',
         csrs: {
           mstatus: 'MIE=1, MPIE=1',
+          mie: 'MTIE=1 (Bit 7)',
           mepc: '0x0000_0018',
           mcause: '0x8000_0007',
-          'mtime / cmp': '7 / MAX',
+          'mtime / cmp': '7 / 0xFFFF_FFFF_0000_0004',
           'mcycle / minstret': '7 / 5',
         },
         traceReceipt: 'StepTrace(pc=0x18, insn=0x02A00A13, next_pc=0x1C, rd=20, rd_val=42)',
@@ -370,15 +371,15 @@ const scenarios: Scenario[] = [
       {
         stepNum: 0,
         asm: 'Initial State: Preloaded Bias & Packed Dual-Int16 Vectors',
-        stageNote: 'x1=1000 (bias), x2=pack_i16(10, -20), x3=pack_i16(5, 6), x6=pack_i16(32767, 32767).',
+        stageNote: 'x1=+1000 (bias), x2=pack(lo=+10, hi=-20), x3=pack(lo=+5, hi=+6), x6=pack(lo=+32767, hi=+32767).',
         pc: '0x0000_0000',
         insnHex: '—',
         nextPc: '0x0000_0000',
         regs: {
-          'x1 (bias)': '1000',
+          'x1 (bias)': '+1,000',
           'x2 (a1:a0)': '0xFFEC_000A (-20, +10)',
           'x3 (b1:b0)': '0x0006_0005 (+6, +5)',
-          'x6 (max)': '0x7FFF_7FFF (32767, 32767)',
+          'x6 (max)': '0x7FFF_7FFF (+32767, +32767)',
           x10: '0',
           x11: '0',
           x14: '0',
@@ -390,83 +391,83 @@ const scenarios: Scenario[] = [
       },
       {
         stepNum: 1,
-        asm: '0x00: mac.set x10, x1       # Preload bias (1000) into mac_acc',
-        stageNote: 'funct3=2 copies signed x1 (1000) into internal mac_acc and writes 1000 to x10.',
+        asm: '0x00: mac.set x10, x1       # Preload bias (+1000) into mac_acc',
+        stageNote: 'funct3=2 copies signed x1 (+1000) into internal mac_acc and writes +1000 to x10.',
         pc: '0x0000_0000',
         insnHex: '0x0000_A50B',
         nextPc: '0x0000_0004',
         regs: {
-          'x1 (bias)': '1000',
+          'x1 (bias)': '+1,000',
           'x2 (a1:a0)': '0xFFEC_000A (-20, +10)',
           'x3 (b1:b0)': '0x0006_0005 (+6, +5)',
-          'x6 (max)': '0x7FFF_7FFF (32767, 32767)',
-          x10: '1000',
+          'x6 (max)': '0x7FFF_7FFF (+32767, +32767)',
+          x10: '+1,000',
           x11: '0',
           x14: '0',
           x15: '0',
         },
         changedKey: 'x10',
-        csrs: { mac_acc: '1000', 'mcycle / minstret': '1 / 1' },
+        csrs: { mac_acc: '+1,000', 'mcycle / minstret': '1 / 1' },
         traceReceipt: 'StepTrace(pc=0x00, insn=0x0000A50B, next_pc=0x04, rd=10, rd_val=1000)',
       },
       {
         stepNum: 2,
-        asm: '0x04: mac x11, x2, x3       # 1000 + (10*5) + (-20*6) = 930',
-        stageNote: 'funct3=0 multiplies both int16 lanes in parallel and adds into mac_acc (930).',
+        asm: '0x04: mac x11, x2, x3       # 1000 + (10*5) + (-20*6) = +930',
+        stageNote: 'funct3=0 multiplies both int16 lanes in parallel and adds into mac_acc (+930).',
         pc: '0x0000_0004',
         insnHex: '0x0031_058B',
         nextPc: '0x0000_0008',
         regs: {
-          'x1 (bias)': '1000',
+          'x1 (bias)': '+1,000',
           'x2 (a1:a0)': '0xFFEC_000A (-20, +10)',
           'x3 (b1:b0)': '0x0006_0005 (+6, +5)',
-          'x6 (max)': '0x7FFF_7FFF (32767, 32767)',
-          x10: '1000',
-          x11: '930',
+          'x6 (max)': '0x7FFF_7FFF (+32767, +32767)',
+          x10: '+1,000',
+          x11: '+930',
           x14: '0',
           x15: '0',
         },
         changedKey: 'x11',
-        csrs: { mac_acc: '930', 'mcycle / minstret': '2 / 2' },
+        csrs: { mac_acc: '+930', 'mcycle / minstret': '2 / 2' },
         traceReceipt: 'StepTrace(pc=0x04, insn=0x0031058B, next_pc=0x08, rd=11, rd_val=930)',
       },
       {
         stepNum: 3,
         asm: '0x08: mac.clr x14, x6, x6   # 0 + 32767*32767 + 32767*32767',
-        stageNote: 'funct3=1 zeros previous accumulator and computes 2 * 32767^2 = 2,147,352,578.',
+        stageNote: 'funct3=1 zeros previous accumulator and computes 2 * 32767^2 = +2,147,352,578.',
         pc: '0x0000_0008',
         insnHex: '0x0063_170B',
         nextPc: '0x0000_000C',
         regs: {
-          'x1 (bias)': '1000',
+          'x1 (bias)': '+1,000',
           'x2 (a1:a0)': '0xFFEC_000A (-20, +10)',
           'x3 (b1:b0)': '0x0006_0005 (+6, +5)',
-          'x6 (max)': '0x7FFF_7FFF (32767, 32767)',
-          x10: '1000',
-          x11: '930',
-          x14: '2,147,352,578',
+          'x6 (max)': '0x7FFF_7FFF (+32767, +32767)',
+          x10: '+1,000',
+          x11: '+930',
+          x14: '+2,147,352,578',
           x15: '0',
         },
         changedKey: 'x14',
-        csrs: { mac_acc: '2,147,352,578', 'mcycle / minstret': '3 / 3' },
+        csrs: { mac_acc: '+2,147,352,578', 'mcycle / minstret': '3 / 3' },
         traceReceipt: 'StepTrace(pc=0x08, insn=0x0063170B, next_pc=0x0C, rd=14, rd_val=2147352578)',
       },
       {
         stepNum: 4,
         asm: '0x0C: mac x15, x6, x6       # + 2,147,352,578 -> Clamps at INT32_MAX',
-        stageNote: 'True sum 4,294,705,156 exceeds INT32_MAX; sat32() saturates at +2,147,483,647 rather than wrapping negative.',
+        stageNote: 'True sum +4,294,705,156 exceeds INT32_MAX; sat32() clamps at +2,147,483,647 rather than wrapping negative.',
         pc: '0x0000_000C',
         insnHex: '0x0063_078B',
         nextPc: '0x0000_0010',
         regs: {
-          'x1 (bias)': '1000',
+          'x1 (bias)': '+1,000',
           'x2 (a1:a0)': '0xFFEC_000A (-20, +10)',
           'x3 (b1:b0)': '0x0006_0005 (+6, +5)',
-          'x6 (max)': '0x7FFF_7FFF (32767, 32767)',
-          x10: '1000',
-          x11: '930',
-          x14: '2,147,352,578',
-          x15: '2,147,483,647 (INT32_MAX)',
+          'x6 (max)': '0x7FFF_7FFF (+32767, +32767)',
+          x10: '+1,000',
+          x11: '+930',
+          x14: '+2,147,352,578',
+          x15: '+2,147,483,647 (Clamped)',
         },
         changedKey: 'x15',
         csrs: { mac_acc: '+2,147,483,647 (Clamped)', 'mcycle / minstret': '4 / 4' },
@@ -571,17 +572,19 @@ function pickScenario(id: string) {
           style="
             display: flex;
             justify-content: space-between;
+            align-items: baseline;
+            gap: 10px;
             padding: 3px 6px;
             border-radius: 4px;
-            font-size: 12.5px;
+            font-size: 12px;
           "
           :style="{
             background: currentFrame.changedKey === reg ? 'var(--vp-c-brand-soft)' : 'transparent',
             fontWeight: currentFrame.changedKey === reg ? '700' : '400',
           }"
         >
-          <span>{{ reg }}</span>
-          <span>{{ val }}</span>
+          <span style="white-space: nowrap; flex-shrink: 0">{{ reg }}</span>
+          <span style="text-align: right; min-width: 0; overflow-wrap: anywhere">{{ val }}</span>
         </div>
       </div>
 
@@ -591,10 +594,24 @@ function pickScenario(id: string) {
           v-for="(val, csr) in currentFrame.csrs"
           :key="csr"
           class="hw-mono"
-          style="display: flex; justify-content: space-between; padding: 3px 6px; font-size: 12.5px"
+          style="
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 10px;
+            padding: 3px 6px;
+            border-radius: 4px;
+            font-size: 12px;
+          "
+          :style="{
+            background:
+              frameIdx > 0 && currentScenario.frames[frameIdx - 1]?.csrs[csr] !== val
+                ? 'var(--vp-c-brand-soft)'
+                : 'transparent',
+          }"
         >
-          <span>{{ csr }}</span>
-          <strong>{{ val }}</strong>
+          <span style="white-space: nowrap; flex-shrink: 0">{{ csr }}</span>
+          <strong style="text-align: right; min-width: 0; overflow-wrap: anywhere">{{ val }}</strong>
         </div>
 
         <div v-if="currentFrame.memBytes" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--vp-c-divider)">

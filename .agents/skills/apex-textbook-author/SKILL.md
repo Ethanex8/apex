@@ -1,6 +1,6 @@
 ---
 name: apex-textbook-author
-description: Author and revise full-depth (30–60 minute) interactive engineering textbook chapters in systems/<system>/chapters/<NN>_<slug>.md alongside repo code using a mandatory 4-pass pipeline (Blueprint, Multi-Chunk First-Principles Draft, Cold-Reader Subagent Audit, and Vue Interactive Widgets + Code-Sync Verification).
+description: Author and revise full-depth (30–60 minute) interactive engineering textbook chapters in systems/<system>/chapters/<NN>_<slug>.md alongside repo code using a mandatory 4-pass pipeline (Blueprint, Multi-Chunk First-Principles Draft, 3-Specialist Parallel Cold-Reader Audit with Re-Review Convergence, and Interactive Vue Widgets + Code-Sync Verification).
 ---
 
 # Apex Multi-Pass Textbook Authoring Skill
@@ -9,85 +9,52 @@ Use this skill whenever writing, extending, or upgrading a chapter in `systems/<
 
 ## Core Philosophy
 
-We are writing a **8-part, 34-chapter publication-grade systems engineering textbook** (*Harris & Harris*, *Crafting Interpreters*, *xv6*, *OSTEP*) embedded directly alongside tested silicon, firmware, circuit-board, and robotics code, rendered via VitePress (`book/`).
+We are writing an **8-part, 34-chapter publication-grade systems engineering textbook** (*Harris & Harris*, *Crafting Interpreters*, *xv6*, *OSTEP*) alongside tested silicon, firmware, circuit-board, and robotics code rendered via VitePress (`book/`).
 
-- **Target Reader**: Experienced, mathematically strong software/systems engineer with **zero prior background** in computer architecture (`RISC-V`), RTL/FPGA toolchains, electrical circuits, or mechanical shop jargon.
+- **Target Reader**: Mathematically strong software/systems engineer with **zero prior background** in computer architecture (`RISC-V`), RTL/FPGA toolchains, electrical circuits, or mechanical shop jargon.
 - **M:1 Step-to-Chapter Growth (`3–6` steps -> 1 cohesive `~45–60 min` chapter)**:
-  - **`step 1/K` (Chapter Launch)**: Creates `systems/<system>/chapters/<NN>_<slug>.md` with the opening narrative arc, foundational sections (`~10–20 min`), and initial `## Graded Engineering Exercises`.
-  - **`step j/K` (Intermediate Growth)**: Appends `1–2` focused sections (`~10–20 min`, ~1–2k words) immediately **before** `## Graded Engineering Exercises`, adds anchored exercises, reuses prior notation without re-introducing covered concepts, and adds widgets only where a genuinely new physical/algorithmic model helps (skip filler widgets on pure build/DRC/export steps).
-  - **`bench` Steps**: Experimental `bench` steps close the chapter with a *"From Simulation to Silicon / Hardware Lab"* section; pure procurement/order steps add a concise fabrication callout only.
+  - **`step 1/K` (Chapter Launch)**: Creates `01_...md` with the opening narrative arc, foundational sections (`~10–20 min`), and `## Graded Engineering Exercises`.
+  - **`step j/K` (Growth)**: Appends `1–2` focused sections (`~10–20 min`) **before** `## Graded Engineering Exercises`, adds anchored exercises, reuses prior notation, and adds widgets only where a new physical/algorithmic model helps.
+  - **`bench` Steps**: Close the chapter with *"From Simulation to Silicon / Hardware Lab"* (pure order steps add a concise fabrication callout only).
 
 ---
 
 ## Mandatory 4-Pass Authoring Pipeline
 
-Never write a chapter in a single hurried pass. Execute all four passes in order:
-
 ### Pass 1: Pedagogical Blueprint & Zero-Forward-Reference Graph
-1. Read every line of the step's source file(s) and test file(s).
-2. List every constant, helper function, hardware register/signal, normal path, and corner/fault path.
-3. **Just-in-Time Concept Dripping (Zero Front-Loaded Vocabulary Walls)**:
-   - Never open a chapter with an upfront glossary, "Architectural Vocabulary" list, or multi-peripheral system map that dumps 10+ unfamiliar extensions, memory regions, and peripherals (`RV32IM`, `Zicsr`, `BRAM`, `QSPI`, `SDRAM`, `CLINT`, `UART`, etc.) before the reader understands the fundamentals.
-   - Give at most a brief 2-sentence plain-English chapter arc in Section 1, then **drip** each extension, memory region, and peripheral *only* in the section where it is first needed and derived.
-   - Topologically sort sections so every concept is built before it is used. If a small transcluded snippet must reference a field initialized for a later section, give a 1-sentence inline pointer rather than explaining the whole subsystem prematurely.
-4. **Top-Down Functional Taxonomy Before Deep Dives**:
-   - Whenever introducing an instruction set (`ISA`), compiler IR, bus protocol, or subsystem API, include a crisp high-level map of the **functional categories** (what groups of operations exist and what problem each group solves for a programmer) **before** diving into binary bit layouts or corner-case semantics. Never introduce the operations themselves as scattered afterthoughts inside bitfield or edge-case discussions.
-5. **Code-vs.-Prose Division of Labor (No Large Code Dumps)**:
-   - Never embed large multi-dozen-line code blocks (`> ~20` lines) in the chapter followed by line-by-line prose recaps of what the code does. Code-level mechanics belong directly inside the source file's inline comments (`apex-artifact-author`).
-   - Keep `<!-- book-sync: <spec> -->` + `<<< @/systems/...#L<start>-L<end>` transclusions to **tight, focused excerpts (`roughly 5–20` lines)** highlighting one mathematical identity, interface contract, or subtle guard, and link to full implementations via anchored symbol links (label `symbol` linking to `../sim/oracle.py#L...`—never adding `#region` comments into source code).
-   - Dedicate chapter prose to what **cannot** live comfortably in code comments: mental models, physical constraints, intuition-building visuals, contiguous math derivations, diagrams, and design trade-offs.
-6. **Plan Upfront Micro-Widgets & Each Section's Structure**:
-   - **Intuition-First Micro-Widgets**: Design small, single-concept interactive Vue figures placed **upfront when a concept is introduced—*before* dense equations or formal proofs**—so the reader builds visual/hands-on intuition first and the math then formalizes what they observed. Never bundle unrelated concepts into multi-tab mega-widgets parked at the end of a section.
-   - **Direct Definition & Software-Systems Anchor**: State what the hardware mechanism **is** and **does** directly, then bridge from a familiar CS primitive (hash map, ring buffer, state machine, mutex, try/catch).
-   - **Design Trade-Off & Physical Constraint**: Show the physical or silicon constraint that motivates the design.
-   - **Mathematical / Bit-Level Derivation**: Follow deductive flow (**Intuition & Gentle Math Refresher → Generalized Definition → Contiguous Aligned Derivation → Corollaries & Code → Numerical Check**).
+1. Read every line of the step's source file(s) and test file(s); list every constant, helper, hardware register, normal path, and corner/fault path.
+2. **Just-in-Time Concept Dripping (Zero Front-Loaded Vocabulary Walls & Zero Forward References)**:
+   - Never dump upfront glossaries, system maps, or downstream toolchain terms (`assembler`, `linker`, `synthesizer`) before the step/section that builds or needs them.
+   - Topologically sort sections so every concept, register, and mnemonic is defined before it appears—even inside motivation lists, pseudoinstruction tables, or code excerpts.
+3. **Top-Down Functional Taxonomy & Calm Section Bridges**:
+   - Present functional groups (what operations exist and what programmer problem each solves) *before* binary bit layouts or corner cases.
+   - Open every `##` and `###` section (outside Exercise prompts) with a calm **2–4 sentence conceptual bridge** connecting prior state to the new mechanism—never jump straight into widgets, tables, lists, code blocks, or abrupt imperatives (`Trace...`, `Inspect...`), and never use conversational crutches (`Wait: why...`).
+4. **Code-vs.-Prose Division of Labor**:
+   - Keep `<!-- book-sync: <spec> -->` + `<<< @/systems/...#L<start>-L<end>` transclusions to **tight, focused excerpts (`<= 25` lines)**; push line-by-line mechanics into source comments (`apex-artifact-author`) and link full implementations via anchored symbols (`#L...`).
+5. **Upfront Micro-Widgets & Zero-ASCII Cohesive Visuals**:
+   - **Zero ASCII Art**: Never use raw ASCII-art/`text` fences (`check_book.py` rejects them); build interactive Vue micro-widgets or compact vertical Mermaid figures (`flowchart TD`).
+   - **Concept-Coverage Micro-Widgets**: Any multi-width arithmetic, signedness divergence, truncating division, multi-lane SIMD, or non-obvious pipeline datapath (`RV32M` `MUL`/`MULH*`, `DIV`/`REM`, `Xapex MAC`) **must** open with a dedicated single-concept Vue widget **before** dense math.
 
 ### Pass 2: Uncompressed Multi-Chunk Drafting
-1. Write the chapter across **2–4 sequential file writes/appends** (`write_to_file` with `Overwrite: true` for Part 1, followed by `Append: true` for subsequent section batches) so each section gets full narrative breathing room instead of bullet-wall compression.
-2. Follow strict **Mechanism First, Expanded Name + Acronym Second** hygiene for every domain term, mnemonic, and register name, dripping new terms only when first needed.
-3. **Gentle Refreshers for Specialized Undergrad Math**:
-   - Assume undergrad engineering math and strong programming fluency, *not* instant recall of specialized terminology (e.g., *modular ring* $\mathbb{Z}_{2^{32}}$, *residue class*, *Euclidean division*, *SO(3)/SE(3)*, *convex QP*, *Laplace/pole-zero*).
-   - Pair an upfront visual/intuitive analogy with a brief 1–2 sentence plain-English definition before introducing formal mathematical terminology or set notation.
-4. **Self-Contained, Top-to-Bottom Aligned Derivations (Zero Paragraph-Hopping)**:
-   - Never split a single algebraic derivation across scattered prose paragraphs or ask the reader to jump back several paragraphs to connect formulas (*"from the summations above... Adding 1 yields..."*).
-   - Present each multi-step proof inside a **single contiguous `$$\begin{aligned} ... \end{aligned}$$` block** where every step sits directly below the previous one with short right-hand justifications (`\quad\text{(split top bit } i=N-1\text{)}`), briefly restating any earlier identity inline if reused from a previous section.
-   - Define symbolic variables with explicit domains and asymmetric bounds (e.g., $1 \le k < 32$, $[-2^{15}, 2^{15}-1]$) before deriving formulas and specializing to code.
-5. **Browser-Legible Diagrams & Responsive Widgets**:
-   - In VitePress's `~688px` content column (`~646px` inner `.hw-widget` width), wide horizontal `flowchart LR` chains (`>= 4` stages or long labels), wide ASCII tables (`> 76` columns), or fixed multi-column grids (`> 640px` min width) shrink text to unreadable sizes, force horizontal scrollbars, or clip node labels.
-   - Prefer **top-down (`flowchart TD`)** or compact 2–3-node diagrams with short, intentionally wrapped labels (`<br/>`, `<= 4` words per line) and concise `sequenceDiagram` participant/message labels. In Mermaid theme configuration (`MermaidDiagram.vue`), pass an explicit resolved font stack rather than CSS `var(...)` strings so SVG bounding-box calculation never mis-measures or clips node labels.
-6. **Zero-Clutter Anchored References**:
-   - Guard every `<<<` transclusion with `<!-- book-sync: <spec> -->` (supporting `sym`, `symA..symB`, and `Scope['pat1'..'pat2']`).
-   - Anchor every `#L...` link via either a code-styled symbol label (`sign_extend`) or an `"anchor: <spec>"` link title, and keep file line counts synced on source badges (`1,027` lines).
-   - **Never write unanchored bare prose line numbers** (`line 142` or `lines 50–60`); name the function/branch/constant or use an anchored `#L` link.
-7. **Directness, Zero Meta-Commentary & Host-Language Traps**:
-   - Introduce every subsystem, section, and mechanism directly by what it **is** and **does**—never open with meta-commentary about curricula, reader transitions, or negative foils about unrelated technologies.
-   - Explicitly call out host-language vs. hardware semantic traps (`//` floor division vs. truncating `DIV`, `>>` sign replication, unsigned vs. signed comparison).
+1. Draft across **2–4 sequential writes/appends** (`write_to_file`) so every section has full narrative breathing room.
+2. **Mechanism First, Expanded Name + Acronym Second**: State what every term, mnemonic, CSR, or peripheral *does* in everyday software words before spelling out its letters + acronym.
+3. **Gentle Math Refreshers & Contiguous Derivations**: Briefly refresh specialized undergrad terminology (*modular ring*, *Euclidean division*, *SO(3)*) before formalism, introduce concrete numerical examples before general proofs, and keep every multi-step proof in one contiguous `$$\begin{aligned} ... \end{aligned}$$` block with explicit variable domains.
+4. **Responsive Widgets & Sync Hygiene**: Size Vue grids for VitePress's `~646px` column (`Bits 31..25` labels, zero datasheet shorthand like `imm[12|10:5]`, zero hidden state jumps). Guard every `<<<` slice with `<!-- book-sync: <spec> -->`, anchor every `#L` link, escape `\$`, avoid prose `~...~`, and **never write bare prose line numbers**. Explain host-language traps (`//` floor vs. truncation, `>>` sign replication) explicitly.
 
-### Pass 3: Two-Lens Adversarial "Cold-Reader" Subagent Critique
-Invoke an isolated `research` subagent (`invoke_subagent`, `Model: 'inherit'`, `Workspace: 'inherit'`) role-playing a senior software engineer with **zero prior RISC-V, RTL, EDA, or EE background**. Instruct it to inspect the chapter, source code, `MermaidDiagram.vue`, `custom.css`, Vue widgets, `references/calibration_log.md` patterns, and rendered PNGs under `.cache/visual-audit/<slug>/` via `view_file`. Structure its report as **Part 1: Macro Pedagogy & Visual Experience (Lens A)** first—so structural and visual defects are never buried—followed by **Part 2: Section-by-Section Line Audit (Lens B)**:
+### Pass 3: 3-Specialist Parallel Cold-Reader Critique & Re-Review Convergence
+Invoke **3 parallel isolated `research` subagents** (`Model: 'inherit'`, `Workspace: 'inherit'`) on the chapter, code, `.vue` widgets, and `.cache/visual-audit/<slug>/*.png` screenshots:
+1. **`Sequential Novice Cold-Reader`**: Reads strictly Line 1 → EOF tracking defined terms/instructions; flags *any* forward reference (even inside alias tables or transcluded docstrings), premature toolchain word (`assembler`), or unexpanded acronym/register.
+2. **`Editorial Pacing, Narrative Bridge & Math Editor`**: Audits every `##`/`###` opening for calm conceptual bridges, flags hurried prose skipping concrete examples before proofs, checks math refreshers and contiguous derivations, and verifies every worked number.
+3. **`Visual Pedagogy & Diagram Coverage Critic`**: Flags any ASCII art, identifies complex math/bit-lane concepts lacking upfront helper diagrams/widgets, and inspects `.vue` sources plus desktop/mobile PNGs for overlap, clipping, wrapping, or contrast flaws.
 
-**Lens A — Macro Pedagogy, Structure & Visual Experience Audit:**
-1. **Front-Loaded Vocabulary Walls**: Does Section 1 (or any intro) dump lists of extensions, memory regions, or peripherals instead of dripping them just-in-time where needed?
-2. **Missing Top-Down Taxonomy**: Are high-level instruction/API groups introduced clearly before diving into binary bit layouts or corner cases?
-3. **Code-vs.-Prose Anti-Pattern**: Are there large (`> ~20`-line) code dumps followed by prose paraphrases instead of pushing code-level explanation into source comments and focusing chapter prose on math, intuition, and diagrams?
-4. **Widget Granularity & Upfront Placement**: Is every interactive widget focused on a single concept and placed **before** dense math to build intuition, rather than bundled into multi-tab widgets at the end of a section?
-5. **Browser Diagram & Widget Readability**: Verify `.cache/visual-audit/` screenshots cleanly show zero clipping, readable SVG scale at `100%` zoom, crisp contrast, and clean mobile `390px` wrapping.
+- **Mandatory Post-Edit Re-Review Convergence**: After *any* prose or widget edit addressing Round $r$ tickets, rebuild, re-capture `.cache/visual-audit/`, and spawn **fresh clean-room Round $r+1$ specialist subagents** until a full round returns **zero P0/P1/P2 defects**.
 
-**Lens B — Line-by-Line Clarity, Math Rigor & Hygiene Audit:**
-6. **Unexplained Jargon & Undergrad Math Refreshers**: Any hardware acronym/mnemonic used before plain-English mechanism + expansion, or any specialized math term (*modular ring*, *residue class*, *SO(3)*) dropped without a gentle refresher.
-7. **Derivation Flow & Arithmetic Accuracy**: Any proof forcing readers to jump across paragraphs instead of flowing in a contiguous `\begin{aligned}` chain, missing parameter domains, or hex/decimal/binary arithmetic errors (cross-check every worked number).
-8. **Unmotivated Bit Layouts, Rushed Pacing, Uncovered Corner Cases & Sync Hygiene**: Arbitrary constants without physical trade-offs, missing fault/edge-case notes, unescaped `$`, prose `~...~` tildes, bare prose line numbers, unanchored `#L` links, or meta-commentary/negative-foil openers.
-
-### Pass 4: Interactive Vue Widgets, Graded Exercises & Verification Gate
-1. Resolve **100%** of Lens A and Lens B tickets raised by the Cold-Reader subagent.
-2. Build focused single-concept Vue components under `book/.vitepress/theme/components/<step>/`, register in `index.ts`, and place **upfront before dense math** (`Bits 31..25` labels, zero hidden state jumps).
-3. Conclude with `4–6` **Graded Engineering Exercises** anchored to the test suite, each paired with a `<details><summary>Worked Solution</summary>...</details>` derivation.
-4. Sync, build, and pass **every** gate (re-running Pass 3 after `check_visuals.py` populates `.cache/visual-audit/`):
-   ```bash
-   python3 scripts/sync_book.py && python3 scripts/sync_book.py --check
-   python3 scripts/check_book.py && uv run --with pyyaml python3 scripts/build.py --check
-   BOOK_BASE=/apex/ npm --prefix book run build
-   uv run --with playwright python3 scripts/check_visuals.py --screenshot-dir .cache/visual-audit
-   ```
-   When updating source files under an existing chapter, run `python3 scripts/sync_book.py --prose-impact main`. Keep `SKILL.md` `<= 120` lines by recording learned anti-patterns in `references/calibration_log.md`.
-
+### Pass 4: Verification & Final Sync Gate
+Conclude with `4–6` **Graded Engineering Exercises** (`<details><summary>Worked Solution</summary>`), then pass every gate before entering review:
+```bash
+python3 scripts/sync_book.py && python3 scripts/sync_book.py --check
+python3 scripts/check_book.py && uv run --with pyyaml python3 scripts/build.py --check
+BOOK_BASE=/apex/ npm --prefix book run build
+uv run --with playwright python3 scripts/check_visuals.py --screenshot-dir .cache/visual-audit
+```
+Keep `SKILL.md <= 120` lines; record new patterns in `references/calibration_log.md`.

@@ -12,3 +12,10 @@ Persistent ledger of workflow, PR hygiene, and review-loop lessons graduated int
      - *Healed By*: Codified in `SKILL.md` Rules 2, 5, and 6.
   3. **Zero Unverified Visuals**: Static builds do not catch CSS cascade bugs (`.vp-doc p` into Mermaid SVGs, mobile MathJax overflow, active button hover contrast). Running headless Chromium visual verification (`scripts/check_visuals.py`) before review is mandatory locally and in CI.
      - *Healed By*: Added `scripts/check_visuals.py` to Pass 4 locally and in `.github/workflows/ci.yml` + `book.yml`.
+
+## Entry 002 — Multi-Specialist Review Teams & Mandatory Post-Edit Convergence (2026-11-16)
+
+- **Trigger**: User Chapter 1 & Python readability review (`U1..U7`) identifying regressions introduced by un-re-reviewed Round 1 fixes and attention dilution inside single-subagent Pass 3 audits.
+- **Healed By**:
+  1. Upgraded `apex-textbook-author` Pass 3 to **3 parallel specialist subagents** (*Sequential Novice Cold-Reader*, *Editorial Pacing & Math Editor*, *Visual Pedagogy & Diagram Critic*) and `apex-artifact-author` Pass 3 to **2 parallel specialist subagents** (*Architecture & Spec Auditor*, *Code Readability & Literary Clarity Critic*).
+  2. Added **Mandatory Post-Edit Re-Review Convergence** across `apex-couch-mentor`, `apex-textbook-author`, `apex-artifact-author`, and `apex-skill-healer`: any deliverable change triggers fresh clean-room Round $r+1$ specialist audits until zero P0/P1/P2 defects remain.

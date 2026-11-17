@@ -29,7 +29,9 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 import build  # noqa: E402 — repo test runner imports standalone scripts without package install
+import check_book  # noqa: E402 — repo test runner imports standalone scripts without package install
 import step  # noqa: E402 — repo test runner imports standalone scripts without package install
+import sync_book  # noqa: E402 — repo test runner imports standalone scripts without package install
 
 
 def _sample_book() -> dict:
@@ -261,7 +263,8 @@ def test_validate_roadmap_schema_and_step_edge_cases() -> None:
 
     empty_types = {"systems": "bad", "steps": "bad"}
     empty_errs = "\n".join(build.validate_roadmap(empty_types))
-    assert "'systems' must be a list" in empty_errs and "'steps' must be a list" in empty_errs
+    assert "'systems' must be a list" in empty_errs
+    assert "'steps' must be a list" in empty_errs
 
 
 def test_metrics_badges_and_dynamic_markdown_rendering() -> None:
@@ -295,9 +298,6 @@ def test_build_main_modes_and_invariant_order(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Verify build.main() rejects invalid roadmaps before syncing and handles check/write drift."""
-    import check_book
-    import sync_book
-
     data = _sample_roadmap()
     with monkeypatch.context() as mp:
         yaml_path = _patch_tmp_repo(tmp_path, mp, data)
@@ -344,7 +344,8 @@ def test_validate_book_outline_parts_and_chapters() -> None:
     bad_parts = _sample_roadmap()
     bad_parts["book"] = {"parts": []}
     joined = "\n".join(build.validate_roadmap(bad_parts))
-    assert "[book] Missing 'title'" in joined and "[book] 'parts' must be a non-empty list" in joined
+    assert "[book] Missing 'title'" in joined
+    assert "[book] 'parts' must be a non-empty list" in joined
 
     d = _sample_roadmap()
     d["book"]["parts"] = [
@@ -418,7 +419,10 @@ def test_validate_book_disk_consistency_and_lookup(tmp_path: Path) -> None:
     assert "is not registered in book.parts" in disk_errs
 
     found = step.find_book_chapter(d, "ALPHA-01")
-    assert found is not None and found[0]["number"] == "I" and found[1]["number"] == 1 and found[2] == 1
+    assert found is not None
+    assert found.part["number"] == "I"
+    assert found.chapter["number"] == 1
+    assert found.step_index == 1
     assert step.find_book_chapter(d, "missing-99") is None
 
 

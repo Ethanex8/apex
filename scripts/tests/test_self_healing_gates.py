@@ -32,6 +32,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 import check_book  # noqa: E402 — repo test runner imports standalone scripts without package install
+import check_code  # noqa: E402 — repo test runner imports standalone scripts without package install
 import check_visuals  # noqa: E402 — repo test runner imports standalone scripts without package install
 import harvest_feedback  # noqa: E402 — repo test runner imports standalone scripts without package install
 
@@ -100,6 +101,7 @@ def test_check_book_slices_fences_and_mermaid_gates(tmp_path: Path) -> None:
         "Empty reason inside book-gate directive",
         "Unused book-gate directive 'allow-wide-mermaid'",
         "spans 31 lines (limit 25)",
+        "Raw ASCII/text diagram fence ('text') banned",
         "Fenced line is 85 chars (limit 80 for 'text')",
         "Fenced line is 106 chars (limit 100 for 'python')",
         "Wide horizontal Mermaid diagram (4 edges)",
@@ -116,6 +118,7 @@ def test_check_book_slices_fences_and_mermaid_gates(tmp_path: Path) -> None:
         "<!-- book-gate: allow-long-slice (full dispatcher contrast) -->\n"
         "<!-- book-sync: big -->\n"
         "<<< @/systems/demo/sim/big.py#L1-L31\n\n"
+        "<!-- book-gate: allow-ascii-fence (verbatim hardware bus printout) -->\n"
         f"<!-- book-gate: allow-wide-fence (exact hardware bus table) -->\n```text\n{wide_ascii}\n```\n\n"
         "<!-- book-gate: allow-wide-mermaid (4-node comparison layout) -->\n"
         "```mermaid\nflowchart LR\n  A-->B-->C-->D-->E\n```\n\n"
@@ -124,6 +127,88 @@ def test_check_book_slices_fences_and_mermaid_gates(tmp_path: Path) -> None:
     )
     errs2, _, _ = check_book.validate_chapters(tmp_path)
     assert errs2 == []
+
+
+def test_check_book_pedagogy_gates_and_widget_shorthand(tmp_path: Path) -> None:
+    """Verify check_book rejects abrupt heading openings, crutches, and cryptic bit-slice shorthand."""
+    _write(tmp_path / "systems" / "demo" / "sim" / "a.py", "X = 1\n")
+    _write(
+        tmp_path / "systems" / "demo" / "chapters" / "01.md",
+        "# Ch1\n\n"
+        "## Jump Fence\n"
+        "```python\nx = 1\n```\n\n"
+        "## Jump Widget\n"
+        "<DemoWidget />\n\n"
+        "## Jump Transclude\n"
+        "<!-- book-sync: X -->\n"
+        "<<< @/systems/demo/sim/a.py#L1\n\n"
+        "## Jump List\n"
+        "- item\n\n"
+        "## Jump Imperative\n"
+        "Trace the four signals below.\n\n"
+        "## Calm Heading\n"
+        "Here we explain why constants split across bitfields.\n"
+        "Wait: why does the decoder shift imm[12|10:5]?\n"
+        "```python\n# bits [30..25|10..5]\n```\n\n"
+        "## Graded Engineering Exercises\n"
+        "### Exercise 1: Warmup\n"
+        "- Step 1.\n",
+    )
+    _write(
+        tmp_path / "book" / ".vitepress" / "theme" / "components" / "bad.vue",
+        "<template><span>imm[12|10:5]</span></template>\n",
+    )
+    chap_errs = "\n".join(check_book.validate_chapters(tmp_path).errors)
+    for expected in (
+        "jumps straight into a code/diagram block",
+        "jumps straight into a Vue widget",
+        "jumps straight into a code transclusion",
+        "jumps straight into a list/table/equation",
+        "opens abruptly with 'Trace...'",
+        "Conversational crutch 'Wait: why'",
+        "Cryptic bit-slice shorthand 'imm[12|10:5]'",
+        "Cryptic bit-slice shorthand '[30..25|10..5]'",
+    ):
+        assert expected in chap_errs
+    assert "jumps straight" not in chap_errs.split("## Graded")[1] if "## Graded" in chap_errs else True
+    widget_errs = "\n".join(check_book.validate_widgets(tmp_path))
+    assert "Cryptic bit-slice shorthand 'imm[12|10:5]'" in widget_errs
+
+
+def test_check_code_tuple_import_and_assert_gates(tmp_path: Path) -> None:
+    """Verify check_code flags >2-item tuple returns, local imports, and compound pytest asserts."""
+    bad_mod = _write(
+        tmp_path / "scripts" / "readability_bad.py",
+        '"""Bad readability demo."""\n\n'
+        "def bad_ret() -> tuple[int, int, bool]:\n"
+        '    """Return opaque 3-tuple."""\n'
+        "    import json\n"
+        "    return 1, len(json.dumps({})), True\n\n"
+        "# code-gate: allow-tuple-return (explicit test exemption)\n"
+        "def ok_ret() -> tuple[int, int, int]:\n"
+        '    """Exempted 3-tuple."""\n'
+        "    # code-gate: allow-local-import (optional runtime dep)\n"
+        "    import math\n"
+        "    return 1, 2, int(math.pi)\n",
+    )
+    bad_test = _write(
+        tmp_path / "scripts" / "test_readability_bad.py",
+        '"""Bad test assert demo."""\n\n'
+        "def test_demo() -> None:\n"
+        '    """Check compound vs exempt asserts."""\n'
+        "    a, b = 1, 2\n"
+        "    assert a == 1 and b == 2\n"
+        "    # code-gate: allow-compound-assert (explicit test exemption)\n"
+        "    assert a < b and b > 0\n",
+    )
+    mod_errs = "\n".join(check_code.check_python_file(bad_mod, tmp_path))
+    assert "returns a 3-item positional tuple" in mod_errs
+    assert "Local import inside function" in mod_errs
+    assert "ok_ret" not in mod_errs
+
+    test_errs = check_code.check_python_file(bad_test, tmp_path)
+    assert len(test_errs) == 1
+    assert "Compound 'assert ... and ...'" in test_errs[0]
 
 
 def test_check_book_skill_budgets_and_calibration_logs(tmp_path: Path) -> None:
@@ -156,7 +241,8 @@ def test_check_book_skill_budgets_and_calibration_logs(tmp_path: Path) -> None:
         "# Log\n\nEntry 1.\n",
     )
     errs_ok, count_ok = check_book.validate_skills(clean_root)
-    assert count_ok == 1 and errs_ok == []
+    assert count_ok == 1
+    assert errs_ok == []
 
 
 def test_check_visuals_routes_server_and_error_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -203,7 +289,8 @@ def test_check_visuals_routes_server_and_error_paths(tmp_path: Path, monkeypatch
 
     monkeypatch.setattr(builtins, "__import__", _fake_import_no_playwright)
     errs = check_visuals.audit_pages(dist, "/apex/", ["/"])
-    assert errs and "Missing required dependency 'playwright'" in errs[0]
+    assert errs
+    assert "Missing required dependency 'playwright'" in errs[0]
 
 
 def test_check_visuals_chromium_clean_and_defect_detection(tmp_path: Path) -> None:

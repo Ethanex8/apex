@@ -11,7 +11,7 @@ Execute this skill automatically whenever user feedback (PR inline comments or c
 
 - **Tier 0 (Pure Typo / Accidental Slip)**: Localized misspelling or typo already prohibited by existing rules. Fix directly; no replay overhead needed.
 - **Tier 1 (Single Localized Generalizable Nit)**: One self-contained flaw lacking a check. Add a deterministic check (`scripts/check_*.py` + test fixture) or tighten the governing rule + `references/calibration_log.md`, verify, then fix the deliverable.
-- **Tier 2 (`2+` Comments OR Any Structural, Pedagogical, Visual, or Recurring Critique)**: Mandatory **Blind Recall Convergence Loop** (Steps 1–5 below). **Never edit deliverable code/chapter files before Steps 1–4 converge.**
+- **Tier 2 (`2+` Comments OR Any Structural, Pedagogical, Visual, or Code-Readability Critique)**: Mandatory **Blind Recall Convergence Loop** (Steps 1–5 below). **Never edit deliverable code/chapter files before Steps 1–4 converge.**
 
 ---
 
@@ -28,9 +28,9 @@ Execute this skill automatically whenever user feedback (PR inline comments or c
 
 ## Step 2: Independent Blind Baseline Audit (Zero Comment Leakage)
 
-Spawn an isolated `research` subagent (`invoke_subagent`, `Model: 'inherit'`, `Workspace: 'inherit'`, `Role: Blind Calibration Auditor`) to review the **unmodified** target files (plus `.cache/visual-audit/<slug>/*.png` for chapters/widgets) using only `.agents/skills/*/SKILL.md` and `GEMINI.md`.
+Spawn isolated `research` subagent(s) (`invoke_subagent`, `Model: 'inherit'`, `Workspace: 'inherit'`, `Role: Blind Calibration Auditor`) to review the **unmodified** target files (plus `.cache/visual-audit/<slug>/*.png` for chapters/widgets) using only `.agents/skills/*/SKILL.md` and `GEMINI.md`.
 
-- **Strict Isolation Rule**: Never paste, hint at, or summarize any user comment (`U1..Uk`) inside the subagent prompt. Ask for Part 1 (Macro/Structural Lens A) and Part 2 (Line-by-Line Lens B).
+- **Strict Isolation Rule**: Never paste, hint at, or summarize any user comment (`U1..Uk`) inside any subagent prompt.
 
 ---
 
@@ -40,22 +40,23 @@ Compare blind findings (plus deterministic outputs from `check_code.py`, `check_
 - Mark each generalizable item **`CAUGHT_BY_GATE`**, **`CAUGHT_BY_BLIND_SUBAGENT`**, or **`MISSED`**.
 
 For every **`MISSED`** generalizable item, ask *"Why did our pipeline miss this without user help?"* and heal **upstream first**:
-1. **Deterministic Gate First (Preferred)**: If mechanically checkable (line length, slice size, syntax, SVG clipping, viewport overflow, contrast, missing docstring/field check), add it to `scripts/check_book.py`, `scripts/check_code.py`, or `scripts/check_visuals.py` plus a regression test in `scripts/tests/`.
-2. **Skill Prompt + Calibration Ledger**: If judgment/pedagogical/architectural, sharpen the rule in `.agents/skills/<skill>/SKILL.md`—consolidating existing bullets so every `SKILL.md` stays `<= 120` lines—and append a root-cause entry (`Defect`, `Why Missed`, `Gate/Skill Fix`) to `.agents/skills/<skill>/references/calibration_log.md`.
+1. **Deterministic Gate First (Preferred)**: If mechanically checkable (line length, slice size, syntax, ASCII fences, abrupt heading openings, tuple returns, local imports, compound asserts, SVG clipping, viewport overflow, contrast), add it to `scripts/check_book.py`, `scripts/check_code.py`, or `scripts/check_visuals.py` plus regression tests in `scripts/tests/`.
+2. **Skill Prompt + Calibration Ledger**: If judgment/pedagogical/architectural, sharpen the rule in `.agents/skills/<skill>/SKILL.md`—splitting overloaded single-subagent reviews into parallel specialist lenses where attention dilution occurred, keeping every `SKILL.md <= 120` lines—and append a root-cause entry (`Defect`, `Why Missed`, `Gate/Skill Fix`) to `references/calibration_log.md`.
 
 ---
 
 ## Step 4: Blind Convergence Replay
 
-Re-run deterministic checks AND a **fresh** isolated `research` subagent (zero shared conversation history, zero user comments leaked) on the **still-unmodified pre-fix snapshot**:
+Re-run deterministic checks AND the **fresh** isolated parallel specialist subagent team (using the updated `apex-textbook-author` / `apex-artifact-author` specialist roles, with zero shared conversation history and zero user comments leaked) on the **still-unmodified pre-fix snapshot**:
 - Confirm every Tier 2 generalizable feedback item now triggers cleanly as **`CAUGHT_BY_GATE`** or **`CAUGHT_BY_BLIND_SUBAGENT`**.
 - If any item stays `MISSED`, refine the gate/skill rule in Step 3 and replay again until `100%` recall convergence.
 
 ---
 
-## Step 5: Heal Deliverable & Verify Full Gate Suite
+## Step 5: Heal Deliverable & Post-Fix Re-Review Convergence
 
-Only after convergence (and before pushing/re-requesting review):
+Only after Step 4 convergence (and before pushing/re-requesting review):
 1. Apply all fixes cleanly to deliverable source code, tests, chapter prose, CSS, and Vue widgets via `apex-artifact-author` and `apex-textbook-author`.
 2. Run the full static, visual, and coverage verification suite (`check_code.py`, `sync_book.py --check`, `check_book.py`, `build.py --check`, `BOOK_BASE=/apex/ npm --prefix book run build`, `check_visuals.py --screenshot-dir .cache/visual-audit`, and `pytest --cov-fail-under=95`).
-3. Include a brief **Pipeline Self-Healing Note** in the reply listing which gate/skill/calibration updates now prevent recurrence automatically.
+3. **Mandatory Post-Edit Re-Review Convergence**: Run the full multi-specialist clean-room subagent review team on the modified deliverables + regenerated `.cache/visual-audit/` PNGs; if any P0/P1/P2 defects remain after edits, patch, rebuild, and spawn a fresh Round $r+1$ specialist round until a full pass returns zero defects.
+4. Include a brief **Pipeline Self-Healing Note** in the reply listing which gate/skill/calibration updates now prevent recurrence automatically.
