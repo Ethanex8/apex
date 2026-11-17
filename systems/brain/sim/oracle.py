@@ -1,20 +1,24 @@
-"""Golden instruction-by-instruction RISC-V reference emulator (RV32IM + Zicsr + Xapex MAC).
+"""Golden instruction-by-instruction RISC-V reference processor and System-on-Chip emulator.
 
 Purpose:
   Serve as the unambiguous single source of truth for verifying every SystemVerilog CPU
   core (single-cycle and pipelined) and the scratch SysC (minimal C-subset) compiler.
 
 Plain-English Glossary of Abbreviations Used Below:
-  - RV32IM   : RISC-V 32-bit Base Integer instruction set (`I`) + integer multiply/divide (`M`).
-  - Zicsr    : RISC-V extension for reading/updating Control and Status Registers (`CSRs`).
-  - Xapex MAC: Custom dual-16-bit saturating Multiply-Accumulate neural extension (`opcode 0x0B`).
+  - RV32IM   : RISC-V 32-bit Base Integer instruction set (I) + integer multiply/divide (M).
+  - ALU      : Arithmetic Logic Unit (combinational adder, bitwise logic, comparator, and shifter).
+  - FPGA     : Field-Programmable Gate Array (reprogrammable logic chip hosting the `brain` CPU).
+  - Zicsr    : RISC-V Control and Status Register Instructions extension for reading/updating CSRs.
+  - IRQ      : Interrupt Request (asynchronous hardware signal pausing execution via trap entry).
+  - Xapex MAC: Custom dual-16-bit saturating Multiply-Accumulate neural extension (`opcode = 0x0B`).
   - Memory   : Boot ROM (read-only startup memory), BRAM (on-chip static Block RAM),
-               QSPI NOR Flash XIP (4-wire persistent storage executed directly in place),
-               and SDR SDRAM (off-chip Synchronous Dynamic RAM).
+               4-wire persistent Quad Serial Peripheral Interface (QSPI) flash supporting
+               direct Execute-in-Place (XIP) reads, and off-chip Synchronous Dynamic RAM (SDRAM).
   - MMIO     : Memory-Mapped Input/Output (hardware device registers wired to bus addresses):
                CLINT (64-bit Core-Local Interruptor timer), UART0 (serial debug console with
-               TX/RX First-In First-Out byte queues), and reserved peripheral pages
-               (SPI0 serial bus, CAN0/CAN1 motor buses, SYNC camera trigger, GPIO pins).
+               TX/RX First-In, First-Out (FIFO) byte queues), and reserved peripheral windows for
+               the Serial Peripheral Interface (SPI0), dual Controller Area Network (CAN0/CAN1)
+               motor buses, stereo camera shutter sync, and General-Purpose Input/Output (GPIO).
   - Instruction Fields (32-bit word Bits 31..0): `opcode` (Bits 6..0 operation family),
                `rd` (destination register index 0..31), `rs1`/`rs2` (source register indices),
                and `funct3`/`funct7` (3-bit and 7-bit sub-operation selectors).
@@ -25,17 +29,19 @@ Usage:
   traces = cpu.run(max_steps=10_000)
 
 Invariants:
-  - Models architectural program counter (`pc`), `x0..x31` (`x0` hardwired to 0),
+  - Models architectural program counter (`pc`), `x0` through `x31` (`x0` hardwired to 0),
     32-bit saturating accumulator (`mac_acc`), 17 Machine-mode CSRs constrained via
-    Write-Any/Read-Legal (`WARL`) bitmasks, `CLINT`/`UART0` 64 KB MMIO peripherals, and demand-paged 4 KB sparse memory.
+    Write-Any/Read-Legal (WARL) bitmasks, CLINT/UART0 64 KB MMIO peripherals, and
+    on-demand 4 KB chunked sparse memory.
   - Note: writes to `misa` (`0x301`) intentionally trap as illegal (`misa` is fixed in silicon).
-  - Pre-fetch interrupt priority follows RISC-V Privileged Spec (`MEIP > MSIP > MTIP`).
+  - Pre-fetch interrupt priority follows the RISC-V Privileged Spec: Machine External >
+    Machine Software > Machine Timer (MEIP > MSIP > MTIP).
 
 Memory Map (matching systems/brain/README.md):
   0x0000_0000 - 0x0000_3FFF : Boot ROM (16 KB, read-only to CPU instructions)
   0x1000_0000 - 0x1000_FFFF : On-chip BRAM (64 KB, read/write)
-  0x2000_0000 - 0x20FF_FFFF : QSPI NOR Flash XIP window (16 MB, read-only to CPU)
-  0x4000_0000 - 0x41FF_FFFF : External SDR SDRAM (32 MB, read/write)
+  0x2000_0000 - 0x20FF_FFFF : QSPI flash XIP window (16 MB, read-only to CPU)
+  0x4000_0000 - 0x41FF_FFFF : External SDRAM (32 MB, read/write)
   0x8000_0000 - 0x8000_FFFF : CLINT 64-bit timer & alarm (`mtime` / `mtimecmp`)
   0x8001_0000 - 0x8001_FFFF : UART0 serial console (TX/RX FIFOs + status + baud divider)
   0x8002_0000 - 0x8006_FFFF : Reserved spine MMIO stub pages (SPI0/CAN0/CAN1/SYNC/GPIO)
@@ -58,23 +64,23 @@ from dataclasses import dataclass
 # ---------------------------------------------------------------------------
 # Address Map & Peripheral Register Offsets
 # ---------------------------------------------------------------------------
-SYS_CLK_HZ = 50_000_000       # 50 MHz FPGA fabric clock
+SYS_CLK_HZ = 50_000_000       # 50 MHz reprogrammable logic chip (FPGA) fabric clock
 UART_DEFAULT_BAUD = 115_200   # Default serial bit rate (50e6 // 115200 = 434 ticks/bit)
 
 # Boot ROM & QSPI Flash reject CPU writes (MemoryAccessFault); host loaders use bypass_ro=True
-BOOT_ROM_BASE = 0x0000_0000   # Immutable on-chip startup bootloader
+BOOT_ROM_BASE = 0x0000_0000   # Immutable on-chip startup memory
 BOOT_ROM_SIZE = 0x0000_4000   # 16 KB
 
 BRAM_BASE = 0x1000_0000       # Single-cycle on-chip FPGA Block RAM (stack, hot weights)
 BRAM_SIZE = 0x0001_0000       # 64 KB
 
-QSPI_BASE = 0x2000_0000       # External Execute-in-Place (XIP) NOR Flash window
+QSPI_BASE = 0x2000_0000       # External Execute-in-Place (XIP) flash window
 QSPI_SIZE = 0x0100_0000       # 16 MB
 
 SDRAM_BASE = 0x4000_0000      # External main Synchronous DRAM (firmware heap & buffers)
 SDRAM_SIZE = 0x0200_0000      # 32 MB
 
-# CLINT (Core-Local Interruptor): 64-bit monotonic clock & comparator split across 32-bit little-endian offsets
+# CLINT (Core-Local Interruptor): 64-bit monotonic clock & comparator at 32-bit offsets
 CLINT_BASE = 0x8000_0000
 CLINT_SIZE = 0x0001_0000
 CLINT_MTIME_LO = 0x00         # Bits 31..0 of 64-bit timer tick counter
@@ -85,7 +91,7 @@ CLINT_MTIMECMP_HI = 0x0C      # Bits 63..32 of 64-bit alarm threshold
 # UART0 (Universal Asynchronous Receiver-Transmitter): byte-stream debug console
 UART0_BASE = 0x8001_0000
 UART0_SIZE = 0x0001_0000
-UART0_TXDATA = 0x00           # Write-only low byte transmits to TX buffer + callback; reads return 0
+UART0_TXDATA = 0x00           # Write low byte to TX buffer + callback; reads return 0
 UART0_RXDATA = 0x04           # Read pops 1 byte from RX FIFO (returns 0 when empty)
 UART0_STATUS = 0x08           # Read-only status flags (4-byte aligned writes silently ignored)
 UART0_BAUDDIV = 0x0C          # Clock cycles per serial bit (clamped >= 1 on write)
@@ -101,15 +107,15 @@ MMIO_STUB_END = 0x8007_0000
 # ---------------------------------------------------------------------------
 # Machine-Mode CSR Addresses, WARL Masks & Trap Causes
 # ---------------------------------------------------------------------------
-CSR_MSTATUS = 0x300           # Machine status: global interrupt gate MIE & saved MPIE/MPP
+CSR_MSTATUS = 0x300           # Machine status: global MIE, prior MPIE, and privilege MPP
 CSR_MISA = 0x301              # ISA capability ID (hardwired read-only here; writes trap as illegal)
-CSR_MIE = 0x304               # Machine interrupt-enable mask (MSIE/MTIE/MEIE)
+CSR_MIE = 0x304               # Interrupt-enable mask (Software MSIE, Timer MTIE, External MEIE)
 CSR_MTVEC = 0x305             # Trap handler base address + mode (0=Direct, 1=Vectored)
-CSR_MSCRATCH = 0x340          # OS scratch register (atomic swap during trap entry)
+CSR_MSCRATCH = 0x340          # Operating-system scratch register swapped during trap entry
 CSR_MEPC = 0x341              # Saved return PC on exception/interrupt (4-byte aligned)
 CSR_MCAUSE = 0x342            # Trap cause code (Bit 31 = 1 for interrupt, 0 for exception)
 CSR_MTVAL = 0x343             # Trap-specific diagnostic value (faulting PC, addr, or insn word)
-CSR_MIP = 0x344               # Pending interrupts: software/external latch OR live CLINT MTIP
+CSR_MIP = 0x344               # Pending interrupts: software/external latches OR live timer MTIP
 CSR_MCYCLE = 0xB00            # Lower 32 bits of total cycle counter (ticks every step)
 CSR_MINSTRET = 0xB02          # Lower 32 bits of retired (non-trapping) instruction counter
 CSR_MCYCLEH = 0xB80           # Upper 32 bits of `mcycle`
@@ -124,19 +130,19 @@ MISA_RV32IMX = 0x4080_1100
 
 CAUSE_INSN_MISALIGNED = 0     # PC or jump/taken-branch target not divisible by 4
 CAUSE_INSN_ACCESS_FAULT = 1   # Instruction fetch hit unmapped or non-executable address
-CAUSE_ILLEGAL_INSN = 2        # Unknown opcode/funct, unsupported SYSTEM encoding, or RO CSR write
-CAUSE_BREAKPOINT = 3          # EBREAK instruction executed
+CAUSE_ILLEGAL_INSN = 2        # Unknown opcode/funct, invalid SYSTEM word, or read-only CSR write
+CAUSE_BREAKPOINT = 3          # Environment Breakpoint (`ebreak`) instruction executed
 CAUSE_LOAD_MISALIGNED = 4     # Load address not divisible by access width (2 or 4)
 CAUSE_LOAD_ACCESS_FAULT = 5   # Load hit unmapped bus address or invalid MMIO width
 CAUSE_STORE_MISALIGNED = 6    # Store address not divisible by access width (2 or 4)
 CAUSE_STORE_ACCESS_FAULT = 7  # Store hit ROM/QSPI or unmapped address
-CAUSE_ECALL_M = 11            # Synchronous Machine-mode system call (ECALL)
+CAUSE_ECALL_M = 11            # Synchronous Machine-mode Environment Call (`ecall`)
 CAUSE_INT_M_SW = 0x8000_0003     # Machine software interrupt (Bit 31 | 3)
 CAUSE_INT_M_TIMER = 0x8000_0007  # Machine timer interrupt from CLINT (Bit 31 | 7)
 CAUSE_INT_M_EXT = 0x8000_000B    # Machine external interrupt (Bit 31 | 11)
 
-MSTATUS_MIE_BIT = 1 << 3      # Bit 3: Master machine interrupt enable
-MSTATUS_MPIE_BIT = 1 << 7     # Bit 7: 1-deep stack holding prior MIE across trap/MRET
+MSTATUS_MIE_BIT = 1 << 3      # Bit 3: Master Machine Interrupt Enable (MIE)
+MSTATUS_MPIE_BIT = 1 << 7     # Bit 7: Machine Previous Interrupt Enable (MPIE, saved across `mret`)
 MSTATUS_MPP_M = 0b11 << 11    # Bits 12..11: Machine Previous Privilege fixed to Machine (0b11)
 
 MIE_MSIE_BIT = 1 << 3         # Bit 3 in `mie`/`mip` (Machine Software IRQ enable/pending)
@@ -153,8 +159,8 @@ MCAUSE_CODE_MASK = 0x7FFF_FFFF
 # ---------------------------------------------------------------------------
 OPCODE_LOAD = 0x03
 OPCODE_CUSTOM0 = 0x0B         # Reserved RISC-V custom-0 space used by Xapex MAC
-OPCODE_MISC_MEM = 0x0F        # Memory ordering barriers (FENCE / FENCE.I)
-OPCODE_OP_IMM = 0x13          # Register-immediate ALU & shift operations
+OPCODE_MISC_MEM = 0x0F        # Memory ordering barriers (`fence` / `fence.i`)
+OPCODE_OP_IMM = 0x13          # Register-immediate Arithmetic Logic Unit (ALU) & shift operations
 OPCODE_AUIPC = 0x17
 OPCODE_STORE = 0x23
 OPCODE_OP = 0x33              # Register-register RV32I + RV32M ALU operations
@@ -162,7 +168,7 @@ OPCODE_LUI = 0x37
 OPCODE_BRANCH = 0x63
 OPCODE_JALR = 0x67
 OPCODE_JAL = 0x6F
-OPCODE_SYSTEM = 0x73          # ECALL/EBREAK/MRET/WFI and Zicsr CSR instructions
+OPCODE_SYSTEM = 0x73          # System (`ecall`/`ebreak`/`mret`/`wfi`) and Zicsr CSR instructions
 
 F7_BASE = 0x00
 F7_MULDIV = 0x01
@@ -234,6 +240,7 @@ INSN_FENCE_I = 0x0000_100F
 
 # Common 32-bit field masks, alignment constants, and hardware bounds
 INSN_SIZE_BYTES = 4
+VALID_BUS_WIDTHS = (1, 2, 4)
 OPCODE_MASK = 0x7F
 REG_MASK = 0x1F
 FUNCT3_MASK = 0x7
@@ -263,8 +270,9 @@ def u32(val: int) -> int:
 
 
 def sign_extend(val: int, bits: int) -> int:
-    """Sign-extend a `bits`-wide value branchlessly via `(u ^ 2^(k-1)) - 2^(k-1)`."""
-    # Flipping the MSB turns [0..2^(k-1)-1] -> [2^(k-1)..2^k-1] and vice versa; subtracting 2^(k-1) recovers S_k
+    """Sign-extend `bits`-wide `val` via `(val ^ (1 << (bits - 1))) - (1 << (bits - 1))`."""
+    # Flipping the top sign bit (Most Significant Bit / MSB) swaps [0..2^(bits-1)-1] and
+    # [2^(bits-1)..2^bits-1]; subtracting 2^(bits-1) maps [0..2^bits-1] onto signed range.
     sign_bit = 1 << (bits - 1)
     mask = (1 << bits) - 1
     val &= mask
@@ -324,7 +332,7 @@ def enc_r(funct7: int, rs2: int, rs1: int, funct3: int, rd: int, opcode: int) ->
 
 
 def enc_i(imm: int, rs1: int, funct3: int, rd: int, opcode: int) -> int:
-    """Encode a 32-bit I-type (12-bit immediate / load / jalr / CSR) RISC-V instruction word."""
+    """Encode a 32-bit I-type (12-bit immediate / load / `jalr` / CSR) RISC-V instruction word."""
     return (
         ((imm & IMM12_MASK) << 20)
         | ((rs1 & REG_MASK) << 15)
@@ -335,8 +343,8 @@ def enc_i(imm: int, rs1: int, funct3: int, rd: int, opcode: int) -> int:
 
 
 def enc_s(imm: int, rs2: int, rs1: int, funct3: int, opcode: int = OPCODE_STORE) -> int:
-    """Encode a 32-bit S-type (store) word, keeping `rs1`/`rs2` fixed and splitting `Bits 11..0`."""
-    # Pins rs2 at Bits 24..20 and rs1 at 19..15 across formats, so the 12-bit offset splits around them
+    """Encode a 32-bit S-type (store) word, keeping `rs1`/`rs2` fixed and splitting Bits 11..0."""
+    # Pins rs2 at Bits 24..20 and rs1 at Bits 19..15, splitting the 12-bit offset around them
     imm12 = imm & IMM12_MASK
     return (
         ((imm12 >> 5) << 25)
@@ -350,7 +358,7 @@ def enc_s(imm: int, rs2: int, rs1: int, funct3: int, opcode: int = OPCODE_STORE)
 
 def enc_b(imm: int, rs2: int, rs1: int, funct3: int, opcode: int = OPCODE_BRANCH) -> int:
     """Encode a 32-bit B-type conditional branch from a signed byte offset (omits Bit 0 = 0)."""
-    # Scrambles 13-bit offset so sign bit stays at Bit 31 and middle/low bits align with S-type wires
+    # Keeps sign bit at Bit 31 and aligns middle/low offset slices with S-type bit positions
     imm13 = imm & 0x1FFF
     return (
         ((imm13 >> 12) << 31)
@@ -365,14 +373,14 @@ def enc_b(imm: int, rs2: int, rs1: int, funct3: int, opcode: int = OPCODE_BRANCH
 
 
 def enc_u(imm20_shifted: int, rd: int, opcode: int) -> int:
-    """Encode a 32-bit U-type (`LUI` / `AUIPC`) word taking pre-shifted `Bits 31..12`."""
+    """Encode a 32-bit U-type (`lui` / `auipc`) word from pre-shifted `imm20_shifted`."""
     # Caller supplies bits already aligned to Bits 31..12 (e.g., 0x1234_5000)
     return (imm20_shifted & UPPER20_MASK) | ((rd & REG_MASK) << 7) | (opcode & OPCODE_MASK)
 
 
 def enc_j(imm: int, rd: int, opcode: int = OPCODE_JAL) -> int:
-    """Encode a 32-bit J-type (`JAL`) word from a signed 21-bit byte offset (omits Bit 0 = 0)."""
-    # Keeps Offset Bit 20 at Bit 31 (sign) and Offset Bits 19..12 in Bits 19..12 (matching U-type wires)
+    """Encode a 32-bit J-type (`jal`) word from a signed 21-bit byte offset (omits Bit 0 = 0)."""
+    # Keeps Offset Bit 20 at Bit 31 (sign) and Offset Bits 19..12 at Bits 19..12 (U-type match)
     imm21 = imm & 0x1F_FFFF
     return (
         ((imm21 >> 20) << 31)
@@ -384,13 +392,13 @@ def enc_j(imm: int, rd: int, opcode: int = OPCODE_JAL) -> int:
     )
 
 
-def enc_mac(rd: int, rs1: int, rs2: int, funct3: int = MAC_F3_ACC) -> int:
-    """Encode Xapex `custom-0` MAC (`0=mac`, `1=mac.clr`, `2=mac.set`, `3=mac.get`)."""
+def enc_mac(rd: int, rs1: int = 0, rs2: int = 0, funct3: int = MAC_F3_ACC) -> int:
+    """Encode Xapex custom-0 MAC (`mac`, `mac.clr`, `mac.set`, or `mac.get`) from `funct3`."""
     return enc_r(F7_BASE, rs2, rs1, funct3, rd, OPCODE_CUSTOM0)
 
 
 def _decode_imm_s(insn: int) -> int:
-    """Reassemble signed 12-bit store offset from instruction `Bits 31..25` and `Bits 11..7`."""
+    """Reassemble signed 12-bit store offset from instruction Bits 31..25 and Bits 11..7."""
     return sign_extend(((insn >> 25) << 5) | ((insn >> 7) & 0x1F), 12)
 
 
@@ -420,27 +428,27 @@ def _decode_imm_j(insn: int) -> int:
 # Memory Model, Execution Outcomes & Commit Trace Types
 # ---------------------------------------------------------------------------
 class MemoryAccessFault(Exception):
-    """Raised internally when a bus transaction targets an unmapped, misaligned, or RO region."""
+    """Raised internally when a bus access targets an unmapped, misaligned, or read-only region."""
 
 
 class SparseMemory:
-    """Page-backed little-endian memory supporting large address spaces without upfront allocation."""
+    """On-demand 4 KB chunked little-endian memory backing large regions sparsely."""
 
     PAGE_SIZE = 4096
 
     def __init__(self, base: int, size: int, writable: bool = True) -> None:
-        """Initialize a sparse memory region spanning `[base, base + size)`."""
+        """Initialize a sparse memory region spanning `base` up to `base + size`."""
         self.base = base
         self.size = size
         self.writable = writable
         self._pages: dict[int, bytearray] = {}
 
     def contains(self, addr: int, width: int) -> bool:
-        """Return True if the entire `[addr, addr + width)` access falls within this region."""
+        """Return True if the access from `addr` up to `addr + width` fits inside this region."""
         return self.base <= addr and (addr + width) <= (self.base + self.size)
 
     def _get_or_alloc_page(self, page_idx: int) -> bytearray:
-        """Return existing 4 KB page for `page_idx`, allocating zeroed bytes on first write."""
+        """Return existing 4 KB chunk for `page_idx`, allocating zeroed bytes on first write."""
         page = self._pages.get(page_idx)
         if page is None:
             page = bytearray(self.PAGE_SIZE)
@@ -449,10 +457,10 @@ class SparseMemory:
 
     def read_bytes(self, addr: int, width: int) -> int:
         """Read `width` bytes (1, 2, or 4) from `addr` in little-endian byte order."""
-        if width not in (1, 2, 4) or not self.contains(addr, width):
+        if width not in VALID_BUS_WIDTHS or not self.contains(addr, width):
             raise MemoryAccessFault(f"Out-of-bounds read at 0x{addr:08x} (width={width})")
         val = 0
-        # Byte-by-byte loop handles multi-byte accesses crossing 4 KB sparse page boundaries cleanly
+        # Byte-by-byte loop handles multi-byte accesses crossing 4 KB chunk boundaries cleanly
         for i in range(width):
             offset = (addr + i) - self.base
             page = self._pages.get(offset // self.PAGE_SIZE)
@@ -461,8 +469,8 @@ class SparseMemory:
         return val
 
     def write_bytes(self, addr: int, width: int, val: int, bypass_ro: bool = False) -> None:
-        """Write `width` little-endian bytes of `val` to `addr`, honoring `writable` unless bypassed."""
-        if width not in (1, 2, 4) or not self.contains(addr, width):
+        """Write `width` little-endian bytes of `val` to `addr` (`self.writable` or `bypass_ro`)."""
+        if width not in VALID_BUS_WIDTHS or not self.contains(addr, width):
             raise MemoryAccessFault(f"Out-of-bounds write at 0x{addr:08x} (width={width})")
         if not self.writable and not bypass_ro:
             raise MemoryAccessFault(f"Write to read-only region at 0x{addr:08x}")
@@ -476,12 +484,12 @@ class SparseMemory:
 class StepTrace:
     """Record of one step executed by `RV32Oracle.step()`.
 
-    Fields capture the fetched byte address (`pc`) and 32-bit instruction word (`insn`),
-    post-step `next_pc`, destination register index (`rd`) and committed value (`rd_val`),
-    optional memory payload (`mem_addr`, `mem_val`, with `mem_write` False on loads and
-    True on stores), optional `trap_cause` (`mcause`, where Bit 31 = 1 indicates an
-    asynchronous interrupt and Bit 31 = 0 indicates a synchronous exception), and `interrupt`
-    (`True` iff `trap_cause` came from an asynchronous interrupt).
+    All integer address, word, and register fields (`pc`, `insn`, `next_pc`, `rd_val`,
+    `mem_addr`, `mem_val`, and `trap_cause`) hold unsigned 32-bit values in [0, 2^32 - 1]
+    (sub-word stores mask `mem_val` to 8/16 bits; signed loads sign-extend `mem_val` via
+    `u32`). `rd` lies in 0..31, `mem_write` is False on loads and True on stores, and
+    `interrupt` is True if and only if `trap_cause` (`mcause` Bit 31 = 1) came from an
+    asynchronous interrupt rather than a synchronous exception.
     """
 
     pc: int
@@ -498,7 +506,12 @@ class StepTrace:
 
 @dataclass(frozen=True)
 class ExecOutcome:
-    """Pending register, PC, and memory effects from one non-trapping instruction."""
+    """Pending register, PC, and memory effects from one non-trapping instruction.
+
+    `rd_val` may hold a signed or unwrapped Python integer normalized via `u32()` inside
+    `RV32Oracle._set_reg()` at retirement; `next_pc`, `mem_addr`, and `mem_val` hold
+    unsigned 32-bit integers when present.
+    """
 
     rd: int = 0
     rd_val: int = 0
@@ -519,12 +532,12 @@ class RV32Oracle:
     Models all programmer-visible state of the `brain` chip:
       - Core computation state: program counter (`pc`), 32 integer registers (`regs`), and
         the 32-bit signed saturating `mac_acc` accumulator.
-      - Privileged Control & Status Registers (`CSRs`): `mstatus` (interrupt enable gate),
+      - Privileged Control and Status Registers (CSRs): `mstatus` (interrupt enable gate),
         `mie`/`mip` (interrupt mask/pending flags), `mtvec` (trap handler address),
         `mepc`/`mcause`/`mtval` (saved trap context), `mscratch`, 64-bit `mcycle`/`minstret`
         counters, and read-only identification CSRs (`misa`, vendor/arch/impl/hart IDs).
       - Sparse memory regions (`rom`, `bram`, `qspi`, `sdram`, plus `mmio_stub`).
-      - Memory-mapped peripherals: `CLINT` 64-bit timer/alarm and `UART0` TX/RX serial queues.
+      - Memory-mapped peripherals: CLINT 64-bit timer/alarm and UART0 TX/RX serial queues.
 
     Primary entry points are `load_words()` / `load_bytes()`, `step()`, and `run()`.
     """
@@ -534,7 +547,7 @@ class RV32Oracle:
         reset_pc: int = BOOT_ROM_BASE,
         uart_tx_callback: Callable[[int], None] | None = None,
     ) -> None:
-        """Create an oracle instance booted to `reset_pc` with optional UART TX byte callback."""
+        """Create an oracle booted to `reset_pc` with optional `uart_tx_callback`."""
         self.reset_pc = u32(reset_pc)
         self.uart_tx_callback = uart_tx_callback
 
@@ -543,7 +556,7 @@ class RV32Oracle:
         self.qspi = SparseMemory(QSPI_BASE, QSPI_SIZE, writable=False)
         self.sdram = SparseMemory(SDRAM_BASE, SDRAM_SIZE, writable=True)
         self.mmio_stub = SparseMemory(MMIO_STUB_BASE, MMIO_STUB_END - MMIO_STUB_BASE, writable=True)
-        # Keep mmio_stub separate from _mem_regions so loaders and instruction fetches stay in memory
+        # Keep mmio_stub outside _mem_regions so loaders and instruction fetches stay in memory
         self._mem_regions = (self.rom, self.bram, self.qspi, self.sdram)
 
         self.reset()
@@ -553,38 +566,38 @@ class RV32Oracle:
         # Sparse ROM/Flash/RAM backing stores persist across warm resets so firmware stays loaded
         if reset_pc is not None:
             self.reset_pc = u32(reset_pc)
-        self.pc: int = self.reset_pc                   # Byte address of next instruction to fetch
-        self.regs: list[int] = [0] * 32                # x0..x31 (`regs[0]` stays 0 via _set_reg)
-        self.mac_acc: int = 0                          # 32-bit signed saturating Xapex accumulator
+        self.pc: int = self.reset_pc             # Byte address of next instruction to fetch
+        self.regs: list[int] = [0] * 32          # `x0`..`x31` (`regs[0]` stays 0 via _set_reg)
+        self.mac_acc: int = 0                    # 32-bit signed saturating Xapex accumulator
 
-        # Machine Previous Privilege (MPP) starts fixed at Machine mode (0b11); global IRQ gate MIE = 0
+        # Machine Previous Privilege (MPP) stays at Machine mode (0b11); global IRQ gate MIE = 0
         self.mstatus: int = MSTATUS_MPP_M
         self.misa: int = MISA_RV32IMX
-        self.mie: int = 0                              # Per-source IRQ enable bits (MSIE/MTIE/MEIE)
-        self.mtvec: int = 0                            # Trap handler base + dispatch mode (Bits 1..0)
-        self.mscratch: int = 0                         # OS scratch CSR swapped atomically on trap entry
-        self.mepc: int = 0                             # Return PC saved when taking a trap
-        self.mcause: int = 0                           # Encodes interrupt flag (Bit 31) + cause ID
-        self.mtval: int = 0                            # Faulting PC, memory address, or insn word
-        # Software/External pending IRQ bits (`MSIP`/`MEIP`); timer pending (`MTIP`) is wired live
+        self.mie: int = 0                        # Per-source IRQ enable bits (MSIE/MTIE/MEIE)
+        self.mtvec: int = 0                      # Trap handler base + dispatch mode (Bits 1..0)
+        self.mscratch: int = 0                   # Operating-system scratch CSR for trap entry
+        self.mepc: int = 0                       # Return PC saved when taking a trap
+        self.mcause: int = 0                     # Encodes interrupt flag (Bit 31) + cause ID
+        self.mtval: int = 0                      # Faulting PC, memory address, or insn word
+        # Software/External pending IRQ bits (MSIP/MEIP); timer pending (MTIP) is wired live
         self.mip_sw_ext: int = 0
-        self.mcycle: int = 0                           # Counts every step() (instructions + traps)
-        self.minstret: int = 0                         # Counts retired non-trapping instructions
+        self.mcycle: int = 0                     # Counts every step() (instructions + traps)
+        self.minstret: int = 0                   # Counts retired non-trapping instructions
 
-        self.mtime: int = 0                            # 64-bit CLINT clock counter (ticks pre-fetch)
-        self.mtimecmp: int = UINT64_MAX                # Max 64-bit ceiling prevents spurious IRQ at boot
+        self.mtime: int = 0                      # 64-bit CLINT clock counter (ticks pre-fetch)
+        self.mtimecmp: int = UINT64_MAX          # Max 64-bit ceiling avoids spurious boot IRQ
 
-        self.uart_tx_buf: bytearray = bytearray()      # Host-readable log of all UART0 TX bytes
-        self.uart_rx_fifo: deque[int] = deque()        # Queued incoming UART0 RX bytes (host -> CPU)
-        self.uart_bauddiv: int = SYS_CLK_HZ // UART_DEFAULT_BAUD  # 434 ticks/bit at 50 MHz, 115200 bps
+        self.uart_tx_buf: bytearray = bytearray()                # Host log of UART0 TX bytes
+        self.uart_rx_fifo: deque[int] = deque()                  # Queued UART0 RX bytes
+        self.uart_bauddiv: int = SYS_CLK_HZ // UART_DEFAULT_BAUD  # 434 ticks/bit at 50 MHz
 
-        self.halted: bool = False                      # Set True when EBREAK executes; cleared on run()
+        self.halted: bool = False                # Set True on `ebreak`; cleared on `run()`
 
     # -----------------------------------------------------------------------
     # Loader & Host Inspection Helpers
     # -----------------------------------------------------------------------
     def _find_mem_region(self, addr: int, width: int) -> SparseMemory | None:
-        """Locate the backing memory region covering `[addr, addr + width)`, or None."""
+        """Locate the backing memory region covering `addr` up to `addr + width`, or None."""
         for region in self._mem_regions:
             if region.contains(addr, width):
                 return region
@@ -625,12 +638,12 @@ class RV32Oracle:
     # Bus Read / Write (Memory + MMIO Peripherals)
     # -----------------------------------------------------------------------
     def _in_clint_window(self, addr: int, width: int) -> bool:
-        """Return True if `[addr, addr + width)` lies inside the CLINT peripheral window."""
+        """Return True if `addr` up to `addr + width` lies inside the CLINT peripheral window."""
         return CLINT_BASE <= addr and (addr + width) <= CLINT_BASE + CLINT_SIZE
 
     def _clint_offset(self, addr: int, width: int) -> int:
         """Validate 32-bit CLINT alignment/width and return its register byte offset."""
-        # Hardware CLINT timer registers expose only full 32-bit aligned bus strobes
+        # Hardware CLINT timer registers expose only full 32-bit aligned reads and writes
         if width != 4 or (addr & WORD_ALIGN_LOW_BITS) != 0:
             raise MemoryAccessFault(f"CLINT requires 32-bit aligned access at 0x{addr:08x}")
         return addr - CLINT_BASE
@@ -662,13 +675,13 @@ class RV32Oracle:
             self.mtimecmp = _set_u64_hi(self.mtimecmp, val)
 
     def _in_uart_window(self, addr: int, width: int) -> bool:
-        """Return True if `[addr, addr + width)` lies inside the UART0 peripheral window."""
+        """Return True if `addr` up to `addr + width` lies inside the UART0 peripheral window."""
         return UART0_BASE <= addr and (addr + width) <= UART0_BASE + UART0_SIZE
 
     def _uart_offset(self, addr: int, width: int) -> int:
         """Validate UART0 alignment/width rules and return its register byte offset."""
         off = addr - UART0_BASE
-        # TXDATA/RXDATA allow 1- or 4-byte accesses at 4-byte aligned register addresses; STATUS/BAUDDIV require 4-byte access
+        # Data registers allow 1- or 4-byte aligned accesses; control registers require 4 bytes
         if (addr & WORD_ALIGN_LOW_BITS) != 0 or width not in (1, 4):
             raise MemoryAccessFault(f"UART misaligned/unsupported access at 0x{addr:08x}")
         if width == 1 and off in (UART0_STATUS, UART0_BAUDDIV):
@@ -676,7 +689,7 @@ class RV32Oracle:
         return off
 
     def _uart_read(self, addr: int, width: int) -> int:
-        """Read UART0 (`RXDATA`, `STATUS`, or `BAUDDIV`); write-only `TXDATA` & unmapped offsets read 0."""
+        """Read `UART0_RXDATA`, `UART0_STATUS`, or `UART0_BAUDDIV` (`UART0_TXDATA` reads 0)."""
         offset = self._uart_offset(addr, width)
         if offset == UART0_RXDATA:
             return self.uart_rx_fifo.popleft() if self.uart_rx_fifo else 0  # Destructive FIFO pop
@@ -688,7 +701,7 @@ class RV32Oracle:
         return 0
 
     def _uart_write(self, addr: int, width: int, val: int) -> None:
-        """Write a UART0 register (`TXDATA` byte push or `BAUDDIV` divisor; `STATUS` ignores writes)."""
+        """Write `UART0_TXDATA` or `UART0_BAUDDIV` (read-only `UART0_STATUS` ignores writes)."""
         offset = self._uart_offset(addr, width)
         if offset == UART0_TXDATA:
             byte = val & 0xFF
@@ -700,7 +713,7 @@ class RV32Oracle:
 
     def bus_read(self, addr: int, width: int) -> int:
         """Perform a CPU bus read of `width` bytes across memory regions and MMIO devices."""
-        if width not in (1, 2, 4):
+        if width not in VALID_BUS_WIDTHS:
             raise MemoryAccessFault(f"Unsupported read width {width} at 0x{addr:08x}")
         addr = u32(addr)
         if (region := self._find_mem_region(addr, width)) is not None:
@@ -715,7 +728,7 @@ class RV32Oracle:
 
     def bus_write(self, addr: int, width: int, val: int) -> None:
         """Perform a CPU bus write of `width` bytes across memory regions and MMIO devices."""
-        if width not in (1, 2, 4):
+        if width not in VALID_BUS_WIDTHS:
             raise MemoryAccessFault(f"Unsupported write width {width} at 0x{addr:08x}")
         addr = u32(addr)
         if (region := self._find_mem_region(addr, width)) is not None:
@@ -750,7 +763,7 @@ class RV32Oracle:
         return (self.mip_sw_ext & (MIE_MSIE_BIT | MIE_MEIE_BIT)) | mtip
 
     def _set_mstatus_irq_bits(self, mie: bool, mpie: bool) -> None:
-        """Update `mstatus.MIE` and `mstatus.MPIE` while keeping `MPP` hardwired to Machine mode."""
+        """Update `self.mstatus` interrupt flags `mie` and `mpie`, keeping MPP fixed to Machine."""
         # MASK32 ^ avoids Python negative infinite-precision ~ ints
         clear_mask = MASK32 ^ (MSTATUS_MIE_BIT | MSTATUS_MPIE_BIT)
         self.mstatus = (
@@ -827,7 +840,7 @@ class RV32Oracle:
             self.mtval = val
             return True
         if addr == CSR_MIP:
-            # Software/external pending bits act as software-writable IRQ latches; MTIP is live hardware
+            # Software/external pending bits act as writable latches; MTIP is wired live from CLINT
             self.mip_sw_ext = val & (MIE_MSIE_BIT | MIE_MEIE_BIT)
             return True
         if addr == CSR_MCYCLE:
@@ -846,7 +859,7 @@ class RV32Oracle:
         return False
 
     def _take_trap(self, cause: int, tval: int, is_interrupt: bool) -> int:
-        """Execute atomic hardware trap entry: save context, disable IRQs, jump to `mtvec`."""
+        """Execute atomic hardware trap entry: save context, disable interrupts, jump to `mtvec`."""
         # 1. 4-byte instruction alignment forces mepc Bits 1..0 = 0; mtval keeps exact faulting PC
         self.mepc = self.pc & WORD_ALIGN_MASK
         self.mcause = u32(cause)
@@ -874,12 +887,12 @@ class RV32Oracle:
             pc=cur_pc,
             insn=insn,
             next_pc=target,
-            trap_cause=cause,
+            trap_cause=u32(cause),
             interrupt=is_interrupt,
         )
 
     def _set_reg(self, rd: int, val: int) -> int:
-        """Write `u32(val)` to register `rd` (hardwiring `x0` to `0`) and return the committed value."""
+        """Write `u32(val)` to `rd` (`x0` stays hardwired to `0`) and return the committed word."""
         if rd == 0:
             return 0
         u_val = u32(val)
@@ -890,8 +903,8 @@ class RV32Oracle:
     # Modular Instruction-Family Execution Helpers (Uniform ExecOutcome | StepTrace)
     # -----------------------------------------------------------------------
     def _check_pending_interrupt(self, cur_pc: int) -> StepTrace | None:
-        """Return a trap `StepTrace` if any enabled machine interrupt is pending (`MEIP > MSIP > MTIP`)."""
-        # Global interrupt enable (mstatus.MIE) gates all maskable interrupts atomically
+        """Return a trap `StepTrace` if an enabled IRQ is pending (MEIP > MSIP > MTIP)."""
+        # Global interrupt enable (MSTATUS_MIE_BIT) gates all maskable interrupts atomically
         if not (self.mstatus & MSTATUS_MIE_BIT):
             return None
         pending = self._live_mip() & self.mie
@@ -915,7 +928,7 @@ class RV32Oracle:
         return region.read_bytes(cur_pc, INSN_SIZE_BYTES)
 
     def _exec_jal(self, insn: int, cur_pc: int, rd: int, link_pc: int) -> ExecOutcome | StepTrace:
-        """Execute `JAL`, returning `ExecOutcome` or a misaligned-target trap."""
+        """Execute `jal`, returning `ExecOutcome` or a misaligned-target trap."""
         target = u32(cur_pc + _decode_imm_j(insn))
         # Validate 4-byte target alignment before retiring return link (cur_pc + 4) into rd
         if target & WORD_ALIGN_LOW_BITS:
@@ -925,11 +938,11 @@ class RV32Oracle:
     def _exec_jalr(
         self, insn: int, cur_pc: int, rd: int, rs1_u: int, funct3: int, link_pc: int
     ) -> ExecOutcome | StepTrace:
-        """Execute `JALR`, returning `ExecOutcome` or an illegal/misaligned trap."""
+        """Execute `jalr`, returning `ExecOutcome` or an illegal/misaligned trap."""
         if funct3 != F3_JALR:
             return self._trap_trace(cur_pc, insn, CAUSE_ILLEGAL_INSN, insn)
         imm = sign_extend(insn >> 20, 12)
-        # RV32I clears Bit 0 of (rs1 + imm); WORD_ALIGN_LOW_BITS traps if Bit 1 remains set (IALIGN=32)
+        # Clears Bit 0 of (rs1 + imm); traps if Bit 1 stays set (4-byte alignment / IALIGN=32)
         target = u32((rs1_u + imm) & JALR_TARGET_MASK)
         if target & WORD_ALIGN_LOW_BITS:
             return self._trap_trace(cur_pc, insn, CAUSE_INSN_MISALIGNED, target)
@@ -961,7 +974,7 @@ class RV32Oracle:
     def _exec_load(
         self, insn: int, cur_pc: int, rd: int, rs1_u: int, funct3: int
     ) -> ExecOutcome | StepTrace:
-        """Execute `LB`/`LH`/`LW`/`LBU`/`LHU`, returning `ExecOutcome` or an alignment/bus trap."""
+        """Execute `lb`/`lh`/`lw`/`lbu`/`lhu`, returning `ExecOutcome` or an alignment/bus trap."""
         width_map = {F3_LB: 1, F3_LH: 2, F3_LW: 4, F3_LBU: 1, F3_LHU: 2}
         width = width_map.get(funct3)
         if width is None:
@@ -981,7 +994,7 @@ class RV32Oracle:
             val = sign_extend(raw, 8)
         elif funct3 == F3_LH:
             val = s16(raw)
-        else:  # F3_LW, F3_LBU, and F3_LHU (`bus_read` already returns zero-extended 1/2/4-byte ints)
+        else:  # F3_LW, F3_LBU, and F3_LHU (`bus_read` already zero-extends 1/2/4-byte reads)
             val = raw
 
         u_val = u32(val)
@@ -990,7 +1003,7 @@ class RV32Oracle:
     def _exec_store(
         self, insn: int, cur_pc: int, rs1_u: int, rs2_u: int, funct3: int
     ) -> ExecOutcome | StepTrace:
-        """Execute `SB`/`SH`/`SW`, returning `ExecOutcome` or an alignment/bus trap."""
+        """Execute `sb`/`sh`/`sw`, returning `ExecOutcome` or an alignment/bus trap."""
         width_map = {F3_SB: 1, F3_SH: 2, F3_SW: 4}
         width = width_map.get(funct3)
         if width is None:
@@ -1011,17 +1024,17 @@ class RV32Oracle:
     def _exec_op_imm(
         self, insn: int, cur_pc: int, rd: int, rs1_u: int, funct3: int, funct7: int
     ) -> ExecOutcome | StepTrace:
-        """Execute RV32I immediate ALU instructions (`OP-IMM`), or return an illegal-insn trap."""
+        """Execute RV32I immediate ALU instructions (`OPCODE_OP_IMM`), or return a trap."""
         rs1_s = s32(rs1_u)
         imm = sign_extend(insn >> 20, 12)
-        # Shift-immediates use only the bottom 5 bits (shamt) and reserve Bits 31..25 (funct7) for mode
+        # Shift-immediates use the low 5 bits (shamt) and reserve Bits 31..25 (funct7) for mode
         shamt = (insn >> 20) & REG_MASK
         if funct3 == F3_ADD_SUB:
             res = rs1_u + imm
         elif funct3 == F3_SLT:
             res = 1 if rs1_s < imm else 0
         elif funct3 == F3_SLTU:
-            # SLTIU sign-extends the 12-bit constant first, then compares unsigned
+            # `sltiu` sign-extends the 12-bit constant first, then compares unsigned
             res = 1 if rs1_u < u32(imm) else 0
         elif funct3 == F3_XOR:
             res = rs1_u ^ u32(imm)
@@ -1037,7 +1050,7 @@ class RV32Oracle:
             if funct7 == F7_BASE:
                 res = rs1_u >> shamt
             elif funct7 == F7_ALT:
-                res = rs1_s >> shamt  # Signed right shift copies Bit 31; retirement truncates to 32b
+                res = rs1_s >> shamt  # Copies Bit 31; retirement truncates result to 32 bits
             else:
                 return self._trap_trace(cur_pc, insn, CAUSE_ILLEGAL_INSN, insn)
         return ExecOutcome(rd=rd, rd_val=res)
@@ -1047,7 +1060,7 @@ class RV32Oracle:
         rs1_s, rs2_s = s32(rs1_u), s32(rs2_u)
         if funct3 == F3_MUL:      # Lower 32 bits match across signed and unsigned products
             res = rs1_s * rs2_s
-        elif funct3 == F3_MULH:   # >> 32 on negative product preserves Bits 63..32 in two's complement
+        elif funct3 == F3_MULH:   # >> 32 on negative product keeps Bits 63..32 in two's complement
             res = (rs1_s * rs2_s) >> 32
         elif funct3 == F3_MULHSU:
             res = (rs1_s * rs2_u) >> 32
@@ -1056,7 +1069,7 @@ class RV32Oracle:
         elif funct3 == F3_DIV:
             res = trunc_div_s32(rs1_s, rs2_s)
         elif funct3 == F3_DIVU:
-            # RISC-V does not trap on division by zero; unsigned DIVU returns UINT32_MAX (all 1s)
+            # RISC-V does not trap on division by zero; unsigned divu returns UINT32_MAX (all 1s)
             res = UINT32_MAX if rs2_u == 0 else (rs1_u // rs2_u)
         elif funct3 == F3_REM:
             # Exact zero when INT32_MIN / -1 overflows; otherwise q * divisor + rem == dividend
@@ -1078,7 +1091,7 @@ class RV32Oracle:
         funct3: int,
         funct7: int,
     ) -> ExecOutcome | StepTrace:
-        """Execute RV32I + RV32M register-register ALU instructions (`OP`), or return a trap."""
+        """Execute RV32I + RV32M register ALU instructions (`OPCODE_OP`), or return a trap."""
         if funct7 == F7_MULDIV:
             return self._exec_muldiv(rd, rs1_u, rs2_u, funct3)
         rs1_s, rs2_s = s32(rs1_u), s32(rs2_u)
@@ -1105,7 +1118,7 @@ class RV32Oracle:
     def _exec_zicsr(
         self, insn: int, cur_pc: int, rd: int, rs1: int, rs1_u: int, funct3: int
     ) -> ExecOutcome | StepTrace:
-        """Execute atomic `Zicsr` read-modify-write instructions (`CSRRW`/`CSRRS`/`CSRRC` + `*I`)."""
+        """Execute atomic Zicsr ops (`csrrw`, `csrrs`, `csrrc`, `csrrwi`, `csrrsi`, `csrrci`)."""
         csr_addr = (insn >> 20) & CSR_ADDR_MASK
         old_val = self._read_csr(csr_addr)
         if old_val is None:
@@ -1114,16 +1127,17 @@ class RV32Oracle:
         # Bit 2 of funct3 selects zero-extended 5-bit uimm encoded directly in the rs1 bitfield
         src_val = rs1 if (funct3 & ZICSR_IMM_BIT) else rs1_u
         op = funct3 & ZICSR_OP_MASK
-        if op == ZICSR_OP_RW:     # CSRRW / CSRRWI always attempt a CSR write
+        if op == ZICSR_OP_RW:     # csrrw / csrrwi always attempt a CSR write
             new_val, do_write = src_val, True
-        elif op == ZICSR_OP_RS:   # CSRRS / CSRRSI skip write when rs1/uimm == 0 (safe RO read)
+        elif op == ZICSR_OP_RS:   # csrrs / csrrsi skip write when rs1 == 0 (read-only query)
             new_val, do_write = old_val | src_val, (rs1 != 0)
-        else:                     # CSRRC / CSRRCI clear bits via MASK32 XOR and skip if rs1 == 0
+        else:                     # csrrc / csrrci clear bits via MASK32 XOR; skip if rs1 == 0
             new_val, do_write = old_val & (MASK32 ^ src_val), (rs1 != 0)
 
         wrote_minstret = False
         if do_write:
-            # Trap before writing rd so faulted RO-CSR writes leave rd untouched; rs1_u was latched earlier for rd == rs1 swaps
+            # Trap before writing rd so faulted read-only CSR writes leave rd untouched;
+            # rs1_u was latched before writeback so rd == rs1 swaps remain atomic.
             if not self._write_csr(csr_addr, new_val):
                 return self._trap_trace(cur_pc, insn, CAUSE_ILLEGAL_INSN, insn)
             wrote_minstret = csr_addr in (CSR_MINSTRET, CSR_MINSTRETH)
@@ -1133,7 +1147,7 @@ class RV32Oracle:
     def _exec_system(
         self, insn: int, cur_pc: int, rd: int, rs1: int, rs1_u: int, funct3: int
     ) -> ExecOutcome | StepTrace:
-        """Execute `ECALL`/`EBREAK`/`MRET`/`WFI` and delegate `Zicsr` register accesses."""
+        """Execute `ecall`/`ebreak`/`mret`/`wfi` and delegate Zicsr register accesses."""
         if funct3 == F3_PRIV:
             # Exact full-word matching enforces reserved rd=x0/rs1=x0 zeros per privileged spec
             if insn == INSN_ECALL:
@@ -1142,12 +1156,12 @@ class RV32Oracle:
                 self.halted = True
                 return self._trap_trace(cur_pc, insn, CAUSE_BREAKPOINT, cur_pc)
             if insn == INSN_MRET:
-                # Pop 1-deep interrupt-enable stack: MIE <- MPIE; MPIE <- 1; keep IALIGN=32 safety mask
+                # Pop 1-deep IRQ-enable stack (MIE <- MPIE; MPIE <- 1) under 4-byte IALIGN=32 mask
                 mpie = bool(self.mstatus & MSTATUS_MPIE_BIT)
                 self._set_mstatus_irq_bits(mie=mpie, mpie=True)
                 return ExecOutcome(next_pc=self.mepc & WORD_ALIGN_MASK)
             if insn == INSN_WFI:
-                # Single-step emulation has no idle clock-gating wait, so WFI retires as a legal no-op
+                # Single-step emulation has no idle clock-gating wait, so `wfi` retires as a no-op
                 return ExecOutcome()
             return self._trap_trace(cur_pc, insn, CAUSE_ILLEGAL_INSN, insn)
 
@@ -1158,7 +1172,7 @@ class RV32Oracle:
     def _exec_mac(
         self, insn: int, cur_pc: int, rd: int, rs1_u: int, rs2_u: int, funct3: int, funct7: int
     ) -> ExecOutcome | StepTrace:
-        """Execute Xapex `custom-0` dual-int16 saturating MAC instructions, or return a trap."""
+        """Execute Xapex custom-0 dual-int16 saturating MAC instructions, or return a trap."""
         if funct7 != F7_BASE:
             return self._trap_trace(cur_pc, insn, CAUSE_ILLEGAL_INSN, insn)
         if funct3 in (MAC_F3_ACC, MAC_F3_CLR):
@@ -1181,7 +1195,7 @@ class RV32Oracle:
     def step(self) -> StepTrace:
         """Advance CPU and CLINT timers by one instruction/trap and return its `StepTrace`."""
         cur_pc = self.pc
-        # 1. Advance free-running 64-bit clocks pre-fetch (wrapped to 64b) so alarms fire atomically
+        # 1. Advance free-running 64-bit clocks pre-fetch (wrapped to 64 bits) so alarms fire
         self.mcycle = (self.mcycle + 1) & MASK64
         self.mtime = (self.mtime + 1) & MASK64
         if (irq_trace := self._check_pending_interrupt(cur_pc)) is not None:
@@ -1193,7 +1207,7 @@ class RV32Oracle:
             return fetched
         insn = fetched
 
-        # 3. Slice common RISC-V bitfields and latch raw unsigned 32-bit operands (u32) pre-writeback
+        # 3. Slice common RISC-V bitfields and latch unsigned 32-bit operands pre-writeback
         opcode = insn & OPCODE_MASK
         rd = (insn >> 7) & REG_MASK
         funct3 = (insn >> 12) & FUNCT3_MASK
@@ -1225,7 +1239,7 @@ class RV32Oracle:
         elif opcode == OPCODE_OP:
             result = self._exec_op_reg(insn, cur_pc, rd, rs1_u, rs2_u, funct3, funct7)
         elif opcode == OPCODE_MISC_MEM:
-            # Cacheless single-step execution is sequentially consistent, so FENCE/FENCE.I are no-ops
+            # Single-core execution without caches commits in order, so `fence`/`fence.i` no-op
             result = (
                 ExecOutcome()
                 if funct3 in (F3_FENCE, F3_FENCE_I)
@@ -1265,7 +1279,7 @@ class RV32Oracle:
         stop_on_ebreak: bool = True,
         stop_on_pc: int | None = None,
     ) -> list[StepTrace]:
-        """Execute up to `max_steps` instructions, optionally halting on `EBREAK` or `stop_on_pc`."""
+        """Run up to `max_steps` steps, halting on `stop_on_ebreak` (`ebreak`) or `stop_on_pc`."""
         traces: list[StepTrace] = []
         self.halted = False
         for _ in range(max_steps):
