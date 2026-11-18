@@ -50,3 +50,17 @@ Persistent ledger of real user review findings, blind-audit gaps, and upstream f
 - **Healed By**:
   1. Graduated deterministic checks into `scripts/build.py` (`<= 6`-word primary-topic chapter titles without `&`, `:`, `,`), `scripts/sync_book.py` (auto-anchoring fragmentless code/test symbol links to `#Lstart-Lend`), and `scripts/check_book.py` (H1/`##`/`###` conciseness & colon/`&`/parenthetical/backtick bans, pre-`##` banner bans, `PROSE_NON_CODE_TERMS` + number/unit + TeX-in-backtick bans, `DETACHED_TERM_DEF_RE`, `<= 6`-word prose bold cap, and one-sentence-per-line enforcement) with unit tests in `scripts/tests/`.
   2. Updated `GEMINI.md` and `SKILL.md` (Pass 1–3) to anchor the broad general-programming + undergrad math/physics persona, ban premature project constants in general concepts, isolate `.hw-widget` fonts from `.book-serif-mode`, and sync skills via `save_skill`.
+
+## Entry 004 — PR #5 Pass 2: Mathematical Proof Completeness, Lemma Order & Representation Choices (2026-11-18)
+
+- **Trigger**: 4 inline PR #5 review comments (`U1..U4`, `systems/brain/chapters/01_isa_and_binary_arithmetic.md`) plus Step 2 blind calibration audit:
+  - `U1` (`L134`): Negation proof started from $U_N(\bar{b}) + 1$ without explaining why $U_N$ was chosen instead of $S_N$ or whether either interpretation works equally ($S_N(\bar{b}) + 1 = -S_N(b)$ holds directly before $N$-bit truncation).
+  - `U2` (`L146`): Item 1 cited $U_N(b) \equiv S_N(b) \pmod{2^N}$ inside its negation derivation *before* Item 2 deduced that congruence from $S_N(b) = U_N(b) - b_{N-1} \cdot 2^N$.
+  - `U3` (`L147`): Asserted sign-agnostic addition, subtraction, and left-shifting without explicit modular congruence proofs, and claimed `<`, widening, and right-shifts break congruence without proving why.
+  - `U4` (`L161`): Wrote floor quotients $\lfloor x / 2 \rfloor$ for right shifts without proving why discarding low bits leaves a non-negative Euclidean remainder $0 \le r < 2^k$ forcing floor division toward $-\infty$ rather than truncation toward zero.
+  - Step 2 blind bonus catches: `(2^32 - 1)^2 < 2^64` bound slip at `L355`, negative `(rs1_s * rs2_s) >> 32` needing `u32(...)` + `mulhsu` proof (`L368–379`), and incomplete `+0x800` floor step (`L345–347`).
+- **Why Missed Upstream**:
+  1. Earlier math/editorial passes checked *existence* of aligned proofs and numerical examples before formulas, without enforcing strict intra-section **lemma dependency order** (`U2`), **explicit proofs for every equivalence claim and exception** (`U3`), **justified choice of representation ($U_N$ vs. $S_N$)** (`U1`), or **explicit proofs of non-obvious rounding directions** (`U4`).
+- **Healed By**:
+  1. Updated `GEMINI.md` (Section 2 *Proof Rigor, Lemma Order & Representation Choices*) and `SKILL.md` (Pass 2 #4 + Pass 3 #2 *Editorial Pacing, Narrative Bridge & Math Editor*) with all four proof-rigor mandates, then synced via `save_skill` and verified 100% recall in Step 4 Blind Convergence Replay.
+

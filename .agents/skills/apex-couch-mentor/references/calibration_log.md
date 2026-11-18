@@ -26,3 +26,10 @@ Persistent ledger of workflow, PR hygiene, and review-loop lessons graduated int
 - **Healed By**:
   1. Codified the **Iterative Open-PR Review Loop** across `GEMINI.md`, `apex-couch-mentor/SKILL.md`, and `apex-skill-healer/SKILL.md`: keep review/step PRs open across all feedback -> `apex-skill-healer` -> fix -> fast-forward push rounds (never closing/merging early and never force-pushing away reviewed commits) until explicit final user `LGTM`.
   2. Required `save_skill(skill_dir=..., overwrite=True)` in `apex-skill-healer` Step 3 whenever `.agents/skills/*` is updated so active sessions and subagents always read the latest repo skills.
+
+## Entry 004 — Ready-for-Review PR Creation & Direct Inline Comment Replies (`brain-01`, 2026-11-18)
+
+- **Trigger**: User critique (`U5`) on PR #5 (*"I left PR comments. Please address and reply in the PR. You didn't mark it as ready for review so I had to"*).
+- **Why Missed Upstream**: Neither `GEMINI.md`, `apex-couch-mentor/SKILL.md`, nor `apex-skill-healer/SKILL.md` explicitly prohibited `--draft` on human review PRs or required posting inline replies directly on resolved PR comment threads (`pulls/<N>/comments/<id>/replies`).
+- **Healed By**: Updated `GEMINI.md`, `apex-couch-mentor/SKILL.md`, and `apex-skill-healer/SKILL.md` to mandate **Ready for Review** state immediately upon opening any review/step PR and direct inline thread replies for every addressed PR comment, synced to `~/.gemini` via `save_skill`.
+
