@@ -64,3 +64,16 @@ Persistent ledger of real user review findings, blind-audit gaps, and upstream f
 - **Healed By**:
   1. Updated `GEMINI.md` (Section 2 *Proof Rigor, Lemma Order & Representation Choices*) and `SKILL.md` (Pass 2 #4 + Pass 3 #2 *Editorial Pacing, Narrative Bridge & Math Editor*) with all four proof-rigor mandates, then synced via `save_skill` and verified 100% recall in Step 4 Blind Convergence Replay.
 
+## Entry 005 — PR #5 Pass 3: Desktop MathJax Rendering Gate, Proof Non-Redundancy & Math Refreshers (2026-11-18)
+
+- **Trigger**: 3 inline PR #5 review comments (`N1..N3`, review `5964111381`) plus Step 2 blind calibration audit on `67fd2bf`:
+  - `N1` (`L92`, `custom.css:110-123`): Pervasive inline math horizontal scrollbars and baseline bouncing on desktop because `custom.css` set `overflow-x: auto; overflow-y: hidden` on all `mjx-container` and `display: inline-block; vertical-align: middle` on inline `mjx-container:not([display='true'])`, plus `11/19` display equations exceeding the desktop `624 px` column width.
+  - `N2` (`L152`): Over-explicit redundant double derivation re-expanding $S_N(\bar{b}) + 1 = -S_N(b)$ in full after $U_N(b) \equiv S_N(b) \pmod{2^N}$ and $U_N(\bar{b}) + 1 \equiv -S_N(b) \pmod{2^N}$ had already proved the exact same $N$-bit pattern.
+  - `N3` (`L135`): Elementary modular arithmetic congruence rules ($x \pm y$, $c \cdot x$, $x \cdot y$) stated without a quick algebraic refresher and concrete example (plus unrefreshed geometric-series and modular-inverse claims in Section 2).
+- **Why Missed Upstream**:
+  1. `scripts/check_visuals.py` audited only `.hw-widget` and `.mermaid-book-figure` containers, omitting `mjx-container` CSS/overflow assertions and prose+math desktop screenshots (`prose_math_desktop.png`).
+  2. Our prior proof-rigor heal emphasized showing alternative representations so strongly that it invited full redundant parallel expansions even after congruence already established equivalence, while treating basic modular congruence identities as instant recall.
+- **Healed By**:
+  1. Upgraded `scripts/check_visuals.py` (`MATH_AUDIT_JS` + `prose_math_desktop.png` capture) and `scripts/tests/test_self_healing_gates.py` to deterministically fail on non-`inline`/non-`visible` inline math, clipped display math, or desktop display-math column overflow (`N1`).
+  2. Updated `GEMINI.md` and `SKILL.md` (Pass 2 #4–5, Pass 3 #2–3) to require elementary discrete/modular/series refreshers with examples, transfer results cleanly via congruence without redundant double proofs (`N2`, `N3`), and keep desktop display equations within column width, synced via `save_skill`.
+

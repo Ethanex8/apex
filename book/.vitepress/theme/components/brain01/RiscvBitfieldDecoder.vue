@@ -472,9 +472,9 @@ const decoded = computed(() => {
     </div>
 
     <!-- Clickable 32 individual bits sized cleanly for VitePress desktop width -->
+    <div class="hw-label">Toggle any instruction bit (Bit 31 down to Bit 0):</div>
+    <div class="hw-mobile-scroll-hint">↔ Swipe horizontally to inspect all 32 bit columns</div>
     <div style="overflow-x: auto; padding-bottom: 4px; margin-bottom: 10px">
-      <div class="hw-label">Toggle any instruction bit (Bit 31 down to Bit 0):</div>
-      <div class="hw-mobile-scroll-hint">↔ Swipe horizontally to inspect all 32 bit columns</div>
       <div class="hw-grid-32-scroll" style="display: grid; grid-template-columns: repeat(32, minmax(0, 1fr)); gap: 1px">
         <button
           v-for="bitIdx in 32"

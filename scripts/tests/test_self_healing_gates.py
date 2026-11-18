@@ -394,7 +394,7 @@ def test_check_visuals_chromium_clean_and_defect_detection(tmp_path: Path) -> No
     assert (shots / "clean" / "widget_0.png").is_file()
     assert (shots / "clean" / "widget_0_mobile.png").is_file()
 
-    # Broken HTML hitting overflow, shrunken SVG, clipped foreignObject, dark contrast, post-click error, and 404
+    # Broken HTML hitting overflow, shrunken SVG, clipped foreignObject, dark contrast, and post-click error
     _write(
         dist / "broken.html",
         "<!doctype html><html><style>"
@@ -439,6 +439,39 @@ def test_check_visuals_chromium_clean_and_defect_detection(tmp_path: Path) -> No
     ):
         assert expected in errs
     assert check_visuals.main(["--dist", str(dist), "--base", "/apex/", "/broken"]) == 1
+
+
+def test_check_visuals_math_layout_detection(tmp_path: Path) -> None:
+    """Verify MATH_AUDIT_JS and prose_math_desktop.png catch inline scrollbars and desktop equation overflow."""
+    dist = tmp_path / "dist"
+    shots = tmp_path / "shots"
+    _write(
+        dist / "clean-math.html",
+        "<!doctype html><html><body style='margin:0;background:#fff;'>"
+        "<div class='vp-doc' style='max-width:600px;width:100%;'><h3>Clean Math</h3>"
+        "<p>Value <mjx-container style='display:inline;overflow:visible;'>x</mjx-container></p>"
+        "<mjx-container display='true' style='display:block;overflow-x:auto;overflow-y:visible;'>"
+        "<span style='display:inline-block;width:200px;height:20px;'>eq</span></mjx-container>"
+        "</div></body></html>",
+    )
+    assert check_visuals.main(["--dist", str(dist), "--base", "/apex/", "--screenshot-dir", str(shots), "clean-math"]) == 0
+    assert (shots / "clean-math" / "prose_math_desktop.png").is_file()
+
+    _write(
+        dist / "bad-math.html",
+        "<!doctype html><html><body style='margin:0;background:#fff;'><div class='vp-doc' style='max-width:400px;width:100%;'>"
+        "<mjx-container style='display:inline-block;overflow-x:auto;overflow-y:hidden;vertical-align:middle;'>bad</mjx-container>"
+        "<mjx-container display='true' style='display:block;width:300px;height:16px;overflow-x:auto;overflow-y:hidden;'>"
+        "<div style='width:500px;height:40px;'>wide_eq</div></mjx-container>"
+        "</div></body></html>",
+    )
+    errs = "\n".join(check_visuals.audit_pages(dist, "/apex/", ["/bad-math"]))
+    for expected in (
+        "Inline math breaks baseline/overflow",
+        "Display math clips vertically",
+        "Display math overflows desktop column",
+    ):
+        assert expected in errs
 
 
 def test_harvest_feedback_pr_normalization_and_cli(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

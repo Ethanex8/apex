@@ -103,6 +103,41 @@ LAYOUT_AUDIT_JS = """([minDesktopScale, minMobileScale]) => {
   return issues;
 }"""
 
+# Audited on every route+viewport to catch inline math baseline shifts, per-span scrollbars, and clipped display equations.
+MATH_AUDIT_JS = """() => {
+  const issues = [];
+  const isDesktop = window.innerWidth >= 900;
+  const badInline = [];
+  document.querySelectorAll('mjx-container:not([display="true"])').forEach((el, idx) => {
+    const cs = getComputedStyle(el);
+    if (cs.display !== 'inline' || cs.overflowX !== 'visible' || cs.overflowY !== 'visible') {
+      badInline.push(`[${idx}]: display='${cs.display}', overflow='${cs.overflowX}/${cs.overflowY}'`);
+    }
+  });
+  if (badInline.length > 0) {
+    issues.push(`Inline math breaks baseline/overflow (${badInline.length} spans, first ${badInline[0]})`);
+  }
+
+  const badDispClip = [];
+  const badDispWide = [];
+  document.querySelectorAll('mjx-container[display="true"]').forEach((el, idx) => {
+    const cs = getComputedStyle(el);
+    if (cs.overflowY === 'hidden' && el.scrollHeight > el.clientHeight + 1) {
+      badDispClip.push(`[${idx}] (${el.scrollHeight}px > ${el.clientHeight}px)`);
+    }
+    if (isDesktop && el.scrollWidth > el.clientWidth + 2) {
+      badDispWide.push(`[${idx}] (${el.scrollWidth}px > ${el.clientWidth}px)`);
+    }
+  });
+  if (badDispClip.length > 0) {
+    issues.push(`Display math clips vertically (${badDispClip.length} blocks, first ${badDispClip[0]})`);
+  }
+  if (badDispWide.length > 0) {
+    issues.push(`Display math overflows desktop column (${badDispWide.length} blocks, first ${badDispWide[0]})`);
+  }
+  return issues;
+}"""
+
 # Computes effective composite background and WCAG 2.1 contrast ratio for a visible button element.
 BUTTON_CONTRAST_JS = """(btn) => {
   const parseRgba = (s) => {
@@ -304,6 +339,13 @@ def _capture_route_screenshots(page: object, route: str, shot_root: Path, vp_nam
             item = widgets.nth(idx)
             if item.is_visible():
                 item.screenshot(path=str(out_dir / f"widget_{idx}{suffix}.png"))
+        if vp_name == "desktop" and page.locator(".vp-doc mjx-container").count() > 0:
+            inline_p = page.locator(".vp-doc p:has(mjx-container:not([display='true']))")
+            math_target = inline_p.first if inline_p.count() > 0 else page.locator(".vp-doc mjx-container").first
+            if math_target.count() > 0 and math_target.is_visible():
+                math_target.scroll_into_view_if_needed()
+                page.wait_for_timeout(120)
+                page.screenshot(path=str(out_dir / "prose_math_desktop.png"))
     finally:
         page.evaluate(
             "document.querySelectorAll('.VPNav, .VPLocalNav, .book-progress-track').forEach((el) => (el.style.visibility = ''))"
@@ -354,6 +396,8 @@ def _run_browser_audit(
                     _drain_page_errors(page_errs, route, vp_name, errors)
                     scales = [MIN_MERMAID_SCALE, MIN_MERMAID_SCALE_MOBILE]
                     for issue in page.evaluate(LAYOUT_AUDIT_JS, scales):
+                        errors.append(f"[{route}:{vp_name}] {issue}")
+                    for issue in page.evaluate(MATH_AUDIT_JS):
                         errors.append(f"[{route}:{vp_name}] {issue}")
                     if vp_name == "desktop":
                         _audit_widget_buttons(page, route, errors)

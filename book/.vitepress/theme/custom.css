@@ -106,20 +106,20 @@ html.book-serif-mode .vp-doc :is(p, li, blockquote):not(.hw-widget *, .mermaid-b
   opacity: 0.75;
 }
 
-/* MathJax Overflow Hygiene on Mobile (both display blocks and long inline expressions) */
-mjx-container {
+/* MathJax Overflow Hygiene: keep inline math strictly inline on the text baseline; allow scroll only on narrow display blocks */
+mjx-container[display='true'] {
+  display: block;
   max-width: 100%;
   overflow-x: auto;
-  overflow-y: hidden;
-}
-
-mjx-container[display='true'] {
+  overflow-y: visible;
   padding: 0.5rem 0;
 }
 
 mjx-container:not([display='true']) {
-  display: inline-block;
-  vertical-align: middle;
+  display: inline;
+  max-width: none;
+  overflow: visible;
+  vertical-align: baseline;
 }
 
 @media (max-width: 767px) {
