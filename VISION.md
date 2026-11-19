@@ -34,16 +34,16 @@ Those six layers progress bottom-up from custom digital logic and motor power el
 
 ```mermaid
 flowchart TD
-    SIGHT["6. sight<br/>Stereo Vision Head"]
     POWER["3. power<br/>Safe Battery Spine"]
-    BRAIN["1. brain<br/>RISC-V Spine Processor"]
+    SIGHT["6. sight<br/>Stereo Vision Head"]
     DRIVE["2. drive<br/>FOC Joint Actuator"]
+    BRAIN["1. brain<br/>RISC-V Spine Processor"]
     LIMB["4. limb<br/>3-DOF Hopping Leg"]
     WALKER["5. walker<br/>2.5 kg Quadruped"]
 
-    SIGHT -->|"velocity + sync"| BRAIN
-    POWER -->|"< 22 V + 5 V rails"| BRAIN
     POWER -->|"12x e-fuse bus"| DRIVE
+    POWER -->|"< 22 V + 5 V rails"| BRAIN
+    SIGHT -->|"velocity + sync"| BRAIN
     BRAIN -->|"1 kHz motor bus"| DRIVE
     DRIVE -->|"3x actuators"| LIMB
     LIMB -->|"Leg 1 of 4"| WALKER

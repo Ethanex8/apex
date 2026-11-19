@@ -70,9 +70,9 @@ const rows = computed(() => {
     return {
       insn,
       mode,
-      leftDec: left.toString(),
-      rightDec: right.toString(),
-      prodDec: prod.toString(),
+      leftDec: left.toLocaleString(),
+      rightDec: right.toLocaleString(),
+      prodDec: prod.toLocaleString(),
       hiHex: fmtHex32(hi32),
       loHex: fmtHex32(lo32),
       accent,
@@ -118,7 +118,7 @@ const sharedLowHex = computed(() => rows.value[0].loHex)
           {{ fmtHex32(toU32(current.rs1U)) }}
         </div>
         <div style="font-size: 12px; color: var(--vp-c-text-2)">
-          Signed: {{ toS32(current.rs1U).toString() }} | Unsigned: {{ toU32(current.rs1U).toString() }}
+          Signed: {{ toS32(current.rs1U).toLocaleString() }} | Unsigned: {{ toU32(current.rs1U).toLocaleString() }}
         </div>
       </div>
       <div class="hw-card">
@@ -127,7 +127,7 @@ const sharedLowHex = computed(() => rows.value[0].loHex)
           {{ fmtHex32(toU32(current.rs2U)) }}
         </div>
         <div style="font-size: 12px; color: var(--vp-c-text-2)">
-          Signed: {{ toS32(current.rs2U).toString() }} | Unsigned: {{ toU32(current.rs2U).toString() }}
+          Signed: {{ toS32(current.rs2U).toLocaleString() }} | Unsigned: {{ toU32(current.rs2U).toLocaleString() }}
         </div>
       </div>
     </div>
@@ -149,7 +149,7 @@ const sharedLowHex = computed(() => rows.value[0].loHex)
           </div>
         </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px">
+        <div class="hw-grid-2" style="gap: 6px">
           <div
             style="padding: 6px 8px; border-radius: 6px; border: 1.5px solid"
             :style="{ borderColor: r.accent, background: 'var(--vp-c-bg)' }"

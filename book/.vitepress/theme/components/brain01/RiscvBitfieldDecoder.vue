@@ -358,13 +358,13 @@ const decoded = computed(() => {
         : 'Traps with mcause = 2 (Illegal Instruction).',
       scrambleNote: `Reassembly: Bit 31 (${b(31, 31)}) · Bit 7 (${b(7, 7)}) · Bits 30..25 (${b(30, 25)}) · Bits 11..8 (${b(11, 8)}) · 0 → ${imm13 >= 0 ? `+${imm13}` : imm13} B`,
       spans: [
-        { name: 'S', range: 'B31', bits: b(31, 31), value: b(31, 31), color: 'var(--hw-purple)', widthCols: 1, title: 'Bit 31 -> Offset Bit 12 (Sign)' },
+        { name: 'S', range: 'Bit\n31', bits: b(31, 31), value: b(31, 31), color: 'var(--hw-purple)', widthCols: 1, title: 'Bit 31 -> Offset Bit 12 (Sign)' },
         { name: 'Off 10..5', range: 'Bits 30..25', bits: b(30, 25), value: `0b${b(30, 25)}`, color: 'var(--hw-purple)', widthCols: 6 },
         { name: 'rs2 (Src 2)', range: 'Bits 24..20', bits: b(24, 20), value: `x${rs2}`, color: 'var(--hw-amber)', widthCols: 5 },
         { name: 'rs1 (Src 1)', range: 'Bits 19..15', bits: b(19, 15), value: `x${rs1}`, color: 'var(--hw-green)', widthCols: 5 },
         { name: 'funct3', range: 'Bits 14..12', bits: b(14, 12), value: `${funct3}`, color: 'var(--hw-cyan)', widthCols: 3 },
         { name: 'Off 4..1', range: 'Bits 11..8', bits: b(11, 8), value: `0b${b(11, 8)}`, color: 'var(--hw-purple)', widthCols: 4 },
-        { name: '11', range: 'B7', bits: b(7, 7), value: b(7, 7), color: 'var(--hw-purple)', widthCols: 1, title: 'Bit 7 -> Offset Bit 11' },
+        { name: '11', range: 'Bit\n7', bits: b(7, 7), value: b(7, 7), color: 'var(--hw-purple)', widthCols: 1, title: 'Bit 7 -> Offset Bit 11' },
         { name: 'opcode', range: 'Bits 6..0', bits: b(6, 0), value: '0x63', color: 'var(--hw-pink)', widthCols: 7 },
       ],
     }
@@ -406,9 +406,9 @@ const decoded = computed(() => {
       effect: `Saves return link address (PC + 4) into x${rd}${rdSuffix(rd)} and jumps to PC + (${imm21}).`,
       scrambleNote: `Reassembly: Bit 31 (${b(31, 31)}) · Bits 19..12 (${b(19, 12)}) · Bit 20 (${b(20, 20)}) · Bits 30..21 (${b(30, 21)}) · 0 → ${imm21 >= 0 ? `+${imm21}` : imm21} B`,
       spans: [
-        { name: 'S', range: 'B31', bits: b(31, 31), value: b(31, 31), color: 'var(--hw-purple)', widthCols: 1, title: 'Bit 31 -> Offset Bit 20 (Sign)' },
+        { name: 'S', range: 'Bit\n31', bits: b(31, 31), value: b(31, 31), color: 'var(--hw-purple)', widthCols: 1, title: 'Bit 31 -> Offset Bit 20 (Sign)' },
         { name: 'Off 10..1', range: 'Bits 30..21', bits: b(30, 21), value: `0b${b(30, 21)}`, color: 'var(--hw-purple)', widthCols: 10 },
-        { name: '11', range: 'B20', bits: b(20, 20), value: b(20, 20), color: 'var(--hw-purple)', widthCols: 1, title: 'Bit 20 -> Offset Bit 11' },
+        { name: '11', range: 'Bit\n20', bits: b(20, 20), value: b(20, 20), color: 'var(--hw-purple)', widthCols: 1, title: 'Bit 20 -> Offset Bit 11' },
         { name: 'Off 19..12', range: 'Bits 19..12', bits: b(19, 12), value: `0b${b(19, 12)}`, color: 'var(--hw-purple)', widthCols: 8 },
         { name: 'rd (Link)', range: 'Bits 11..7', bits: b(11, 7), value: `x${rd}`, color: 'var(--vp-c-brand-1)', widthCols: 5 },
         { name: 'opcode', range: 'Bits 6..0', bits: b(6, 0), value: '0x6F', color: 'var(--hw-pink)', widthCols: 7 },
@@ -528,8 +528,8 @@ const decoded = computed(() => {
           }"
         >
           <div
-            style="font-weight: 700; white-space: nowrap"
-            :style="{ color: sp.color, fontSize: sp.widthCols === 1 ? '7.5px' : sp.widthCols <= 4 ? '8px' : '9px' }"
+            style="font-weight: 700; white-space: pre-line; line-height: 1.05"
+            :style="{ color: sp.color, fontSize: sp.widthCols === 1 ? '6px' : sp.widthCols <= 4 ? '8px' : '9px' }"
           >
             {{ sp.range }}
           </div>
@@ -555,10 +555,10 @@ const decoded = computed(() => {
         style="margin-top: 5px; font-size: 11px; color: var(--vp-c-text-2)"
       >
         <template v-if="(insnWord & 0x7f) === 0x63">
-          Legend: <strong>S (B31)</strong> = Sign bit pinned at Bit 31 (Offset Bit 12); <strong>11 (B7)</strong> = Offset Bit 11 at Bit 7.
+          Legend: <strong>S</strong> = Sign bit pinned at Bit 31 (Offset Bit 12); <strong>11</strong> = Offset Bit 11 at Bit 7.
         </template>
         <template v-else>
-          Legend: <strong>S (B31)</strong> = Sign bit pinned at Bit 31 (Offset Bit 20); <strong>11 (B20)</strong> = Offset Bit 11 at Bit 20.
+          Legend: <strong>S</strong> = Sign bit pinned at Bit 31 (Offset Bit 20); <strong>11</strong> = Offset Bit 11 at Bit 20.
         </template>
       </div>
 

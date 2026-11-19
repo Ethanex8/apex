@@ -20,6 +20,10 @@ async function renderChart() {
       theme: isDark.value ? 'dark' : 'neutral',
       securityLevel: 'strict',
       fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      themeVariables: {
+        fontSize: '14px',
+        fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      },
       flowchart: {
         useMaxWidth: true,
         htmlLabels: true,

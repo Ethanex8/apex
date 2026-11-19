@@ -135,8 +135,9 @@ const calc = computed(() => {
             </marker>
           </defs>
 
-          <!-- Zero Baseline Highlight -->
-          <line x1="200" y1="14" x2="200" y2="96" stroke="var(--vp-c-divider)" stroke-width="2" stroke-dasharray="4 3" />
+          <!-- Zero Baseline Highlight (split cleanly around the '0' tick label) -->
+          <line x1="200" y1="14" x2="200" y2="62" stroke="var(--vp-c-divider)" stroke-width="2" stroke-dasharray="4 3" />
+          <line x1="200" y1="82" x2="200" y2="96" stroke="var(--vp-c-divider)" stroke-width="2" stroke-dasharray="4 3" />
           <line x1="20" y1="56" x2="380" y2="56" stroke="var(--vp-c-text-2)" stroke-width="2" />
 
           <!-- Integer Ticks -->

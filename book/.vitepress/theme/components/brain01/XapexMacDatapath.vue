@@ -130,33 +130,33 @@ const trace = computed(() => {
         <div class="hw-mono" style="font-size: 12px; margin-bottom: 2px">
           <strong>rs1</strong> ({{ trace.rs1Hex }}):
         </div>
-        <div class="hw-mono" style="font-size: 11.5px; color: var(--vp-c-text-2); margin-bottom: 6px; line-height: 1.45">
-          <div>Bits 31..16 (a1) = {{ cur.a1 }}</div>
-          <div>Bits 15..0 (a0) = {{ cur.a0 }}</div>
+        <div class="hw-mono" style="font-size: 11px; color: var(--vp-c-text-2); margin-bottom: 6px; line-height: 1.45">
+          <div style="white-space: nowrap">Bits 31..16 (a1) = {{ cur.a1 }}</div>
+          <div style="white-space: nowrap">Bits 15..0 (a0) = {{ cur.a0 }}</div>
         </div>
         <div class="hw-mono" style="font-size: 12px; margin-bottom: 2px">
           <strong>rs2</strong> ({{ trace.rs2Hex }}):
         </div>
-        <div class="hw-mono" style="font-size: 11.5px; color: var(--vp-c-text-2); line-height: 1.45">
-          <div>Bits 31..16 (b1) = {{ cur.b1 }}</div>
-          <div>Bits 15..0 (b0) = {{ cur.b0 }}</div>
+        <div class="hw-mono" style="font-size: 11px; color: var(--vp-c-text-2); line-height: 1.45">
+          <div style="white-space: nowrap">Bits 31..16 (b1) = {{ cur.b1 }}</div>
+          <div style="white-space: nowrap">Bits 15..0 (b0) = {{ cur.b0 }}</div>
         </div>
       </div>
 
       <!-- Stage 2: Twin 18x18 Multipliers & Accumulate -->
       <div class="hw-card" style="border-top: 3px solid var(--hw-purple)">
         <div class="hw-label" style="color: var(--hw-purple)">2. Twin 18×18 DSP Products + Base</div>
-        <div class="hw-mono" style="font-size: 12px; margin-bottom: 3px">
-          Lane 0: {{ cur.a0 }} × {{ cur.b0 }} = <strong>{{ trace.p0.toLocaleString() }}</strong>
+        <div class="hw-mono" style="font-size: 11.5px; margin-bottom: 3px">
+          <span style="white-space: nowrap">Lane 0: {{ cur.a0 }} × {{ cur.b0 }} =</span>{{ ' ' }}<strong style="white-space: nowrap">{{ trace.p0.toLocaleString() }}</strong>
         </div>
-        <div class="hw-mono" style="font-size: 12px; margin-bottom: 3px">
-          Lane 1: {{ cur.a1 }} × {{ cur.b1 }} = <strong>{{ trace.p1.toLocaleString() }}</strong>
+        <div class="hw-mono" style="font-size: 11.5px; margin-bottom: 3px">
+          <span style="white-space: nowrap">Lane 1: {{ cur.a1 }} × {{ cur.b1 }} =</span>{{ ' ' }}<strong style="white-space: nowrap">{{ trace.p1.toLocaleString() }}</strong>
         </div>
-        <div class="hw-mono" style="font-size: 12px; margin-bottom: 3px">
+        <div class="hw-mono" style="font-size: 11.5px; margin-bottom: 3px">
           base_acc: <strong>{{ trace.baseAcc.toLocaleString() }}</strong>{{ ' ' }}<span style="color: var(--vp-c-text-2)">({{ cur.funct3 === 1 ? 'cleared' : 'prior mac_acc' }})</span>
         </div>
-        <div class="hw-mono" style="font-size: 12px; color: var(--hw-amber); margin-top: 4px">
-          Raw Sum = {{ trace.rawSum.toLocaleString() }}
+        <div class="hw-mono" style="font-size: 11px; color: var(--hw-amber); margin-top: 4px">
+          <span style="white-space: nowrap">Raw Sum =</span>{{ ' ' }}<span style="white-space: nowrap">{{ trace.rawSum.toLocaleString() }}</span>
         </div>
       </div>
 
@@ -175,10 +175,10 @@ const trace = computed(() => {
         >
           {{ trace.clampLabel }}
         </div>
-        <div class="hw-mono" style="font-size: 13px; font-weight: 700; margin-bottom: 4px">
-          mac_acc = {{ trace.clamped.toLocaleString() }}
+        <div class="hw-mono" style="font-size: 11.5px; font-weight: 700; margin-bottom: 4px">
+          <span style="white-space: nowrap">mac_acc =</span>{{ ' ' }}<span style="white-space: nowrap">{{ trace.clamped.toLocaleString() }}</span>
         </div>
-        <div class="hw-mono" style="font-size: 12px; color: var(--vp-c-text-2)">
+        <div class="hw-mono" style="font-size: 11px; color: var(--vp-c-text-2)">
           Register x{{ cur.rd }} = {{ cur.rd === 0 ? '0 (discarded by x0)' : trace.clamped.toLocaleString() }}
         </div>
       </div>

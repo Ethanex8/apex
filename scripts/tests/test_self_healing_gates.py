@@ -243,6 +243,34 @@ def test_check_book_editorial_typography_and_line_break_gates(tmp_path: Path) ->
     assert check_book.validate_chapters(tmp_path).errors == []
 
 
+def test_check_book_coordinate_prose_wall_and_table_exemption(tmp_path: Path) -> None:
+    """Verify check_book rejects coordinate-recitation prose walls while allowing tables and gated prose."""
+    chap = _write(
+        tmp_path / "systems" / "demo" / "chapters" / "01.md",
+        "# Instruction Encoding\n\n"
+        "Every 32-bit instruction places fields at fixed bit positions.\n\n"
+        "## Bitfield Layouts\n\n"
+        "We group immediate wires cleanly across instruction types.\n"
+        "Specifically, B-type puts Bit 12 at Bit 31, Bits 10..5 in Bits 30..25, Bits 4..1 in Bits 11..8, and Bit 11 at Bit 7.\n",
+    )
+    errs = "\n".join(check_book.validate_chapters(tmp_path).errors)
+    assert "Coordinate-recitation prose wall" in errs
+
+    chap.write_text(
+        "# Instruction Encoding\n\n"
+        "Every 32-bit instruction places fields at fixed bit positions.\n\n"
+        "## Bitfield Layouts\n\n"
+        "We group immediate wires cleanly across instruction types.\n"
+        "| Format | Constant Bit Mapping |\n"
+        "| --- | --- |\n"
+        "| B-type | Bit 12 at Bit 31, Bits 10..5 in Bits 30..25, Bits 4..1 in Bits 11..8, Bit 11 at Bit 7 |\n"
+        "<!-- book-gate: allow-enumerative-prose (explicit prose walk-through fixture) -->\n"
+        "Explicitly, Bit 12 at Bit 31, Bits 10..5 in Bits 30..25, Bits 4..1 in Bits 11..8, and Bit 11 at Bit 7.\n",
+        encoding="utf-8",
+    )
+    assert check_book.validate_chapters(tmp_path).errors == []
+
+
 
 def test_check_code_tuple_import_and_assert_gates(tmp_path: Path) -> None:
     """Verify check_code flags >2-item tuple returns, local imports, and compound pytest asserts."""

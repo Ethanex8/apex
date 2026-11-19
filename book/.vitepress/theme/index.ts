@@ -3,7 +3,8 @@ import type { Theme } from 'vitepress'
 import Layout from './Layout.vue'
 import MermaidDiagram from './MermaidDiagram.vue'
 import ModularRingAdder from './components/brain01/ModularRingAdder.vue'
-import SignExtensionShifter from './components/brain01/SignExtensionShifter.vue'
+import SignExtensionWidener from './components/brain01/SignExtensionWidener.vue'
+import RightShiftComparator from './components/brain01/RightShiftComparator.vue'
 import RiscvBitfieldDecoder from './components/brain01/RiscvBitfieldDecoder.vue'
 import OracleStepTracer from './components/brain01/OracleStepTracer.vue'
 import RiscvFormatMatrix from './components/brain01/RiscvFormatMatrix.vue'
@@ -18,7 +19,8 @@ export default {
   enhanceApp({ app }) {
     app.component('MermaidDiagram', MermaidDiagram)
     app.component('ModularRingAdder', ModularRingAdder)
-    app.component('SignExtensionShifter', SignExtensionShifter)
+    app.component('SignExtensionWidener', SignExtensionWidener)
+    app.component('RightShiftComparator', RightShiftComparator)
     app.component('RiscvBitfieldDecoder', RiscvBitfieldDecoder)
     app.component('OracleStepTracer', OracleStepTracer)
     app.component('RiscvFormatMatrix', RiscvFormatMatrix)

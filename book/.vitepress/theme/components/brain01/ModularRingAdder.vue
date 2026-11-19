@@ -109,10 +109,10 @@ const wheelSlots = computed(() => {
               type="button"
               class="hw-btn hw-mono"
               :class="{ active: ((aU4 >> bit) & 1) === 1 }"
-              style="flex: 1; padding: 5px 4px"
+              style="flex: 1; padding: 5px 4px; display: flex; flex-direction: column; justify-content: space-between; align-items: center"
               @click="toggleBit4('a', bit)"
             >
-              <div style="font-size: 10px; opacity: 0.8">
+              <div style="font-size: 10px; opacity: 0.8; min-height: 24px; display: flex; align-items: center">
                 b{{ bit }} ({{ bit === 3 ? '-8/+8' : `+${1 << bit}` }})
               </div>
               <div style="font-size: 15px; font-weight: 700">{{ (aU4 >> bit) & 1 }}</div>
@@ -136,10 +136,10 @@ const wheelSlots = computed(() => {
               type="button"
               class="hw-btn hw-mono"
               :class="{ active: ((bU4 >> bit) & 1) === 1 }"
-              style="flex: 1; padding: 5px 4px"
+              style="flex: 1; padding: 5px 4px; display: flex; flex-direction: column; justify-content: space-between; align-items: center"
               @click="toggleBit4('b', bit)"
             >
-              <div style="font-size: 10px; opacity: 0.8">
+              <div style="font-size: 10px; opacity: 0.8; min-height: 24px; display: flex; align-items: center">
                 b{{ bit }} ({{ bit === 3 ? '-8/+8' : `+${1 << bit}` }})
               </div>
               <div style="font-size: 15px; font-weight: 700">{{ (bU4 >> bit) & 1 }}</div>

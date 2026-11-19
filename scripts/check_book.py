@@ -48,6 +48,7 @@ MAX_SKILL_LINES = 120
 MAX_CHAPTER_TITLE_WORDS = 6
 MAX_SECTION_HEADING_WORDS = 8
 MAX_PROSE_BOLD_WORDS = 6
+MAX_PROSE_COORDINATE_REFS = 4
 ASCII_FENCE_LANGS = {"", "text", "txt", "ascii", "diagram"}
 REQUIRED_CALIBRATED_SKILLS = ("apex-couch-mentor", "apex-textbook-author", "apex-artifact-author")
 PROSE_NON_CODE_TERMS = frozenset({
@@ -64,7 +65,8 @@ PROSE_NON_CODE_TERMS = frozenset({
 
 LEGACY_EXPECT_RE = re.compile(r"^<!--\s*expect-symbol:\s*(.+?)\s*-->$")
 BOOK_GATE_RE = re.compile(
-    r"^<!--\s*book-gate:\s*(allow-long-slice|allow-wide-fence|allow-wide-mermaid|allow-ascii-fence|allow-multi-sentence-line)"
+    r"^<!--\s*book-gate:\s*"
+    r"(allow-long-slice|allow-wide-fence|allow-wide-mermaid|allow-ascii-fence|allow-multi-sentence-line|allow-enumerative-prose)"
     r"\s*\(([^)]*)\s*\)\s*-->$"
 )
 TRANSCLUDE_RE = re.compile(
@@ -107,6 +109,7 @@ MULTI_SENTENCE_RE = re.compile(r"[.!?](?:['\")\]*]+)?\s+[A-Z\"`*($]")
 ABRUPT_IMPERATIVE_RE = re.compile(r"^(?:Trace|Examine|Inspect|Click|Play with|Experiment with)\b")
 CONVERSATIONAL_CRUTCH_RE = re.compile(r"\b(?:Wait:\s+why|Hold on:|Wait a second:)", re.IGNORECASE)
 DATASHEET_SHORTHAND_RE = re.compile(r"imm\[[^\]]*\|[^\]]*\]|\[\d+\|imm|\[[\d.]+\|[\d.]+\]")
+COORDINATE_BIT_RE = re.compile(r"\bBits?\s+\d+(?:\.\.\d+)?\b")
 
 
 @dataclass
@@ -299,8 +302,10 @@ def _validate_markdown_links(
     return count
 
 
-def _check_prose_hygiene(raw_line: str, idx: int, rel_chap: Path, errors: list[str]) -> None:
-    """Reject accidental GFM strikethrough, bare prose line numbers, filler crutches, and bit shorthand."""
+def _check_prose_hygiene(
+    raw_line: str, idx: int, rel_chap: Path, errors: list[str], allow_enum: bool = False
+) -> None:
+    """Reject accidental GFM strikethrough, bare prose line numbers, filler crutches, bit shorthand, and coord walls."""
     prose_only = _strip_inline_code_and_math(raw_line)
     if prose_only.count("~") >= 2 and "~~" not in prose_only:
         _append_unique(
@@ -318,6 +323,14 @@ def _check_prose_hygiene(raw_line: str, idx: int, rel_chap: Path, errors: list[s
             errors,
             f"[{rel_chap}:{idx}] Cryptic bit-slice shorthand '{m.group(0)}'; use explicit 'Bits A..B' labels",
         )
+    if not allow_enum and not raw_line.lstrip().startswith("|"):
+        coord_hits = COORDINATE_BIT_RE.findall(prose_only)
+        if len(coord_hits) > MAX_PROSE_COORDINATE_REFS:
+            _append_unique(
+                errors,
+                f"[{rel_chap}:{idx}] Coordinate-recitation prose wall ({len(coord_hits)} 'Bits ...' refs); "
+                "present bit-slice maps in a Markdown table (or add '<!-- book-gate: allow-enumerative-prose (<reason>) -->')",
+            )
 
     without_links = MD_LINK_RE.sub("", raw_line)
     without_comments = re.sub(r"<!--.*?-->", "", without_links)
@@ -733,6 +746,7 @@ def _validate_prose_line(
         return
 
     allow_multi = bool(stripped and state.pending_gates.pop("allow-multi-sentence-line", None) is not None)
+    allow_enum = bool(stripped and state.pending_gates.pop("allow-enumerative-prose", None) is not None)
     if stripped:
         _flush_unused_gates(rel_chap, state.pending_gates, keep_slice=False, errors=errors)
     _check_frontmatter_banner(rel_chap, idx, stripped, state, errors)
@@ -740,7 +754,7 @@ def _validate_prose_line(
     state.anchor_count += _validate_markdown_links(
         raw_line, idx, rel_chap, resolved_chap, resolved_root, file_cache, errors
     )
-    _check_prose_hygiene(raw_line, idx, rel_chap, errors)
+    _check_prose_hygiene(raw_line, idx, rel_chap, errors, allow_enum=allow_enum)
     _check_backtick_hygiene(raw_line, idx, rel_chap, errors)
     _check_bold_and_term_adjacency(raw_line, idx, rel_chap, errors)
     _check_semantic_line_breaks(raw_line, idx, rel_chap, allow_multi, errors)
