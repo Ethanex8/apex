@@ -506,11 +506,10 @@ class StepTrace:
 
 @dataclass(frozen=True)
 class ExecOutcome:
-    """Pending register, PC, and memory effects from one non-trapping instruction.
+    """Pending register writeback, next PC, and StepTrace metadata from a non-trapping instruction.
 
-    `rd_val` may hold a signed or unwrapped Python integer normalized via `u32()` inside
-    `RV32Oracle._set_reg()` at retirement; `next_pc`, `mem_addr`, and `mem_val` hold
-    unsigned 32-bit integers when present.
+    All fault/permission checks succeed before any bus write, CSR write, or `mac_acc` update
+    occurs; `rd_val` is normalized via `u32()` inside `RV32Oracle._set_reg()` at retirement.
     """
 
     rd: int = 0

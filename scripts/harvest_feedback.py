@@ -8,7 +8,7 @@ Purpose:
 
 Usage:
   python3 scripts/harvest_feedback.py --pr 3
-  python3 scripts/harvest_feedback.py --pr 3 --out .cache/feedback/pr-3.json
+  python3 scripts/harvest_feedback.py --pr 3 --out /tmp/apex-feedback/pr-3.json
 
 Outputs:
   Prints a readable Markdown feedback checklist to stdout and optionally writes

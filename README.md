@@ -41,6 +41,7 @@ python3 scripts/build.py --check        # Validate roadmap invariants, book sync
 
 - [**`Apex Interactive Textbook`**](https://ethanex8.github.io/apex/) — 8-part, 34-chapter VitePress textbook ([`book/`](./book/index.md)) compiling `systems/*/chapters/*.md` with synchronized source excerpts and interactive hardware figures.
 - [**`VISION.md`**](./VISION.md) — Dual-processor architecture, electrical and protocol interface contracts, safety limits, and bill of materials.
+- [**`docs/REVIEW_PROCESS.md`**](./docs/REVIEW_PROCESS.md) — 4-step isolated subset-recall PR review protocol, anti-cheating calibration gates, and workflow flowchart.
 - [**`ROADMAP.md`**](./ROADMAP.md) — Phase breakdowns, procurement schedule, and all 186 step checklists.
 - [**`roadmap.yaml`**](./roadmap.yaml) — Declarative manifest of subsystems, milestones, textbook outline, and verification state.
 - [**`systems/`**](./systems/brain/README.md) — Subsystem workspaces (`brain`, `drive`, `power`, `limb`, `walker`, `sight`).

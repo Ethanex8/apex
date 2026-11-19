@@ -2,7 +2,6 @@
 name: apex-artifact-author
 description: Author and refactor Apex Python, Shell, SystemVerilog, and C artifacts using a mandatory 4-pass Staff-Engineer pipeline (Architecture & Modularity Blueprint, Self-Documenting Contract Implementation, 2-Specialist Parallel Audit with Convergence, and Automated AST/Ruff/ShellCheck/Coverage Verification).
 ---
-
 # Apex 4-Pass Technical Artifact Authoring Skill
 
 Use this skill for **every** code, testbench, hardware-description, firmware, and automation script (`*.py`, `*.sh`, `*.sv`, `*.c`, `*.h`) written or refactored across `scripts/` and `systems/` **before** beginning textbook chapter drafting.
@@ -28,13 +27,13 @@ Before writing code:
 ### Pass 2: Self-Documenting Contract & Literary Readability Implementation
 1. **Top-of-File Contract Header** on every `.py`, `.sh`, `.sv`, `.c`, and `.h` file (`Purpose:`, `Usage:`, `Invariants:`/`Outputs:`, plus `# Bump policy:` above pinned tool tags in shell scripts and `Ports & Clock Domain` in SV).
 2. **Named Constants & Uniform Self-Documenting Contracts**:
-   - Define grouped named constants (`OPCODE_*`, `F3_*`, `F7_*`, `INSN_*`, `WORD_ALIGN_MASK`)—never dispatch or build test words from raw magic hex/integer literals.
-   - Keep sibling helpers on **one uniform return/error contract** (e.g., `ExecOutcome | StepTrace`), replace `>= 3`-item positional return tuples with `@dataclass` or `NamedTuple` (`check_code.py` rejects `> 2`-item tuple returns unless exempted), and deduplicate shared arithmetic/MMIO guard helpers.
+   - Define grouped named constants for opcodes, masks, addresses, and error codes—never dispatch or build test inputs from raw magic hex/integer literals.
+   - Keep sibling helpers on **one uniform return/error contract** (such as a single outcome/trace record), replace `>= 3`-item positional return tuples with `@dataclass` or `NamedTuple` (`check_code.py` rejects `> 2`-item tuple returns unless exempted), and deduplicate shared boundary/validation guard helpers.
    - Trace/interface dataclasses must document field-level width/sign semantics, and helpers should decode narrow bitfields locally.
 3. **100% Docstrings, Clean Tests & Rich Inline Commentary**:
    - Keep all imports at module top (`check_code.py` flags local imports inside functions unless exempted for optional runtime dependencies).
-   - Every Python class, method, and function—**including every `test_*` function**—must have a concise docstring. Build readable test stimuli in natural operand order (`rd, rs1, rs2/imm`), avoid dead setup statements, and enforce **one invariant per `assert`** in `test_*.py` (`check_code.py` rejects `assert a and b`).
-   - Explain non-obvious mechanics, architectural state fields, CSR/WARL masks, hardware/host semantic traps (`0xFFFF_FFFF_0000_0000` vs negative `~`, `>>` sign replication, `//` floor vs truncation), and linter pragmas inline right beside the code.
+   - Every Python class, method, and function—**including every `test_*` function**—must have a concise docstring. Build readable test stimuli in natural operand order, avoid dead setup statements, and enforce **one invariant per `assert`** in `test_*.py` (`check_code.py` rejects `assert a and b`).
+   - Explain non-obvious mechanics, architectural state fields, domain register bitfield masks, fixed-width hardware vs. host-language arithmetic traps (sign replication, overflow wrapping, floor vs. truncating division), and linter pragmas inline right beside the code.
 4. **CWD-Safe Paths**: Always resolve paths relative to `BASH_SOURCE[0]` (Bash) or `Path(__file__).resolve()` (Python).
 
 ### Pass 3: 2-Specialist Parallel Audit (`research` Subagents) & Convergence

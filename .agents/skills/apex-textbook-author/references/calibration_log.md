@@ -90,3 +90,16 @@ Persistent ledger of real user review findings, blind-audit gaps, and upstream f
   1. Added `allow-enumerative-prose` gate + `COORDINATE_BIT_RE` prose-wall check in `scripts/check_book.py` with regression tests in `scripts/tests/test_self_healing_gates.py`.
   2. Updated `GEMINI.md`, `apex-textbook-author/SKILL.md`, and `apex-couch-mentor/SKILL.md` to enforce base-before-custom layering, unbraided single-concept widgets/subsections, tables over prose walls, proof economy, and uniform rigor across all sections, synced via `save_skill`.
 
+## Entry 007 — PR #6: 4-Step Subset-Recall Protocol, Abstraction Boundaries & Step-by-Step Display Algebra (2026-11-19)
+
+- **Trigger**: 15 inline PR #6 comments (`U1..U15`) plus review note (`U16`) and isolated clean-room Pass-3 panel findings on `48bc0b2` (`01_isa_and_binary_arithmetic.md`, `.vue` widgets, `custom.css`, `oracle.py`):
+  - **Abstraction & Widget Insertion Audit (`U3`, `U6`, `U9`)**: Pre-hardware section leaked `"adder's bottom carry-in wire"`, upfront `SignExtensionWidener.vue` previewed unintroduced `sign_extend` Python code, and prose advertised `"without an if/else branch"` without real cost motivation.
+  - **Prose-to-Equation Faithfulness, Causal Logic & Step-by-Step Algebra (`U1`, `U2`, `U4`, `U7`, `U8`, `U10`, `U11`, `U12`, `U13`)**: Prose claimed `"cancels every lower wire"` when the lower sum remained intact; `"Consequently"` asserted right-shift upper-wire fill from non-invertibility alone; parenthetical uniqueness sub-proofs, boundary caveats, and in-paragraph math cramped readability; and `U_N(a << k)` + `i = j + k` re-indexing skipped intermediate summation steps.
+  - **Takeaways, Cohesion & Exercises Heading (`U5`, `U14`, `U15`)**: Buried sign-extension vs. zero-extension takeaway, ordered comparisons tacked onto Right Shifts, and `## 9. Graded Engineering Exercises` instead of `## 9. Exercises`.
+  - **Panel Bonus Catches (`U16`)**: False `new_lo < old_lo` CLINT 2-store inequality, inaccurate `Side-Effect-Free Evaluation` wording vs. `_exec_store`/`_exec_zicsr` mutations, `mac.clr` loop reset wording, `5 x 64 KB` vs. power-of-two window wording, missing Section 8.1 opcode-partition table, incomplete Exercise 2 `divu`/`remu` solution, `XapexMacDatapath.vue` missing `mac.set`/`mac.get` presets, `RiscvFormatMatrix.vue` U-type `S` split and `6px`/`0.3` contrast, `RiscvBitfieldDecoder.vue` illegal SYSTEM/`fence` formatting, and `.hw-label code` CSS specificity.
+- **Healed By**:
+  1. Formalized the 4-Step Subset-Recall PR Review Protocol in `docs/REVIEW_PROCESS.md`, `apex-skill-healer/SKILL.md`, `apex-couch-mentor/SKILL.md`, and `GEMINI.md`, scrubbing Chapter-1-specific tokens/lemmas from `GEMINI.md` and sibling skills.
+  2. Updated `apex-textbook-author/SKILL.md` (Pass 1–3) with abstraction-boundary checks, honest construct rationale, buried-takeaway detection, exact-insertion widget audits, chunked long-chapter Pass-3 audits, step-by-step display algebra, prose-to-equation action-verb checks, and premise-to-conclusion entailment checks.
+  3. Added deterministic `## <N>. Exercises` check in `scripts/check_book.py` + tests in `scripts/tests/test_self_healing_gates.py`, and resolved all `U1..U15` + panel findings across Chapter 1, Vue widgets, `custom.css`, and `oracle.py`.
+
+

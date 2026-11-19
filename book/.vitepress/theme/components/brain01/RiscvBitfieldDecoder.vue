@@ -150,7 +150,9 @@ const decoded = computed(() => {
     return {
       format: isMac ? 'R-Type (Custom-0 Xapex Neural Extension)' : 'R-Type (Register-Register)',
       mnemonic: opName,
-      immExplain: 'No embedded constant — all three 5-bit register columns (rd, rs1, rs2) are active, leaving 10 bits (funct7 + funct3) to select the exact operation.',
+      immExplain: isMac
+        ? `Custom-0 neural instruction: mac and mac.clr read rs1 and rs2; mac.set reads rs1 (ignores rs2); mac.get ignores rs1 and rs2.`
+        : 'No embedded constant — all three 5-bit register columns (rd, rs1, rs2) are active, leaving 10 bits (funct7 + funct3) to select the exact operation.',
       effect,
       spans,
     }
@@ -167,7 +169,7 @@ const decoded = computed(() => {
     return {
       format: 'I-Type (Shift-Immediate Specialization)',
       mnemonic: opName,
-      immExplain: `Bits 24..20 hold the 5-bit shift amount (shamt = ${shamt}), leaving Bits 31..25 as funct7 (${fmtHex2(funct7)}) to distinguish logical (0x00) vs arithmetic (0x20) right shifts.`,
+      immExplain: `Bits 24..20 hold the 5-bit shift amount (shamt = ${shamt}), leaving Bits 31..25 as funct7 (${fmtHex2(funct7)}) to select shift mode (0x00 for slli/srli vs 0x20 for srai).`,
       effect: opName.startsWith('Illegal')
         ? 'Traps to mtvec with mcause = 2 (Illegal Instruction).'
         : `Shifts x${rs1} by ${shamt} bit(s) and writes result into x${rd}${rdSuffix(rd)}.`,
@@ -191,13 +193,16 @@ const decoded = computed(() => {
         0x00000073: ['ecall (Environment Call)', 'Raises synchronous trap (mcause = 11) jumping PC to mtvec.'],
         0x00100073: ['ebreak (Environment Breakpoint)', 'Sets halted = True and raises breakpoint trap (mcause = 3).'],
         0x30200073: ['mret (Machine Trap Return)', 'Restores mstatus.MIE from MPIE and jumps PC back to mepc.'],
-        0x10500073: ['wfi (Wait For Interrupt)', 'Clock-sleep hint; advances PC to PC + 4 in sequential oracle.'],
+        0x10500073: ['wfi (Wait For Interrupt)', 'Idle wait hint; advances PC to PC + 4 as a sequential no-op in the oracle.'],
       }
-      const hit = sysMap[w] ?? ['Illegal SYSTEM Instruction (Trap Cause 2)', 'Unassigned SYSTEM encoding; traps to mtvec with mcause = 2.']
+      const hit = sysMap[w] ?? [
+        'Illegal SYSTEM Instruction (Trap Cause 2)',
+        `Unassigned SYSTEM encoding (Bits 31..20 = ${csrHex}, rs1 = x${rs1}, rd = x${rd}; valid SYSTEM words require rs1 = x0 and rd = x0); traps to mtvec with mcause = 2.`,
+      ]
       return {
         format: 'I-Type (Privileged SYSTEM Instruction)',
         mnemonic: hit[0],
-        immExplain: `Upper 12-bit function selector = ${csrHex} with rs1 = x0 and rd = x0.`,
+        immExplain: `Bits 31..20 = ${csrHex} with rs1 = x${rs1} and rd = x${rd} (privileged encodings require rs1 = x0 and rd = x0).`,
         effect: hit[1],
         spans: [
           { name: 'System Function', range: 'Bits 31..20', bits: b(31, 20), value: csrHex, color: 'var(--hw-purple)', widthCols: 12 },
@@ -209,6 +214,27 @@ const decoded = computed(() => {
       }
     }
 
+    const rwCsrs: Record<number, string> = {
+      0x300: 'mstatus',
+      0x304: 'mie',
+      0x305: 'mtvec',
+      0x340: 'mscratch',
+      0x341: 'mepc',
+      0x342: 'mcause',
+      0x343: 'mtval',
+      0x344: 'mip',
+      0xb00: 'mcycle',
+      0xb02: 'minstret',
+      0xb80: 'mcycleh',
+      0xb82: 'minstreth',
+    }
+    const roCsrs: Record<number, string> = {
+      0x301: 'misa',
+      0xf11: 'mvendorid',
+      0xf12: 'marchid',
+      0xf13: 'mimpid',
+      0xf14: 'mhartid',
+    }
     const csrOps: Record<number, string> = {
       1: 'csrrw (Atomic CSR Read & Write)',
       2: 'csrrs (Atomic CSR Read & Set Bits)',
@@ -220,13 +246,21 @@ const decoded = computed(() => {
     const isImm = (funct3 & 0x4) !== 0
     const isSetOrClear = (funct3 & 0x3) === 2 || (funct3 & 0x3) === 3
     const suppressWrite = isSetOrClear && rs1 === 0
-    const opName = csrOps[funct3] ?? 'Illegal Zicsr funct3=4 (Trap Cause 2)'
+    const csrName = rwCsrs[csrAddr] ?? roCsrs[csrAddr]
+    const isReadOnly = csrAddr in roCsrs
+    let opName = csrOps[funct3] ?? 'Illegal Zicsr funct3=4 (Trap Cause 2)'
     let csrEffect = 'Traps with mcause = 2 (Illegal Instruction).'
     if (funct3 !== 4) {
-      if (suppressWrite) {
-        csrEffect = `Reads Control & Status Register (CSR) ${csrHex} into x${rd}${rdSuffix(rd)} and suppresses write (safe read-only query because ${isImm ? 'uimm' : 'rs1'} == 0).`
+      if (!csrName) {
+        opName = `Illegal Unimplemented CSR ${csrHex} (Trap Cause 2)`
+        csrEffect = `CSR address ${csrHex} is unimplemented in RV32Oracle; traps to mtvec with mcause = 2 without updating x${rd}.`
+      } else if (isReadOnly && !suppressWrite) {
+        opName = `Illegal Write to Read-Only CSR ${csrName} (Trap Cause 2)`
+        csrEffect = `CSR ${csrName} (${csrHex}) is read-only and write is not suppressed (${isImm ? 'uimm' : 'rs1'} != 0 or csrrw/csrrwi); traps with mcause = 2.`
+      } else if (suppressWrite) {
+        csrEffect = `Reads CSR ${csrName} (${csrHex}) into x${rd}${rdSuffix(rd)} and suppresses write (safe read-only query because ${isImm ? 'uimm' : 'rs1'} == 0).`
       } else {
-        csrEffect = `Atomically reads Control & Status Register (CSR) ${csrHex} into x${rd}${rdSuffix(rd)} and writes updated value using ${isImm ? `constant ${rs1}` : `x${rs1}`}.`
+        csrEffect = `Atomically reads CSR ${csrName} (${csrHex}) into x${rd}${rdSuffix(rd)} and writes updated value using ${isImm ? `constant ${rs1}` : `x${rs1}`}.`
       }
     }
     return {
@@ -276,9 +310,10 @@ const decoded = computed(() => {
     } else if (opcode === 0x67) {
       opName = funct3 === 0 ? 'jalr (Jump and Link Register)' : 'Illegal jalr funct3 (Trap Cause 2)'
       effect = funct3 === 0
-        ? `Saves return address (PC + 4) into x${rd}${rdSuffix(rd)} and jumps to (x${rs1} + (${imm12})) & ~1.`
+        ? `Saves return address (PC + 4) into x${rd}${rdSuffix(rd)} and jumps to (x${rs1} + (${imm12})) & 0xFFFF_FFFE (traps with mcause = 0 if Bit 1 is 1).`
         : 'Traps with mcause = 2 (Illegal Instruction).'
     } else {
+      const fenceHex = `0x${imm12Raw.toString(16).toUpperCase().padStart(3, '0')}`
       opName =
         funct3 === 0
           ? 'fence (Memory Ordering Barrier)'
@@ -289,6 +324,19 @@ const decoded = computed(() => {
         funct3 === 0 || funct3 === 1
           ? 'Synchronizes memory/instruction order; advances PC to PC + 4 in sequential oracle.'
           : 'Traps with mcause = 2 (Illegal Instruction).'
+      return {
+        format: 'I-Type (Memory / Instruction Stream Barrier)',
+        mnemonic: opName,
+        immExplain: `Bits 31..20 hold ordering mode/predecessor/successor bits (${fenceHex}) rather than an arithmetic offset.`,
+        effect,
+        spans: [
+          { name: 'Ordering Flags', range: 'Bits 31..20', bits: b(31, 20), value: fenceHex, color: 'var(--hw-purple)', widthCols: 12 },
+          { name: 'rs1 (Src 1)', range: 'Bits 19..15', bits: b(19, 15), value: `x${rs1}`, color: 'var(--hw-green)', widthCols: 5 },
+          { name: 'funct3', range: 'Bits 14..12', bits: b(14, 12), value: `${funct3}`, color: 'var(--hw-cyan)', widthCols: 3 },
+          { name: 'rd (Dest)', range: 'Bits 11..7', bits: b(11, 7), value: `x${rd}`, color: 'var(--vp-c-brand-1)', widthCols: 5 },
+          { name: 'opcode', range: 'Bits 6..0', bits: b(6, 0), value: '0x0F', color: 'var(--hw-pink)', widthCols: 7 },
+        ],
+      }
     }
     return {
       format: 'I-Type (12-Bit Signed Constant)',
@@ -529,7 +577,7 @@ const decoded = computed(() => {
         >
           <div
             style="font-weight: 700; white-space: pre-line; line-height: 1.05"
-            :style="{ color: sp.color, fontSize: sp.widthCols === 1 ? '6px' : sp.widthCols <= 4 ? '8px' : '9px' }"
+            :style="{ color: sp.color, fontSize: sp.widthCols === 1 ? '8px' : sp.widthCols <= 4 ? '8px' : '9px' }"
           >
             {{ sp.range }}
           </div>

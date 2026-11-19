@@ -83,7 +83,7 @@ HTML_ENTITY_RE = re.compile(r"&(?:[A-Za-z][A-Za-z0-9]+|#[0-9]+|#x[0-9A-Fa-f]+);"
 SEQ_MSG_SEMI_RE = re.compile(r"^[^\n:]+(?:->|--?>|->>|-->>|-x|--x|-\)|--\))[^\n:]*:.*;")
 H1_HEADING_RE = re.compile(r"^#\s+(.+)$")
 HEADING_RE = re.compile(r"^(#{2,3})\s+(.+)$")
-EXERCISE_HEADING_RE = re.compile(r"\bExercise(?:\s+\d+)?\b", re.IGNORECASE)
+EXERCISE_HEADING_RE = re.compile(r"\bExercises?(?:\s+\d+)?\b", re.IGNORECASE)
 EXERCISE_PREFIX_RE = re.compile(r"^Exercise\s+\d+:\s*(.+)$", re.IGNORECASE)
 SECTION_NUM_PREFIX_RE = re.compile(r"^\d+(?:\.\d+)*\.?\s+")
 CHAPTER_PREFIX_RE = re.compile(r"^Chapter\s+\d+:\s*", re.IGNORECASE)
@@ -399,6 +399,12 @@ def _validate_heading_style(
             errors,
             f"[{rel_chap}:{idx}] Section heading '{core}' exceeds {MAX_SECTION_HEADING_WORDS} words "
             f"({len(core.split())}); tighten to the primary topic",
+        )
+    if hashes == "##" and EXERCISE_HEADING_RE.search(body) and core.lower() != "exercises":
+        _append_unique(
+            errors,
+            f"[{rel_chap}:{idx}] Exercise section heading '{body}' should simply be 'Exercises' "
+            "(e.g., '## <N>. Exercises')",
         )
     state.pending_heading = None if EXERCISE_HEADING_RE.search(body) else (idx, body)
     return True

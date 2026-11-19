@@ -175,9 +175,9 @@ def test_check_book_pedagogy_gates_and_widget_shorthand(tmp_path: Path) -> None:
         "Conversational crutch 'Wait: why'",
         "Cryptic bit-slice shorthand 'imm[12|10:5]'",
         "Cryptic bit-slice shorthand '[30..25|10..5]'",
+        "Exercise section heading 'Graded Engineering Exercises' should simply be 'Exercises'",
     ):
         assert expected in chap_errs
-    assert "Graded Engineering Exercises" not in chap_errs
     assert "Exercise 1" not in chap_errs
     widget_errs = "\n".join(check_book.validate_widgets(tmp_path))
     assert "Cryptic bit-slice shorthand 'imm[12|10:5]'" in widget_errs
@@ -550,3 +550,22 @@ def test_harvest_feedback_pr_normalization_and_cli(tmp_path: Path, monkeypatch: 
         harvest_feedback.fetch_gh_json("repos/Ethanex8/apex/bad/endpoint")
     monkeypatch.setattr(harvest_feedback.subprocess, "run", _FakeGhRunner({}))
     assert harvest_feedback.main(["--pr", "3"]) == 1
+
+
+def test_review_process_doc_and_repo_skills() -> None:
+    """Verify docs/REVIEW_PROCESS.md Mermaid flowchart and all repo SKILL.md files pass validation."""
+    repo_root = Path(__file__).resolve().parents[2]
+    doc = repo_root / "docs" / "REVIEW_PROCESS.md"
+    assert doc.exists()
+    text = doc.read_text(encoding="utf-8")
+    assert "```mermaid\nflowchart TD" in text
+    mermaid_block = text.split("```mermaid\n", 1)[1].split("```", 1)[0]
+    assert "<br" not in mermaid_block.lower()
+    for line in mermaid_block.splitlines():
+        if "[" in line and "(" in line and '"' not in line:
+            raise AssertionError(f"Unquoted special chars in Mermaid node: {line}")
+
+    errs, count = check_book.validate_skills(repo_root)
+    assert count == 4
+    assert errs == []
+

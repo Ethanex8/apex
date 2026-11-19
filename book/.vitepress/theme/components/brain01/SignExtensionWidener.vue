@@ -29,8 +29,7 @@ function selectWidth(w: NarrowWidth): void {
 
 const rawNarrow = computed(() => signedVal.value & mask.value)
 const signBit = computed(() => (rawNarrow.value >> (width.value - 1)) & 1)
-const xorStep = computed(() => rawNarrow.value ^ signMask.value)
-const signExtendedS32 = computed(() => xorStep.value - signMask.value)
+const signExtendedS32 = computed(() => (rawNarrow.value ^ signMask.value) - signMask.value)
 const signExtendedU32 = computed(() => signExtendedS32.value >>> 0)
 const zeroExtendedU32 = computed(() => rawNarrow.value >>> 0)
 
@@ -62,7 +61,7 @@ const lowerBits = computed(() => lowerNibbles.value.join('_'))
   <div class="hw-widget">
     <div class="hw-widget-header">
       <div class="hw-widget-title">
-        <span class="hw-badge">Wire Fan-Out</span>
+        <span class="hw-badge">Bit Widening</span>
         <span>Widening Narrow Integers to 32-Bit Wires</span>
       </div>
       <div style="display: flex; flex-wrap: wrap; gap: 6px">
@@ -165,19 +164,6 @@ const lowerBits = computed(() => lowerNibbles.value.join('_'))
           </div>
         </div>
       </div>
-    </div>
-
-    <div class="hw-card">
-      <div class="hw-label">Branchless Software Check: <code>sign_extend(val, {{ width }})</code> (^ = bitwise XOR)</div>
-      <ol class="hw-mono" style="margin: 6px 0 0 18px; padding: 0; font-size: 12px; line-height: 1.7">
-        <li>masked = val &amp; {{ hexNarrow(mask, width) }} = {{ rawNarrow }} ({{ hexNarrow(rawNarrow, width) }})</li>
-        <li>sign_bit = 1 &lt;&lt; {{ width - 1 }} = {{ signMask }} ({{ hexNarrow(signMask, width) }})</li>
-        <li>masked ^ sign_bit = {{ rawNarrow }} ^ {{ signMask }} = <strong>{{ xorStep }}</strong></li>
-        <li>
-          (masked ^ sign_bit) - sign_bit = {{ xorStep }} - {{ signMask }} =
-          <strong style="color: var(--vp-c-brand-1)">{{ signExtendedS32 }}</strong>
-        </li>
-      </ol>
     </div>
   </div>
 </template>

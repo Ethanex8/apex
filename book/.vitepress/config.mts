@@ -22,6 +22,7 @@ export default defineConfig({
     'README.md',
     'ROADMAP.md',
     'GEMINI.md',
+    'docs/**',
     '.agents/**',
     '.github/**',
     '.tools/**',

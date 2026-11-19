@@ -1,62 +1,47 @@
 ---
 name: apex-skill-healer
-description: Closed-loop skill and verification-gate self-healing protocol triggered when user review feedback reveals a blind spot in Apex authoring or auditing pipelines. Runs blind-subagent recall replay against harvested comments and graduates generalizable critiques into deterministic Python/Playwright gates and calibration ledgers before patching deliverable files.
+description: Closed-loop 4-step subset-recall PR review and skill self-healing protocol. Sanity-checks PR comments with optional pushback and anti-cheating persona proposals first, establishes isolated blind subset recall before editing deliverables, converges clean-room fixes, resolves answered PR threads, and closes/merges branches cleanly on LGTM.
 ---
+# Apex 4-Step Subset-Recall Review & Self-Healing Protocol
 
-# Apex Self-Healing Skill & Gate Protocol
+Execute this skill whenever user feedback arrives on an open PR or in chat during `in_review` (full flowchart and rationale live in `docs/REVIEW_PROCESS.md`). Pure single-character typos (`Tier 0`) may be fixed directly; all other critiques follow Steps 1–4 below without touching deliverables until Step 2 converges.
 
-Execute this skill automatically whenever user feedback (PR inline comments or chat critique during `in_review`) reveals a defect that our authoring, audit, or verification pipeline should have prevented or caught independently.
+## Step 1: Comment Sanity Check, Pushback & Persona Proposal (Human Gate 1)
 
-## Step 0: Classify Feedback Tier
-
-- **Tier 0 (Pure Typo / Accidental Slip)**: Localized misspelling or typo already prohibited by existing rules. Fix directly; no replay overhead needed.
-- **Tier 1 (Single Localized Generalizable Nit)**: One self-contained flaw lacking a check. Add a deterministic check (`scripts/check_*.py` + test fixture) or tighten the governing rule + `references/calibration_log.md`, verify, then fix the deliverable.
-- **Tier 2 (`2+` Comments OR Any Structural, Pedagogical, Visual, or Code-Readability Critique)**: Mandatory **Blind Recall Convergence Loop** (Steps 1–5 below). **Never edit deliverable code/chapter files before Steps 1–4 converge.**
-
----
-
-## Step 1: Harvest Feedback & Freeze Pre-Fix Snapshot
-
-1. If feedback lives on a GitHub PR, harvest all human comments structurally:
+1. Harvest feedback **outside** the repository workspace and record the untouched `HEAD` SHA:
    ```bash
-   python3 scripts/harvest_feedback.py --pr <N> --out .cache/feedback/pr-<N>.json
+   python3 scripts/harvest_feedback.py --pr <N> --out /tmp/apex-feedback/pr-<N>.json
    ```
-   Combine with any chat critiques into a numbered **Ground-Truth Feedback List** (`U1..Uk`).
-2. Record the unmodified pre-fix state (`git rev-parse HEAD`, or save temporary read-only path list of untouched files).
+2. Audit each human comment (`U1..Uk`) against exact text/code: mark `AGREE`, `CLARIFY`, or respectful `PUSHBACK` when a reading may be mistaken (the human reviewer always holds the final call).
+3. Draft proposed edits to `.agents/skills/*/SKILL.md`, `GEMINI.md`, or deterministic `scripts/check_*.py` strictly as **universal, content-agnostic rules**—never referencing chapter symbols, formulas, hex values, widget names, or line numbers.
+4. Publish both triage and proposed persona/gate diffs in a standalone artifact (`pr_<N>_step1_triage.md`, `UserFacing: true`, `RequestFeedback: true`) and **STOP** until the user settles `U_agreed` and approves the non-cheating persona rules.
 
 ---
 
-## Step 2: Independent Blind Baseline Audit (Zero Comment Leakage)
+## Step 2: Persona Update & Isolated Subset-Recall Loop (Conditional Gate 2)
 
-Spawn isolated `research` subagent(s) (`invoke_subagent`, `Model: 'inherit'`, `Workspace: 'inherit'`, `Role: Blind Calibration Auditor`) to review the **unmodified** target files (plus `.cache/visual-audit/<slug>/*.png` for chapters/widgets) using only `.agents/skills/*/SKILL.md` and `GEMINI.md`.
-
-- **Strict Isolation Rule**: Never paste, hint at, or summarize any user comment (`U1..Uk`) inside any subagent prompt.
-
----
-
-## Step 3: Recall Matrix & Upstream-First Healing
-
-Compare blind findings (plus deterministic outputs from `check_code.py`, `check_book.py`, and `check_visuals.py`) against `U1..Uk`:
-- Mark each generalizable item **`CAUGHT_BY_GATE`**, **`CAUGHT_BY_BLIND_SUBAGENT`**, or **`MISSED`**.
-
-For every **`MISSED`** generalizable item, ask *"Why did our pipeline miss this without user help?"* and heal **upstream first**:
-1. **Deterministic Gate First (Preferred)**: If mechanically checkable (line length, slice size, syntax, ASCII fences, abrupt heading openings, tuple returns, local imports, compound asserts, SVG clipping, viewport overflow, contrast), add it to `scripts/check_book.py`, `scripts/check_code.py`, or `scripts/check_visuals.py` plus regression tests in `scripts/tests/`.
-2. **Skill Prompt + Calibration Ledger + Active Registry Sync**: If judgment/pedagogical/architectural, sharpen the rule in `.agents/skills/<skill>/SKILL.md` and `GEMINI.md`—keeping every `SKILL.md <= 120` lines—append a root-cause entry (`Defect`, `Why Missed`, `Gate/Skill Fix`) to `references/calibration_log.md`, and immediately sync modified skills into `~/.gemini` via `save_skill(skill_dir=..., overwrite=True)` so `lookup_skills` and subagents never read stale rules.
+1. Apply only the approved persona/gate updates and sync `.agents/skills/*` into `~/.gemini` via `save_skill(overwrite=True)`. **Do NOT edit deliverable files or append `references/calibration_log.md` yet.**
+2. Run deterministic checks (`check_code.py`, `check_book.py`, `check_visuals.py`) plus the isolated Pass-3 `research` review panel on the **untouched** pre-fix snapshot and `.cache/visual-audit/` PNGs.
+   - **Zero-Leakage Isolation**: Forbid subagents from reading `/tmp/apex-feedback/`, triage artifacts, `calibration_log.md`, `gh`, or session logs; never mention human comments or hints.
+3. Map every item in `U_agreed` semantically to `CAUGHT_BY_GATE`, `CAUGHT_BY_BLIND_SUBAGENT`, or `MISSED`.
+4. If any item is `MISSED`, generalize the governing persona/gate rule (without leaking specific content), sync via `save_skill`, and re-run a **fresh** isolated panel until $U_{\text{agreed}} \subseteq \text{Panel} \cup \text{Gates}$.
+5. **Conditional Gate 2**: If Step 2 altered any persona prompt beyond Step 1's approved diff, **STOP** for human anti-cheating sign-off; otherwise continue directly to Step 3.
 
 ---
 
-## Step 4: Blind Convergence Replay
+## Step 3: Deliverable Healing & Clean-Room Convergence
 
-Re-run deterministic checks AND the **fresh** isolated parallel specialist subagent team (using the updated `apex-textbook-author` / `apex-artifact-author` specialist roles, with zero shared conversation history and zero user comments leaked) on the **still-unmodified pre-fix snapshot**:
-- Confirm every Tier 2 generalizable feedback item now triggers cleanly as **`CAUGHT_BY_GATE`** or **`CAUGHT_BY_BLIND_SUBAGENT`**.
-- If any item stays `MISSED`, refine the gate/skill rule in Step 3 and replay again until `100%` recall convergence.
+1. Fix **all** panel, gate, and `U_agreed` findings across code, tests, widgets, CSS, and chapter prose (`apex-artifact-author` + `apex-textbook-author`).
+2. Append the completed root-cause retrospective entry to the relevant `references/calibration_log.md`.
+3. Rebuild and verify every gate (`pytest --cov-fail-under=95`, `check_code.py`, `sync_book.py --check`, `check_book.py`, `build.py --check`, `BOOK_BASE=/apex/ npm --prefix book run build`, `check_visuals.py --screenshot-dir .cache/visual-audit`).
+4. Run fresh isolated clean-room panel rounds on the updated deliverables + regenerated PNGs until a full pass reports zero P0/P1/P2 defects.
 
 ---
 
-## Step 5: Heal Deliverable, Converge & Update Open PR Without Closing
+## Step 4: Fast-Forward PR Update, Thread Resolution, Book Deploy & `LGTM` Close-Out
 
-Only after Step 4 convergence (and before pushing/re-requesting review):
-1. Apply all fixes cleanly to deliverable source code, tests, chapter prose, CSS, and Vue widgets via `apex-artifact-author` and `apex-textbook-author`.
-2. Run the full static, visual, and coverage verification suite (`check_code.py`, `sync_book.py --check`, `check_book.py`, `build.py --check`, `BOOK_BASE=/apex/ npm --prefix book run build`, `check_visuals.py --screenshot-dir .cache/visual-audit`, and `pytest --cov-fail-under=95`).
-3. **Mandatory Post-Edit Re-Review Convergence**: Run the full multi-specialist clean-room subagent review team on the modified deliverables + regenerated `.cache/visual-audit/` PNGs; if any P0/P1/P2 defects remain after edits, patch, rebuild, and spawn a fresh Round $r+1$ specialist round until a full pass returns zero defects.
-4. **Preserve Open Ready-for-Review PRs & Reply Inline**: Ensure the PR is **Ready for Review** (never `--draft`), push a fast-forward commit (never closing/merging early or force-pushing away reviewed commits), reply directly inline on every resolved PR comment thread (`gh api -X POST repos/<owner>/<repo>/pulls/<N>/comments/<id>/replies`), and include a brief **Pipeline Self-Healing Note** in the reply.
+1. Commit and push fast-forward updates cleanly (keeping the Ready-for-Review PR open across cycles without force-pushing).
+2. Post concise inline replies on every addressed PR comment (`gh api -X POST repos/<owner>/<repo>/pulls/<N>/comments/<id>/replies`) noting both the deliverable fix and the general persona/gate rule that now catches it.
+3. Resolve every addressed GitHub review thread via GraphQL `resolveReviewThread`, leaving a thread unresolved **only** if a genuine open question remains for the human.
+4. Confirm GitHub Actions CI + GitHub Pages deploy pass, update PR/book URL bookmarks if needed, and await the next review cycle.
+5. **On Explicit `LGTM`**: Run `python3 scripts/step.py approve <step-id> --commit <sha>`, `python3 scripts/build.py --check`, merge changes to `main`, close/merge the PR, and delete temporary branches locally and on `origin`.
