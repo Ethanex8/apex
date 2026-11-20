@@ -30,13 +30,13 @@ const presets: DivPreset[] = [
       {
         insn: 'divu (0xFFFF_FFF9 ÷ 0)',
         result: '0xFFFF_FFFF (UINT32_MAX)',
-        explain: 'Unsigned divide by zero returns 2^32 - 1 so hardware never needs a division-fault line.',
+        explain: 'Unsigned divide by zero returns 2^32 - 1 so hardware never needs division-trap wiring.',
         color: 'var(--hw-green)',
       },
       {
         insn: 'rem / remu (-7 % 0)',
         result: '-7 / 0xFFFF_FFF9 (Dividend)',
-        explain: 'Preserves Euclidean identity q × 0 + rem = dividend cleanly by returning rs1 unchanged.',
+        explain: 'Preserves quotient-remainder identity q × 0 + rem = dividend cleanly by returning rs1 unchanged.',
         color: 'var(--hw-purple)',
       },
     ],

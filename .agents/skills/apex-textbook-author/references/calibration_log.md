@@ -103,3 +103,13 @@ Persistent ledger of real user review findings, blind-audit gaps, and upstream f
   3. Added deterministic `## <N>. Exercises` check in `scripts/check_book.py` + tests in `scripts/tests/test_self_healing_gates.py`, and resolved all `U1..U15` + panel findings across Chapter 1, Vue widgets, `custom.css`, and `oracle.py`.
 
 
+## Entry 008 — PR #6 Round 2: Unbraided List Items, Intuition Before Edge Cases & Post-Equation Preconditions (2026-11-19)
+
+- **Trigger**: 3 inline PR #6 comments (`#4637597770`, `#4637622384`, `#4637677447`) plus review note (`#5986527983`) on `301f82a` / `a7c0db8`, plus Step 2 isolated panel catches:
+  - **Braided Multi-Operation Items & Cold Boundary Openings (`U1`, `U2`)**: A single numbered item (`2.`) interleaved addition/subtraction concrete examples, a left-shift example before left shifts were defined, a `+`/`-` theorem, and then opened left shifts cold with the `k = 0` identity case before plain-English intuition.
+  - **Forward Exponent Commentary Without Theorem Purpose (`U3`)**: A sentence asserted non-negativity of an equation's factored exponent (`i + k - N >= 0`) *before* the display equation appeared and without explaining why integrality matters (keeping the factored multiplier whole so the discarded upper tail vanishes modulo `2^N`).
+  - **Step 2 Blind Panel Catches**: `TruncatingDivisionComparator.vue` inserted before divide-by-zero/overflow rules were introduced (`division-fault line` jargon, `"Euclidean identity"` at divisor 0), buried `Two's Complement` takeaway before the encoding comparison table, `Right Shifts` modular-inverse non-entailment, `N = 1` telescoping wording, and parenthetical scaling/examples.
+- **Healed By**:
+  1. Added content-agnostic rules in `GEMINI.md` and `apex-textbook-author/SKILL.md` forbidding braided multi-operation bullets/paragraphs, requiring plain-English operation intuition before boundary edge cases/equations, banning commentary on unseen equation sub-terms/exponents, and requiring explicit theorem-step motivation for every precondition.
+  2. Proved isolated Step 2 blind subset recall (`U_agreed = {U1, U2, U3} \subseteq PanelFindings` on the first run without extra persona edits).
+  3. Unbraided Addition/Subtraction vs. Left Shifts, moved exponent integrality explanation after the equation with explicit modular-multiplier motivation, rewrote Right Shifts around direct `b_{N-1} 2^{N-k}` congruence loss, surfaced the `Two's Complement` takeaway before the comparison table, and relocated `TruncatingDivisionComparator.vue` after the corner-case table.
