@@ -1,4 +1,4 @@
-# Chapter 1: Instruction Set Architecture
+# Chapter 1 Instruction Set Architecture
 
 Every program that runs on a robot ultimately reduces to fixed-width binary numbers moving between small hardware storage cells and memory addresses.
 Before designing a single physical logic gate for the `brain` processor, we must specify the exact contract governing those binary instructions, registers, memory regions, and hardware interrupts.
@@ -16,7 +16,7 @@ Processor teams eliminate that blind spot before writing any circuit code by bui
 [`oracle.py`](../sim/oracle.py) implements that golden 32-bit reference specification (`RV32Oracle`) for the `brain` CPU.
 Before any hardware exists, unit tests in [`test_oracle.py`](../tb/test_oracle.py) verify arithmetic bounds, memory alignment rules, and timer alarms directly against the Python oracle.
 Later, when our SystemVerilog CPU runs inside an open-source simulator that compiles circuit descriptions into fast C++ executables (**Verilator**), our verification harness feeds the exact same machine-code program to both engines in lockstep.
-After every completed (**retired**) instruction or hardware fault, [`RV32Oracle.step()`](../sim/oracle.py#L1194-L1273) returns a structured step receipt recording updated architectural state so the harness halts on the exact step where hardware diverges.
+After every completed (**retired**) instruction or hardware fault, [`RV32Oracle.step()`](../sim/oracle.py#L1194-L1273) returns a structured step receipt recording updated register, instruction-address, and memory state so the harness halts on the exact step where hardware diverges.
 
 ```mermaid
 flowchart TD
@@ -65,7 +65,9 @@ Generalizing from 4 wires to any width $N \ge 1$ defines the **unsigned integer 
 $$U_N(b) = \sum_{i=0}^{N-1} b_i \cdot 2^i$$
 
 When every wire carries zero, $U_N(b) = 0$.
-When every wire carries one, $N = 1$ gives $S = 2^0 = 2^1 - 1$ immediately, and for any $N \ge 2$ subtracting $S = \sum_{i=0}^{N-1} 2^i$ from $2S$ cancels all overlapping interior terms $2^1$ through $2^{N-1}$:
+Write $S = \sum_{i=0}^{N-1} 2^i$ for the unsigned value when every wire carries one.
+When $N = 1$, $S = 2^0 = 2^1 - 1$ holds directly.
+For any $N \ge 2$, subtracting $S$ from $2S$ cancels all overlapping interior terms $2^1$ through $2^{N-1}$:
 
 $$\begin{aligned}
 S = 2S - S
@@ -91,6 +93,7 @@ For example, $18 \equiv 2 \pmod{16}$ because $18 - 2 = 1 \cdot 16$, and $-5 \equ
 
 Before applying this clock-face equivalence to signed encodings and hardware adders, let us verify why **modular congruence** passes cleanly through addition, subtraction, and multiplication for any positive modulus $m$.
 For a concrete check on our 16-slot ring ($m = 16$), $19 \equiv 3 \pmod{16}$ and $14 \equiv -2 \pmod{16}$ give sum $33 \equiv 3 + (-2) \equiv 1 \pmod{16}$ and product $266 \equiv 3 \cdot (-2) \equiv -6 \pmod{16}$.
+
 To prove this holds in general for any $x \equiv x' \pmod{m}$ and $y \equiv y' \pmod{m}$, write $x = x' + k_1 m$ and $y = y' + k_2 m$ for integers $k_1, k_2 \in \mathbb{Z}$, then expand both $x \pm y$ and $x \cdot y$:
 
 $$\begin{aligned}
@@ -143,11 +146,12 @@ For negative inputs such as $-5$, wrapping modulo $2^{32}$ returns the non-negat
 <!-- book-sync: u32 -->
 <<< @/systems/brain/sim/oracle.py#L267-L269
 
-### Negation and Shared Adder Circuits
+### Shared Adder, Negation, and Shift Circuits
 
 Comparing the unsigned sum $U_N(b)$ and signed sum $S_N(b)$ on the exact same $N$-bit wire pattern explains why hardware needs only one binary adder circuit for both unsigned and signed integers.
 On our 4-bit pattern `1011`, $U_4(\texttt{1011}) = 11$ and $S_4(\texttt{1011}) = -5$, which differ by $11 - (-5) = 16 = 2^4$.
-Separating wire $N - 1$ from the lower $N - 1$ wires cancels every lower wire weight and proves that this $2^N$ offset holds whenever $b_{N-1} = 1$:
+
+Separating wire $N - 1$ from the lower $N - 1$ wires cancels every lower wire weight and proves $U_N(b) - S_N(b) = b_{N-1} \cdot 2^N$, which equals $2^N$ whenever $b_{N-1} = 1$ and $0$ when $b_{N-1} = 0$:
 
 $$\begin{aligned}
 U_N(b) - S_N(b)
@@ -167,11 +171,32 @@ When $k = 0$, the differing bottom bit creates a difference of $1$; when $k \ge 
 Because all $2^N$ patterns map to distinct integers inside the $2^N$-element interval $[0, 2^N - 1]$, $U_N$ is a one-to-one map onto $[0, 2^N - 1]$.
 By Euclidean division, any two integers congruent modulo $2^N$ yield the same unique remainder $r \in [0, 2^N - 1]$ because multiples of $2^N$ change only the quotient.
 Because $U_N$ maps all $2^N$ wire patterns one-to-one onto $[0, 2^N - 1]$, that unique remainder selects one unique $N$-bit wire pattern.
-Our modular congruence preservation rule now proves how unsigned and signed hardware reuse identical circuits across three arithmetic operations:
+Our modular congruence preservation rule now proves how unsigned and signed hardware reuse identical circuits across addition, subtraction, negation, and left shifts:
 
-1. **Negation via Invert Plus One**: Let $\bar{b}_i = 1 - b_i$ denote inverting every wire of $b$ (written `~x` in C and SystemVerilog).
+1. **Sign-Agnostic Addition**: Wrapping unsigned binary addition produces identical bit patterns for signed two's-complement addition because shifting negative operands upward by $2^N$ adds only multiples of $2^N$, which vanish upon wrap-around.
+   On 4-bit patterns `1011` ($11$ unsigned, $-5$ signed) and `1110` ($14$ unsigned, $-2$ signed), adding unsigned weights yields $11 + 14 = 25$, whose low 4 bits (`1001`, decimal $9$) read identically as signed sum $-5 + (-2) = -7 \equiv 9 \pmod{16}$.
+
+   Because every $N$-bit register pattern $x$ satisfies $U_N(x) \equiv S_N(x) \pmod{2^N}$, modular congruence preservation passes directly through addition:
+
+   $$U_N(a) + U_N(b) \equiv S_N(a) + S_N(b) \pmod{2^N}$$
+
+   An unsigned $N$-bit adder outputs a wire pattern $w$ whose unsigned integer value satisfies $U_N(w) \equiv U_N(a) + U_N(b) \pmod{2^N}$.
+   Because signed target $S_N(a) + S_N(b)$ shares that exact residue modulo $2^N$ and $S_N(w) \equiv U_N(w) \pmod{2^N}$, reading the *same* output pattern $w$ under $S_N$ yields $S_N(w) \equiv S_N(a) + S_N(b) \pmod{2^N}$, computing signed addition with zero extra circuitry.
+
+2. **Sign-Agnostic Subtraction Congruence**: Exact signed and unsigned differences obey the same wrap-around equivalence, ensuring that any circuit matching $U_N(a) - U_N(b)$ modulo $2^N$ also computes signed subtraction.
+   On the same 4-bit patterns `1011` ($11$ unsigned, $-5$ signed) and `1110` ($14$ unsigned, $-2$ signed), unsigned difference $11 - 14 = -3$ wraps modulo $16$ to `1101` ($13$), matching signed difference $-5 - (-2) = -3$ directly under $S_4$.
+
+   Modular congruence preservation transfers $U_N(x) \equiv S_N(x) \pmod{2^N}$ through subtraction as well:
+
+   $$U_N(a) - U_N(b) \equiv S_N(a) - S_N(b) \pmod{2^N}$$
+
+   Whenever a hardware circuit outputs wire pattern $w$ satisfying $U_N(w) \equiv U_N(a) - U_N(b) \pmod{2^N}$, identity $S_N(w) \equiv U_N(w) \pmod{2^N}$ guarantees that reading $w$ under $S_N$ yields $S_N(w) \equiv S_N(a) - S_N(b) \pmod{2^N}$.
+
+3. **Negation via Invert Plus One**: Let $\bar{b}_i = 1 - b_i$ denote inverting every wire of $b$ (written `~x` in C and SystemVerilog).
    On 4 bits, inverting $+5$ (`0101`) gives `1010` ($10$ unsigned, $-6$ signed), and adding $1$ gives `1011` ($11 \equiv -5 \pmod{16}$, which evaluates directly to $-5$ under $S_4$).
-   We evaluate the inverted bit pattern under $U_N(\bar{b}) + 1$ because that sum models unsigned hardware addition directly, then drop $2^N \equiv 0 \pmod{2^N}$ and substitute $U_N(b) \equiv S_N(b) \pmod{2^N}$:
+
+   Because feeding $\bar{b}$ and $1$ into the unsigned adder wraps modulo $2^N$, its output wire pattern $w$ satisfies $U_N(w) \equiv U_N(\bar{b}) + 1 \pmod{2^N}$.
+   Substituting $\sum_{i=0}^{N-1} 2^i = 2^N - 1$, dropping $2^N \equiv 0 \pmod{2^N}$, and applying $U_N(b) \equiv S_N(b) \pmod{2^N}$ yields both targets:
 
    $$\begin{aligned}
    U_N(\bar{b}) + 1
@@ -181,29 +206,30 @@ Our modular congruence preservation rule now proves how unsigned and signed hard
    &\equiv -U_N(b) \equiv -S_N(b) \pmod{2^N}
    \end{aligned}$$
 
-   Because $S_N(\bar{b}) \equiv U_N(\bar{b}) \pmod{2^N}$, that same congruence transfers directly to $S_N(\bar{b}) + 1$ without re-expanding the sum.
+   Since $S_N(w) \equiv U_N(w) \equiv U_N(\bar{b}) + 1 \pmod{2^N}$, reading that *same* adder output pattern $w$ under $S_N$ returns $S_N(w) \equiv -S_N(b) \pmod{2^N}$ without building a signed negation circuit.
    Two boundary patterns confirm wrap-around cleanly.
    For all-zero pattern $U_N(b) = 0$ (`00...0`), $U_N(\bar{b}) + 1 = 2^N$ drops its top carry-out bit past Bit $N - 1$ modulo $2^N$ to return zero; for $S_N(b) = -2^{N-1}$ (`1000` on 4 bits, or `INT32_MIN`, hex `0x8000_0000`, on 32 bits), exact negation $+2^{N-1}$ exceeds $2^{N-1} - 1$ by $1$ and wraps modulo $2^N$ right back to $-2^{N-1}$.
-   Extending this identity to two inputs $a$ and $b$ expresses subtraction $a - b$ as inverting $b$ and adding 1:
+
+4. **Subtraction via Invert Plus One**: Rather than building a separate subtractor unit alongside the binary adder, hardware computes $a - b$ on the *same* unsigned adder by inverting $b$ and adding $1$.
+   On our 4-bit operands `1011` ($11$ unsigned, $-5$ signed) and `1110` ($14$ unsigned, $-2$ signed), inverting `1110` yields `0001` and the unsigned adder evaluates $\texttt{1011} + \texttt{0001} + 1 = \texttt{1101}$ ($13$ unsigned and $-3$ signed).
+
+   Write $w$ for the output wire pattern of that unsigned addition, which satisfies $U_N(w) \equiv U_N(a) + U_N(\bar{b}) + 1 \pmod{2^N}$.
+   Substituting $U_N(\bar{b}) + 1 = 2^N - U_N(b)$, dropping $2^N \equiv 0 \pmod{2^N}$, and invoking Item 2's subtraction congruence links both interpretations:
 
    $$\begin{aligned}
    U_N(a) + U_N(\bar{b}) + 1
-   &\equiv U_N(a) + 2^N - U_N(b) \pmod{2^N} \\
+   &= U_N(a) + 2^N - U_N(b) \\
    &\equiv U_N(a) - U_N(b) \pmod{2^N} \\
    &\equiv S_N(a) - S_N(b) \pmod{2^N}
    \end{aligned}$$
 
-2. **Sign-Agnostic Addition and Subtraction**: Because every bit pattern satisfies $U_N(x) \equiv S_N(x) \pmod{2^N}$ and modular congruence passes directly through addition and subtraction, the unsigned sum or difference is always congruent to its signed counterpart:
+   Since $S_N(w) \equiv U_N(w) \pmod{2^N}$ and the display equations prove $U_N(w) \equiv S_N(a) - S_N(b) \pmod{2^N}$, reading that *same* adder output pattern $w$ under $S_N$ yields $S_N(w) \equiv S_N(a) - S_N(b) \pmod{2^N}$.
 
-   $$U_N(a) \pm U_N(b) \equiv S_N(a) \pm S_N(b) \pmod{2^N}$$
-
-   Since identical residues modulo $2^N$ select the exact same $N$-bit register pattern, one unsigned binary adder computes both $a + b$ and (via invert-plus-one on $b$) $a - b$ identically for unsigned and signed integers.
-   For example, on 4-bit patterns `1011` ($11$ unsigned, $-5$ signed) and `1110` ($14$ unsigned, $-2$ signed), addition wraps $\texttt{1011} + \texttt{1110} = \texttt{1001}$ ($9 \equiv -7 \pmod{16}$) and subtraction wraps $\texttt{1011} - \texttt{1110} = \texttt{1101}$ ($13 \equiv -3 \pmod{16}$).
-
-3. **Sign-Agnostic Left Shifts**: Programming languages and processors multiply integers by powers of two using a **left shift** ($a \ll k$ for shift distance $0 \le k < N$), which slides every bit $k$ wire positions toward higher place weights and feeds zero into the vacated lower $k$ wires.
+5. **Sign-Agnostic Left Shifts**: Programming languages and processors multiply integers by powers of two using a **left shift** ($a \ll k$ for shift distance $0 \le k < N$), which slides every bit $k$ wire positions toward higher place weights and feeds zero into the vacated lower $k$ wires.
    For example, shifting 4-bit `1011` ($11$ unsigned, $-5$ signed) left by $k = 1$ drops the top bit (`1`) and fills Bit 0 with `0` to produce `0110` ($+6$), matching both $11 \cdot 2 = 22 \equiv 6 \pmod{16}$ and $(-5) \cdot 2 = -10 \equiv 6 \pmod{16}$.
-   Like addition and subtraction, a single unsigned left-shifter produces identical hardware bits for unsigned and signed operands because $U_N(a \ll k) \equiv 2^k S_N(a) \pmod{2^N}$.
-   When $k = 0$, no wires move ($a \ll 0 = a$), so $U_N(a \ll 0) = 2^0 U_N(a)$ gives $2^0 S_N(a) \pmod{2^N}$ immediately.
+
+   To prove that one zero-filling left-shifter computes both unsigned and signed $2^k$-scaling with zero signed shift hardware, we evaluate the shifted output pattern $a \ll k$ under $U_N$ and show it matches $2^k U_N(a)$ modulo $2^N$.
+   When $k = 0$, no wires move ($a \ll 0 = a$), so $U_N(a \ll 0) = 2^0 U_N(a)$ satisfies $U_N(a \ll 0) \equiv 2^0 S_N(a) \pmod{2^N}$ immediately.
    For any nonzero shift $1 \le k < N$, moving each surviving wire $a_i$ ($0 \le i \le N - 1 - k$) to position $i + k$ drops upper wires $a_{N-1} \dots a_{N-k}$; adding and subtracting those dropped terms recovers $2^k U_N(a)$ modulo $2^N$:
 
    $$\begin{aligned}
@@ -216,14 +242,19 @@ Our modular congruence preservation rule now proves how unsigned and signed hard
 
    In the subtracted upper sum, every index satisfies $i \ge N - k$, so every exponent $i + k - N \ge 0$ is a non-negative integer rather than a negative fraction.
    That integrality guarantees $\sum_{i=N-k}^{N-1} a_i 2^{i+k-N}$ is a whole integer, making its product with $2^N$ an integer multiple of $2^N$ that drops cleanly to zero under modular congruence.
+   Because $U_N(a \ll k) \equiv 2^k S_N(a) \pmod{2^N}$ and every wire pattern satisfies $S_N(x) \equiv U_N(x) \pmod{2^N}$, reading that *same* shifted output pattern $a \ll k$ under $S_N$ yields $S_N(a \ll k) \equiv 2^k S_N(a) \pmod{2^N}$ with zero extra circuitry.
 
 ### Widening Narrow Signed and Unsigned Integers
 
 Real processors frequently pack compact constants inside 32-bit instructions or fetch narrow 8-bit bytes and 16-bit halfwords from memory into full 32-bit registers.
 When widening a narrow integer from $k \ge 1$ bits to a strictly wider register of $M > k$ bits, **sign extension** preserves the signed value across all bit widths by copying the sign wire into every added upper position, whereas **zero extension** preserves unsigned values while corrupting negative numbers.
-Specifically, zero-filling Bits $M-1..k$ sets the new top bit (Bit $M - 1$) to 0, so the widened register becomes non-negative:
+Specifically, zero-filling Bits $M-1..k$ drops every upper term above Bit $k - 1$ to leave $U_k(b)$, which equals $S_k(b) + b_{k-1} 2^k$ by the $2^N$-offset identity above:
 
-$$S_M(\text{zero-extended } b) = U_k(b) = S_k(b) + b_{k-1} 2^k$$
+$$\begin{aligned}
+S_M(\text{zero-extended } b)
+&= \sum_{i=0}^{k-1} b_i 2^i = U_k(b) \\
+&= S_k(b) + b_{k-1} 2^k
+\end{aligned}$$
 
 For example, on 12 bits ($2^{12} = 4096$), $-5$ encodes as `0xFFB` ($4091$ unsigned, with sign wire Bit 11 equal to 1).
 Zero extension fills upper wires Bits 31..12 with zero bits to produce `0x0000_0FFB` ($+4091$, shifting $-5$ upward by $+4096$), whereas sign extension copies Bit 11 across Bits 31..12 to produce `0xFFFF_FFFB` ($-5$ signed, $4{,}294{,}967{,}291$ unsigned).
@@ -259,6 +290,7 @@ In Python, [`sign_extend`](../sim/oracle.py#L272-L279) implements signed widenin
 <<< @/systems/brain/sim/oracle.py#L272-L284
 
 For a concrete 12-bit check on `0xFFB` ($-5$, where $s = 2^{11} = \texttt{0x800} = 2{,}048$), flipping Bit 11 evaluates `(0xFFB ^ 0x800) - 0x800`, which gives `0x7FB - 0x800` ($2{,}043 - 2{,}048 = -5$).
+
 In general, write the masked $k$-bit input as $\texttt{val} = b_{k-1} s + L$, where $s = 2^{k-1}$ (`sign_bit`) and $L = \sum_{i=0}^{k-2} b_i 2^i \in [0, s - 1]$.
 Because $L < s$, Bit $k - 1$ of $L$ is zero, so XOR with $s$ flips only Bit $k - 1$ from $b_{k-1}$ to $1 - b_{k-1}$ while leaving $L$ untouched:
 
@@ -274,8 +306,7 @@ $$\begin{aligned}
 
 Moving every wire right by $k \ge 1$ positions discards the lower $k$ bits and leaves the top $k$ wire slots (Bits $N-1\dots N-k$) empty, requiring an explicit hardware fill rule.
 A **logical right shift** ($b \gg_{\text{log}} k$) fills those upper slots with zeros to divide unsigned values by $2^k$, whereas an **arithmetic right shift** ($b \gg_{\text{arith}} k$) replicates original sign wire $b_{N-1}$ to preserve the sign of two's-complement values.
-Unlike addition or left shifting, right shifts cannot rely on congruence modulo $2^N$ to unify unsigned and signed bit patterns: dividing the signed-unsigned gap $U_N(b) - S_N(b) = b_{N-1} \cdot 2^N$ by $2^k$ shrinks it to $b_{N-1} \cdot 2^{N-k}$, which fails to vanish modulo $2^N$ whenever $b_{N-1} = 1$.
-Equivalently, multiplying any integer $q$ and $q + 2^{N-k}$ by $2^k$ yields the same residue modulo $2^N$, so congruence modulo $2^N$ loses the vacated top $k$ bits and forces hardware to track signedness explicitly.
+Unlike addition or left shifting, one right-shift circuit cannot serve both interpretations because zero-filling a negative two's-complement word flips its sign wire to positive, whereas sign-replicating a large unsigned word injects phantom high bits.
 
 The interactive right-shift comparator below contrasts both modes across 32-bit positive and negative inputs and highlights the dropped lower wires that determine floor rounding.
 
@@ -283,6 +314,7 @@ The interactive right-shift comparator below contrasts both modes across 32-bit 
 
 To see both rounding rules in action before deriving the general formula, take the 4-bit pattern `1011` ($11$ unsigned, $-5$ signed) shifted right by $k = 1$, which drops Bit 0 (`1`).
 A logical right shift inserts zero at Bit 3 to yield `0101` ($5 = \lfloor 11 / 2 \rfloor$), whereas an arithmetic right shift copies Bit 3 (`1`) to yield `1101` ($-3 = \lfloor -5 / 2 \rfloor$).
+
 To prove why this **floor division** rule $\lfloor x / 2^k \rfloor$—rounding negative integers downward toward $-\infty$ rather than toward zero—holds for every width $N$ and shift distance $1 \le k \le N - 1$, recall that $\lfloor y \rfloor$ is the unique integer satisfying $\lfloor y \rfloor \le y < \lfloor y \rfloor + 1$.
 Partition any $N$-bit register $b$ into its kept upper $(N - k)$-bit slice $H = b_{N-1}\dots b_k$ and its discarded lower $k$ bits $R = \sum_{m=0}^{k-1} b_m 2^m \in [0, 2^k - 1]$.
 Splitting $U_N(b)$ and $S_N(b)$ at index $k$, substituting $i = j + k$ on the upper terms (mapping $i = k \dots N - 1$ to $j = 0 \dots N - k - 1$), and factoring out $2^k$ isolates $H$ and $R$:
@@ -333,7 +365,7 @@ The summary below distinguishes which fixed-width operations share identical har
 | **Left Shift** ($\ll$) | Yes | Discards multiples of $2^N$; shifts factor $2^k$ on residue class |
 | **Ordered Compare** ($<$, $\ge$) | No | Subtracting $b_{N-1} 2^N$ pulls $b_{N-1} = 1$ patterns below zero ($11 > 3$ versus $-5 < +3$) |
 | **Widening ($k \to 32$ bits)** | No | Zero-fill preserves $U_k(b)$ while sign-bit replication preserves $S_k(b)$ |
-| **Right Shift** ($\gg$) | No | Dividing $b_{N-1} 2^N$ by $2^k$ ($1 \le k \le N$) leaves offset $b_{N-1} 2^{N-k} \not\equiv 0 \pmod{2^N}$ when $b_{N-1} = 1$; top wires must fill $0$ or $b_{N-1}$ |
+| **Right Shift** ($\gg$) | No | On the kept $(N - k)$-bit slice $H$ ($1 \le k \le N - 1$), $U_{N-k}(H) - S_{N-k}(H) = b_{N-1} 2^{N-k} \not\equiv 0 \pmod{2^N}$ when $b_{N-1} = 1$; top wires must fill $0$ or $b_{N-1}$ |
 
 ---
 
@@ -365,9 +397,9 @@ Rather than adding separate hardware instructions to clear, copy, or negate valu
 ### Six Functional Instruction Families
 
 The `brain` CPU executes instructions belonging to six functional groups, each solving a core programming need in [`oracle.py`](../sim/oracle.py) using an open hardware specification (**Reduced Instruction Set Computer, Fifth Generation**, or RISC-V).
-The **32-bit Base Integer** (RV32I) instruction set handles arithmetic, control flow, and memory access, while **Integer Multiply and Divide** (RV32M, combining with RV32I as RV32IM) adds single-instruction multiplication and division.
-System management adds **Control and Status Register Instructions** (Zicsr) to inspect configuration and interrupt state.
-Finally, a custom neural extension covered in Section 7 accelerates robot motor inference.
+The **32-bit Base Integer** (RV32I) instruction set handles arithmetic, control flow, and memory access, while **Integer Multiply and Divide** (RV32M) adds single-instruction multiplication and division.
+Combining both integer extensions defines the **RV32IM** target implemented by our simulator and processor.
+System management adds **Control and Status Register Instructions** (Zicsr) to inspect configuration and interrupt state, while a custom neural extension covered in Section 7 accelerates motor inference.
 
 | Group | Functional Category | Everyday Programming Role | Covered In |
 | :---: | :--- | :--- | :---: |
@@ -384,7 +416,6 @@ Before executing an operation, the CPU decoder must slice the fetched 32-bit uns
 In human-readable textual notation (**assembly syntax**), instructions list destination register `rd` first followed by source registers `rs1` and `rs2` (`add rd, rs1, rs2`), whereas instructions carrying a literal constant (**immediate**, or `imm`) replace `rs2` with that constant, as in **Add Immediate** (`addi rd, rs1, imm`).
 
 All standard 32-bit RISC-V primary operation codes (`opcode`, Bits 6..0) end with Bits 1..0 equal to `0b11` (decimal 3), reserving the other three 2-bit endings for optional 16-bit compressed instructions.
-Because the `brain` CPU implements only 32-bit instructions, every valid instruction address is a multiple of 4 bytes, enforcing 32-bit **Instruction Address Alignment** (IALIGN = 32).
 Alongside `opcode`, instructions reuse two secondary sub-operation selectors—a 3-bit function code (`funct3`, Bits 14..12) and a 7-bit function code (`funct7`, Bits 31..25)—to distinguish individual operations sharing the same primary `opcode`.
 Inside [`RV32Oracle.step()`](../sim/oracle.py#L1194-L1273), fixed shifts and bitmasks (`OPCODE_MASK = 0x7F`, `REG_MASK = 0x1F`, `FUNCT3_MASK = 0x7`, and `FUNCT7_MASK = 0x7F`) extract the recurring operation and register fields in parallel before dispatching on `opcode`:
 
@@ -400,7 +431,7 @@ Every 32-bit instruction conforms to one of six standard bitfield layouts (**Reg
 | **S-Type** | Memory stores (write `rs2` to `rs1 + imm`) | `rs2` (24..20), `rs1` (19..15), `funct3` (14..12) | 12-bit signed ($[-2{,}048, +2{,}047]$) | Bits 11..5 $\to$ `insn[31..25]`; Bits 4..0 $\to$ `insn[11..7]` |
 | **B-Type** | Conditional PC-relative branches (`pc + offset`) | `rs2` (24..20), `rs1` (19..15), `funct3` (14..12) | 13-bit even ($[-4{,}096, +4{,}094]$ bytes, Bit 0 = 0) | Bit 12 $\to$ `insn[31]`; Bits 10..5 $\to$ `insn[30..25]`; Bits 4..1 $\to$ `insn[11..8]`; Bit 11 $\to$ `insn[7]` |
 | **U-Type** | Load 20-bit upper slice (Bits 31..12) into `rd` | `rd` (11..7) | 20-bit upper payload (`payload << 12`) | Bits 31..12 $\to$ `insn[31..12]` |
-| **J-Type** | Direct PC-relative subroutine call (`pc + offset`, save `pc + 4` in `rd`) | `rd` (11..7) | 21-bit even ($[-1{,}048{,}576, +1{,}048{,}574]$ bytes, Bit 0 = 0) | Bit 20 $\to$ `insn[31]`; Bits 10..1 $\to$ `insn[30..21]`; Bit 11 $\to$ `insn[20]`; Bits 19..12 $\to$ `insn[19..12]` |
+| **J-Type** | Direct PC-relative subroutine call (`pc + offset`, save next 4-byte instruction address `pc + 4` in `rd`) | `rd` (11..7) | 21-bit even ($[-1{,}048{,}576, +1{,}048{,}574]$ bytes, Bit 0 = 0) | Bit 20 $\to$ `insn[31]`; Bits 10..1 $\to$ `insn[30..21]`; Bit 11 $\to$ `insn[20]`; Bits 19..12 $\to$ `insn[19..12]` |
 
 The wire matrix below aligns all six 32-bit RISC-V layouts across Columns 31..0 so you can filter pinned register columns, the Bit 31 sign wire, and split constant slices side by side.
 
@@ -408,8 +439,9 @@ The wire matrix below aligns all six 32-bit RISC-V layouts across Columns 31..0 
 
 Notice two quantitative properties embedded directly in the bitfield layout table above:
 1. **Offset Reach Scaling**: An unscaled 12-bit signed immediate spans $[-2^{11}, 2^{11} - 1]$, or $[-2{,}048, +2{,}047]$ bytes (about $\pm 2\text{ KB}$), while an unscaled 20-bit signed immediate spans $[-2^{19}, 2^{19} - 1]$ bytes.
-   Because even 16-bit compressed RISC-V instructions align to 2-byte boundaries, every valid branch or jump offset has Bit 0 equal to zero, letting hardware drop Bit 0 and double byte reach onto even offsets without spending an instruction wire.
+   Because optional 16-bit compressed RISC-V instructions can sit on 2-byte boundaries, every valid branch or jump offset guarantees Bit 0 equals zero, letting hardware drop Bit 0 and double byte reach onto even offsets without spending an instruction wire.
    Consequently, B-type encodes 12 stored wires to cover $2 \times [-2^{11}, 2^{11} - 1]$ ($[-4{,}096, +4{,}094]$ even bytes, about $\pm 4\text{ KB}$), while J-type encodes 20 stored wires to cover $2 \times [-2^{19}, 2^{19} - 1]$ ($[-1{,}048{,}576, +1{,}048{,}574]$ even bytes, about $\pm 1\text{ MB}$).
+   Because the `brain` CPU implements only fixed 32-bit instructions without 16-bit compressed encodings, the RISC-V specification tightens runtime fetch alignment to 4-byte multiples (**Instruction Address Alignment**, or IALIGN = 32).
 2. **Decoder Multiplexer Wire-Sharing**: Hardware designers permuted B-type and J-type immediate bits deliberately to keep register indices (`rs1` at 19..15, `rs2` at 24..20, `rd` at 11..7) and the sign bit (Bit 31) stationary so the register file and sign-extension wires start settling immediately, shortening the **critical timing path** (the longest logic chain within one clock tick).
    Even further, B-type shares 11 of its 12 stored immediate wires with S-type (`insn[31]` as sign, `insn[30..25]` as Bits 10..5, and `insn[11..8]` as Bits 4..1), repurposing only `insn[7]` from S-type Bit 0 to B-type Bit 11.
    Similarly, J-type shares all 8 middle wires `insn[19..12]` with U-type and all 10 low wires `insn[30..21]` with I-type (matching S-type and B-type on the upper 6 of those wires, `insn[30..25]`).
@@ -431,19 +463,19 @@ Because source values are captured before writeback, an in-place instruction suc
 Every integer instruction set pairs two-register arithmetic (for dynamic variables) with register-immediate operations so programs can apply loop increments, bit masks, and bounds checks without spending an extra register to hold a small constant.
 All base ALU operations execute cleanly in one step, routing any invalid encoding to Section 1's atomic trap handler.
 In [`oracle.py`](../sim/oracle.py), [`_exec_op_imm`](../sim/oracle.py#L1023-L1055) executes register-immediate ALU instructions (`opcode` `0x13`), while [`_exec_op_reg`](../sim/oracle.py#L1083-L1115) executes register-register instructions (`opcode` `0x33`).
-Whenever an instruction carries an unassigned `opcode`, `funct3`, or `funct7` pattern, execution aborts before modifying `rd` and takes an illegal-instruction trap (`CAUSE_ILLEGAL_INSN = 2`, whose full handler rules we derive in Section 6).
+Whenever an instruction carries an unassigned `opcode`, `funct3`, or `funct7` pattern, execution aborts before modifying `rd` and takes an illegal-instruction trap (whose cause codes and handler rules we derive in Section 6).
 
-For shifts, any 5-bit unsigned shift count $s = 16 s_4 + 8 s_3 + 4 s_2 + 2 s_1 + s_0$ decomposes into powers of two, so hardware shifts in one pass through a five-stage cascade of multiplexers (**barrel shifter**).
 Across the table below, write `op2` for the second operand (`rs2_u` in register-register instructions or sign-extended 12-bit `imm` in register-immediate instructions) and `op2_s` for its signed view `s32(op2)`.
-Both register shifts and 5-bit immediate shifts (encoded as a 5-bit **shift amount**, or `shamt`, in Bits 24..20) wire only the bottom 5 bits (`op2 & 0x1F`, spanning 0..31) into those five stages, so requesting a shift by 35 evaluates `35 & 31` (3).
-Notice also that `funct7` distinguishes R-type operations and all three immediate shifts (`slli`, `srli`, `srai`), whereas non-shift I-type operations spend Bits 31..25 as the upper portion of their 12-bit signed immediate:
+For shifts, hardware takes a 5-bit unsigned **shift amount** $s$ (`shamt`, equal to Bits 4..0 of `rs2_u` in register shifts or Bits 24..20 directly in immediate shifts) and decomposes its binary bits $s_4, \dots, s_0 \in \{0, 1\}$ as $s = 16 s_4 + 8 s_3 + 4 s_2 + 2 s_1 + s_0$ across a five-stage cascade of multiplexers (**barrel shifter**) in one clock tick.
+Register shifts wire only the bottom 5 bits (`rs2_u & 0x1F`, spanning 0..31) into those five stages, so passing `rs2_u = 35` evaluates `35 & 31` (3).
+Meanwhile, immediate shifts pack `shamt` inside Bits 24..20 and reserve Bits 31..25 as `funct7`, whereas non-shift I-type operations spend Bits 31..25 as the upper portion of their 12-bit signed immediate:
 
 | Category | Register / Immediate Mnemonic | Selector (`funct3` / `funct7`) | 32-Bit Output Written to `rd` | Key Hardware Rule |
 | :--- | :--- | :--- | :--- | :--- |
 | **Add / Subtract** | `add`, `addi` / `sub` | 0 / `0x00` (`sub`: `0x20`, R-type) | `u32(rs1_u + op2)` / `u32(rs1_u - rs2_u)` | Shared adder; `sub` inverts `rs2_u` and adds 1 (`addi` has no `subi`) |
-| **Shift Left** | `sll`, `slli` | 1 / `0x00` | `u32(rs1_u << shamt)` | Zero-fills low wires; `shamt` equals `op2 & 0x1F`; `funct7 != 0x00` traps on `slli` |
-| **Shift Right Logical** | `srl`, `srli` | 5 / `0x00` | `rs1_u >> shamt` | Zero-fills upper wires ($\lfloor U_{32}(\texttt{rs1\_u})/2^{\texttt{shamt}} \rfloor$); invalid `funct7` traps |
-| **Shift Right Arithmetic** | `sra`, `srai` | 5 / `0x20` | `u32(rs1_s >> shamt)` | Copies Bit 31 ($\lfloor S_{32}(\texttt{rs1\_u})/2^{\texttt{shamt}} \rfloor$); invalid `funct7` traps |
+| **Shift Left** | `sll`, `slli` | 1 / `0x00` | `u32(rs1_u << shamt)` | Zero-fills low wires; `shamt` equals `rs2_u & 0x1F` (`sll`) or `insn[24..20]` (`slli`); invalid `funct7` traps |
+| **Shift Right Logical** | `srl`, `srli` | 5 / `0x00` | `rs1_u >> shamt` | Zero-fills upper wires ($\lfloor \texttt{rs1\_u} / 2^{\texttt{shamt}} \rfloor$); invalid `funct7` traps |
+| **Shift Right Arithmetic** | `sra`, `srai` | 5 / `0x20` | `u32(rs1_s >> shamt)` | Copies Bit 31 ($\lfloor \texttt{rs1\_s} / 2^{\texttt{shamt}} \rfloor$); invalid `funct7` traps |
 | **Set Less Than (Signed)** | `slt`, `slti` | 2 / `0x00` (R-type) | `1 if rs1_s < op2_s else 0` | Sign-extends 12-bit `imm` for `slti` before signed compare |
 | **Set Less Than (Unsigned)** | `sltu`, `sltiu` | 3 / `0x00` (R-type) | `1 if rs1_u < u32(op2) else 0` | `sltiu` sign-extends 12-bit `imm` first, so immediate $-1$ tests `rs1_u != UINT32_MAX` |
 | **Bitwise Gates** | `xor`/`xori`, `or`/`ori`, `and`/`andi` | 4, 6, 7 / `0x00` (R-type) | `rs1_u ^ u32(op2)`, `rs1_u \| u32(op2)`, `rs1_u & u32(op2)` | Sign-extends 12-bit `imm` first (`xori rd, rs1, -1` flips all 32 bits) |
@@ -494,8 +526,13 @@ X + 2^{11} &= q \cdot 2^{12} + r', \qquad 0 \le r' < 2^{12} \\
 
 Write $\text{lo}_{12}$ for the lower 12-bit wire pattern of $X$ ($U_{12}(\text{lo}_{12}) = X \bmod 2^{12}$).
 Because $S_{12}(\text{lo}_{12}) \equiv U_{12}(\text{lo}_{12})$ modulo $2^{12}$ and $U_{12}(\text{lo}_{12}) \equiv X \equiv s \pmod{2^{12}}$, having both $S_{12}(\text{lo}_{12})$ and $s$ inside $[-2^{11}, 2^{11} - 1]$ forces $S_{12}(\text{lo}_{12}) = s$.
-Since $q \bmod 2^{20} \le 2^{20} - 1$ and $r' < 2^{12}$, the sum $(q \bmod 2^{20}) \cdot 2^{12} + r'$ stays strictly below $2^{32}$ and equals $(X + 2^{11}) \bmod 2^{32}$.
-Shifting `(u32(X + 0x800) & 0xFFFF_F000)` right by 12 bits therefore extracts $\texttt{hi}_{\texttt{lui}} = q \bmod 2^{20}$, lifting congruence modulo $2^{20}$ to $2^{32}$ so `lui` plus `addi` reconstructs every 32-bit word exactly:
+Since $q - (q \bmod 2^{20})$ is a multiple of $2^{20}$, scaling by $2^{12}$ preserves congruence modulo $2^{32}$:
+
+$$(q \bmod 2^{20}) \cdot 2^{12} + r' \equiv q \cdot 2^{12} + r' = X + 2^{11} \pmod{2^{32}}$$
+
+Because $q \bmod 2^{20} \le 2^{20} - 1$ and $0 \le r' \le 2^{12} - 1$, that sum lies strictly inside $[0, 2^{32} - 1]$ and therefore equals $(X + 2^{11}) \bmod 2^{32} = \texttt{u32}(X + \texttt{0x800})$.
+Masking `(u32(X + 0x800) & 0xFFFF_F000)` clears the lower 12-bit remainder $r'$ and shifting right by 12 bits divides by $2^{12}$, extracting $\texttt{hi}_{\texttt{lui}} = q \bmod 2^{20}$.
+Scaling $\texttt{hi}_{\texttt{lui}} \equiv q \pmod{2^{20}}$ by $2^{12}$ lifts congruence modulo $2^{20}$ to modulo $2^{32}$ so `lui` plus `addi` reconstructs every 32-bit word exactly:
 
 $$\begin{aligned}
 \texttt{hi}_{\texttt{lui}} &\equiv q \pmod{2^{20}} \\
@@ -504,7 +541,7 @@ $$\begin{aligned}
 \end{aligned}$$
 
 For $X \ge \texttt{0xFFFF\_F800}$, the quotient $q$ wraps modulo $2^{20}$ to `0x00000`, and adding the negative `addi` offset wraps modulo $2^{32}$ back onto $X$.
-Pairing `auipc` with `addi`, loads, or indirect jumps using this same `0x800` bias extends PC-relative addressing from $\pm 2\text{ KB}$ across the entire $\pm 2\text{ GB}$ 32-bit address space.
+Pairing `auipc` with `addi` using this same `0x800` bias extends PC-relative addressing from $\pm 2\text{ KB}$ across the entire $\pm 2\text{ GB}$ 32-bit address space (Sections 5 and 6 reuse the same high-low pattern for memory loads and indirect jumps).
 
 ### Full 64-Bit Integer Multiplication
 
@@ -535,25 +572,33 @@ S_{32}(a) \cdot U_{32}(b)
 &= S_{32}(a) \cdot S_{32}(b) + 2^{32} \cdot b_{31} S_{32}(a) \\
 U_{32}(a) \cdot U_{32}(b)
 &= \left(S_{32}(a) + a_{31} 2^{32}\right)\!\left(S_{32}(b) + b_{31} 2^{32}\right) \\
+&= S_{32}(a) \cdot S_{32}(b) + a_{31} S_{32}(b) 2^{32} \\
+&\quad + b_{31} S_{32}(a) 2^{32} + a_{31} b_{31} 2^{64} \\
 &= S_{32}(a) \cdot S_{32}(b) \\
 &\quad + 2^{32}\!\left(a_{31} S_{32}(b) + b_{31} S_{32}(a) + a_{31} b_{31} 2^{32}\right)
 \end{aligned}$$
 
-Modulo $2^{32}$, every factor of $2^{32}$ vanishes, proving why `mul` returns the identical lower 32 bits across every signedness combination.
+Modulo $2^{32}$, every factor of $2^{32}$ vanishes, proving all three exact products share the exact same residue modulo $2^{32}$ as $S_{32}(a) \cdot S_{32}(b)$.
+Because every residue modulo $2^{32}$ selects a unique 32-bit wire pattern $v$ satisfying $S_{32}(v) \equiv U_{32}(v) \pmod{2^{32}}$, `mul` places the identical lower 32 bits into `rd` across every signedness combination.
+
 To verify Bits 63..32 in Python, write any exact 64-bit product as $P = H \cdot 2^{32} + L$ with low remainder $L \in [0, 2^{32} - 1]$ and upper slice $H$.
-Because Python integers do not overflow, evaluating `(rs1_s * rs2_s) >> 32`, `(rs1_s * rs2_u) >> 32`, or `(rs1_u * rs2_u) >> 32` yields $\lfloor P / 2^{32} \rfloor = \lfloor H + L / 2^{32} \rfloor = H$ even when $P < 0$.
+Because Python integers never overflow and right-shifting a negative integer performs floor division toward $-\infty$, evaluating `(rs1_s * rs2_s) >> 32`, `(rs1_s * rs2_u) >> 32`, or `(rs1_u * rs2_u) >> 32` yields $\lfloor P / 2^{32} \rfloor = \lfloor H + L / 2^{32} \rfloor = H$ even when $P < 0$.
 From the table's exact product bounds, every signed or mixed product (`mulh`, `mulhsu`) lies inside $[-2^{63}, 2^{63} - 1]$ and every unsigned product (`mulhu`) lies inside $[0, 2^{64} - 1]$, so $P$ fits in 64 bits without overflowing Bit 63.
 Since $(H \bmod 2^{32}) \equiv H \pmod{2^{32}}$, scaling by $2^{32}$ lifts congruence modulo $2^{32}$ to modulo $2^{64}$:
 
 $$P = H \cdot 2^{32} + L \equiv \left(H \bmod 2^{32}\right) \cdot 2^{32} + L \pmod{2^{64}}$$
 
-Because $(H \bmod 2^{32}) \cdot 2^{32} + L$ already lies inside $[0, 2^{64} - 1]$, it equals the exact 64-bit pattern representing $P$ (signed two's complement for `mulh`/`mulhsu` and unsigned for `mulhu`), so [`_set_reg`](../sim/oracle.py#L893-L899) applying `u32` to $H$ places Bits 63..32 directly into `rd`.
+Because $Q = (H \bmod 2^{32}) \cdot 2^{32} + L$ lies inside $[0, 2^{64} - 1]$, it equals $U_{64}(w)$ for a unique 64-bit wire pattern $w$ satisfying $U_{64}(w) \equiv P \pmod{2^{64}}$.
+For `mulhu`, both $U_{64}(w)$ and $P$ lie in $[0, 2^{64} - 1]$, forcing $U_{64}(w) = P$.
+For `mulh` and `mulhsu`, congruence $S_{64}(w) \equiv U_{64}(w) \equiv P \pmod{2^{64}}$ combined with both values lying inside the $2^{64}$-wide interval $[-2^{63}, 2^{63} - 1]$ forces $S_{64}(w) = P$.
+Reading Bits 63..32 of $w$ returns $\lfloor U_{64}(w) / 2^{32} \rfloor = H \bmod 2^{32} = \texttt{u32}(H)$, which is why [`_set_reg`](../sim/oracle.py#L893-L899) writes `rd` directly.
 
 ### Truncating Integer Division Semantics
 
 RV32M completes integer arithmetic with signed **Divide** (`div`) and **Divide Unsigned** (`divu`), paired with signed **Remainder** (`rem`) and **Remainder Unsigned** (`remu`).
 Python's integer operators (`a // b` and `a % b`) use floor division ($\lfloor a / b \rfloor$), rounding negative quotients downward toward $-\infty$ (`-7 // 3 == -3` with remainder $+2$).
 In contrast, C, SystemVerilog, and RISC-V define **truncating division** toward zero, yielding quotient $-2$ and remainder $-1$ for $-7 / 3$ (unlike Section 2's `srai`, which floors `-5 >> 1 == -3`).
+
 For any integer dividend $a \in \mathbb{Z}$ and nonzero divisor $b \neq 0$, write $\operatorname{sgn}(x) \in \{-1, 0, +1\}$ for the sign of $x$ ($+1$ if $x > 0$, $-1$ if $x < 0$, and $0$ if $x = 0$), which determines quotient $q$ and remainder $r$:
 
 $$q = \operatorname{sgn}(a)\operatorname{sgn}(b) \left\lfloor \frac{|a|}{|b|} \right\rfloor, \qquad r = a - q b$$
@@ -576,7 +621,9 @@ Bounding quotient magnitude $|q| = \lfloor |a| / |b| \rfloor$ across all signed 
 - When $b = -1$ and $a > -2^{31}$, $|q| = |a| \le 2^{31} - 1 = \texttt{INT32\_MAX}$ fits cleanly.
 - Only $a = -2^{31}$ (`INT32_MIN`) divided by $b = -1$ produces mathematical quotient $+2^{31} = \texttt{INT32\_MAX} + 1$, which wraps modulo $2^{32}$ to $+2^{31} \equiv -2^{31}$ (`INT32_MIN`).
 
-To keep remainder semantics consistent with $a = q b + r$ on both corner cases, `rem` and `remu` return dividend `rs1` unchanged when dividing by zero (since $q \cdot 0 + \texttt{rs1} = \texttt{rs1}$) and `rem` returns $0$ on `INT32_MIN` divided by $-1$ (since $-1$ divides $-2^{31}$ evenly with zero remainder).
+Two remainder rules preserve division consistency across both corner cases.
+When dividing by zero, `rem` and `remu` return dividend `rs1` unchanged, so any quotient $q$ satisfies $q \cdot 0 + \texttt{rs1} = \texttt{rs1}$.
+On signed overflow (`INT32_MIN` divided by $-1$), `rem` returns $0$ because $-1$ divides $-2^{31}$ evenly, and the wrapped sentinel quotient $q = -2^{31}$ satisfies $-2^{31} \equiv (-2^{31})(-1) + 0 \pmod{2^{32}}$.
 Inside [`oracle.py`](../sim/oracle.py), [`trunc_div_s32`](../sim/oracle.py#L301-L309) and [`RV32Oracle._exec_muldiv`](../sim/oracle.py#L1057-L1081) dispatch on 3-bit `funct3` selectors (`F3_DIV = 4`, `F3_DIVU = 5`, `F3_REM = 6`, `F3_REMU = 7`):
 
 <!-- book-sync: trunc_div_s32 -->
