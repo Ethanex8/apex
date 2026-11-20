@@ -157,7 +157,9 @@ def test_check_book_pedagogy_gates_and_widget_shorthand(tmp_path: Path) -> None:
         "Wait: why does the decoder shift imm[12|10:5]?\n"
         "```python\n# bits [30..25|10..5]\n```\n\n"
         "## Graded Engineering Exercises\n"
-        "### Exercise 1: Warmup\n"
+        "### Problem 1: Warmup\n"
+        "- Step 1.\n\n"
+        "#### Exercise 2.1: Quick Substitution\n"
         "- Step 1.\n",
     )
     _write(
@@ -175,10 +177,11 @@ def test_check_book_pedagogy_gates_and_widget_shorthand(tmp_path: Path) -> None:
         "Conversational crutch 'Wait: why'",
         "Cryptic bit-slice shorthand 'imm[12|10:5]'",
         "Cryptic bit-slice shorthand '[30..25|10..5]'",
-        "Exercise section heading 'Graded Engineering Exercises' should simply be 'Exercises'",
+        "Problem/exercise closing heading 'Graded Engineering Exercises' should simply be 'Problems'",
     ):
         assert expected in chap_errs
-    assert "Exercise 1" not in chap_errs
+    assert "Problem 1" not in chap_errs
+    assert "Exercise 2.1" not in chap_errs
     widget_errs = "\n".join(check_book.validate_widgets(tmp_path))
     assert "Cryptic bit-slice shorthand 'imm[12|10:5]'" in widget_errs
 

@@ -82,9 +82,9 @@ MERMAID_ARROW_RE = re.compile(r"-->|---|-\.->|==>")
 HTML_ENTITY_RE = re.compile(r"&(?:[A-Za-z][A-Za-z0-9]+|#[0-9]+|#x[0-9A-Fa-f]+);")
 SEQ_MSG_SEMI_RE = re.compile(r"^[^\n:]+(?:->|--?>|->>|-->>|-x|--x|-\)|--\))[^\n:]*:.*;")
 H1_HEADING_RE = re.compile(r"^#\s+(.+)$")
-HEADING_RE = re.compile(r"^(#{2,3})\s+(.+)$")
-EXERCISE_HEADING_RE = re.compile(r"\bExercises?(?:\s+\d+)?\b", re.IGNORECASE)
-EXERCISE_PREFIX_RE = re.compile(r"^Exercise\s+\d+:\s*(.+)$", re.IGNORECASE)
+HEADING_RE = re.compile(r"^(#{2,4})\s+(.+)$")
+PRACTICE_HEADING_RE = re.compile(r"\b(?:Exercises?|Problems?)(?:\s+\d+(?:\.\d+)?)?\b", re.IGNORECASE)
+EXERCISE_PREFIX_RE = re.compile(r"^(?:Exercise|Problem)\s+\d+(?:\.\d+)?:\s*(.+)$", re.IGNORECASE)
 SECTION_NUM_PREFIX_RE = re.compile(r"^\d+(?:\.\d+)*\.?\s+")
 CHAPTER_PREFIX_RE = re.compile(r"^Chapter\s+\d+:\s*", re.IGNORECASE)
 CHAPTER_BANNER_NOISE_RE = re.compile(
@@ -400,13 +400,13 @@ def _validate_heading_style(
             f"[{rel_chap}:{idx}] Section heading '{core}' exceeds {MAX_SECTION_HEADING_WORDS} words "
             f"({len(core.split())}); tighten to the primary topic",
         )
-    if hashes == "##" and EXERCISE_HEADING_RE.search(body) and core.lower() != "exercises":
+    if hashes == "##" and PRACTICE_HEADING_RE.search(body) and core.lower() != "problems":
         _append_unique(
             errors,
-            f"[{rel_chap}:{idx}] Exercise section heading '{body}' should simply be 'Exercises' "
-            "(e.g., '## <N>. Exercises')",
+            f"[{rel_chap}:{idx}] Problem/exercise closing heading '{body}' should simply be 'Problems' "
+            "(e.g., '## <N>. Problems')",
         )
-    state.pending_heading = None if EXERCISE_HEADING_RE.search(body) else (idx, body)
+    state.pending_heading = None if PRACTICE_HEADING_RE.search(body) else (idx, body)
     return True
 
 
