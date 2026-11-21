@@ -113,7 +113,7 @@ const scenarios: Scenario[] = [
         stepNum: 0,
         asm: 'Preloaded Test Setup: x1 = 0x1000_0000 (BRAM), x2 = 0x1122_80FF',
         stageNote:
-          'Testbench preloads x1 (BRAM base) and x2 (4-byte test pattern) at PC = 0; 4 bytes at 0x1000_0000..03 start zeroed in SparseMemory.',
+          'Testbench preloads x1 (BRAM base) and x2 (4-byte test pattern) at PC = 0; 4 unwritten bytes at 0x1000_0000..03 start at 0.',
         pc: '0x0000_0000',
         insnHex: '—',
         nextPc: '0x0000_0000',
@@ -126,7 +126,7 @@ const scenarios: Scenario[] = [
           { addr: '+2', byteHex: '0x00' },
           { addr: '+3', byteHex: '0x00' },
         ],
-        traceReceipt: 'Ready — SparseMemory page unallocated (reads as 0)',
+        traceReceipt: 'Ready — unwritten BRAM bytes default to 0',
       },
       {
         stepNum: 1,
@@ -558,10 +558,10 @@ function pickScenario(id: string) {
         <span class="hw-label" style="margin: 0">
           Step {{ currentFrame.stepNum }} / {{ currentScenario.frames.length - 1 }}
         </span>
-        <span class="hw-mono" style="font-size: 12px; color: var(--vp-c-text-2)">
-          PC: <strong>{{ currentFrame.pc }}</strong> → Next PC:
-          <strong>{{ currentFrame.nextPc }}</strong> · Word: <code>{{ currentFrame.insnHex }}</code>
-        </span>
+        <div class="hw-mono" style="font-size: 12px; color: var(--vp-c-text-2); display: flex; flex-wrap: wrap; gap: 2px 10px">
+          <span>PC: <strong>{{ currentFrame.pc }}</strong> → Next PC: <strong>{{ currentFrame.nextPc }}</strong></span>
+          <span>Word: <code>{{ currentFrame.insnHex }}</code></span>
+        </div>
       </div>
       <div class="hw-mono" style="font-size: 14.5px; font-weight: 700; color: var(--vp-c-brand-1); margin: 6px 0 4px 0">
         {{ currentFrame.asm }}
