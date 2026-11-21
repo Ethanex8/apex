@@ -31,6 +31,7 @@ SCRIPTS_DIR = Path(__file__).resolve().parents[1]
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
+import build_review_plan  # noqa: E402 — repo test runner imports standalone scripts without package install
 import check_book  # noqa: E402 — repo test runner imports standalone scripts without package install
 import check_code  # noqa: E402 — repo test runner imports standalone scripts without package install
 import check_visuals  # noqa: E402 — repo test runner imports standalone scripts without package install
@@ -571,4 +572,86 @@ def test_review_process_doc_and_repo_skills() -> None:
     errs, count = check_book.validate_skills(repo_root)
     assert count == 4
     assert errs == []
+
+
+def test_build_review_plan_sharding_ledgers_and_seams(tmp_path: Path) -> None:
+    """Verify overlapping section shards, Prior-Section Ledgers, widget/slice seams, and diff guardian."""
+    _write(tmp_path / "book" / ".vitepress" / "theme" / "components" / "WidgetA.vue", "<template></template>\n")
+    _write(tmp_path / "systems" / "demo" / "sim" / "core.py", "def add(x: int) -> int:\n    return x + 1\n")
+    chap = _write(
+        tmp_path / "systems" / "demo" / "chapters" / "01_intro.md",
+        "# Intro Chapter\n\nOpening **Alpha Term** with `op_a`.\n"
+        "```markdown\n## Fake Heading Inside Fence\n<IgnoredWidget />\n```\n"
+        "## 1. Base Concepts\n### First Topic\n"
+        "Introduce **Beta Term** and `op_b`.\n"
+        "#### Exercise 1.1: Quick Check\n1. Evaluate `op_a`.\n\n"
+        "### Second Topic\n"
+        "<WidgetA />\n"
+        "<<< @/systems/demo/sim/core.py#L1-L2\n"
+        + ("Filler line for section splitting.\n" * 12)
+        + "## 2. Advanced System\n"
+        "### Deep Dive\n"
+        "<MissingWidget />\n"
+        "<<< ../sim/core.py#L1-L2\n"
+        "<<< /outside/root/external.py#L1-L3\n",
+    )
+    plan = build_review_plan.build_review_plan(
+        chap, root_dir=tmp_path, target_lines=12, overlap_lines=4, base_ref="HEAD~1"
+    )
+    assert len(plan.shards) >= 3
+    assert plan.shards[0].overlap_prev is None
+    assert plan.shards[0].overlap_next is not None
+    assert plan.shards[1].overlap_prev is not None
+    assert "WidgetA.vue" in plan.shards[1].widgets[0]
+    assert "systems/demo/sim/core.py#L1-L2" in plan.shards[1].transclusions[0]
+    assert any("Alpha Term" in t.prompt and "`op_a`" in t.prompt for t in plan.tasks if "Shard 2" in t.role)
+    assert any("Exercise 1.1" in t.prompt for t in plan.tasks if "Shard 3" in t.role)
+    assert any("<unresolved:MissingWidget.vue>" in w for w in plan.shards[-1].widgets)
+    assert any("Diff & Flow Regression Guardian" == t.role for t in plan.tasks)
+
+
+def test_build_review_plan_edge_cases_and_cli(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """Verify no-H2 chapters, oversized H2 without H3, ledger caps, JSON/Markdown CLI, and missing files."""
+    chap = _write(
+        tmp_path / "chap.md",
+        "Intro without headings.\n"
+        "## Giant Unsplit\n"
+        "```python\n### ignored fence\n**Ignored** `ignored`\n```\n"
+        + "\n".join(f"**Term{i}** and `tok_{i}`" for i in range(90))
+        + "\n## Tail\nDone.\n",
+    )
+    no_h2 = _write(tmp_path / "plain.md", "Just lines.\nZero H2.\n")
+    plain_plan = build_review_plan.build_review_plan(no_h2, root_dir=tmp_path)
+    assert len(plain_plan.shards) == 1
+    assert "Prior-Section Ledger: (none" in plain_plan.tasks[0].prompt
+
+    giant_plan = build_review_plan.build_review_plan(chap, root_dir=tmp_path, target_lines=10)
+    assert len(giant_plan.shards) == 2
+    assert build_review_plan.main(["--chapter", str(chap), "--json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["slug"] == "chap"
+    assert build_review_plan.main(["--chapter", str(chap)]) == 0
+    assert "## Frozen Subagent Prompts" in capsys.readouterr().out
+    assert build_review_plan.main(["--chapter", str(tmp_path / "missing.md")]) == 1
+
+
+def test_check_book_skill_bullet_and_leak_gates(tmp_path: Path) -> None:
+    """Verify check_book rejects calibration_log frontmatter exposure, >65-word bullets, and >100-line rubrics."""
+    long_bullet = "- " + " ".join(f"word{i}" for i in range(70))
+    _write(
+        tmp_path / ".agents" / "skills" / "demo-skill" / "SKILL.md",
+        "---\nname: demo-skill\ndescription: demo\nfile_names:\n  - references/calibration_log.md\n---\n"
+        f"{long_bullet}\n```markdown\n{long_bullet}\n```\n",
+    )
+    _write(
+        tmp_path / ".agents" / "skills" / "demo-skill" / "references" / "rubric_demo.md",
+        "# Rubric\n" + f"{long_bullet}\n" + ("\n" * 102),
+    )
+    errs, count = check_book.validate_skills(tmp_path)
+    joined = "\n".join(errs)
+    assert count == 1
+    assert "must not expose calibration_log.md" in joined
+    assert "Exceeds 100-line rubric budget" in joined
+    assert joined.count("split monolithic rules into atomic bullets") == 2
+
 

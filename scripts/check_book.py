@@ -45,6 +45,9 @@ MAX_TRANSCLUSION_LINES = 25
 MAX_ASCII_FENCE_COLS = 80
 MAX_CODE_FENCE_COLS = 100
 MAX_SKILL_LINES = 120
+MAX_RUBRIC_LINES = 100
+MAX_SKILL_BULLET_WORDS = 65
+SKILL_BULLET_RE = re.compile(r"^\s*(?:[-*+]|\d+\.)\s+(.*)$")
 MAX_CHAPTER_TITLE_WORDS = 6
 MAX_SECTION_HEADING_WORDS = 8
 MAX_PROSE_BOLD_WORDS = 6
@@ -872,8 +875,42 @@ def validate_widgets(root_dir: Path | None = None) -> list[str]:
     return errors
 
 
+def _validate_skill_bullets(lines: list[str], rel_path: str, errors: list[str]) -> None:
+    """Enforce `<= MAX_SKILL_BULLET_WORDS` per bullet outside fenced code blocks."""
+    in_fence = False
+    for idx, line in enumerate(lines, start=1):
+        stripped = line.strip()
+        if stripped.startswith(("```", "~~~")):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        if m := SKILL_BULLET_RE.match(line):
+            words = len(m.group(1).split())
+            if words > MAX_SKILL_BULLET_WORDS:
+                errors.append(
+                    f"[{rel_path}:{idx}] Bullet has {words} words (limit {MAX_SKILL_BULLET_WORDS}); "
+                    "split monolithic rules into atomic bullets"
+                )
+
+
+def _validate_skill_rubrics(sdir: Path, rel_dir: Path, errors: list[str]) -> None:
+    """Validate `references/rubric_*.md` line budgets and atomic bullet lengths."""
+    refs_dir = sdir / "references"
+    if not refs_dir.is_dir():
+        return
+    for rubric in sorted(refs_dir.glob("rubric_*.md")):
+        r_lines = rubric.read_text(encoding="utf-8").splitlines()
+        rel_rubric = f"{rel_dir}/references/{rubric.name}"
+        if len(r_lines) > MAX_RUBRIC_LINES:
+            errors.append(
+                f"[{rel_rubric}] Exceeds {MAX_RUBRIC_LINES}-line rubric budget ({len(r_lines)} lines)"
+            )
+        _validate_skill_bullets(r_lines, rel_rubric, errors)
+
+
 def validate_skills(root_dir: Path | None = None) -> tuple[list[str], int]:
-    """Enforce frontmatter, `<= 120`-line prompt budget, and calibration logs on `.agents/skills/`."""
+    """Enforce frontmatter, `<= 120`-line prompt budget, bullet caps, and rubrics on `.agents/skills/`."""
     resolved_root = (root_dir or ROOT_DIR).resolve()
     skills_dir = resolved_root / ".agents" / "skills"
     if not skills_dir.is_dir():
@@ -898,11 +935,17 @@ def validate_skills(root_dir: Path | None = None) -> tuple[list[str], int]:
                 r"^description:\s*\S+", fm_body, re.MULTILINE
             ):
                 errors.append(f"[{rel_dir}/SKILL.md:1] YAML frontmatter requires non-empty 'name' and 'description'")
+            if "calibration_log.md" in fm_body:
+                errors.append(
+                    f"[{rel_dir}/SKILL.md:1] YAML frontmatter must not expose calibration_log.md to reviewers"
+                )
         if len(lines) > MAX_SKILL_LINES:
             errors.append(
                 f"[{rel_dir}/SKILL.md] Exceeds {MAX_SKILL_LINES}-line prompt budget ({len(lines)} lines); "
                 "move history into references/calibration_log.md or deterministic scripts"
             )
+        _validate_skill_bullets(lines, f"{rel_dir}/SKILL.md", errors)
+        _validate_skill_rubrics(sdir, rel_dir, errors)
         if sdir.name in REQUIRED_CALIBRATED_SKILLS:
             cal_log = sdir / "references" / "calibration_log.md"
             if not cal_log.is_file() or not cal_log.read_text(encoding="utf-8").strip():

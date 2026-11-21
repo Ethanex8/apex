@@ -1,6 +1,11 @@
 ---
 name: apex-textbook-author
-description: Author and revise full-depth (30–60 minute) interactive engineering textbook chapters in systems/<system>/chapters/<NN>_<slug>.md alongside repo code using a mandatory 4-pass pipeline (Blueprint, Multi-Chunk First-Principles Draft, 3-Specialist Parallel Cold-Reader Audit with Re-Review Convergence, and Interactive Vue Widgets + Code-Sync Verification).
+description: Author and revise full-depth (30–60 minute) interactive engineering textbook chapters in systems/<system>/chapters/<NN>_<slug>.md alongside repo code using a mandatory 4-pass pipeline (Blueprint, Multi-Chunk First-Principles Draft, Sharded Deterministic Cold-Reader Audit with Diff Regression Guard, and Interactive Vue Widgets + Code-Sync Verification).
+file_names:
+    - references/rubric_cold_reader.md
+    - references/rubric_math_editor.md
+    - references/rubric_visual_critic.md
+    - references/rubric_diff_guardian.md
 ---
 # Apex Multi-Pass Textbook Authoring Skill
 
@@ -8,12 +13,12 @@ Use this skill whenever writing, extending, or upgrading a chapter in `systems/<
 
 ## Core Philosophy
 
-We are writing a **publication-grade systems engineering textbook** (*Harris & Harris*, *Crafting Interpreters*, *OSTEP*) alongside tested hardware, firmware, and robotics code rendered via VitePress (`book/`).
+We write a **publication-grade systems engineering textbook** (*Harris & Harris*, *Crafting Interpreters*, *OSTEP*) alongside tested hardware and robotics code rendered via VitePress (`book/`).
 
-- **Target Reader**: An engineer or aspiring engineer who knows **general programming (`if`/`else`, loops, arrays, functions, structs, byte buffers) plus undergraduate math and physics**, does not instantly recall every specialist domain, and has **zero prior background** in computer architecture, chip-design tools, circuits, or mechanical hardware. **Never** bridge via niche software specialties (database internals, distributed consensus, kernel internals, managed runtime internals).
+- **Target Reader**: An engineer or aspiring engineer knowing **general programming (`if`/`else`, loops, arrays, functions, structs, byte buffers) plus undergraduate math/physics** with zero hardware/architecture background—never bridge via niche database, distributed-consensus, kernel, or runtime internals.
 - **M:1 Step-to-Chapter Growth (`3–6` steps -> 1 cohesive `~45–60 min` chapter)**:
-  - **`step 1/K` (Launch)**: Creates `<NN>_<slug>.md` with a concise primary-topic H1 (`<= 6` words), opening prose (zero metadata banners or figure inventories), foundational sections with inline `#### Exercise` checks, and `## <N>. Problems`.
-  - **`step j/K` (Growth)**: Inserts `1–2` focused sections (`~10–20 min`) **before** `## <N>. Problems` and adds anchored synthesis problems without breaking prior notation.
+  - **`step 1/K` (Launch)**: Creates `<NN>_<slug>.md` with a `<= 6`-word H1, opening prose (zero metadata banners), inline `#### Exercise` drills, and `## <N>. Problems`.
+  - **`step j/K` (Growth)**: Inserts `1–2` focused sections (`~10–20 min`) before `## <N>. Problems` and adds synthesis problems without breaking prior notation.
   - **`bench` Steps**: Append a closing *"Hardware Lab"* verification section (pure procurement steps add a brief fabrication callout only).
 
 ---
@@ -21,50 +26,44 @@ We are writing a **publication-grade systems engineering textbook** (*Harris & H
 ## Mandatory 4-Pass Authoring Pipeline
 
 ### Pass 1: Pedagogical Blueprint & Strict Layering
-1. Read every line of the step's source and test files; inventory every constant, helper, public state field, normal path, and error path.
-2. **Abstraction Boundaries, Base-Before-Custom Layering & Section Cohesion**:
-   - Build core, standard mechanisms end-to-end before custom project extensions; establish intrinsic properties of each representation or model (range, uniqueness, wrap behavior) right where that representation is defined rather than interrupting downstream circuit or algorithm sections with foundational lemmas; co-locate specialized helpers in their motivating section; establish global execution/fault models up front; never inject project-specific constants into rate- or scale-independent principles; never reference unbuilt downstream tools.
-   - **Enforce Abstraction Boundaries**: Explain higher-layer behavior strictly via its architectural contract—even when naming a hardware subsystem conceptually, never invoke internal ports, control pins, or circuit sub-mechanisms that have not yet been defined before hardware layers are built.
-   - **Lead With the Takeaway & Honest Rationale**: Open comparative sections with a direct plain-English takeaway stating which mechanism preserves the invariant and why alternatives fail; justify choices from real constraints in the current model and never advertise avoiding a standard language construct unless the straightforward alternative actually fails or costs more here.
-   - **Tight Subsection Cohesion & Balanced Rigor**: Keep every `###` subsection strictly aligned to its heading (promote any distinct mechanism or summary table to its own subsection rather than appending an unannounced afterthought), avoid braiding separate mechanisms across interleaved blocks, and include concrete quantitative bounds, invariants, or error analysis in every section.
-   - **Unbraided List Items & Intuition Before Edge Cases**: Give each distinct operation or theorem its own dedicated item or subsection—never braid examples or proofs of two operations inside one bullet or paragraph, and open each new operation with plain-English intuition and purpose before formal boundary cases or algebra.
-   - **Simple-to-Derived Ordering**: Order items in a theorem list or section from the simplest, most direct consequence first to dependent circuit-implementation tricks second, never forcing a complex identity to precede a simpler property it relies on.
+1. Inventory every constant, helper, public state field, normal path, and error path across the step's source and test files.
+2. **Layering, Intrinsic Properties & Abstraction Boundaries**:
+   - Complete core architectures before custom extensions; establish intrinsic representation properties (range, uniqueness, wrap) where introduced rather than mid-stream downstream; co-locate specialized helpers; never inject project constants into general principles or cite unbuilt tools.
+   - Keep higher-layer descriptions strictly at their contract—never leak unintroduced lower-layer ports, control pins, or circuit sub-mechanisms.
+   - Open comparative sections with a direct plain-English takeaway and justify choices honestly without unmotivated claims about avoiding standard constructs (`if`/`else`).
+   - Keep `###` subsections aligned to headings, unbraid distinct mechanisms into separate items/subsections, order simplest direct consequences before implementation tricks, and open new operations with plain-English intuition before corner cases.
 3. **Concise Headings & Calm Bridges**:
-   - Keep H1 (`<= 6` words) and `##`/`###` headings (`<= 8` words) focused cleanly on the primary topic without colons, `&`, parentheticals, or backticks.
-   - Present functional groups before low-level bit layouts, and open every `##`/`###` section with a calm **2–4 sentence conceptual bridge** (zero abrupt imperatives or conversational crutches).
+   - Keep H1 (`<= 6` words) and `##`/`###` (`<= 8` words) crisp without `:`, `&`, parentheticals, or backticks, opening each section with a calm 2–4 sentence conceptual bridge.
 4. **Upfront Visuals, Exact Insertion Audits & Focused Transclusions**:
-   - Never use raw ASCII-art fences (`check_book.py` rejects them); build interactive Vue micro-widgets or compact vertical Mermaid figures (`flowchart TD`).
-   - Place a dedicated single-concept Vue figure *before* dense formalism whenever a mechanism spans multiple representations, modes, or interacting stages. Audit every figure's sub-panels, presets, labels, and formulas **at its exact Markdown insertion line** so the widget displays zero expressions, helper names, or code idioms introduced only later in the chapter.
-   - Keep `<!-- book-sync: <spec> -->` + `<<<` code slices `<= 25` lines and anchor every code/test symbol link via `#L<start>-L<end>`.
+   - Replace raw ASCII fences with single-concept `.vue` widgets before dense formalism or compact vertical Mermaid (`flowchart TD`), auditing each widget at its exact insertion line for zero forward symbols.
+   - Keep `<!-- book-sync: <spec> -->` + `<<<` slices `<= 25` lines and anchor every code/test link (`#L<start>-L<end>`).
 
 ### Pass 2: Uncompressed Multi-Chunk Drafting
-1. Draft sequentially with **one sentence per Markdown line** (single newlines, zero trailing `<br>` spaces) and start a fresh paragraph whenever pivoting from informal intuition and numerical examples into a formal theorem or derivation.
-2. **Mechanism First, Tables Over Catalog Prose & Code-Only Backticks**: State what each new term does first and place `(**expanded name / acronym**)` immediately adjacent to its noun phrase (never after an em-dash clause, and never stacking `3+` new acronyms in one sentence). Move `3+` structured coordinates, opcodes, or register maps into Markdown tables. Reserve backticks strictly for literal code, instruction/register tokens, literal constants, CLI flags, and paths—never acronyms, tool/language proper nouns, prose numbers/units, or raw TeX; keep boldface restrained (`<= 6` words).
-3. **Step-by-Step Math, Sound Logic & Prose-to-Equation Faithfulness**:
-   - Keep motivating sentences focused on a single primary reason; unpack secondary boundary caveats or uniqueness justifications in separate plain sentences rather than cramming sub-proofs inside parenthetical or qualifying clauses.
-   - Refresh prerequisite undergraduate math/physics identities with a crisp derivation and example before use; define every quantity/operator before bounding exceptions; justify representation choices and transfer shared properties via established equivalence rather than repeating parallel proofs.
-   - Open every proof step with 1–2 plain, low-symbol sentences giving intuitive meaning before algebra (avoiding prose-math walls, stiff `"Next we prove..."` announcements, and forward section catalogs), pair reusable theorems with operational usage intuition (safe substitutions vs. broken preconditions/inverses), and state any shared bridge once before a parallel list rather than repeating formalistic citations on each item.
-   - Include lightweight `6–8` part mental-practice drills (`#### Exercise <S.K>: <Title>`) with collapsible, terse algebraic solutions (equations + short 1-clause justifications, not prose essays) after **mathematical, encoding, and bound-proof subsections**; omit inline drills on pure hardware-interface/contract subsections (covered by `## <N>. Problems` and project verification).
-   - Replace wordy mathematical prose (even immediately above equations) and in-paragraph algebra with concise setup plus compact aligned display equations (`<= 624 px` desktop width), expanding every non-trivial algebraic move on its own line rather than collapsing multiple transformations into one equals sign.
-   - Verify every intro sentence describes only mathematical operations literally appearing in the displayed symbols below it. Test every causal connective (*because*, *consequently*, *therefore*, *thus*, *so*) and mathematical theorem by strict entailment: if knowing premise $P$ alone leaves conclusion $Q$'s mechanism or representation rule unproved, fix or remove the broken link, and ensure every numerical example directly illuminates the target property.
-   - Present every dual-interpretation circuit proof as a justified aligned derivation starting from the target interpretation of the circuit's output (`target(output)`) down through primary circuit semantics to the target expression, using concise right-hand step justifications rather than prose symbol walls—and spotlight in plain prose the physical hardware breakthrough whenever pure algebra eliminates duplicate gates or mode bits (contrasting where lost invariance forces hardware splits).
-   - Never comment on sub-terms, indices, or exponents of an unseen equation before displaying it; whenever stating an integrality, parity, or index precondition, state explicitly which theorem step requires it (for instance, keeping a factored multiplier whole).
-4. **Responsive Widgets, Math Hygiene & Label Clarity**: Protect `.hw-widget` from `.book-serif-mode`, keep inline MathJax strictly `display: inline; overflow: visible`, label bit slices cleanly (`Bits hi..lo`), escape `\$`, avoid prose `~`, and ban bare prose line numbers.
+1. Draft sequentially with **one sentence per Markdown line** (no `<br>`), starting a fresh paragraph before pivoting from intuition/examples into formal proofs.
+2. **Mechanism First & Code-Only Backticks**:
+   - State what each new term does before placing `(**expanded name / acronym**)` immediately adjacent (never after an em-dash clause, and never stacking `3+` acronyms); tabulate `3+` structured coordinates, opcodes, or maps.
+   - Reserve backticks strictly for literal code, tokens, constants, CLI flags, and paths—never acronyms, proper nouns, prose numbers/units, or raw TeX; keep boldface `<= 6` words.
+3. **Step-by-Step Math, Sound Logic & Prose Hygiene**:
+   - Refresh prerequisite identities with examples before use, prove rounding directions cleanly, keep motivating sentences single-purpose, and state shared bridges once before parallel lists without prose-math walls, `"Next we prove..."` boilerplate, or forward catalogs.
+   - Open proofs with 1–2 plain, low-symbol sentences giving intuitive meaning; pair reusable theorems with operational usage intuition (safe substitutions vs. broken preconditions/inverses).
+   - Add `6–8` part `#### Exercise <S.K>: <Title>` drills with terse algebraic solutions after **math, encoding, and bound-proof subsections**; omit drills on pure hardware-interface subsections.
+   - Promote multi-step or in-paragraph algebra into compact aligned blocks (`<= 624 px`), keep equation intros faithful to displayed symbols below, enforce strict causal entailment, spotlight hardware-polymorphism wins, and state theorem purposes before preconditions without commenting on unseen sub-terms.
+4. **Responsive Widgets & Math Hygiene**: Isolate `.hw-widget` from `.book-serif-mode`, keep inline MathJax `display: inline; overflow: visible`, label `Bits hi..lo`, escape `\$`, and avoid prose `~` or bare line numbers.
 
-### Pass 3: 3-Specialist Parallel Cold-Reader Critique & Clean-Room Convergence
-Invoke **3 parallel isolated `research` subagents** (`Model: 'inherit'`, `Workspace: 'inherit'`) on the chapter, code, `.vue` widgets, `custom.css`, and `.cache/visual-audit/<slug>/*.png` (splitting chapters over ~500 lines by section range so every line receives full scrutiny):
-1. **`Sequential Novice Cold-Reader`**: Reads strictly Line 1 → EOF assuming general programming + undergrad math/physics; flags *any* forward reference (including inside widgets/sub-panels at their exact insertion line, tables, and code docstrings), any undefined internal port, pin, signal, or circuit mechanism referenced inside pre-hardware sections, unmotivated claims highlighting avoided language constructs or clever tricks, **buried takeaways** (comparative prose that steps through examples without stating up front in plain English which choice preserves the invariant and why alternatives fail), topic drift from subsection headings, specialist analogies, premature system constants, detached term definitions, stacked acronyms, unintroduced mechanism jumps that feel like non sequiturs, paragraphs opening cold into boundary edge cases or dense symbols, **missing paragraph breaks between concrete examples and formal proof blocks**, **algebraic theorems missing practical usage intuition or failure boundaries**, **dense prose-math walls that bog down reading flow**, **foundational representation properties proved late inside downstream circuit/algorithm sections instead of where the representation was introduced**, **mathematical, encoding, or bound-proof subsections missing a `6–8` part `#### Exercise` mental-practice drill (or drills with `< 6` parts)** while leaving pure hardware-contract subsections unencumbered, **unhighlighted hardware-reuse breakthroughs that gloss over why the math eliminates duplicate circuitry**, **cross-interpretation circuit proofs argued in dense prose rather than justified output-to-target algebra**, **repetitive per-item lemma/corollary boilerplate where one intuitive upfront bridge suffices**, and proof mechanics opening cold without plain-English intuition.
-2. **`Editorial Pacing, Logic & Math Editor`**: Audits every section, intro-prose line before `$$`, and display block end-to-end without sampling for heading conciseness (`<= 8` words, inline `#### Exercise` vs. closing `## <N>. Problems`), calm 2–4 sentence bridges, tabular vs. prose walls, balanced rigor across early and late sections, one-sentence-per-line formatting, code-only backticks, **parenthetical sub-proofs or unexplained parenthetical examples**, secondary boundary caveats stuffed into motivating sentences, **in-paragraph multi-substitution algebra** and **dense equation-intro sentences** before `$$`, skipped algebraic moves, **prose-to-equation action-verb mismatches** (claimed operations absent from the symbols below), **premise-to-conclusion entailment failures** (every *Consequently*/*Therefore*/*Thus* and cited theorem tested for whether $P$ actually proves $Q$'s mechanism rather than sharing surface topic words), **braided multi-operation bullets or paragraphs**, **inverted theorem order placing complex implementation tricks ahead of simpler direct consequences**, **cross-interpretation circuit bridges lacking justified aligned derivation steps**, **forward remarks on unseen equation sub-terms/exponents without stating their theorem purpose**, **prose-math walls cramming heavy symbolic clauses into consecutive prose sentences**, **stiff formulaic announcements or cross-section legalisms (`Next we prove...`, `Section X.Y's ... corollary`)**, **misplaced foundational lemmas interrupting downstream mechanism sections**, **repetitive restatements of a proved property across parallel list items**, **wordy multi-sentence exercise solutions that belong in terse algebraic notation**, **missing `6–8` part drill sets on math/encoding/bound subsections**, unrefreshed prerequisites, unjustified model choices, redundant double-proofs, and unproved rounding/exception claims.
-3. **`Visual Pedagogy & Diagram Coverage Critic`**: Audits `prose_math_desktop.png`, `custom.css`, `.hw-widget`, and Mermaid PNGs for inline math baseline/scrollbar regressions, clipped/overflowing display equations, ASCII art, typography leaks, missing or multi-concept bundled widgets, premature widget code previews, mobile overflow, and contrast flaws.
-
-- **Mandatory Convergence Loop**: After any edit resolving Round $r$ findings, rebuild, recapture `.cache/visual-audit/`, and run **fresh clean-room Round $r+1$ specialist subagents** until a full round returns **zero P0/P1/P2 defects**.
+### Pass 3: Deterministic Sharded Clean-Room Audit & Convergence
+Generate the exact non-biased sharded review manifest before spawning any `research` subagent (`Model: 'inherit'`, `Workspace: 'inherit'`):
+```bash
+python3 scripts/build_review_plan.py --chapter <chapter_path> [--base-ref <pre_fix_sha>]
+```
+- **Execute Every Emitted Task Verbatim**: Never write ad-hoc custom steering prompts. Launch each overlapping shard's `Cold-Reader` (`rubric_cold_reader.md`) and `Math & Logic Editor` (`rubric_math_editor.md`), the chapter's `Global Structure & Visual Critic` (`rubric_visual_critic.md`), and (after edits) the `Diff & Flow Regression Guardian` (`rubric_diff_guardian.md`) using the exact prompts emitted by `build_review_plan.py`.
+- **Mandatory Convergence Loop**: After any edit resolving Round $r$ tickets, rebuild screenshots, re-run `build_review_plan.py --base-ref <pre_fix_sha>`, and iterate fresh clean-room rounds until all shards, global checks, and the Diff Guardian report **zero P0/P1/P2 defects**.
 
 ### Pass 4: Synthesis Problems & Final Verification Gate
-Embed `6–8` part inline `#### Exercise <S.K>: <Title>` mental drills with terse algebraic solutions after mathematical/encoding/bound-proof subsections, close with `4–6` **Problems** (`## <N>. Problems`, `### Problem <K>: <Title>`, `<details><summary>Worked Solution</summary>`), then pass every gate:
+Close with `4–6` synthesis **Problems** (`## <N>. Problems`, `### Problem <K>: <Title>`, `<details><summary>Worked Solution</summary>`), then pass every gate:
 ```bash
 python3 scripts/sync_book.py && python3 scripts/sync_book.py --check
 python3 scripts/check_book.py && uv run --with pyyaml python3 scripts/build.py --check
 BOOK_BASE=/apex/ npm --prefix book run build
 uv run --with playwright python3 scripts/check_visuals.py --screenshot-dir .cache/visual-audit
 ```
-Keep `SKILL.md <= 120` lines; record patterns in `references/calibration_log.md` and sync updated skills via `save_skill`.
+Keep `SKILL.md <= 120` lines, record retrospective patterns in `references/calibration_log.md`, and sync skills via `save_skill`.
