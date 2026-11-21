@@ -104,9 +104,9 @@ const droppedRange = computed(() => (shiftK.value === 1 ? 'Bit 0' : `Bits ${shif
             <span style="display: inline-flex; flex-wrap: wrap; padding: 1px 5px; border-radius: 4px; border: 1px solid var(--vp-c-divider); color: var(--hw-amber); font-weight: 700">
               <span v-for="(nib, idx) in droppedNibbles" :key="`d-${idx}`" style="white-space: nowrap">{{ nib }}<template v-if="idx < droppedNibbles.length - 1">_</template></span>
             </span>
-            <span style="white-space: nowrap">(Remainder R = {{ remainder }})</span>
+            <span style="white-space: nowrap">(Remainder = {{ remainder }})</span>
           </template>
-          <span v-else style="white-space: nowrap">Dropped: none (Remainder R = 0)</span>
+          <span v-else style="white-space: nowrap">Dropped: none (Remainder = 0)</span>
         </div>
       </div>
     </div>
@@ -129,7 +129,7 @@ const droppedRange = computed(() => (shiftK.value === 1 ? 'Bit 0' : `Bits ${shif
             <span style="white-space: nowrap">U<sub>32</sub> = <strong>{{ srlU32.toLocaleString() }}</strong></span>{{ ' ' }}<span style="white-space: nowrap">(= &lfloor;{{ inputU32.toLocaleString() }} / {{ divisor }}&rfloor;)</span>
           </div>
           <div style="font-size: 11.5px; color: var(--vp-c-text-2)">
-            U<sub>32</sub> / {{ divisor }} = {{ srlU32.toLocaleString() }} + {{ remainder }}/{{ divisor }}
+            {{ inputU32.toLocaleString() }} / {{ divisor }} = {{ srlU32.toLocaleString() }} + {{ remainder }}/{{ divisor }}
             <span v-if="signBit === 1 && shiftK > 0" style="color: var(--hw-red); display: block">
               Signed S<sub>32</sub> flips positive ({{ srlS32.toLocaleString() }}) because Bit 31 became 0.
             </span>
@@ -154,9 +154,9 @@ const droppedRange = computed(() => (shiftK.value === 1 ? 'Bit 0' : `Bits ${shif
             <span style="white-space: nowrap">S<sub>32</sub> = <strong style="color: var(--hw-green)">{{ sraS32.toLocaleString() }}</strong></span>{{ ' ' }}<span style="white-space: nowrap">(= &lfloor;{{ inputS32.toLocaleString() }} / {{ divisor }}&rfloor;)</span>
           </div>
           <div style="font-size: 11.5px; color: var(--vp-c-text-2)">
-            S<sub>32</sub> / {{ divisor }} = {{ sraS32.toLocaleString() }} + {{ remainder }}/{{ divisor }}
+            {{ inputS32.toLocaleString() }} / {{ divisor }} = {{ sraS32.toLocaleString() }} + {{ remainder }}/{{ divisor }}
             <span v-if="inputS32 < 0 && remainder > 0" style="display: block; color: var(--vp-c-brand-1)">
-              Non-negative remainder {{ remainder }}/{{ divisor }} &isin; [0, 1) floors toward -&infin; (not {{ Math.trunc(inputS32 / divisor) }}).
+              Remainder {{ remainder }}/{{ divisor }} between 0 and 1 rounds toward -&infin; (not {{ Math.trunc(inputS32 / divisor) }}).
             </span>
           </div>
         </div>

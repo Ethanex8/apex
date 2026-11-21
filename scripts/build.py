@@ -29,6 +29,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
+import chapter_index  # noqa: E402 — repo scripts run standalone without package install
 import check_book  # noqa: E402 — repo scripts run standalone without package install
 import sync_book  # noqa: E402 — repo scripts run standalone without package install
 
@@ -36,6 +37,7 @@ ROOT_DIR = SCRIPT_DIR.parent
 ROADMAP_YAML_PATH = ROOT_DIR / "roadmap.yaml"
 ROADMAP_MD_PATH = ROOT_DIR / "ROADMAP.md"
 README_MD_PATH = ROOT_DIR / "README.md"
+CHAPTER_INDEX_MD_PATH = ROOT_DIR / "docs" / "CHAPTER_INDEX.md"
 PAGES_BOOK_URL = "https://ethanex8.github.io/apex/"
 
 VALID_MODES = {"couch", "bench"}
@@ -617,6 +619,7 @@ def _render_readme_guide(total_steps: int, book_parts: int, book_chapters: int) 
         f"- [**`Apex Interactive Textbook`**]({PAGES_BOOK_URL}) — {book_parts}-part, {book_chapters}-chapter VitePress textbook ([`book/`](./book/index.md)) compiling `systems/*/chapters/*.md` with synchronized source excerpts and interactive hardware figures.",
         "- [**`VISION.md`**](./VISION.md) — Dual-processor architecture, electrical and protocol interface contracts, safety limits, and bill of materials.",
         "- [**`docs/REVIEW_PROCESS.md`**](./docs/REVIEW_PROCESS.md) — 4-step isolated subset-recall PR review protocol, anti-cheating calibration gates, and workflow flowchart.",
+        "- [**`docs/CHAPTER_INDEX.md`**](./docs/CHAPTER_INDEX.md) — Auto-generated chapter structure, line shares, newly defined symbols, and consumer cross-reference map.",
         f"- [**`ROADMAP.md`**](./ROADMAP.md) — Phase breakdowns, procurement schedule, and all {total_steps} step checklists.",
         "- [**`roadmap.yaml`**](./roadmap.yaml) — Declarative manifest of subsystems, milestones, textbook outline, and verification state.",
         "- [**`systems/`**](./systems/brain/README.md) — Subsystem workspaces (`brain`, `drive`, `power`, `limb`, `walker`, `sight`).",
@@ -735,15 +738,17 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     metrics = compute_metrics(data)
-    roadmap_md = render_roadmap_md(data, metrics)
-    readme_md = render_readme_md(data, metrics)
-
+    outputs = (
+        (ROADMAP_MD_PATH, render_roadmap_md(data, metrics), "ROADMAP.md is out of sync with roadmap.yaml"),
+        (README_MD_PATH, render_readme_md(data, metrics), "README.md is out of sync with roadmap.yaml"),
+        (
+            CHAPTER_INDEX_MD_PATH,
+            chapter_index.render_chapter_index_md(ROOT_DIR),
+            "docs/CHAPTER_INDEX.md is out of sync with chapters",
+        ),
+    )
     if args.check:
-        drift: list[str] = []
-        if not ROADMAP_MD_PATH.exists() or ROADMAP_MD_PATH.read_text(encoding="utf-8") != roadmap_md:
-            drift.append("ROADMAP.md is out of sync with roadmap.yaml")
-        if not README_MD_PATH.exists() or README_MD_PATH.read_text(encoding="utf-8") != readme_md:
-            drift.append("README.md is out of sync with roadmap.yaml")
+        drift = [msg for path, content, msg in outputs if not path.exists() or path.read_text(encoding="utf-8") != content]
         if drift:
             for d in drift:
                 print(f"ERROR: {d}. Run 'python3 scripts/build.py' to regenerate.", file=sys.stderr)
@@ -751,16 +756,17 @@ def main(argv: list[str] | None = None) -> int:
         print(
             f"OK: Validated {len(metrics['sys_metrics'])} systems, {metrics['total_steps']} steps "
             f"({metrics['total_couch']} couch / {metrics['total_bench']} bench), and "
-            f"{metrics['total_approved']} approved; chapters, ROADMAP.md, and README.md are 100% in sync."
+            f"{metrics['total_approved']} approved; chapters, ROADMAP.md, README.md, and docs/CHAPTER_INDEX.md are 100% in sync."
         )
         return 0
 
-    ROADMAP_MD_PATH.write_text(roadmap_md, encoding="utf-8")
-    README_MD_PATH.write_text(readme_md, encoding="utf-8")
+    for path, content, _ in outputs:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
     print(
         f"OK: Validated {len(metrics['sys_metrics'])} systems, {metrics['total_steps']} steps "
         f"({metrics['total_couch']} couch / {metrics['total_bench']} bench), and "
-        f"{metrics['total_approved']} approved; generated ROADMAP.md and README.md."
+        f"{metrics['total_approved']} approved; generated ROADMAP.md, README.md, and docs/CHAPTER_INDEX.md."
     )
     return 0
 

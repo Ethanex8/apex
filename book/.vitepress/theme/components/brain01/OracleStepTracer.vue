@@ -113,7 +113,7 @@ const scenarios: Scenario[] = [
         stepNum: 0,
         asm: 'Preloaded Test Setup: x1 = 0x1000_0000 (BRAM), x2 = 0x1122_80FF',
         stageNote:
-          'Testbench preloads x1 (BRAM base) and x2 (4-byte test pattern) at PC = 0; 4 bytes at 0x1000_0000..03 start zeroed in SparseMemory.',
+          'Testbench preloads x1 (BRAM base) and x2 (4-byte test pattern) at PC = 0; 4 unwritten bytes at 0x1000_0000..03 start at 0.',
         pc: '0x0000_0000',
         insnHex: '—',
         nextPc: '0x0000_0000',
@@ -126,7 +126,7 @@ const scenarios: Scenario[] = [
           { addr: '+2', byteHex: '0x00' },
           { addr: '+3', byteHex: '0x00' },
         ],
-        traceReceipt: 'Ready — SparseMemory page unallocated (reads as 0)',
+        traceReceipt: 'Ready — unwritten BRAM bytes default to 0',
       },
       {
         stepNum: 1,

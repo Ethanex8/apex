@@ -45,6 +45,7 @@ INLINE_CODE_RE = re.compile(r"`([^`\n]+)`")
 RUBRIC_PATHS = {
     "cold_reader": ".agents/skills/apex-textbook-author/references/rubric_cold_reader.md",
     "math_editor": ".agents/skills/apex-textbook-author/references/rubric_math_editor.md",
+    "macro_critic": ".agents/skills/apex-textbook-author/references/rubric_macro_critic.md",
     "visual_critic": ".agents/skills/apex-textbook-author/references/rubric_visual_critic.md",
     "diff_guardian": ".agents/skills/apex-textbook-author/references/rubric_diff_guardian.md",
 }
@@ -338,6 +339,7 @@ def _render_shard_task(
     )
     allowed = [
         "GEMINI.md",
+        "docs/CHAPTER_INDEX.md",
         rubric_rel,
         f"{chapter_rel}#L{shard.start_line}-L{shard.end_line}",
         *extra_files,
@@ -345,7 +347,7 @@ def _render_shard_task(
     prompt = "\n".join([
         f"You are `{role_prefix}` auditing Shard {shard.index}/{shard.total} of `{chapter_rel}`.",
         ISOLATION_PROHIBITION,
-        f"1. Read `GEMINI.md` and `{rubric_rel}` completely before reading the chapter slice.",
+        f"1. Read `GEMINI.md`, `docs/CHAPTER_INDEX.md`, and `{rubric_rel}` completely before reading the chapter slice.",
         (
             f"2. Audit `{chapter_rel}` primary lines **L{shard.start_line}..L{shard.end_line}** "
             f"(read-only boundary context: previous overlap `{prev_txt}`, next overlap `{next_txt}`)."
@@ -368,8 +370,36 @@ def _render_shard_task(
     )
 
 
-def _render_global_task(chapter_rel: str, slug: str, total_lines: int) -> SubagentTask:
-    """Render the whole-chapter macro-structure and visual pedagogy audit task."""
+def _render_macro_task(chapter_rel: str, total_lines: int) -> SubagentTask:
+    """Render the dedicated whole-chapter macro architecture and dependency audit task."""
+    rubric_rel = RUBRIC_PATHS["macro_critic"]
+    allowed = ["GEMINI.md", "docs/CHAPTER_INDEX.md", rubric_rel, chapter_rel]
+    prompt = "\n".join([
+        f"You are `Global Macro & Dependency Critic` auditing `{chapter_rel}` (`1..{total_lines}`).",
+        ISOLATION_PROHIBITION,
+        f"1. Read `GEMINI.md`, `docs/CHAPTER_INDEX.md`, and `{rubric_rel}` completely.",
+        (
+            f"2. For each subsection in `docs/CHAPTER_INDEX.md`—especially opening theory subsections—"
+            f"read its opening lines in `{chapter_rel}` and verify whether its concepts belong in core "
+            "theory or beside a later motivating subsystem."
+        ),
+        (
+            "3. Audit base-before-custom layering, end-to-end rigor balance, `#### Exercise` scoping, "
+            "`## <N>. Problems` completeness, and concise headings."
+        ),
+        "4. Report P0/P1/P2 defects with exact line numbers, or output `ZERO P0/P1/P2 DEFECTS FOUND`.",
+    ])
+    return SubagentTask(
+        role="Global Macro & Dependency Critic",
+        type_name="research",
+        rubric_path=rubric_rel,
+        allowed_files=allowed,
+        prompt=prompt,
+    )
+
+
+def _render_visual_task(chapter_rel: str, slug: str, total_lines: int) -> SubagentTask:
+    """Render the visual pedagogy, widget surface, CSS, and MathJax audit task."""
     rubric_rel = RUBRIC_PATHS["visual_critic"]
     allowed = [
         "GEMINI.md",
@@ -379,25 +409,18 @@ def _render_global_task(chapter_rel: str, slug: str, total_lines: int) -> Subage
         f".cache/visual-audit/{slug}/",
     ]
     prompt = "\n".join([
-        f"You are `Global Structure & Visual Critic` auditing `{chapter_rel}` (`1..{total_lines}`).",
+        f"You are `Visual Pedagogy Critic` auditing `{chapter_rel}` (`1..{total_lines}`).",
         ISOLATION_PROHIBITION,
         f"1. Read `GEMINI.md` and `{rubric_rel}` completely.",
         (
-            f"2. Audit macro structure across `{chapter_rel}` (headings, base-before-custom section "
-            "progression, end-to-end rigor balance, math-vs-hardware `#### Exercise` scoping, and "
-            "`## <N>. Problems` coverage)."
+            f"2. Inspect `.vue` widgets at their exact Markdown insertion lines in `{chapter_rel}` "
+            "plus `book/.vitepress/theme/custom.css`."
         ),
-        (
-            f"3. Inspect `book/.vitepress/theme/custom.css` and desktop/mobile screenshots in "
-            f"`.cache/visual-audit/{slug}/` using the visual rubric."
-        ),
-        (
-            "4. Report P0/P1/P2 defects with exact line numbers or screenshot targets, or output "
-            "`ZERO P0/P1/P2 DEFECTS FOUND`."
-        ),
+        f"3. Inspect desktop/mobile screenshots in `.cache/visual-audit/{slug}/` using `{rubric_rel}`.",
+        "4. Report P0/P1/P2 defects with exact lines or screenshots, or output `ZERO P0/P1/P2 DEFECTS FOUND`.",
     ])
     return SubagentTask(
-        role="Global Structure & Visual Critic",
+        role="Visual Pedagogy Critic",
         type_name="research",
         rubric_path=rubric_rel,
         allowed_files=allowed,
@@ -493,7 +516,8 @@ def build_review_plan(
             _render_shard_task("Math & Logic Editor", "math_editor", chapter_rel, shard, ledger, slice_files)
         )
 
-    tasks.append(_render_global_task(chapter_rel, resolved_chap.stem, total_lines))
+    tasks.append(_render_macro_task(chapter_rel, total_lines))
+    tasks.append(_render_visual_task(chapter_rel, resolved_chap.stem, total_lines))
     if base_ref:
         tasks.append(_render_diff_guardian_task(chapter_rel, base_ref))
 

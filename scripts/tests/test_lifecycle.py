@@ -151,6 +151,7 @@ def _patch_tmp_repo(tmp_path: Path, mp: pytest.MonkeyPatch, data: dict) -> Path:
     mp.setattr(build, "ROADMAP_YAML_PATH", yaml_path)
     mp.setattr(build, "ROADMAP_MD_PATH", tmp_path / "ROADMAP.md")
     mp.setattr(build, "README_MD_PATH", tmp_path / "README.md")
+    mp.setattr(build, "CHAPTER_INDEX_MD_PATH", tmp_path / "docs" / "CHAPTER_INDEX.md")
     mp.setattr(step, "ROOT_DIR", tmp_path)
     mp.setattr(step, "ROADMAP_YAML_PATH", yaml_path)
     return yaml_path

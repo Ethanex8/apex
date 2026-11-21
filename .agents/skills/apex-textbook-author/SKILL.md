@@ -4,6 +4,7 @@ description: Author and revise full-depth (30–60 minute) interactive engineeri
 file_names:
     - references/rubric_cold_reader.md
     - references/rubric_math_editor.md
+    - references/rubric_macro_critic.md
     - references/rubric_visual_critic.md
     - references/rubric_diff_guardian.md
 ---
@@ -28,7 +29,7 @@ We write a **publication-grade systems engineering textbook** (*Harris & Harris*
 ### Pass 1: Pedagogical Blueprint & Strict Layering
 1. Inventory every constant, helper, public state field, normal path, and error path across the step's source and test files.
 2. **Layering, Intrinsic Properties & Abstraction Boundaries**:
-   - Complete core architectures before custom extensions; establish intrinsic representation properties (range, uniqueness, wrap) where introduced rather than mid-stream downstream; co-locate specialized helpers; never inject project constants into general principles or cite unbuilt tools.
+   - Complete core architectures before custom extensions; establish intrinsic representation properties (range, uniqueness, wrap) where introduced; defer operation-motivated derivations to the downstream subsystem/instruction sections that consume them; never inject project constants into general principles or cite unbuilt tools.
    - Keep higher-layer descriptions strictly at their contract—never leak unintroduced lower-layer ports, control pins, or circuit sub-mechanisms.
    - Open comparative sections with a direct plain-English takeaway and justify choices honestly without unmotivated claims about avoiding standard constructs (`if`/`else`).
    - Keep `###` subsections aligned to headings, unbraid distinct mechanisms into separate items/subsections, order simplest direct consequences before implementation tricks, and open new operations with plain-English intuition before corner cases.
@@ -55,7 +56,7 @@ Generate the exact non-biased sharded review manifest before spawning any `resea
 ```bash
 python3 scripts/build_review_plan.py --chapter <chapter_path> [--base-ref <pre_fix_sha>]
 ```
-- **Execute Every Emitted Task Verbatim**: Never write ad-hoc custom steering prompts. Launch each overlapping shard's `Cold-Reader` (`rubric_cold_reader.md`) and `Math & Logic Editor` (`rubric_math_editor.md`), the chapter's `Global Structure & Visual Critic` (`rubric_visual_critic.md`), and (after edits) the `Diff & Flow Regression Guardian` (`rubric_diff_guardian.md`) using the exact prompts emitted by `build_review_plan.py`.
+- **Execute Every Emitted Task Verbatim**: Never write ad-hoc custom steering prompts. Launch each shard's `Cold-Reader` (`rubric_cold_reader.md`) and `Math & Logic Editor` (`rubric_math_editor.md`), the chapter's `Global Macro & Dependency Critic` (`rubric_macro_critic.md`) and `Visual Pedagogy Critic` (`rubric_visual_critic.md`), plus the `Diff & Flow Regression Guardian` (`rubric_diff_guardian.md`) using `build_review_plan.py`'s exact prompts.
 - **Mandatory Convergence Loop**: After any edit resolving Round $r$ tickets, rebuild screenshots, re-run `build_review_plan.py --base-ref <pre_fix_sha>`, and iterate fresh clean-room rounds until all shards, global checks, and the Diff Guardian report **zero P0/P1/P2 defects**.
 
 ### Pass 4: Synthesis Problems & Final Verification Gate

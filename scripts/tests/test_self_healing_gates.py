@@ -32,6 +32,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 import build_review_plan  # noqa: E402 — repo test runner imports standalone scripts without package install
+import chapter_index  # noqa: E402 — repo test runner imports standalone scripts without package install
 import check_book  # noqa: E402 — repo test runner imports standalone scripts without package install
 import check_code  # noqa: E402 — repo test runner imports standalone scripts without package install
 import check_visuals  # noqa: E402 — repo test runner imports standalone scripts without package install
@@ -653,5 +654,41 @@ def test_check_book_skill_bullet_and_leak_gates(tmp_path: Path) -> None:
     assert "must not expose calibration_log.md" in joined
     assert "Exceeds 100-line rubric budget" in joined
     assert joined.count("split monolithic rules into atomic bullets") == 2
+
+
+def test_chapter_index_generation_and_consumers(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Verify chapter_index renders compact section budgets, novel symbols, drills, widgets, and consumers."""
+    assert "No textbook chapters authored yet" in chapter_index.render_chapter_index_md(tmp_path)
+
+    _write(
+        tmp_path / "systems" / "demo" / "chapters" / "01_demo.md",
+        "# Demo Systems Chapter\n\n"
+        "## 1. Core Foundations\n"
+        "### First Mechanics\n"
+        "```python\n## fake\n```\n"
+        "Introduce **First Concept** and [`helper_alpha`](../sim/mod.py#L1-L4).\n"
+        "<WidgetAlpha />\n"
+        "#### Exercise 1.1: Core Drill\n1. Part A.\n2. Part B.\n"
+        "<details><summary>Solution</summary>\n1. Ans.\n</details>\n"
+        "#### Exercise 1.2: Follow Drill\n1. Part C.\n"
+        "### Second Layer\n"
+        "Pure prose sentence with `val` only.\n"
+        "## 2. Standalone Hardware\n"
+        "Uses `helper_alpha` and **First Concept** plus `novel_beta`.\n",
+    )
+    rendered = chapter_index.render_chapter_index_md(tmp_path)
+    assert "**Sec 1: 1. Core Foundations**" in rendered
+    assert "Exercise 1.1 (2 pts), Exercise 1.2 (1 pts)" in rendered
+    assert "<WidgetAlpha />" in rendered
+    assert "`helper_alpha`" in rendered
+    assert "`novel_beta`" in rendered
+    assert "Sec 2" in rendered
+    assert chapter_index._format_cell(["a|b"]) == "a\\|b"
+
+    out_idx = tmp_path / "docs" / "CHAPTER_INDEX.md"
+    monkeypatch.setattr(chapter_index, "ROOT_DIR", tmp_path)
+    monkeypatch.setattr(chapter_index, "CHAPTER_INDEX_MD_PATH", out_idx)
+    assert chapter_index.main() == 0
+    assert out_idx.is_file()
 
 

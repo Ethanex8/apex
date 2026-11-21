@@ -189,15 +189,18 @@ const trace = computed(() => {
             <strong>rs1</strong> ({{ trace.rs1Hex }}):
           </div>
           <div class="hw-mono" style="font-size: 11px; color: var(--vp-c-text-2); margin-bottom: 6px; line-height: 1.45">
-            <div style="white-space: nowrap">Bits 31..16 (a1) = {{ cur.a1 }}</div>
-            <div style="white-space: nowrap">Bits 15..0 (a0) = {{ cur.a0 }}</div>
+            <div>Bits 31..16 (a1) = <strong style="white-space: nowrap">{{ cur.a1 }}</strong></div>
+            <div>Bits 15..0 (a0) = <strong style="white-space: nowrap">{{ cur.a0 }}</strong></div>
           </div>
           <div class="hw-mono" style="font-size: 12px; margin-bottom: 2px">
             <strong>rs2</strong> ({{ trace.rs2Hex }}):
           </div>
           <div class="hw-mono" style="font-size: 11px; color: var(--vp-c-text-2); line-height: 1.45">
-            <div style="white-space: nowrap">Bits 31..16 (b1) = {{ cur.b1 }}</div>
-            <div style="white-space: nowrap">Bits 15..0 (b0) = {{ cur.b0 }}</div>
+            <div>Bits 31..16 (b1) = <strong style="white-space: nowrap">{{ cur.b1 }}</strong></div>
+            <div>Bits 15..0 (b0) = <strong style="white-space: nowrap">{{ cur.b0 }}</strong></div>
+            <div v-if="cur.funct3 === 0" style="margin-top: 4px; color: var(--vp-c-text-1)">
+              Prior mac_acc = <strong style="white-space: nowrap">{{ cur.priorAcc.toLocaleString() }}</strong>
+            </div>
           </div>
         </template>
       </div>

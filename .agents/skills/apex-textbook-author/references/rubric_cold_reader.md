@@ -5,7 +5,7 @@ Read primary shard lines strictly from top to bottom assuming only general progr
 ## 1. Layering & Forward References
 1. **Zero Forward References**: Flag any symbol, operator (`&`, `|`, `^`, `<<`, `>>`), mnemonic, helper function, or theorem used before it is defined in the Prior-Section Ledger, overlap lines, or earlier in this shard.
 2. **Widget & Slice Insertion Audit**: Inspect every `.vue` widget (`<Tag />`) and `<<<` code slice *at its exact Markdown insertion line* and flag any preset, formula, label, helper, or idiom not yet introduced above that line.
-3. **Foundational Property Placement**: Flag foundational representation properties (range, uniqueness, wrap rules) wedged mid-stream inside downstream hardware or algorithm sections instead of right where that representation is defined.
+3. **Foundational vs. Application Placement**: Using `docs/CHAPTER_INDEX.md`, verify no subsection motivates itself with concepts or subsystems introduced only later, and verify specialized mechanics sit beside their motivating subsystem rather than bloating an opening theory section.
 4. **Abstraction Boundaries**: Flag pre-hardware architectural descriptions that leak unbuilt lower-layer hardware ports, control pins, internal signals, or physical implementation tricks.
 5. **No Specialist Analogies or Premature Constants**: Flag analogies from niche software specialties (databases, distributed consensus, kernel paging, managed runtimes) or project-specific clock/sizing constants inside general conceptual explanations.
 

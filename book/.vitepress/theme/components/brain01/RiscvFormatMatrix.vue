@@ -143,7 +143,7 @@ function cellColor(kind: FormatCell['kind']): string {
           v-for="[mode, label] in [
             ['all', 'Show All Wires'],
             ['regs', 'Pinned Registers (rs1/rs2/rd)'],
-            ['sign', 'Sign-Extension Wire (Bit 31)'],
+            ['sign', 'Sign Wire (Bit 31)'],
             ['imms', 'Immediate & Offset Wires'],
           ] as const"
           :key="mode"
@@ -255,7 +255,7 @@ function cellColor(kind: FormatCell['kind']): string {
     </div>
 
     <div class="hw-mono" style="font-size: 11px; color: var(--vp-c-text-2); margin-bottom: 6px">
-      Legend: <strong>Imm</strong> = Immediate constant bits; <strong>Off</strong> = Byte offset bits; <strong>S</strong> = Sign-extension bit pinned at Bit 31; <strong>11</strong> = Offset Bit 11 (Bit 7 or Bit 20); <strong>funct3</strong> = sub-operation selector (Bits 14..12).
+      Legend: <strong>Imm</strong> = Immediate constant bits; <strong>Off</strong> = Byte offset bits; <strong>S</strong> = Sign bit pinned at Bit 31; <strong>11</strong> = Offset Bit 11 (Bit 7 or Bit 20); <strong>funct3</strong> = sub-operation selector (Bits 14..12).
     </div>
 
     <div class="hw-card" style="margin-top: 4px; font-size: 13px">
