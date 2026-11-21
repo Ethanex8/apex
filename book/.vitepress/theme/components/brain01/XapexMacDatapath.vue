@@ -41,7 +41,7 @@ const presets: MacPreset[] = [
     a1: 4,
     b0: 10,
     b1: 20,
-    explain: 'mac.clr sets base_acc = 0, computes 3×10 + 4×20 = 110, updates internal mac_acc = 110, while x0 stays hardwired to 0.',
+    explain: 'mac.clr clears the starting accumulator to 0, computes 3×10 + 4×20 = 110, updates internal mac_acc = 110, while x0 stays hardwired to 0.',
   },
   {
     label: '3. Preload Bias (mac.set)',
@@ -219,7 +219,7 @@ const trace = computed(() => {
             <span style="white-space: nowrap">Lane 1: {{ cur.a1 }} × {{ cur.b1 }} =</span>{{ ' ' }}<strong style="white-space: nowrap">{{ trace.p1.toLocaleString() }}</strong>
           </div>
           <div class="hw-mono" style="font-size: 11.5px; margin-bottom: 3px">
-            base_acc: <strong>{{ trace.baseAcc.toLocaleString() }}</strong>{{ ' ' }}<span style="color: var(--vp-c-text-2)">({{ cur.funct3 === 1 ? 'cleared' : 'prior mac_acc' }})</span>
+            Start acc: <strong>{{ trace.baseAcc.toLocaleString() }}</strong>{{ ' ' }}<span style="color: var(--vp-c-text-2)">({{ cur.funct3 === 1 ? 'cleared' : 'prior mac_acc' }})</span>
           </div>
           <div class="hw-mono" style="font-size: 11px; color: var(--hw-amber); margin-top: 4px">
             <span style="white-space: nowrap">Raw Sum =</span>{{ ' ' }}<span style="white-space: nowrap">{{ trace.rawSum.toLocaleString() }}</span>
