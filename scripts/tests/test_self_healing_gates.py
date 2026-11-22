@@ -609,6 +609,30 @@ def test_build_review_plan_sharding_ledgers_and_seams(tmp_path: Path) -> None:
     assert any("Exercise 1.1" in t.prompt for t in plan.tasks if "Shard 3" in t.role)
     assert any("<unresolved:MissingWidget.vue>" in w for w in plan.shards[-1].widgets)
     assert any("Diff & Flow Regression Guardian" == t.role for t in plan.tasks)
+    diff_task = next(t for t in plan.tasks if t.role == "Diff & Flow Regression Guardian")
+    assert diff_task.type_name == "research"
+    assert ".cache/review-diff/01_intro.patch" in diff_task.allowed_files
+    assert (tmp_path / ".cache" / "review-diff" / "01_intro.patch").is_file()
+
+
+def test_build_review_plan_diff_patch_generation(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Verify git-backed pre-generated unified diff patch creation and invalid base-ref failure."""
+    chap = _write(tmp_path / "systems" / "demo" / "chapters" / "01_git.md", "# Git\n\nBaseline prose.\n")
+    (tmp_path / ".git").mkdir()
+
+    def _fake_git_diff(cmd: list[str], **_kw: object) -> subprocess.CompletedProcess[str]:
+        """Simulate git diff success for HEAD~1 and error for bad refs."""
+        if "bad-ref" in cmd:
+            return subprocess.CompletedProcess(cmd, 128, "", "fatal: bad revision")
+        return subprocess.CompletedProcess(cmd, 0, "+Updated prose.\n", "")
+
+    monkeypatch.setattr(build_review_plan.subprocess, "run", _fake_git_diff)
+    plan = build_review_plan.build_review_plan(chap, root_dir=tmp_path, base_ref="HEAD~1")
+    patch_file = tmp_path / ".cache" / "review-diff" / "01_git.patch"
+    assert "+Updated prose." in patch_file.read_text(encoding="utf-8")
+    macro_task = next(t for t in plan.tasks if t.role == "Global Macro & Dependency Critic")
+    assert "opening theory" not in macro_task.prompt.lower()
+    assert build_review_plan.main(["--chapter", str(chap), "--base-ref", "bad-ref"]) == 1
 
 
 def test_build_review_plan_edge_cases_and_cli(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

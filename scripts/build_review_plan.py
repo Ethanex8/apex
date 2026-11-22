@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 import sys
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -379,9 +380,9 @@ def _render_macro_task(chapter_rel: str, total_lines: int) -> SubagentTask:
         ISOLATION_PROHIBITION,
         f"1. Read `GEMINI.md`, `docs/CHAPTER_INDEX.md`, and `{rubric_rel}` completely.",
         (
-            f"2. For each subsection in `docs/CHAPTER_INDEX.md`—especially opening theory subsections—"
-            f"read its opening lines in `{chapter_rel}` and verify whether its concepts belong in core "
-            "theory or beside a later motivating subsystem."
+            f"2. For every section and subsection in `docs/CHAPTER_INDEX.md`, read its opening lines in "
+            f"`{chapter_rel}` and verify each topic sits cleanly with its prerequisite representations "
+            "or first motivating subsystem rather than floating detached."
         ),
         (
             "3. Audit base-before-custom layering, end-to-end rigor balance, `#### Exercise` scoping, "
@@ -428,15 +429,54 @@ def _render_visual_task(chapter_rel: str, slug: str, total_lines: int) -> Subage
     )
 
 
-def _render_diff_guardian_task(chapter_rel: str, base_ref: str) -> SubagentTask:
+def _write_diff_patch(
+    resolved_root: Path, chapter_rel: str, slug: str, base_ref: str
+) -> str:
+    """Write unified diff since `base_ref` under `.cache/review-diff/` for read-only audit."""
+    diff_rel = f".cache/review-diff/{slug}.patch"
+    diff_path = resolved_root / diff_rel
+    diff_path.parent.mkdir(parents=True, exist_ok=True)
+    if not (resolved_root / ".git").exists():
+        diff_path.write_text(
+            f"# No .git directory under {resolved_root.name}; base_ref={base_ref}\n",
+            encoding="utf-8",
+        )
+        return diff_rel
+    proc = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(resolved_root),
+            "diff",
+            "-U25",
+            base_ref,
+            "--",
+            chapter_rel,
+            "book/.vitepress/theme/components/",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        raise RuntimeError(f"git diff failed for base_ref '{base_ref}': {proc.stderr.strip()}")
+    body = proc.stdout if proc.stdout else f"# Empty diff against {base_ref} for {chapter_rel}\n"
+    diff_path.write_text(body, encoding="utf-8")
+    return diff_rel
+
+
+def _render_diff_guardian_task(chapter_rel: str, base_ref: str, diff_rel: str) -> SubagentTask:
     """Render the Step 3 before/after flow and boilerplate regression guardian task."""
     rubric_rel = RUBRIC_PATHS["diff_guardian"]
     prompt = "\n".join([
         f"You are `Diff & Flow Regression Guardian` inspecting changes to `{chapter_rel}` since `{base_ref}`.",
-        "ISOLATION RULE: Inspect only the diff (`git diff -U25 <base_ref>`), `GEMINI.md`, and the rubric. "
-        "Do NOT read `/tmp/`, `*triage*`, `*calibration_log*`, `gh`, or session logs.",
+        f"ISOLATION RULE: Inspect only `{diff_rel}`, `GEMINI.md`, `{rubric_rel}`, and `{chapter_rel}`. "
+        "Do NOT read `/tmp/`, `*triage*`, `*calibration_log*`, `git log`, `gh`, or session logs.",
         f"1. Read `GEMINI.md` and `{rubric_rel}` completely.",
-        f"2. Run `git diff -U25 {base_ref} -- {chapter_rel} book/.vitepress/theme/components/`.",
+        (
+            f"2. Read `{diff_rel}` completely "
+            f"(pre-generated via `git diff -U25 {base_ref} -- {chapter_rel} book/.vitepress/theme/components/`)."
+        ),
         (
             "3. Flag any edit that worsens prose flow, introduces prose-math walls, pastes repetitive "
             "rule-compliance boilerplate across items, or creates cross-section forward references."
@@ -447,7 +487,7 @@ def _render_diff_guardian_task(chapter_rel: str, base_ref: str) -> SubagentTask:
         role="Diff & Flow Regression Guardian",
         type_name="research",
         rubric_path=rubric_rel,
-        allowed_files=["GEMINI.md", rubric_rel, chapter_rel],
+        allowed_files=["GEMINI.md", rubric_rel, diff_rel, chapter_rel],
         prompt=prompt,
     )
 
@@ -519,7 +559,8 @@ def build_review_plan(
     tasks.append(_render_macro_task(chapter_rel, total_lines))
     tasks.append(_render_visual_task(chapter_rel, resolved_chap.stem, total_lines))
     if base_ref:
-        tasks.append(_render_diff_guardian_task(chapter_rel, base_ref))
+        diff_rel = _write_diff_patch(resolved_root, chapter_rel, resolved_chap.stem, base_ref)
+        tasks.append(_render_diff_guardian_task(chapter_rel, base_ref, diff_rel))
 
     return ReviewPlan(
         chapter=chapter_rel,
@@ -567,7 +608,7 @@ def main(argv: list[str] | None = None) -> int:
             overlap_lines=args.overlap_lines,
             base_ref=args.base_ref,
         )
-    except FileNotFoundError as exc:
+    except (FileNotFoundError, RuntimeError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
 

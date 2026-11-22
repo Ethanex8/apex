@@ -1,6 +1,6 @@
 # Diff & Flow Regression Guardian Rubric
 
-Inspect strictly the unified `git diff` between pre-fix `base_ref` and current working tree/HEAD (`Step 3` convergence check) to prevent "fix-induced regressions" where literal compliance with a new rule degrades overall readability:
+Inspect strictly the pre-generated unified diff patch between pre-fix `base_ref` and the current tree (`Step 3` convergence check) to prevent "fix-induced regressions" where literal compliance with a new rule degrades overall readability:
 
 ## 1. Prose-Flow & Boilerplate Regressions
 1. **No Flow Degradation vs. Baseline**: Compare every rewritten paragraph side-by-side against its removed `-` lines; flag any `+` revision that reads more stiffly, robotically, or abruptly than the original text.

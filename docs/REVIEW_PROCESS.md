@@ -66,7 +66,7 @@ flowchart TD
 1. Fix the **entire** union of panel, static/visual gate, and $U_{\text{agreed}}$ findings across source code, tests, Vue widgets, CSS, and chapter prose.
 2. Append the retrospective root-cause entry to `.agents/skills/<skill>/references/calibration_log.md` and sync via `save_skill`.
 3. Re-run `check_code.py`, `pytest --cov-fail-under=95`, `sync_book.py --check`, `check_book.py`, `build.py --check`, `BOOK_BASE=/apex/ npm --prefix book run build`, and `check_visuals.py --screenshot-dir .cache/visual-audit`.
-4. Generate the regression-guarded manifest (`python3 scripts/build_review_plan.py --chapter <path> --base-ref <untouched_head_sha>`) and run fresh isolated clean-room subagents across every shard, `Global Structure & Visual Critic`, and the `Diff & Flow Regression Guardian` (`rubric_diff_guardian.md`) until all checks return **zero P0/P1/P2 defects**.
+4. Generate the regression-guarded manifest (`python3 scripts/build_review_plan.py --chapter <path> --base-ref <untouched_head_sha>`) and run fresh isolated clean-room `research` subagents across every shard, `Global Macro & Dependency Critic`, `Visual Pedagogy Critic`, and the `Diff & Flow Regression Guardian` (`rubric_diff_guardian.md`) until all checks return **zero P0/P1/P2 defects**.
 
 ### Step 4: Fast-Forward PR Update, Thread Resolution, and `LGTM` Close-Out
 1. Commit and push fast-forward updates to `main` and the open **Ready for Review** PR branch without closing prematurely or force-pushing reviewed commits.

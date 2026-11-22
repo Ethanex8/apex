@@ -34,7 +34,7 @@
   - Focus motivating sentences on one primary reason (unpacking caveats or uniqueness proofs in separate sentences), promote dense or in-paragraph algebra to compact aligned display blocks, match intro prose to the symbols below, and check every causal connective (*because*, *consequently*, *therefore*, *thus*) by strict entailment.
 - **Logical Macro/Micro Ordering & Base-Before-Extension Layering**:
   - Establish intrinsic properties of each representation or model (range, uniqueness, wrap behavior) where it is introduced, co-locate specialized helpers with their motivating subsystem, and complete base architectures before custom extensions.
-  - Keep opening theory sections lean and scoped strictly to universal invariants needed across the chapter; defer operation- or instruction-motivated mechanics to the downstream hardware or subsystem sections that first introduce and consume them.
+  - Scope every theory and subsystem section strictly to concepts needed immediately; co-locate operation- or instruction-motivated mechanics with the downstream section that first introduces and consumes them.
   - Order sequential items from simplest/most fundamental direct properties to derived implementation techniques.
   - Start a fresh paragraph when transitioning from intuition and concrete examples into a formal theorem or derivation.
   - Never braid two separate mechanisms or theorems inside one paragraph or numbered item—introduce each operation with plain-English intuition and its own motivating example before formal edge cases or equations.

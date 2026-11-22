@@ -3,7 +3,7 @@
 Audit whole-chapter macro architecture, section line-share balance, and consumer-driven placement using `docs/CHAPTER_INDEX.md` alongside subsection opening bridges:
 
 ## 1. Macro Layering & Core-vs-Application Scoping
-1. **Lean Core Theory vs. Co-Located Mechanics**: For each subsection inside an opening theory section, check `docs/CHAPTER_INDEX.md` and read its opening lines; flag any subsection teaching operation variants or implementation mechanics not needed by subsequent core theory and first exercised inside a later subsystem section.
+1. **Consumer-Driven Section Placement**: Across every section in `docs/CHAPTER_INDEX.md`, check section line shares and first-consumer columns; flag any subsection teaching specialized variants or implementation mechanics unused by adjacent sections and first exercised only much later instead of beside its motivating subsystem.
 2. **Unintroduced Opening Motivations**: Flag any subsection whose opening paragraph justifies itself using hardware tasks, data structures, or system mechanisms not yet introduced at that point in the chapter.
 3. **Base-Before-Custom Progression**: Verify core standard architectures complete end-to-end before custom domain extensions or project-specific accelerators.
 
