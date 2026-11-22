@@ -3,10 +3,10 @@
 Read primary shard lines strictly from top to bottom assuming only general programming (`if`/`else`, loops, arrays, functions, structs, byte buffers) and undergraduate math/physics. Check every bullet below against the **Prior-Section Ledger**, **previous overlap lines**, and exact widget/slice insertion points:
 
 ## 1. Layering & Forward References
-1. **Zero Forward References**: Flag any symbol, operator (`&`, `|`, `^`, `<<`, `>>`), mnemonic, helper function, or theorem used before it is defined in the Prior-Section Ledger, overlap lines, or earlier in this shard.
-2. **Widget & Slice Insertion Audit**: Inspect every `.vue` widget (`<Tag />`) and `<<<` code slice *at its exact Markdown insertion line* and flag any preset, formula, label, helper, or idiom not yet introduced above that line.
+1. **Zero Forward References**: Flag any symbol, operator (`&`, `|`, `^`, `<<`, `>>`), math function, mnemonic, helper, or theorem used—including inside exercise prompts or solutions—before it is defined in the Prior-Section Ledger, overlap lines, or earlier prose.
+2. **Widget, Metaphor & Code-Slice Insertion Audit**: Inspect every `.vue` widget and `<<<` code slice *at its exact insertion line*: flag premature symbols/formulas, non-obvious code tricks shown *before* prose derives them, and core visual metaphors left unillustrated until a much later figure.
 3. **Concept & Mechanic Placement**: Using `docs/CHAPTER_INDEX.md`, verify no subsection motivates itself with unintroduced downstream concepts, and verify specialized mechanics sit beside their first consuming subsystem rather than in an unrelated earlier section.
-4. **Abstraction Boundaries**: Flag pre-hardware architectural descriptions that leak unbuilt lower-layer hardware ports, control pins, internal signals, or physical implementation tricks.
+4. **Abstraction Boundaries**: Flag contract-level descriptions that leak unintroduced lower-layer ports, control pins, internal signals, or unmotivated microarchitectural circuit implementations (specific datapath topologies, stage counts, or cycle counts) before hardware-implementation chapters.
 5. **No Specialist Analogies or Premature Constants**: Flag analogies from niche software specialties (databases, distributed consensus, kernel paging, managed runtimes) or project-specific clock/sizing constants inside general conceptual explanations.
 
 ## 2. Intuition, Flow & Reader Empathy
@@ -16,6 +16,6 @@ Read primary shard lines strictly from top to bottom assuming only general progr
 9. **Zero Prose-Math Walls or Boilerplate**: Flag consecutive prose sentences crammed with dense symbolic clauses, forward section catalogs, or repetitive cross-section boilerplate (`Section X's ... corollary`, repeated per-item uniqueness restatements).
 10. **Mechanism-First Acronyms & Code-Only Backticks**: Flag detached term definitions (`— ... (**Acronym**)`), 3+ stacked new acronyms in one sentence, backticks on English acronyms/proper nouns/prose numbers, and boldface over 6 words.
 
-## 3. Inline Drill Scoping
-11. **Math/Encoding/Bound Drills Only**: Flag mathematical, encoding, or bound-derivation subsections missing a `6–8` part inline `#### Exercise <S.K>: <Title>` drill, while leaving pure hardware-interface subsections clean.
+## 3. Inline Drill Scoping & Interactive UX
+11. **High-Signal Selective Drills & Per-Item Reveals**: Flag repetitive routine arithmetic drills for straightforward operations already shown in widgets/`## <N>. Problems`, missing symbolic algebraic manipulation practice where algebra underpins proofs, or monolithic bottom-only solution blocks instead of per-question/sub-part collapsible reveals.
 12. **Hardware Polymorphism Callouts**: Flag dual-interpretation proofs that pass silently over why shared algebra eliminates duplicate hardware, mode bits, or extra multiplexers.

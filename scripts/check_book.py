@@ -46,7 +46,7 @@ MAX_ASCII_FENCE_COLS = 80
 MAX_CODE_FENCE_COLS = 100
 MAX_SKILL_LINES = 120
 MAX_RUBRIC_LINES = 100
-MAX_SKILL_BULLET_WORDS = 65
+MAX_SKILL_BULLET_WORDS = 50
 SKILL_BULLET_RE = re.compile(r"^\s*(?:[-*+]|\d+\.)\s+(.*)$")
 MAX_CHAPTER_TITLE_WORDS = 6
 MAX_SECTION_HEADING_WORDS = 8
@@ -88,6 +88,9 @@ H1_HEADING_RE = re.compile(r"^#\s+(.+)$")
 HEADING_RE = re.compile(r"^(#{2,4})\s+(.+)$")
 PRACTICE_HEADING_RE = re.compile(r"\b(?:Exercises?|Problems?)(?:\s+\d+(?:\.\d+)?)?\b", re.IGNORECASE)
 EXERCISE_PREFIX_RE = re.compile(r"^(?:Exercise|Problem)\s+\d+(?:\.\d+)?:\s*(.+)$", re.IGNORECASE)
+H4_EXERCISE_RE = re.compile(r"^####\s+(Exercise\s+\d+(?:\.\d+)?:\s*.+)$", re.IGNORECASE)
+EX_QUESTION_RE = re.compile(r"^\d+\.\s+")
+EX_SUBPART_RE = re.compile(r"^\s*(?:[-*+]\s+)?(?:\*\*)?\([a-z]\)(?:\*\*)?\s+")
 SECTION_NUM_PREFIX_RE = re.compile(r"^\d+(?:\.\d+)*\.?\s+")
 CHAPTER_PREFIX_RE = re.compile(r"^Chapter\s+\d+:\s*", re.IGNORECASE)
 CHAPTER_BANNER_NOISE_RE = re.compile(
@@ -769,6 +772,68 @@ def _validate_prose_line(
     _check_semantic_line_breaks(raw_line, idx, rel_chap, allow_multi, errors)
 
 
+def _flush_exercise_reveal_check(
+    ex_info: tuple[int, str] | None,
+    prompt_count: int,
+    details_count: int,
+    rel_chap: Path,
+    errors: list[str],
+) -> None:
+    """Emit an error if an Exercise block uses fewer `<details>` reveals than questions/sub-parts."""
+    if ex_info is not None and prompt_count >= 2 and details_count < prompt_count:
+        ex_line, ex_title = ex_info
+        _append_unique(
+            errors,
+            f"[{rel_chap}:{ex_line}] Exercise '{ex_title}' has {prompt_count} question/sub-part(s) "
+            f"but only {details_count} '<details>' reveal(s); embed a collapsible solution beneath "
+            f"each question or sub-part",
+        )
+
+
+def _validate_exercise_solutions(lines: list[str], rel_chap: Path, errors: list[str]) -> None:
+    """Require per-question/per-subpart `<details>` reveals inside every `#### Exercise` block."""
+    active_fence: str | None = None
+    in_details = False
+    cur_ex: tuple[int, str] | None = None
+    prompts = 0
+    subparts_in_cur_q = 0
+    details = 0
+
+    for idx, raw_line in enumerate(lines, start=1):
+        stripped = raw_line.strip()
+        active_fence, toggled = update_fence_state(stripped, active_fence)
+        if toggled or active_fence is not None:
+            continue
+        if cur_ex is not None and (stripped == "---" or HEADING_RE.match(stripped)):
+            _flush_exercise_reveal_check(cur_ex, prompts, details, rel_chap, errors)
+            cur_ex, prompts, subparts_in_cur_q, details, in_details = None, 0, 0, 0, False
+        if em := H4_EXERCISE_RE.match(stripped):
+            cur_ex, prompts, subparts_in_cur_q, details, in_details = (idx, em.group(1)), 0, 0, 0, False
+            continue
+        if cur_ex is None:
+            continue
+        lower = stripped.lower()
+        if "<details" in lower:
+            details += 1
+            if "</details>" not in lower:
+                in_details = True
+            continue
+        if "</details>" in lower:
+            in_details = False
+            continue
+        if in_details:
+            continue
+        if EX_QUESTION_RE.match(raw_line):
+            prompts += 1
+            subparts_in_cur_q = 0
+        elif EX_SUBPART_RE.match(raw_line):
+            subparts_in_cur_q += 1
+            if subparts_in_cur_q > 1:
+                prompts += 1
+
+    _flush_exercise_reveal_check(cur_ex, prompts, details, rel_chap, errors)
+
+
 def _validate_single_chapter(
     chap_path: Path, root_dir: Path, file_cache: dict[Path, list[str]], errors: list[str]
 ) -> int:
@@ -776,9 +841,10 @@ def _validate_single_chapter(
     resolved_chap, resolved_root = chap_path.resolve(), root_dir.resolve()
     rel_chap = resolved_chap.relative_to(resolved_root)
     orig_text = _load_checked_chapter_text(resolved_chap, resolved_root, rel_chap, errors)
+    lines = orig_text.splitlines()
     state = _ChapterScanState()
 
-    for idx, raw_line in enumerate(orig_text.splitlines(), start=1):
+    for idx, raw_line in enumerate(lines, start=1):
         stripped = raw_line.strip()
         prev_fence = state.active_fence
         state.active_fence, toggled = update_fence_state(stripped, state.active_fence)
@@ -841,6 +907,7 @@ def _validate_single_chapter(
         _append_unique(errors, f"[{rel_chap}] Unclosed fenced code block at end of file")
     if state.in_math:
         _append_unique(errors, f"[{rel_chap}] Unclosed '$$' math block at end of file")
+    _validate_exercise_solutions(lines, rel_chap, errors)
     return state.anchor_count
 
 

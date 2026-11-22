@@ -13,7 +13,7 @@ Execute this skill whenever user feedback arrives on an open PR or in chat durin
    python3 scripts/harvest_feedback.py --pr <N> --out /tmp/apex-feedback/pr-<N>.json
    ```
 2. Audit each human comment (`U1..Uk`) against exact text/code: mark `AGREE`, `CLARIFY`, or respectful `PUSHBACK` when a reading may be mistaken (the human reviewer holds the final call).
-3. Draft proposed edits to `.agents/skills/*/SKILL.md`, `references/rubric_*.md`, `GEMINI.md`, or `scripts/check_*.py` strictly as **universal, content-agnostic rules**—never referencing chapter symbols, formulas, hex values, widget names, or line numbers.
+3. Draft proposed edits to `.agents/skills/*/SKILL.md`, `references/rubric_*.md`, `GEMINI.md`, or `scripts/check_*.py` strictly as **universal, content-agnostic rules**—never referencing chapter symbols, formulas, hex values, widget names, or line numbers; avoid rigid mechanical quotas (`every subsection`, fixed item counts) and replace superseded wording cleanly instead of stacking conflicting rules.
 4. Publish triage and proposed persona/gate diffs in `pr_<N>_step1_triage.md` (`UserFacing: true`, `RequestFeedback: true`) and **STOP** until Gate 1 settles `U_agreed` and approves the non-cheating rules. Immediately delete `/tmp/apex-feedback/pr-<N>.json` once Gate 1 signs off so no feedback JSON remains on disk during Step 2.
 
 ---

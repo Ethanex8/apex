@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import builtins
 import json
+import os
 import subprocess
 import sys
 import urllib.request
@@ -271,6 +272,42 @@ def test_check_book_coordinate_prose_wall_and_table_exemption(tmp_path: Path) ->
         "| B-type | Bit 12 at Bit 31, Bits 10..5 in Bits 30..25, Bits 4..1 in Bits 11..8, Bit 11 at Bit 7 |\n"
         "<!-- book-gate: allow-enumerative-prose (explicit prose walk-through fixture) -->\n"
         "Explicitly, Bit 12 at Bit 31, Bits 10..5 in Bits 30..25, Bits 4..1 in Bits 11..8, and Bit 11 at Bit 7.\n",
+        encoding="utf-8",
+    )
+    assert check_book.validate_chapters(tmp_path).errors == []
+
+
+def test_check_book_per_question_exercise_reveals(tmp_path: Path) -> None:
+    """Verify check_book rejects monolithic bottom solution dumps and requires per-question/subpart reveals."""
+    chap = _write(
+        tmp_path / "systems" / "demo" / "chapters" / "01.md",
+        "# Modular Arithmetic\n\nEvery register wraps cleanly.\n\n"
+        "## 1. Core Rings\n\nRings wrap around a fixed modulus.\n\n"
+        "#### Exercise 1.1: Monolithic Dump\n\n"
+        "Practice ring wrapping.\n\n"
+        "1. First prompt.\n"
+        "2. Second prompt.\n"
+        "   - **(a)** Sub-part one.\n"
+        "   - **(b)** Sub-part two.\n\n"
+        "<details><summary>Solution</summary>\n\n1. One.\n2. Two.\n\n</details>\n\n"
+        "---\n\n"
+        "## 2. Next Section\n\nNext prose line.\n",
+    )
+    errs = "\n".join(check_book.validate_chapters(tmp_path).errors)
+    assert "Exercise 'Exercise 1.1: Monolithic Dump' has 3 question/sub-part(s) but only 1 '<details>' reveal(s)" in errs
+
+    chap.write_text(
+        "# Modular Arithmetic\n\nEvery register wraps cleanly.\n\n"
+        "## 1. Core Rings\n\nRings wrap around a fixed modulus.\n\n"
+        "#### Exercise 1.1: Inline Reveals\n\n"
+        "Practice ring wrapping.\n\n"
+        "1. First prompt.\n"
+        "   <details><summary>Solution</summary>One.</details>\n"
+        "2. Second prompt.\n"
+        "   - **(a)** Sub-part one.\n"
+        "     <details><summary>Solution</summary>Two A.</details>\n"
+        "   - **(b)** Sub-part two.\n"
+        "     <details><summary>Solution</summary>Two B.</details>\n",
         encoding="utf-8",
     )
     assert check_book.validate_chapters(tmp_path).errors == []
@@ -632,6 +669,19 @@ def test_build_review_plan_diff_patch_generation(tmp_path: Path, monkeypatch: py
     assert "+Updated prose." in patch_file.read_text(encoding="utf-8")
     macro_task = next(t for t in plan.tasks if t.role == "Global Macro & Dependency Critic")
     assert "opening theory" not in macro_task.prompt.lower()
+    vis_task = next(t for t in plan.tasks if t.role == "Visual Pedagogy Critic")
+    assert ".cache/visual-audit/demo__01_git/" in vis_task.prompt
+    assert "MISSING" in vis_task.prompt
+    shot_dir = _write(tmp_path / ".cache" / "visual-audit" / "demo__01_git" / "widget_0.png", "png").parent
+    _write(tmp_path / "book" / ".vitepress" / "theme" / "custom.css", "body{}")
+    old_t = shot_dir.joinpath("widget_0.png").stat().st_mtime - 50
+    os.utime(tmp_path / "book" / ".vitepress" / "theme" / "custom.css", (old_t, old_t))
+    os.utime(chap, (old_t, old_t))
+    fresh_plan = build_review_plan.build_review_plan(chap, root_dir=tmp_path)
+    assert "FRESH (1 PNGs)" in next(t for t in fresh_plan.tasks if t.role == "Visual Pedagogy Critic").prompt
+    os.utime(chap, (old_t + 100, old_t + 100))
+    stale_plan = build_review_plan.build_review_plan(chap, root_dir=tmp_path)
+    assert "STALE" in next(t for t in stale_plan.tasks if t.role == "Visual Pedagogy Critic").prompt
     assert build_review_plan.main(["--chapter", str(chap), "--base-ref", "bad-ref"]) == 1
 
 
@@ -661,7 +711,7 @@ def test_build_review_plan_edge_cases_and_cli(tmp_path: Path, capsys: pytest.Cap
 
 
 def test_check_book_skill_bullet_and_leak_gates(tmp_path: Path) -> None:
-    """Verify check_book rejects calibration_log frontmatter exposure, >65-word bullets, and >100-line rubrics."""
+    """Verify check_book rejects calibration_log frontmatter exposure, >50-word bullets, and >100-line rubrics."""
     long_bullet = "- " + " ".join(f"word{i}" for i in range(70))
     _write(
         tmp_path / ".agents" / "skills" / "demo-skill" / "SKILL.md",

@@ -236,6 +236,15 @@ mjx-container:not([display='true']) {
   background: var(--vp-c-bg-soft);
 }
 
+.vp-doc :is(ol, ul) details {
+  margin: 0.45rem 0 0.75rem 0;
+  padding: 0.45rem 0.85rem;
+}
+
+.vp-doc :is(ol, ul) details > p:last-child {
+  margin-bottom: 0;
+}
+
 .vp-doc details summary {
   cursor: pointer;
   font-weight: 600;

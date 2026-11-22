@@ -2,6 +2,7 @@ import DefaultTheme from 'vitepress/theme'
 import type { Theme } from 'vitepress'
 import Layout from './Layout.vue'
 import MermaidDiagram from './MermaidDiagram.vue'
+import UnsignedClockRing from './components/brain01/UnsignedClockRing.vue'
 import ModularRingAdder from './components/brain01/ModularRingAdder.vue'
 import SignExtensionWidener from './components/brain01/SignExtensionWidener.vue'
 import RightShiftComparator from './components/brain01/RightShiftComparator.vue'
@@ -18,6 +19,7 @@ export default {
   Layout,
   enhanceApp({ app }) {
     app.component('MermaidDiagram', MermaidDiagram)
+    app.component('UnsignedClockRing', UnsignedClockRing)
     app.component('ModularRingAdder', ModularRingAdder)
     app.component('SignExtensionWidener', SignExtensionWidener)
     app.component('RightShiftComparator', RightShiftComparator)

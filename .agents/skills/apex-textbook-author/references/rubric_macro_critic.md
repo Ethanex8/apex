@@ -9,5 +9,5 @@ Audit whole-chapter macro architecture, section line-share balance, and consumer
 
 ## 2. Rigor Balance & Assessment Coverage
 4. **End-to-End Quantitative Balance**: Check `docs/CHAPTER_INDEX.md` to confirm later system, peripheral, trap, and verification sections derive explicit bounds or invariants rather than flattening into API narration.
-5. **Exercise vs. Problem Completeness**: Verify `6–8` part inline `#### Exercise <S.K>` drills appear on all mathematical/encoding/bound subsections, and closing `## <N>. Problems` directly exercises every core and system section promised.
+5. **High-Signal Drill vs. Problem Scoping**: Flag repetitive routine arithmetic `#### Exercise` drills on straightforward operations already explored by widgets/`## <N>. Problems`, check that algebra-heavy chapters include symbolic algebraic manipulation practice, and confirm `## <N>. Problems` covers every promised system section.
 6. **Heading Conciseness & Alignment**: Check every H1 (`<= 6` words) and `##`/`###` (`<= 8` words, no colons/`&`/backticks outside `Exercise`/`Problem` labels) aligns strictly with its subsection contents.

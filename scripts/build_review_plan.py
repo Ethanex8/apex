@@ -399,15 +399,44 @@ def _render_macro_task(chapter_rel: str, total_lines: int) -> SubagentTask:
     )
 
 
-def _render_visual_task(chapter_rel: str, slug: str, total_lines: int) -> SubagentTask:
+def _resolve_visual_slug(resolved_chap: Path) -> str:
+    """Resolve `check_visuals.py`'s `<system>__<stem>` screenshot subdirectory name."""
+    if resolved_chap.parent.name == "chapters" and resolved_chap.parent.parent.name:
+        return f"{resolved_chap.parent.parent.name}__{resolved_chap.stem}"
+    return resolved_chap.stem
+
+
+def _visual_cache_status(
+    resolved_root: Path, resolved_chap: Path, visual_slug: str
+) -> str:
+    """Return freshness status for screenshots under `.cache/visual-audit/<visual_slug>/`."""
+    shot_dir = resolved_root / ".cache" / "visual-audit" / visual_slug
+    pngs = sorted(shot_dir.glob("*.png")) if shot_dir.is_dir() else []
+    if not pngs:
+        return "MISSING (run `check_visuals.py` before relying on PNGs)"
+    latest_png = max(p.stat().st_mtime for p in pngs)
+    comp_dir = resolved_root / "book" / ".vitepress" / "theme" / "components"
+    sources = [resolved_chap, *(comp_dir.rglob("*.vue") if comp_dir.is_dir() else [])]
+    css_file = resolved_root / "book" / ".vitepress" / "theme" / "custom.css"
+    if css_file.is_file():
+        sources.append(css_file)
+    if sources and max(s.stat().st_mtime for s in sources) > latest_png:
+        return "STALE (chapter/widgets modified after PNG capture; re-run `check_visuals.py`)"
+    return f"FRESH ({len(pngs)} PNGs)"
+
+
+def _render_visual_task(
+    chapter_rel: str, visual_slug: str, cache_status: str, total_lines: int
+) -> SubagentTask:
     """Render the visual pedagogy, widget surface, CSS, and MathJax audit task."""
     rubric_rel = RUBRIC_PATHS["visual_critic"]
+    shot_rel = f".cache/visual-audit/{visual_slug}/"
     allowed = [
         "GEMINI.md",
         rubric_rel,
         chapter_rel,
         "book/.vitepress/theme/custom.css",
-        f".cache/visual-audit/{slug}/",
+        shot_rel,
     ]
     prompt = "\n".join([
         f"You are `Visual Pedagogy Critic` auditing `{chapter_rel}` (`1..{total_lines}`).",
@@ -417,7 +446,7 @@ def _render_visual_task(chapter_rel: str, slug: str, total_lines: int) -> Subage
             f"2. Inspect `.vue` widgets at their exact Markdown insertion lines in `{chapter_rel}` "
             "plus `book/.vitepress/theme/custom.css`."
         ),
-        f"3. Inspect desktop/mobile screenshots in `.cache/visual-audit/{slug}/` using `{rubric_rel}`.",
+        f"3. Inspect desktop/mobile screenshots in `{shot_rel}` [Status: {cache_status}] using `{rubric_rel}`.",
         "4. Report P0/P1/P2 defects with exact lines or screenshots, or output `ZERO P0/P1/P2 DEFECTS FOUND`.",
     ])
     return SubagentTask(
@@ -557,7 +586,9 @@ def build_review_plan(
         )
 
     tasks.append(_render_macro_task(chapter_rel, total_lines))
-    tasks.append(_render_visual_task(chapter_rel, resolved_chap.stem, total_lines))
+    visual_slug = _resolve_visual_slug(resolved_chap)
+    cache_status = _visual_cache_status(resolved_root, resolved_chap, visual_slug)
+    tasks.append(_render_visual_task(chapter_rel, visual_slug, cache_status, total_lines))
     if base_ref:
         diff_rel = _write_diff_patch(resolved_root, chapter_rel, resolved_chap.stem, base_ref)
         tasks.append(_render_diff_guardian_task(chapter_rel, base_ref, diff_rel))

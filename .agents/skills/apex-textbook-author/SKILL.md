@@ -30,14 +30,14 @@ We write a **publication-grade systems engineering textbook** (*Harris & Harris*
 1. Inventory every constant, helper, public state field, normal path, and error path across the step's source and test files.
 2. **Layering, Intrinsic Properties & Abstraction Boundaries**:
    - Complete core architectures before custom extensions; establish intrinsic representation properties (range, uniqueness, wrap) where introduced; defer operation-motivated derivations to the downstream subsystem/instruction sections that consume them; never inject project constants into general principles or cite unbuilt tools.
-   - Keep higher-layer descriptions strictly at their contract—never leak unintroduced lower-layer ports, control pins, or circuit sub-mechanisms.
+   - Keep higher-layer descriptions strictly at their observable contract—never leak unintroduced lower-layer ports, control pins, or unmotivated microarchitectural circuit topologies/cycle counts.
    - Open comparative sections with a direct plain-English takeaway and justify choices honestly without unmotivated claims about avoiding standard constructs (`if`/`else`).
    - Keep `###` subsections aligned to headings, unbraid distinct mechanisms into separate items/subsections, order simplest direct consequences before implementation tricks, and open new operations with plain-English intuition before corner cases.
 3. **Concise Headings & Calm Bridges**:
    - Keep H1 (`<= 6` words) and `##`/`###` (`<= 8` words) crisp without `:`, `&`, parentheticals, or backticks, opening each section with a calm 2–4 sentence conceptual bridge.
 4. **Upfront Visuals, Exact Insertion Audits & Focused Transclusions**:
-   - Replace raw ASCII fences with single-concept `.vue` widgets before dense formalism or compact vertical Mermaid (`flowchart TD`), auditing each widget at its exact insertion line for zero forward symbols.
-   - Keep `<!-- book-sync: <spec> -->` + `<<<` slices `<= 25` lines and anchor every code/test link (`#L<start>-L<end>`).
+   - Replace raw ASCII fences with single-concept `.vue` widgets right where geometric metaphors first appear (zero meta-pedagogical filler badges) or compact vertical Mermaid (`flowchart TD`), auditing each widget at its exact insertion line for zero forward symbols.
+   - Derive non-obvious bit-manipulation or algorithmic formulas **before** transcluding their code snippet; keep `<!-- book-sync: <spec> -->` + `<<<` slices `<= 25` lines and anchor every code/test link (`#L<start>-L<end>`).
 
 ### Pass 2: Uncompressed Multi-Chunk Drafting
 1. Draft sequentially with **one sentence per Markdown line** (no `<br>`), starting a fresh paragraph before pivoting from intuition/examples into formal proofs.
@@ -47,7 +47,7 @@ We write a **publication-grade systems engineering textbook** (*Harris & Harris*
 3. **Step-by-Step Math, Sound Logic & Prose Hygiene**:
    - Refresh prerequisite identities with examples before use, prove rounding directions cleanly, keep motivating sentences single-purpose, and state shared bridges once before parallel lists without prose-math walls, `"Next we prove..."` boilerplate, or forward catalogs.
    - Open proofs with 1–2 plain, low-symbol sentences giving intuitive meaning; pair reusable theorems with operational usage intuition (safe substitutions vs. broken preconditions/inverses).
-   - Add `6–8` part `#### Exercise <S.K>: <Title>` drills with terse algebraic solutions after **math, encoding, and bound-proof subsections**; omit drills on pure hardware-interface subsections.
+   - Place inline `#### Exercise <S.K>: <Title>` drills **selectively** only for genuinely new, error-prone math or **symbolic algebraic manipulation** (using fresh inputs distinct from prose examples, widgets, and `Problems`), embedding a compact collapsible terse solution right below each question/sub-part using strictly introduced notation.
    - Promote multi-step or in-paragraph algebra into compact aligned blocks (`<= 624 px`), keep equation intros faithful to displayed symbols below, enforce strict causal entailment, spotlight hardware-polymorphism wins, and state theorem purposes before preconditions without commenting on unseen sub-terms.
 4. **Responsive Widgets & Math Hygiene**: Isolate `.hw-widget` from `.book-serif-mode`, keep inline MathJax `display: inline; overflow: visible`, label `Bits hi..lo`, escape `\$`, and avoid prose `~` or bare line numbers.
 
