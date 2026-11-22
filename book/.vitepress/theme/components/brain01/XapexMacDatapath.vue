@@ -29,7 +29,7 @@ const presets: MacPreset[] = [
     a1: -20,
     b0: 5,
     b1: 6,
-    explain: 'Dual 16-bit multiplier lanes compute (10×5) + (-20×6) = -70 in one cycle and add onto preloaded bias +1000 → +930.',
+    explain: 'Dual 16-bit multiplier lanes compute (10×5) + (-20×6) = -70 in one instruction and add onto preloaded bias +1000 → +930.',
   },
   {
     label: '2. Discard rd = x0 (mac.clr)',

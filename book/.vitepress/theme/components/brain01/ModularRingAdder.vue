@@ -7,7 +7,7 @@ const bBits = ref<number>(0b0011) // 3 unsigned, +3 signed
 const presets = [
   { label: '-5 + (+3) = -2', a: 0b1011, b: 0b0011 },
   { label: '+7 + (+2) wraps to -7', a: 0b0111, b: 0b0010 },
-  { label: '-1 + (+1) wraps to 0', a: 0b1111, b: 0b0001 },
+  { label: '-1 + (+1) = 0 (unsigned wrap)', a: 0b1111, b: 0b0001 },
   { label: '-4 + (-4) = -8', a: 0b1100, b: 0b1100 },
 ]
 
@@ -74,8 +74,8 @@ const wheelSlots = computed(() => {
   <div class="hw-widget">
     <div class="hw-widget-header">
       <div class="hw-widget-title">
-        <span class="hw-badge">Intuition Builder</span>
-        <span>4-Bit Modular Ring (Clock-Face Addition)</span>
+        <span class="hw-badge">Two's Complement Ring</span>
+        <span>4-Bit Shared Addition Clock</span>
       </div>
       <div style="display: flex; gap: 6px; flex-wrap: wrap">
         <button
@@ -94,8 +94,8 @@ const wheelSlots = computed(() => {
     <p style="margin: 0 0 12px 0; color: var(--vp-c-text-2); font-size: 13.5px">
       Think of a 4-bit register like a 16-slot clock face (<code>0000</code> at 12 o'clock). Notice that
       <strong>Bit 3</strong> carries weight <code>+8</code> in unsigned reading (<code>0..15</code>) and
-      <code>-8</code> in two's-complement signed reading (<code>-8..+7</code>), yet stepping clockwise around the ring
-      computes both sums with the exact same binary adder.
+      <code>-8</code> in two's-complement signed reading (<code>-8..+7</code>), yet stepping clockwise by
+      Input B's unsigned count (<code>0..15</code>) computes both sums with the exact same binary adder.
     </p>
 
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; align-items: center">
@@ -109,10 +109,10 @@ const wheelSlots = computed(() => {
               type="button"
               class="hw-btn hw-mono"
               :class="{ active: ((aU4 >> bit) & 1) === 1 }"
-              style="flex: 1; padding: 5px 4px"
+              style="flex: 1; padding: 5px 4px; display: flex; flex-direction: column; justify-content: space-between; align-items: center"
               @click="toggleBit4('a', bit)"
             >
-              <div style="font-size: 10px; opacity: 0.8">
+              <div style="font-size: 10px; opacity: 0.8; min-height: 24px; display: flex; align-items: center">
                 b{{ bit }} ({{ bit === 3 ? '-8/+8' : `+${1 << bit}` }})
               </div>
               <div style="font-size: 15px; font-weight: 700">{{ (aU4 >> bit) & 1 }}</div>
@@ -136,10 +136,10 @@ const wheelSlots = computed(() => {
               type="button"
               class="hw-btn hw-mono"
               :class="{ active: ((bU4 >> bit) & 1) === 1 }"
-              style="flex: 1; padding: 5px 4px"
+              style="flex: 1; padding: 5px 4px; display: flex; flex-direction: column; justify-content: space-between; align-items: center"
               @click="toggleBit4('b', bit)"
             >
-              <div style="font-size: 10px; opacity: 0.8">
+              <div style="font-size: 10px; opacity: 0.8; min-height: 24px; display: flex; align-items: center">
                 b{{ bit }} ({{ bit === 3 ? '-8/+8' : `+${1 << bit}` }})
               </div>
               <div style="font-size: 15px; font-weight: 700">{{ (bU4 >> bit) & 1 }}</div>
