@@ -146,7 +146,7 @@ In practice, this theorem lets you treat $\equiv \pmod{m}$ as a drop-in substitu
 Build fluency with symbolic congruence identities, integer-division pitfalls, cancellation boundaries, and modulus-scaling preconditions.
 
 1. Let $a \equiv a' \pmod{m}$ for integers $a, a'$ and modulus $m > 0$.
-   - **(a)** Prove symbolically that $(a + mk)^2 \equiv (a')^2 \pmod{m}$ holds for every integer $k \in \mathbb{Z}$.
+   - **(a)** Prove symbolically that $(a + mk)^2 \equiv (a')^2 \pmod{m}$ holds for every integer $k \in \mathbb{Z}$ (taking $k = 0$ shows squaring preserves congruence: $a^2 \equiv (a')^2 \pmod{m}$).
 
      <details><summary>Solution</summary>
 
@@ -154,7 +154,7 @@ Build fluency with symbolic congruence identities, integer-division pitfalls, ca
 
      </details>
 
-   - **(b)** Construct a concrete modulus $m > 1$ and integers $x, y$ where $x^2 \equiv y^2 \pmod{m}$ holds even though $x \not\equiv y \pmod{m}$ (showing the converse fails).
+   - **(b)** Construct a concrete modulus $m > 1$ and integers $x, y$ where $x^2 \equiv y^2 \pmod{m}$ holds even though $x \not\equiv y \pmod{m}$ (showing the converse of squaring preservation fails).
 
      <details><summary>Solution</summary>
 
@@ -601,7 +601,8 @@ In [`oracle.py`](../sim/oracle.py), [`_exec_op_imm`](../sim/oracle.py#L1023-L105
 Across the base operations table below, write `op2_u` for the 32-bit unsigned second operand (`rs2_u` in register-register instructions or `u32(imm)` after sign-extending 12-bit `imm` in register-immediate instructions) and `op2_s` for its signed view (`s32(op2_u)`).
 Because architectural registers `self.regs[rd]` store raw 32-bit unsigned patterns (`0..0xFFFF_FFFF`), outputs wrapped through `u32(...)` capture the exact two's-complement bit pattern whose signed value is `s32(self.regs[rd])` across four base categories:
 - **Modular Addition and Subtraction**: `add`, `addi`, and `sub` compute wrapped 32-bit sums or differences on Section 2's shared adder (`addi` accepts signed constants so `subi` is unnecessary).
-- **Single-Word Bit Shifts**: Because shifting by 32 or more places shifts every original bit off a 32-bit word (producing constant `0`, or `0xFFFF_FFFF` on negative arithmetic right shifts), shifts mask a 5-bit unsigned **shift amount** (`shamt`, 0 to 31) from `rs2_u & 0x1F` or `insn[24..20]`; immediate shifts pack `shamt` inside Bits 24..20 and repurpose Bits 31..25 as `funct7` (unlike other I-type instructions that use Bits 31..25 for the 12-bit immediate), splitting logical (`srl`/`srli`) from arithmetic (`sra`/`srai`) right shifts derived next.
+- **Single-Word Bit Shifts**: Shifting by 32 or more places discards every original bit position of a 32-bit word (producing `0`, or `0xFFFF_FFFF` on negative arithmetic right shifts), so shifts mask a 5-bit unsigned **shift amount** (`shamt`, 0 to 31) via `rs2_u & 0x1F` (so passing 35 evaluates `35 & 31` equal to 3) or read `insn[24..20]`.
+  Immediate shifts place `shamt` inside Bits 24..20 and reserve Bits 31..25 for `funct7` (unlike other I-type instructions that spend Bits 31..25 on the 12-bit immediate), while Python's `>>` zero-fills unsigned `rs1_u` and copies Bit 31 across signed `rs1_s` (derived next).
 - **Boolean Comparisons**: `slt`/`slti` (signed) and `sltu`/`sltiu` (unsigned) compare two 32-bit values and write boolean flag `1` or `0` to `rd` after sign-extending any 12-bit immediate first.
 - **Parallel Bitwise Gates**: `xor`/`xori`, `or`/`ori`, and `and`/`andi` apply Section 2's column-wise boolean gates (`^`, `|`, `&`) across all 32 wires in parallel.
 
