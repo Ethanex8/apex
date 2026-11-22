@@ -588,7 +588,7 @@ In [`oracle.py`](../sim/oracle.py), [`sign_extend`](../sim/oracle.py#L272-L279) 
 
 ## 4. Integer Arithmetic, Multiplication, and Division
 
-Once the decoder slices an instruction word, integer operations flow into an arithmetic and bitwise execution circuit (**Arithmetic Logic Unit**, or ALU) built from **combinational logic**, meaning its output wires settle purely as a function of current inputs with no internal clock memory.
+Once the decoder slices an instruction word, integer operations flow into an arithmetic and bitwise execution circuit (**Arithmetic Logic Unit**, or ALU) built from memoryless logic gates whose output wires settle purely as a function of current inputs (**combinational logic**).
 Before dispatching to the ALU, [`RV32Oracle.step()`](../sim/oracle.py#L1194-L1273) reads and holds both prior source register values (`rs1_u, rs2_u = self.regs[rs1], self.regs[rs2]`) and derives signed views via [`s32`](../sim/oracle.py#L282-L284) (`rs1_s`, `rs2_s`).
 Because source values are captured before writeback, an in-place addition such as `add x3, x3, x3` (adding `x3` to itself) reads the prior `x3` on both inputs and writes double that value back to `x3`.
 
@@ -601,15 +601,17 @@ In [`oracle.py`](../sim/oracle.py), [`_exec_op_imm`](../sim/oracle.py#L1023-L105
 Across the base operations table below, write `op2_u` for the 32-bit unsigned second operand (`rs2_u` in register-register instructions or `u32(imm)` after sign-extending 12-bit `imm` in register-immediate instructions) and `op2_s` for its signed view (`s32(op2_u)`).
 Because architectural registers `self.regs[rd]` store raw 32-bit unsigned patterns (`0..0xFFFF_FFFF`), outputs wrapped through `u32(...)` capture the exact two's-complement bit pattern whose signed value is `s32(self.regs[rd])` across four base categories:
 - **Modular Addition and Subtraction**: `add`, `addi`, and `sub` compute wrapped 32-bit sums or differences on Section 2's shared adder (`addi` accepts signed constants so `subi` is unnecessary).
-- **Single-Word Bit Shifts**: Shifting by 32 or more places discards every original bit position of a 32-bit word (producing `0`, or `0xFFFF_FFFF` on negative arithmetic right shifts), so shifts mask a 5-bit unsigned **shift amount** (`shamt`, 0 to 31) via `rs2_u & 0x1F` (so passing 35 evaluates `35 & 31` equal to 3) or read `insn[24..20]`.
-  Immediate shifts place `shamt` inside Bits 24..20 and reserve Bits 31..25 for `funct7` (unlike other I-type instructions that spend Bits 31..25 on the 12-bit immediate), while Python's `>>` zero-fills unsigned `rs1_u` and copies Bit 31 across signed `rs1_s` (derived next).
-- **Boolean Comparisons**: `slt`/`slti` (signed) and `sltu`/`sltiu` (unsigned) compare two 32-bit values and write boolean flag `1` or `0` to `rd` after sign-extending any 12-bit immediate first.
+- **Single-Word Bit Shifts**: Left and right shifts mask a 5-bit unsigned **shift amount** (`shamt`, 0 to 31) via `rs2_u & 0x1F` (so passing 35 evaluates `35 & 31` equal to 3) or read `insn[24..20]`, because shifting by 32 or more places discards every original bit position (producing `0`, or `0xFFFF_FFFF` when sign-preserving right shifts operate on negative inputs).
+- **Set-Less-Than Comparisons**: Signed comparisons (`slt`, `slti`) and unsigned comparisons (`sltu`, `sltiu`) compare two 32-bit values and write boolean flag `1` or `0` to `rd` after sign-extending any 12-bit immediate first.
 - **Parallel Bitwise Gates**: `xor`/`xori`, `or`/`ori`, and `and`/`andi` apply Section 2's column-wise boolean gates (`^`, `|`, `&`) across all 32 wires in parallel.
+
+In immediate-shift encodings (detailed in the table below), Bits 24..20 hold the 5-bit `shamt` so Bits 31..25 remain free for `funct7`, unlike other I-type instructions that spend Bits 31..25 on the 12-bit immediate.
+In Python's reference formulas below, `rs1_u >> shamt` zero-fills vacated high bits, whereas Python's unbounded `rs1_s >> shamt` performs floor division toward $-\infty$ so truncating it with `u32(...)` replicates Bit 31 across the upper vacated bits (proved in the next subsection).
 
 | Category | Register / Immediate Mnemonic | Selector (`funct3` / `funct7`) | 32-Bit Output Stored in `rd` | Key Hardware Rule |
 | :--- | :--- | :--- | :--- | :--- |
 | **Add / Subtract** | `add`, `addi` / `sub` | 0 / `0x00` (`sub`: `0x20`, R-type) | `u32(rs1_u + op2_u)` / `u32(rs1_u - rs2_u)` | Shared adder; `sub` inverts `rs2_u` and adds 1; negative constants use `addi` |
-| **Shift Left** | `sll`, `slli` | 1 / `0x00` | `u32(rs1_u << shamt)` | Zero-fills low wires; `shamt` is `rs2_u & 0x1F` or `insn[24..20]`; invalid `funct7` traps |
+| **Shift Left Logical** | `sll`, `slli` | 1 / `0x00` | `u32(rs1_u << shamt)` | Zero-fills low wires; `shamt` is `rs2_u & 0x1F` or `insn[24..20]`; invalid `funct7` traps |
 | **Shift Right Logical** | `srl`, `srli` | 5 / `0x00` | `rs1_u >> shamt` | Zero-fills upper wires (unsigned divide by $2^{\texttt{shamt}}$, proved next); invalid `funct7` traps |
 | **Shift Right Arithmetic** | `sra`, `srai` | 5 / `0x20` | `u32(rs1_s >> shamt)` | Copies Bit 31 (signed downward-rounded divide by $2^{\texttt{shamt}}$, proved next); invalid `funct7` traps |
 | **Set Less Than (Signed)** | `slt`, `slti` | 2 / `0x00` (R-type) | `1 if rs1_s < op2_s else 0` | Compares signed views `rs1_s` and `op2_s` |
@@ -640,7 +642,7 @@ The interactive right-shift comparator below lets you test both shift modes acro
 
 <RightShiftComparator />
 
-When $k = 0$, no bits drop and both shifts return $b$ unchanged ($x / 2^0 = \lfloor x / 1 \rfloor$).
+When $k = 0$, no bits drop and both shifts return $b$ unchanged, giving exact division for both interpretations $x \in \{U_N(b), S_N(b)\}$ ($x / 2^0 = \lfloor x / 1 \rfloor$).
 For any shift distance $1 \le k \le N - 1$, sliding wires right by $k$ places discards a non-negative low remainder strictly smaller than $2^k$ while keeping the upper $N - k$ bits intact.
 Write $H$ for that kept upper $(N - k)$-bit slice with bits $H_j = b_{j+k}$ ($0 \le j \le N - k - 1$, top bit $H_{N-k-1} = b_{N-1}$) and $R = \sum_{m=0}^{k-1} b_m 2^m \in [0, 2^k - 1]$ for the discarded lower $k$ bits.
 Splitting $U_N(b)$ and $S_N(b)$ at index $k$, re-indexing upper wires, and factoring out $2^k$ isolates $H$ and $R$:
@@ -878,6 +880,7 @@ Because every operand-signedness pair collapses to that identical 32-bit pattern
 
 Writing $P = H \cdot 2^{32} + L$ with low remainder $L \in [0, 2^{32} - 1]$ and upper quotient $H = \lfloor P / 2^{32} \rfloor$ confirms why Python's `(a * b) >> 32` passed into `u32` extracts exact hardware Bits 63..32 even when $P < 0$.
 Because Python right shift floors toward $-\infty$, evaluating `(rs1_s * rs2_s) >> 32`, `(rs1_s * rs2_u) >> 32`, or `(rs1_u * rs2_u) >> 32` returns $\lfloor H + L / 2^{32} \rfloor = H$ directly.
+To verify that wrapping $H$ into a 32-bit unsigned register (`u32(H)`) still reconstructs the exact signed or unsigned 64-bit product $P$ even when $H < 0$, track the combined 64-bit value formed by joining `u32(H)` and $L$.
 Define $Q = (H \bmod 2^{32}) \cdot 2^{32} + L$.
 Because $H \bmod 2^{32} \in [0, 2^{32} - 1]$ and $L \in [0, 2^{32} - 1]$, $Q$ obeys $0 \le Q \le (2^{32} - 1)2^{32} + (2^{32} - 1) = 2^{64} - 1$.
 Scaling $H \bmod 2^{32} \equiv H \pmod{2^{32}}$ by $2^{32}$ lifts congruence to modulo $2^{64}$, and writing $w$ for the unique 64-bit wire pattern storing `u32(H)` in Bits 63..32 and $L$ in Bits 31..0 ($U_{64}(w) = Q$) gives:
