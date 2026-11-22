@@ -154,15 +154,23 @@ Build fluency with symbolic congruence identities, integer-division pitfalls, ca
 
      </details>
 
-   - **(b)** Using concrete positive integers other than $19$ and $3$, construct a counterexample showing that $a \equiv b \pmod{16}$ does *not* survive whole-number division by $d$ (discarding the remainder) even when $d$ shares no common factor greater than $1$ with $16$.
+   - **(b)** Construct a concrete modulus $m > 1$ and integers $x, y$ where $x^2 \equiv y^2 \pmod{m}$ holds even though $x \not\equiv y \pmod{m}$ (showing the converse fails).
 
      <details><summary>Solution</summary>
 
-     Pick $a = 17$, $b = 1$, and $d = 3$ (sharing no common factor greater than $1$ with $16$): $17 \equiv 1 \pmod{16}$, yet dividing by $3$ and discarding remainders gives $5 \not\equiv 0 \pmod{16}$ ($17 = 5 \cdot 3 + 2$ versus $1 = 0 \cdot 3 + 1$).
+     With $m = 8$, $x = 1$, and $y = 3$, both squares satisfy $1^2 = 1 \equiv 9 = 3^2 \pmod{8}$, yet $1 \not\equiv 3 \pmod{8}$.
 
      </details>
 
-2. Confirm $6 \cdot 5 \equiv 6 \cdot 13 \pmod{16}$ holds yet dividing both sides by $6$ breaks congruence modulo $16$.
+2. Using concrete positive integers other than $19$ and $3$, construct a counterexample showing that $a \equiv b \pmod{16}$ does *not* survive whole-number division by $d$ (discarding the remainder) even when $d$ shares no common factor greater than $1$ with $16$.
+
+   <details><summary>Solution</summary>
+
+   Pick $a = 17$, $b = 1$, and $d = 3$ (sharing no common factor greater than $1$ with $16$): $17 \equiv 1 \pmod{16}$, yet dividing by $3$ and discarding remainders gives $5 \not\equiv 0 \pmod{16}$ ($17 = 5 \cdot 3 + 2$ versus $1 = 0 \cdot 3 + 1$).
+
+   </details>
+
+3. Confirm $6 \cdot 5 \equiv 6 \cdot 13 \pmod{16}$ holds yet dividing both sides by $6$ breaks congruence modulo $16$.
 
    <details><summary>Solution</summary>
 
@@ -170,13 +178,26 @@ Build fluency with symbolic congruence identities, integer-division pitfalls, ca
 
    </details>
 
-3. Explain why the modulus-scaling law $c \cdot a \equiv c \cdot b \pmod{c \cdot m}$ requires $c > 0$ rather than allowing $c = 0$ or $c < 0$.
+4. Explain why the modulus-scaling law $c \cdot a \equiv c \cdot b \pmod{c \cdot m}$ requires $c > 0$ rather than allowing $c = 0$ or $c < 0$.
 
    <details><summary>Solution</summary>
 
    Setting $c = 0$ yields modulus $c m = 0$, violating $m > 0$ required for Euclidean division, while $c < 0$ produces a negative modulus $c m < 0$ outside our positive-modulus definition unless replaced by $|c|m$.
 
    </details>
+
+### Bitwise Wire Gates and Bit Shifts
+
+Before representing negative integers or instruction fields across 32 wires, hardware combines and shifts raw bit patterns using six elementary operators—four bitwise gates and two bit shifts—that operate without carrying sums from Bit $i$ into Bit $i + 1$.
+Unlike addition, every **bitwise gate** evaluates each wire position $i$ strictly from Bit $i$ of its inputs (with `~` inverting one wire pattern and `&`, `|`, `^` combining two), while **bit shifts** slide every bit left (`<<`) or right (`>>`) across wire positions:
+
+| Operator | Python / Equation Token | Single-Bit Rule (`0` / `1`) | Primary Hardware Role |
+| :--- | :---: | :--- | :--- |
+| **Bitwise AND** | `a & b` | `1` only when both input bits equal `1` | Clears bits where mask holds `0`, keeping bits where mask holds `1` |
+| **Bitwise OR** | `a \| b` | `1` whenever either input bit equals `1` | Sets flag bits or combines non-overlapping packed fields |
+| **Bitwise Exclusive-OR** (XOR) | `a ^ b` / $\oplus$ | `1` when the two input bits differ | Toggles bits paired with `1` and leaves bits paired with `0` unchanged |
+| **Bitwise NOT** | `~a` / $\bar{a}$ | Flips every bit (`0` $\leftrightarrow$ `1`, $\bar{a}_i = 1 - a_i$) | Inverts all wires in parallel |
+| **Left / Right Shift** | `a << k` / `a >> k` | Slides bits left or right by $k \ge 0$ positions | `1 << k` puts `1` at Bit $k$ ($2^k$); on unsigned $u$, `u >> k` zero-fills top bits |
 
 ### Two's Complement Signed Integers
 
@@ -209,7 +230,7 @@ Meanwhile, adding $-2^{N-1}$ to each distinct lower-wire sum $L$ for patterns wi
 An $N$-bit two's-complement integer therefore maps every distinct bit pattern to one unique signed integer across the asymmetric interval $[-2^{N-1}, 2^{N-1} - 1]$ for every $N \ge 1$.
 For $N = 32$, [`oracle.py`](../sim/oracle.py) defines those endpoints using Python's left-shift syntax (`1 << 31` places a single `1` bit at Bit 31 for $2^{31}$) as `INT32_MIN = -(1 << 31)` ($-2{,}147{,}483{,}648$, hex `0x8000_0000`) and `INT32_MAX = (1 << 31) - 1` ($+2{,}147{,}483{,}647$, hex `0x7FFF_FFFF`).
 
-In Python, bitwise AND (written `a & b`, outputting `1` only where both input bits equal `1`) with `MASK32 = 0xFFFF_FFFF` ($2^{32} - 1$) isolates the lower 32 bits of any integer.
+Python evaluates bitwise operators on integers—including negatives—as infinite-width two's-complement bit patterns (extending the sign bit infinitely left), so applying bitwise AND (`&`) with `MASK32 = 0xFFFF_FFFF` ($2^{32} - 1$) isolates the lower 32 bits of any integer.
 Writing any integer $x \in \mathbb{Z}$ via Euclidean division as $x = q \cdot 2^{32} + r$ ($0 \le r < 2^{32}$), the multiple $q \cdot 2^{32}$ carries 32 trailing zero bits for *every* integer $q \in \mathbb{Z}$ (including negative $q$).
 Masking `-5 & 0xFFFF_FFFF` drops $(-1) \cdot 2^{32}$ and leaves remainder $2^{32} - 5 = 4{,}294{,}967{,}291$ (`0xFFFF_FFFB`), just as `0x1_0000_0002 & 0xFFFF_FFFF` wraps down to $2$.
 [`u32`](../sim/oracle.py#L267-L269) implements that 32-bit modular projection in a single mask operation:
@@ -264,7 +285,7 @@ Starting from each circuit's output wires $w$ and stepping back to the signed ta
    &\equiv S_N(a) - S_N(b) \pmod{2^N} && \text{(term-wise }U_N \equiv S_N\text{ in }-\text{)}
    \end{aligned}$$
 
-3. **Negation via Invert Plus One**: Negating a two's-complement word flips every wire (`0` $\leftrightarrow$ `1`, written `~b` in C and SystemVerilog) and adds `1`.
+3. **Negation via Invert Plus One**: Negating a two's-complement word applies bitwise NOT (written `~b` in C and SystemVerilog) and adds `1`.
    On 4 bits, inverting $+5$ (`0101`) gives `1010` ($10$ unsigned, $-6$ signed), and adding $1$ yields `1011` ($11 \equiv -5 \pmod{16}$, evaluating directly to $-5$ under $S_4$).
 
    Define each inverted wire $\bar{b}_i = 1 - b_i$, and feed $\bar{b}$ and $1$ into the unsigned adder so output $w$ obeys $U_N(w) \equiv U_N(\bar{b}) + 1 \pmod{2^N}$, giving $-S_N(b) \pmod{2^N}$:
@@ -299,7 +320,7 @@ Starting from each circuit's output wires $w$ and stepping back to the signed ta
    &\equiv S_N(a) - S_N(b) \pmod{2^N} && \text{(term-wise }U_N \equiv S_N\text{ in }-\text{)}
    \end{aligned}$$
 
-5. **Sign-Agnostic Left Shifts**: Processors multiply integers by powers of two using a **left shift** ($a \ll k$ for shift distance $0 \le k < N$), sliding every bit $k$ wire positions toward higher place weights and feeding zero into the vacated lower $k$ wires.
+5. **Sign-Agnostic Left Shifts**: Processors multiply integers by powers of two via a **left shift** ($a \ll k$ for shift distance $0 \le k < N$), sliding every bit $k$ positions toward higher place weights and zero-filling the vacated lower $k$ wires.
    For example, shifting 4-bit `1011` ($11$ unsigned, $-5$ signed) left by $k = 1$ drops Bit 3 (`1`) and fills Bit 0 with `0` to give `0110` ($+6$), matching both $11 \cdot 2 = 22 \equiv 6 \pmod{16}$ and $(-5) \cdot 2 = -10 \equiv 6 \pmod{16}$.
 
    To verify that shifted wire pattern $a \ll k$ satisfies signed scaling $2^k S_N(a) \pmod{2^N}$, first evaluate $U_N(a \ll k)$.
@@ -332,26 +353,9 @@ Hardware carries zero signedness mode bits, zero separate signed adders or subtr
 
 #### Exercise 2.2: Modular Algebra Manipulations
 
-Practice symbolic congruence derivations, inverse boundaries, and representation identities across arbitrary widths $N$ and moduli $m$.
+Practice symbolic negation, left-shift wrap boundaries, power-of-two cancellation, and adder representation offsets across arbitrary width $N$.
 
-1. Suppose $a \equiv a' \pmod{m}$ for integers $a, a'$ and modulus $m > 0$.
-   - **(a)** Prove symbolically that squaring preserves congruence: $a^2 \equiv (a')^2 \pmod{m}$.
-
-     <details><summary>Solution</summary>
-
-     Writing $a = a' + k m$ for $k \in \mathbb{Z}$ gives $a^2 = (a' + km)^2 = (a')^2 + (2a'k + k^2 m)m$, so $a^2 \equiv (a')^2 \pmod{m}$.
-
-     </details>
-
-   - **(b)** Construct a concrete modulus $m > 1$ and integers $x, y$ where $x^2 \equiv y^2 \pmod{m}$ holds even though $x \not\equiv y \pmod{m}$ (showing the converse fails).
-
-     <details><summary>Solution</summary>
-
-     With $m = 8$, $x = 1$, and $y = 3$, both squares satisfy $1^2 = 1 \equiv 9 = 3^2 \pmod{8}$, yet $1 \not\equiv 3 \pmod{8}$.
-
-     </details>
-
-2. Derive $S_N(\bar{b})$ symbolically in terms of $S_N(b)$ without modular reduction ($\pmod{2^N}$), proving bitwise inversion alone produces $-S_N(b) - 1$.
+1. Derive $S_N(\bar{b})$ symbolically in terms of $S_N(b)$ without modular reduction ($\pmod{2^N}$), proving bitwise inversion alone produces $-S_N(b) - 1$.
 
    <details><summary>Solution</summary>
 
@@ -366,7 +370,7 @@ Practice symbolic congruence derivations, inverse boundaries, and representation
 
    </details>
 
-3. Let $a$ be an $N$-bit two's-complement pattern ($N \ge 2$) and $1 \le k < N$.
+2. Let $a$ be an $N$-bit two's-complement pattern ($N \ge 2$) and $1 \le k < N$.
    - **(a)** Recall the exact unsigned shift expansion:
 
      $$U_N(a \ll k) = 2^k U_N(a) - 2^N \sum_{i=N-k}^{N-1} a_i 2^{i+k-N}$$
@@ -394,7 +398,7 @@ Practice symbolic congruence derivations, inverse boundaries, and representation
 
      </details>
 
-4. Prove the power-of-two factor cancellation law for integers $x, y \in \mathbb{Z}$ and $0 \le k < N$:
+3. Prove the power-of-two factor cancellation law for integers $x, y \in \mathbb{Z}$ and $0 \le k < N$:
 
    $$2^k x \equiv 2^k y \pmod{2^N} \iff x \equiv y \pmod{2^{N-k}}$$
 
@@ -404,7 +408,7 @@ Practice symbolic congruence derivations, inverse boundaries, and representation
 
    </details>
 
-5. Suppose hardware used Ones' Complement, where $S^{\text{1c}}_N(b) = U_N(b) - b_{N-1}(2^N - 1)$.
+4. Suppose hardware used Ones' Complement, where $S^{\text{1c}}_N(b) = U_N(b) - b_{N-1}(2^N - 1)$.
    Find a congruence for $S^{\text{1c}}_N(b)$ modulo $2^N$ in terms of $U_N(b)$ and $b_{N-1}$ to explain why an ordinary modulo-$2^N$ adder fails when adding negative Ones'-Complement numbers.
 
    <details><summary>Solution</summary>
@@ -503,7 +507,7 @@ Notice two quantitative properties embedded directly in the bitfield layout tabl
    Every shared wire eliminates a multi-way multiplexer input in the immediate reconstruction circuit.
 
 In [`oracle.py`](../sim/oracle.py), [`enc_r`](../sim/oracle.py#L322-L331), [`enc_i`](../sim/oracle.py#L334-L342), [`enc_s`](../sim/oracle.py#L345-L356), [`enc_b`](../sim/oracle.py#L359-L372), [`enc_u`](../sim/oracle.py#L375-L378), and [`enc_j`](../sim/oracle.py#L381-L392) assemble bit-exact test instructions across all six formats.
-These encoders position each field with left shifts (`<<`) and combine non-overlapping slices with **bitwise OR** (`a | b`), outputting `1` wherever either input bit equals `1`.
+These encoders position each field with left shifts (`<<`) and merge non-overlapping slices with bitwise OR (`|`).
 During execution, [`_decode_imm_s`](../sim/oracle.py#L400-L402), [`_decode_imm_b`](../sim/oracle.py#L405-L413), and [`_decode_imm_j`](../sim/oracle.py#L416-L424) reassemble those permuted slices into signed Python integers (whose bit-widening rule we prove next).
 
 ### Widening Narrow Signed and Unsigned Integers
@@ -556,7 +560,7 @@ U_M(\text{extended } b)
 \end{aligned}$$
 
 Whereas physical hardware widens a $k$-bit integer to 32 wires by passively fanning out Bit $k - 1$, Python's arbitrary-precision integers carry no fixed upper wire count to replicate into.
-Instead, software masks the input down to its low $k$ bits using $2^k - 1$ so all bits at positions $\ge k$ become zero, flips Bit $k - 1$ ($s = 2^{k-1}$) using a bitwise operator that outputs 1 where two bits differ and 0 where they match (**exclusive-OR**, or XOR, written `^` in Python and $\oplus$ in equations), and subtracts $s$ to evaluate $S_k(b)$ directly.
+Instead, software masks the input down to its low $k$ bits using bitwise AND (`&`) with $2^k - 1$ so bits at positions $\ge k$ become zero, flips Bit $k - 1$ ($s = 2^{k-1}$) using bitwise XOR (`^` in Python and $\oplus$ in equations), and subtracts $s$ to evaluate $S_k(b)$ directly.
 For a concrete 12-bit check on `0xFFB` ($-5$, where $s = 2^{11} = \texttt{0x800} = 2{,}048$), flipping Bit 11 evaluates `(0xFFB ^ 0x800) - 0x800`, giving `0x7FB - 0x800` ($2{,}043 - 2{,}048 = -5$).
 
 Decomposing any masked $k$-bit value into its top bit and low payload proves this single-expression XOR-and-subtract formula matches $S_k(b)$ for every width $k \ge 1$.
@@ -594,20 +598,22 @@ Every integer instruction set pairs two-register arithmetic (for dynamic variabl
 Using the three selector fields from Section 3—primary `opcode` (Bits 6..0), sub-operation `funct3` (Bits 14..12), and modifier `funct7` (Bits 31..25)—valid base ALU instructions execute cleanly in one step, while any unassigned pattern aborts before modifying `rd` and routes to Section 1's atomic trap handler.
 In [`oracle.py`](../sim/oracle.py), [`_exec_op_imm`](../sim/oracle.py#L1023-L1055) executes register-immediate ALU instructions (`opcode` `0x13`), while [`_exec_op_reg`](../sim/oracle.py#L1083-L1115) executes register-register instructions (`opcode` `0x33`).
 
-Across the table below, write `op2` for the second operand (`rs2_u` in register-register instructions or sign-extended 12-bit `imm` in register-immediate instructions) and `op2_s` for its signed view `s32(op2)`.
-Because shifting a 32-bit word by 32 or more positions shifts every bit off the register, shift instructions use only a 5-bit unsigned **shift amount** (`shamt`, ranging 0 to 31), masking register operand `rs2_u & 0x1F` (so passing 35 evaluates `35 & 31` equal to 3) or reading Bits 24..20 directly from immediate instructions.
-Immediate shifts pack `shamt` inside Bits 24..20 and keep Bits 31..25 as `funct7`, whereas non-shift I-type operations spend Bits 31..25 as the upper portion of their 12-bit signed immediate.
-In Python, the right-shift operator (`>>`) shifts bits right by `shamt` positions—filling upper bits with zeros for unsigned `rs1_u` and replicating Bit 31 for signed `rs1_s`, a split we derive next:
+Across the base operations table below, write `op2_u` for the 32-bit unsigned second operand (`rs2_u` in register-register instructions or `u32(imm)` after sign-extending 12-bit `imm` in register-immediate instructions) and `op2_s` for its signed view (`s32(op2_u)`).
+Because architectural registers `self.regs[rd]` store raw 32-bit unsigned patterns (`0..0xFFFF_FFFF`), outputs wrapped through `u32(...)` capture the exact two's-complement bit pattern whose signed value is `s32(self.regs[rd])` across four base categories:
+- **Modular Addition and Subtraction**: `add`, `addi`, and `sub` compute wrapped 32-bit sums or differences on Section 2's shared adder (`addi` accepts signed constants so `subi` is unnecessary).
+- **Single-Word Bit Shifts**: Because shifting by 32 or more places clears a 32-bit word, shifts mask a 5-bit unsigned **shift amount** (`shamt`, 0 to 31) from `rs2_u & 0x1F` or `insn[24..20]`; immediate shifts pack `shamt` inside Bits 24..20 and repurpose Bits 31..25 as `funct7` (unlike other I-type instructions that use Bits 31..25 for the 12-bit immediate), splitting logical (`srl`/`srli`) from arithmetic (`sra`/`srai`) right shifts derived next.
+- **Boolean Comparisons**: `slt`/`slti` (signed) and `sltu`/`sltiu` (unsigned) compare two 32-bit values and write boolean flag `1` or `0` to `rd` after sign-extending any 12-bit immediate first.
+- **Parallel Bitwise Gates**: `xor`/`xori`, `or`/`ori`, and `and`/`andi` apply Section 2's column-wise boolean gates (`^`, `|`, `&`) across all 32 wires in parallel.
 
-| Category | Register / Immediate Mnemonic | Selector (`funct3` / `funct7`) | 32-Bit Output Written to `rd` | Key Hardware Rule |
+| Category | Register / Immediate Mnemonic | Selector (`funct3` / `funct7`) | 32-Bit Output Stored in `rd` | Key Hardware Rule |
 | :--- | :--- | :--- | :--- | :--- |
-| **Add / Subtract** | `add`, `addi` / `sub` | 0 / `0x00` (`sub`: `0x20`, R-type) | `u32(rs1_u + op2)` / `u32(rs1_u - rs2_u)` | Shared adder; `sub` inverts `rs2_u` and adds 1; negative constants use `addi` directly |
-| **Shift Left** | `sll`, `slli` | 1 / `0x00` | `u32(rs1_u << shamt)` | Zero-fills low wires; `shamt` equals `rs2_u & 0x1F` (`sll`) or `insn[24..20]` (`slli`); invalid `funct7` traps |
+| **Add / Subtract** | `add`, `addi` / `sub` | 0 / `0x00` (`sub`: `0x20`, R-type) | `u32(rs1_u + op2_u)` / `u32(rs1_u - rs2_u)` | Shared adder; `sub` inverts `rs2_u` and adds 1; negative constants use `addi` |
+| **Shift Left** | `sll`, `slli` | 1 / `0x00` | `u32(rs1_u << shamt)` | Zero-fills low wires; `shamt` is `rs2_u & 0x1F` or `insn[24..20]`; invalid `funct7` traps |
 | **Shift Right Logical** | `srl`, `srli` | 5 / `0x00` | `rs1_u >> shamt` | Zero-fills upper wires (unsigned divide by $2^{\texttt{shamt}}$, proved next); invalid `funct7` traps |
 | **Shift Right Arithmetic** | `sra`, `srai` | 5 / `0x20` | `u32(rs1_s >> shamt)` | Copies Bit 31 (signed downward-rounded divide by $2^{\texttt{shamt}}$, proved next); invalid `funct7` traps |
-| **Set Less Than (Signed)** | `slt`, `slti` | 2 / `0x00` (R-type) | `1 if rs1_s < op2_s else 0` | Sign-extends 12-bit `imm` for `slti` before signed compare |
-| **Set Less Than (Unsigned)** | `sltu`, `sltiu` | 3 / `0x00` (R-type) | `1 if rs1_u < u32(op2) else 0` | `sltiu` sign-extends 12-bit `imm` first, so immediate $-1$ tests `rs1_u != UINT32_MAX` |
-| **Bitwise Gates** | `xor`/`xori`, `or`/`ori`, `and`/`andi` | 4, 6, 7 / `0x00` (R-type) | `rs1_u ^ u32(op2)`, `rs1_u \| u32(op2)`, `rs1_u & u32(op2)` | Sign-extends 12-bit `imm` first (`xori rd, rs1, -1` flips all 32 bits) |
+| **Set Less Than (Signed)** | `slt`, `slti` | 2 / `0x00` (R-type) | `1 if rs1_s < op2_s else 0` | Compares signed views `rs1_s` and `op2_s` |
+| **Set Less Than (Unsigned)** | `sltu`, `sltiu` | 3 / `0x00` (R-type) | `1 if rs1_u < op2_u else 0` | `sltiu` sign-extends 12-bit `imm` first, so $-1$ becomes `UINT32_MAX` |
+| **Bitwise Gates** | `xor`/`xori`, `or`/`ori`, `and`/`andi` | 4, 6, 7 / `0x00` (R-type) | `rs1_u ^ op2_u`, `rs1_u \| op2_u`, `rs1_u & op2_u` | Sign-extends 12-bit `imm` first (`xori rd, rs1, -1` flips all 32 bits) |
 
 Wiring `x0` or small constants into those base operations yields six everyday assembly pseudoinstructions without spending extra opcodes:
 
@@ -617,7 +623,7 @@ Wiring `x0` or small constants into those base operations yields six everyday as
 | **Move** (`mv rd, rs1`) | `addi rd, rs1, 0` | Copies 32-bit word from `rs1` into `rd` |
 | **Load Immediate** (`li rd, imm`) | `addi rd, x0, imm` | Loads signed 12-bit constant ($[-2{,}048, +2{,}047]$) into `rd` |
 | **Bitwise Not** (`not rd, rs1`) | `xori rd, rs1, -1` | Computes ones' complement (`rs1_u ^ 0xFFFF_FFFF`) using sign-extended `0xFFFF_FFFF` |
-| **Negate** (`neg rd, rs1`) | `sub rd, x0, rs1` | Computes modular negation `u32(0 - rs1_u)` |
+| **Negate** (`neg rd, rs1`) | `sub rd, x0, rs1` | Stores raw negation pattern `u32(0 - rs1_u)` (when `rs1` holds `1`, stores `0xFFFF_FFFF`, whose signed view `s32` is $-1$) |
 | **Set if Equal to Zero** (`seqz rd, rs1`) | `sltiu rd, rs1, 1` | Writes 1 if `rs1_u == 0` (`rs1_u < 1`), else 0 |
 
 ### Right Shifts and Integer Floor Division
@@ -934,7 +940,7 @@ a &= \operatorname{sgn}(a)\left(k|b| + r_0\right) \\
 
 Therefore remainder $r = \operatorname{sgn}(a) r_0$ satisfies $|r| = r_0 < |b|$, equals $0$ when $r_0 = 0$, and matches the sign of dividend $a$ (`rs1_s`) otherwise.
 
-Rather than raising a hardware fault on division by zero (`rs2 == 0`) or signed division overflow, RISC-V defines deterministic sentinel outputs so divider circuits never need trap-abort wiring; software inserts an explicit branch check before `div` only when a compiled program requires an exception.
+Rather than raising a hardware fault on division by zero (`rs2_u == 0`) or signed division overflow, RISC-V defines deterministic sentinel outputs so divider circuits never need trap-abort wiring; software inserts an explicit branch check before `div` only when a compiled program requires an exception.
 Bounding quotient magnitude $|q| = \lfloor |a| / |b| \rfloor$ across all signed 32-bit operands proves why `INT32_MIN` divided by $-1$ is the unique overflow pair:
 - Whenever $|b| \ge 2$, $|q| \le \lfloor 2^{31} / 2 \rfloor = 2^{30} \le \texttt{INT32\_MAX}$.
 - When $b = +1$, $q = a$ already lies inside $[\texttt{INT32\_MIN}, \texttt{INT32\_MAX}]$.
@@ -942,7 +948,7 @@ Bounding quotient magnitude $|q| = \lfloor |a| / |b| \rfloor$ across all signed 
 - Only $a = -2^{31}$ (`INT32_MIN`) divided by $b = -1$ produces mathematical quotient $+2^{31} = \texttt{INT32\_MAX} + 1$, which wraps modulo $2^{32}$ to $+2^{31} \equiv -2^{31}$ (`INT32_MIN`).
 
 Two sentinel rules keep every hardware corner case deterministic without raising traps.
-When dividing by zero (`rs2 == 0`), `div` returns `-1` (`0xFFFF_FFFF`) and `divu` returns `UINT32_MAX` (`0xFFFF_FFFF`), while `rem` and `remu` return dividend `rs1` unchanged so any quotient $q$ satisfies $q \cdot 0 + \texttt{rs1} = \texttt{rs1}$.
+When dividing by zero (`rs2_u == 0`), `div` returns `-1` (`0xFFFF_FFFF`) and `divu` returns `UINT32_MAX` (`0xFFFF_FFFF`), while `rem` returns `rs1_s` and `remu` returns `rs1_u` unchanged so any quotient $q$ satisfies $q \cdot 0 + a = a$.
 On signed overflow (`INT32_MIN` divided by $-1$), `div` wraps $+2^{31}$ to `INT32_MIN` and `rem` returns $0$ because $-1$ divides $-2^{31}$ evenly, satisfying $-2^{31} \equiv (-2^{31})(-1) + 0 \pmod{2^{32}}$.
 Notice how [`trunc_div_s32`](../sim/oracle.py#L301-L309) evaluates `abs(dividend) // abs(divisor)` first and applies Python's boolean XOR (`(dividend < 0) ^ (divisor < 0)`) to negate `q` strictly when the operands carry opposite signs (keeping `-0 == 0` when `dividend == 0`), while [`RV32Oracle._exec_muldiv`](../sim/oracle.py#L1057-L1081) dispatches `div`, `divu`, `rem`, and `remu`:
 
@@ -952,7 +958,7 @@ Notice how [`trunc_div_s32`](../sim/oracle.py#L301-L309) evaluates `abs(dividend
 <!-- book-sync: RV32Oracle._exec_muldiv['elif funct3 == F3_DIV:'..'res = rs1_u if rs2_u == 0'] -->
 <<< @/systems/brain/sim/oracle.py#L1068-L1080
 
-| Instruction | Operand Interpretation | Divide by Zero (`rs2 == 0`) | Signed Overflow (`INT32_MIN` by $-1$) | Standard Rule |
+| Instruction | Operand Interpretation | Divide by Zero (`rs2_u == 0`) | Signed Overflow (`INT32_MIN` by $-1$) | Standard Rule |
 | :--- | :--- | :--- | :--- | :--- |
 | **`div`** | Signed quotient of `rs1_s` by `rs2_s` | $-1$ (`0xFFFF_FFFF`) | `INT32_MIN` (`0x8000_0000`) | Truncate quotient magnitude toward 0 |
 | **`divu`** | Unsigned quotient of `rs1_u` by `rs2_u` | `0xFFFF_FFFF` (`UINT32_MAX`) | Not applicable | Unsigned quotient `rs1_u // rs2_u` |
@@ -967,12 +973,12 @@ The interactive comparator below exercises every division case above—contrasti
 
 Contrast truncating versus floor remainders symbolically, and check signed quotient corners.
 
-1. Let dividend $a < 0$ and divisor $b > 0$ satisfy $b \nmid a$, with floor quotient $q_{\text{floor}} = \lfloor a / b \rfloor$ and remainder $r_{\text{floor}} = a - q_{\text{floor}} b \in (0, b)$.
+1. Let dividend $a < 0$ and divisor $b > 0$ satisfy that $b$ does not divide $a$, with floor quotient $q_{\text{floor}} = \lfloor a / b \rfloor$ and remainder $r_{\text{floor}} = a - q_{\text{floor}} b \in (0, b)$.
    - **(a)** Express truncating quotient $q_{\text{trunc}}$ in terms of $q_{\text{floor}}$.
 
      <details><summary>Solution</summary>
 
-     Because $b \nmid a$ makes $a/b$ strictly negative and non-integer, truncating toward zero sits one step above the floor: $q_{\text{trunc}} = q_{\text{floor}} + 1$.
+     Because $b$ does not divide $a$, $a/b$ is strictly negative and non-integer, so truncating toward zero sits one step above the floor: $q_{\text{trunc}} = q_{\text{floor}} + 1$.
 
      </details>
 

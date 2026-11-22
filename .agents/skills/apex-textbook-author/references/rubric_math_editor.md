@@ -17,5 +17,5 @@ Audit every heading, subsection bridge, equation intro, aligned proof block, num
 10. **Parenthetical Sub-Proofs & Redundant Proofs**: Flag hidden sub-proofs or unexplained examples inside parentheses, motivating sentences overloaded with secondary boundary caveats, or full parallel re-derivations duplicating established congruence.
 
 ## 3. Editorial Discipline & Exercise Conciseness
-11. **Pacing, Style & Headings**: Verify calm 2–4 sentence bridges matching `<= 8`-word headings, Markdown tables over `3+` item prose catalogs, one-sentence-per-line formatting, and zero stiff `"Next we prove..."` announcements.
+11. **Pacing, Style & Proportional Lead-Ins**: Verify calm 2–4 sentence bridges matching `<= 8`-word headings, proportional lead-ins across all groups in multi-category tables, Markdown tables over `3+` item prose catalogs, one-sentence-per-line formatting, and zero stiff `"Next we prove..."` announcements.
 12. **Per-Question Terse Solutions & Clean Notation**: Verify every `#### Exercise` question or sub-part has its own adjacent collapsible terse algebraic reveal using strictly functions and notation already defined in the chapter (never undefined symbols in an answer key).

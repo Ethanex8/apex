@@ -39,13 +39,21 @@ function bitsToNibbles(bitStr: string): string[] {
   return parts
 }
 
+function bitsToNibblesRight(bitStr: string): string[] {
+  const parts: string[] = []
+  for (let end = bitStr.length; end > 0; end -= 4) {
+    parts.unshift(bitStr.slice(Math.max(0, end - 4), end))
+  }
+  return parts
+}
+
 function bits32Nibbles(n: number): string[] {
   return bitsToNibbles((n >>> 0).toString(2).padStart(32, '0'))
 }
 
 const rawBits = computed(() => (inputU32.value >>> 0).toString(2).padStart(32, '0'))
 const keptNibbles = computed(() => bitsToNibbles(rawBits.value.slice(0, 32 - shiftK.value)))
-const droppedNibbles = computed(() => (shiftK.value === 0 ? [] : bitsToNibbles(rawBits.value.slice(32 - shiftK.value))))
+const droppedNibbles = computed(() => (shiftK.value === 0 ? [] : bitsToNibblesRight(rawBits.value.slice(32 - shiftK.value))))
 const vacatedRange = computed(() => (shiftK.value === 1 ? 'Bit 31' : `Bits 31..${32 - shiftK.value}`))
 const droppedRange = computed(() => (shiftK.value === 1 ? 'Bit 0' : `Bits ${shiftK.value - 1}..0`))
 </script>

@@ -29,7 +29,7 @@ We write a **publication-grade systems engineering textbook** (*Harris & Harris*
 ### Pass 1: Pedagogical Blueprint & Strict Layering
 1. Inventory every constant, helper, public state field, normal path, and error path across the step's source and test files.
 2. **Layering, Intrinsic Properties & Abstraction Boundaries**:
-   - Complete core architectures before custom extensions; establish intrinsic representation properties (range, uniqueness, wrap) where introduced; defer operation-motivated derivations to the downstream subsystem/instruction sections that consume them; never inject project constants into general principles or cite unbuilt tools.
+   - Group related elementary operators coherently in foundational theory before downstream sections scatter them, establish intrinsic representation properties early, complete core architectures before custom extensions, defer operation-specific derivations to consumers, and keep project constants or unbuilt tools out of general principles.
    - Keep higher-layer descriptions strictly at their observable contract—never leak unintroduced lower-layer ports, control pins, or unmotivated microarchitectural circuit topologies/cycle counts.
    - Open comparative sections with a direct plain-English takeaway and justify choices honestly without unmotivated claims about avoiding standard constructs (`if`/`else`).
    - Keep `###` subsections aligned to headings, unbraid distinct mechanisms into separate items/subsections, order simplest direct consequences before implementation tricks, and open new operations with plain-English intuition before corner cases.
@@ -42,7 +42,7 @@ We write a **publication-grade systems engineering textbook** (*Harris & Harris*
 ### Pass 2: Uncompressed Multi-Chunk Drafting
 1. Draft sequentially with **one sentence per Markdown line** (no `<br>`), starting a fresh paragraph before pivoting from intuition/examples into formal proofs.
 2. **Mechanism First & Code-Only Backticks**:
-   - State what each new term does before placing `(**expanded name / acronym**)` immediately adjacent (never after an em-dash clause, and never stacking `3+` acronyms); tabulate `3+` structured coordinates, opcodes, or maps.
+   - State what each new term does before placing `(**expanded name / acronym**)` immediately adjacent (never after an em-dash clause, and never stacking `3+` acronyms); tabulate `3+` structured coordinates, opcodes, or maps, balancing lead-in prose proportionally across all table groups.
    - Reserve backticks strictly for literal code, tokens, constants, CLI flags, and paths—never acronyms, proper nouns, prose numbers/units, or raw TeX; keep boldface `<= 6` words.
 3. **Step-by-Step Math, Sound Logic & Prose Hygiene**:
    - Refresh prerequisite identities with examples before use, prove rounding directions cleanly, keep motivating sentences single-purpose, and state shared bridges once before parallel lists without prose-math walls, `"Next we prove..."` boilerplate, or forward catalogs.
