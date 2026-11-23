@@ -295,18 +295,10 @@ mjx-container:not([display='true']) {
   gap: 8px;
 }
 
-.hw-badge {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  background: var(--vp-c-brand-soft);
-  color: var(--vp-c-brand-1);
-  white-space: nowrap;
-  flex-shrink: 0;
+.hw-svg-diagram {
+  width: 100%;
+  height: auto;
+  display: block;
 }
 
 .hw-btn {
@@ -362,16 +354,14 @@ mjx-container:not([display='true']) {
 }
 
 .hw-label {
-  font-size: 11.5px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
   color: var(--vp-c-text-2);
   margin-bottom: 4px;
 }
 
 .vp-doc .hw-widget .hw-label code {
-  text-transform: none;
   font-family: var(--vp-font-family-mono);
   font-size: 0.98em;
   background: transparent;

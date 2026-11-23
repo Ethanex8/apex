@@ -58,13 +58,16 @@ const overlapNote = computed(() => {
 const wheelSlots = computed(() => {
   return Array.from({ length: 16 }, (_, u) => {
     const angle = (u / 16) * Math.PI * 2 - Math.PI / 2
-    const r = 90
+    const r = 104
+    const rOuter = 132
     return {
       u,
       s: toSigned4(u),
       bits: bin4(u),
-      x: 125 + r * Math.cos(angle),
-      y: 125 + r * Math.sin(angle),
+      x: 155 + r * Math.cos(angle),
+      y: 155 + r * Math.sin(angle),
+      ux: 155 + rOuter * Math.cos(angle),
+      uy: 155 + rOuter * Math.sin(angle),
     }
   })
 })
@@ -73,10 +76,7 @@ const wheelSlots = computed(() => {
 <template>
   <div class="hw-widget">
     <div class="hw-widget-header">
-      <div class="hw-widget-title">
-        <span class="hw-badge">Two's Complement Ring</span>
-        <span>4-Bit Shared Addition Clock</span>
-      </div>
+      <div class="hw-widget-title">4-Bit Two's-Complement Shared Addition Clock</div>
       <div style="display: flex; gap: 6px; flex-wrap: wrap">
         <button
           v-for="p in presets"
@@ -92,10 +92,9 @@ const wheelSlots = computed(() => {
     </div>
 
     <p style="margin: 0 0 12px 0; color: var(--vp-c-text-2); font-size: 13.5px">
-      Think of a 4-bit register like a 16-slot clock face (<code>0000</code> at 12 o'clock). Notice that
-      <strong>Bit 3</strong> carries weight <code>+8</code> in unsigned reading (<code>0..15</code>) and
-      <code>-8</code> in two's-complement signed reading (<code>-8..+7</code>), yet stepping clockwise by
-      Input B's unsigned count (<code>0..15</code>) computes both sums with the exact same binary adder.
+      Think of a 4-bit register like a 16-slot clock face (<code>0000</code> at 12 o'clock): outer numbers show
+      unsigned values (<code>0..15</code>) and inner circles show two's-complement signed values (<code>-8..+7</code>),
+      yet stepping clockwise by Input B's unsigned count computes both sums on the exact same binary adder.
     </p>
 
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; align-items: center">
@@ -180,25 +179,37 @@ const wheelSlots = computed(() => {
         </div>
       </div>
 
-      <!-- SVG Clock Wheel with concentric role halos -->
+      <!-- SVG Clock Wheel with concentric signed/unsigned rings and role halos -->
       <div style="display: flex; flex-direction: column; align-items: center; gap: 6px">
-        <svg viewBox="0 0 250 250" style="width: 240px; height: 240px; max-width: 100%">
+        <svg viewBox="0 0 310 310" style="width: 280px; height: 280px; max-width: 100%">
           <circle
-            cx="125"
-            cy="125"
-            r="90"
+            cx="155"
+            cy="155"
+            r="104"
             fill="none"
             stroke="currentColor"
             stroke-opacity="0.16"
             stroke-width="1.5"
           />
           <g v-for="slot in wheelSlots" :key="slot.u">
+            <!-- Outer Unsigned Label (0..15) -->
+            <text
+              :x="slot.ux"
+              :y="slot.uy + 3.5"
+              text-anchor="middle"
+              font-size="9.5"
+              font-family="var(--vp-font-family-mono)"
+              :font-weight="slot.u === sumBits4 ? '800' : '600'"
+              :fill="slot.u === sumBits4 ? 'var(--vp-c-brand-1)' : 'var(--vp-c-text-2)'"
+            >
+              {{ slot.u }}
+            </text>
             <!-- Outer Green Halo when A hits this slot -->
             <circle
               v-if="slot.u === aU4"
               :cx="slot.x"
               :cy="slot.y"
-              r="18.5"
+              r="18"
               fill="none"
               stroke="var(--hw-green)"
               stroke-width="2.5"
@@ -208,7 +219,7 @@ const wheelSlots = computed(() => {
               v-if="slot.u === bU4"
               :cx="slot.x"
               :cy="slot.y"
-              r="15.5"
+              r="15"
               fill="none"
               stroke="var(--hw-amber)"
               stroke-width="2.5"
@@ -218,11 +229,7 @@ const wheelSlots = computed(() => {
               :cx="slot.x"
               :cy="slot.y"
               r="12"
-              :fill="
-                slot.u === sumBits4
-                  ? 'var(--vp-c-brand-1)'
-                  : 'var(--vp-c-bg)'
-              "
+              :fill="slot.u === sumBits4 ? 'var(--vp-c-brand-1)' : 'var(--vp-c-bg)'"
               stroke="currentColor"
               :stroke-opacity="slot.u === sumBits4 ? 0.6 : 0.25"
             />
@@ -237,14 +244,17 @@ const wheelSlots = computed(() => {
               {{ fmtS4(slot.s) }}
             </text>
           </g>
-          <text x="125" y="109" text-anchor="middle" font-size="10" fill="var(--hw-green)" font-weight="700">
-            Green halo = A ({{ fmtS4(aS4) }})
+          <text x="155" y="131" text-anchor="middle" font-size="9.5" fill="var(--vp-c-text-2)" font-weight="600">
+            Inner: Signed · Outer: Unsigned
           </text>
-          <text x="125" y="124" text-anchor="middle" font-size="10" fill="var(--hw-amber)" font-weight="700">
-            Amber halo = B ({{ fmtS4(bS4) }})
+          <text x="155" y="148" text-anchor="middle" font-size="10.5" fill="var(--hw-green)" font-weight="700">
+            Green halo = A ({{ fmtS4(aS4) }} / {{ aU4 }})
           </text>
-          <text x="125" y="141" text-anchor="middle" font-size="10.5" font-weight="700" fill="var(--vp-c-brand-1)">
-            Blue fill = Sum {{ fmtS4(sumS4) }} ({{ bin4(sumBits4) }})
+          <text x="155" y="164" text-anchor="middle" font-size="10.5" fill="var(--hw-amber)" font-weight="700">
+            Amber halo = B ({{ fmtS4(bS4) }} / {{ bU4 }})
+          </text>
+          <text x="155" y="181" text-anchor="middle" font-size="10.5" font-weight="700" fill="var(--vp-c-brand-1)">
+            Blue fill = {{ fmtS4(sumS4) }} / {{ sumBits4 }} ({{ bin4(sumBits4) }})
           </text>
         </svg>
         <div

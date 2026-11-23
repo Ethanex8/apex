@@ -9,14 +9,14 @@ In this chapter, we derive that hardware-software contract from first principles
 When you write an ordinary program in Python or C, statements execute one after another in a single predictable sequence.
 A physical processor core (**Central Processing Unit**, or CPU) is instead built in a text-based circuit specification language (**Hardware Description Language**, or HDL) such as SystemVerilog.
 Under the hood, that description wires together boolean logic gates, selector switches (**multiplexers**, the circuit equivalent of `cond ? a : b`), and clocked 1-bit storage cells (**flip-flops**).
-On every tick of a periodic clock signal, all of those circuits evaluate their input wires and update their stored bits at the exact same instant.
+Between consecutive ticks of a periodic clock signal (one **clock cycle**), logic gates and multiplexers continuously compute new wire voltages in parallel, and on each tick all flip-flops sample those wires and update their stored bits at the exact same instant.
 
-Testing a concurrent circuit design only against hand-written test scripts creates a classic engineering blind spot: whenever the circuit and its test script share a subtle misunderstanding of an arithmetic or external-signal corner case, both agree on the wrong answer.
-Processor teams eliminate that blind spot before writing any circuit code by building an unambiguous sequential software specification called a **golden reference model**, or **oracle**.
-[`oracle.py`](../sim/oracle.py) implements that golden 32-bit reference specification (`RV32Oracle`) for the `brain` CPU.
-Before any hardware exists, unit tests in [`test_oracle.py`](../tb/test_oracle.py) verify arithmetic bounds, memory alignment rules, and timer alarms directly against the Python oracle.
+Testing a concurrent circuit design solely with hand-written test scripts mixes circuit timing with expected instruction behavior and leaves complex multi-instruction or external-signal corner cases unchecked.
+Processor teams separate those concerns before writing any circuit code by building an unambiguous sequential software specification called a **golden reference model**, or **oracle**, which is verified independently in software and then supplies automatic instruction-by-instruction expected states for arbitrary compiled programs.
+[`oracle.py`](../sim/oracle.py) implements that golden 32-bit reference specification for the `brain` CPU in the Python class `RV32Oracle`, named for the open-source fifth-generation processor standard built around a small, uniform set of simple 32-bit operations (**Reduced Instruction Set Computer, Fifth Generation**, or RISC-V).
+Before any hardware exists, unit tests in [`test_oracle.py`](../tb/test_oracle.py) verify the Python oracle's arithmetic bounds, memory-access rules, and timer alarms directly.
 Later, when our SystemVerilog CPU runs inside an open-source simulator that compiles circuit descriptions into fast C++ executables (**Verilator**), our verification harness feeds the exact same machine-code program to both engines in lockstep.
-After every completed (**retired**) instruction or hardware fault, [`RV32Oracle.step()`](../sim/oracle.py#L1194-L1273) returns a structured step receipt recording updated internal CPU storage, next-instruction address, and memory state so the harness halts on the exact step where hardware diverges.
+After every completed (**retired**) instruction, hardware fault, or external interruption, [`RV32Oracle.step()`](../sim/oracle.py#L1194-L1273) returns a structured step receipt recording updated internal CPU storage, next-instruction address, and memory state, so the harness can compare each receipt against the simulated hardware state and halt on the exact step where they diverge.
 
 ```mermaid
 flowchart TD
@@ -35,14 +35,15 @@ Every large software system relies on clean interface boundaries: a function sig
 In computer engineering, the boundary separating software (compilers, startup programs, control loops) from physical chip hardware (logic gates, wire routing, multi-cycle arithmetic units) is the **Instruction Set Architecture**, or ISA.
 
 An ISA defines only what machine-code programs can observe between instructions:
-1. **Architectural State**: The persistent storage containers (fast on-chip storage cells called **registers**, the active instruction address, and addressable memory) whose values survive from one instruction to the next.
-2. **Binary Instruction Encoding**: The exact bit positions that pack an operation selector, register indices, and small constants into a fixed-width integer word.
+1. **Architectural State**: The persistent storage containers (fast on-chip storage cells called **registers**, the active instruction address, addressable memory, and modeled device state) whose values survive from one instruction to the next.
+2. **Binary Instruction Encoding**: The exact bit positions that pack an operation selector, register indices, and small constants into a fixed-width binary integer (a hardware **word**).
 3. **Atomic Step Outcomes**: Given any current architectural state $S_t$, [`step`](../sim/oracle.py#L1194-L1273) deterministically computes the next state $S_{t+1} = \texttt{step}(S_t)$ through exactly one of two indivisible outcomes:
-   - **Normal Retirement**: The current instruction completes cleanly, advancing the active instruction address and updating at most one destination register or memory slice.
-   - **Precise Trap**: An illegal encoding, invalid memory access, or pending external/timer request aborts any partial writes of the current instruction and redirects execution to a dedicated handler address (**trap**).
+   - **Normal Retirement**: The current instruction completes cleanly, updating the active instruction address and committing the instruction's defined register or memory writes.
+   - **Precise Trap**: An abrupt control-flow handover (**trap**) triggered by an illegal encoding, invalid memory access, or pending external/timer request aborts any partial writes of the current instruction and redirects execution to a dedicated handler address.
 
-Because an ISA intentionally hides internal circuit timing—such as whether integer division takes one clock tick or thirty-two clock ticks—[`oracle.py`](../sim/oracle.py) can express the complete `brain` CPU and its external hardware devices in clean sequential Python.
-This separation lets us build and test the complete base integer machine before layering on custom neural instructions and lockstep circuit checks.
+Because an ISA intentionally hides internal circuit timing—such as whether integer division takes one clock cycle or thirty-two clock cycles—[`oracle.py`](../sim/oracle.py) can model instruction execution sequentially in Python rather than cycle by cycle.
+To keep timer alarms and external interruptions equally reproducible without cycle-level simulation, the oracle advances its external hardware-device models at those same deterministic instruction boundaries.
+This separation lets us build and verify the complete software oracle independently before designing the physical circuit and running lockstep checks.
 
 ---
 
@@ -58,7 +59,13 @@ Every loop counter, memory address, and sensor reading must fit inside those $2^
 Every hardware register begins as an ordered row of $N$ binary wires $b_{N-1}, b_{N-2}, \dots, b_0 \in \{0, 1\}$ with no dedicated sign wire.
 Hardware manuals label individual wire $b_i$ as Bit $i$ and a contiguous slice from $b_{\text{hi}}$ down to $b_{\text{lo}}$ as Bits $\text{hi}..\text{lo}$.
 Assigning standard base-two place weights $2^0, 2^1, \dots, 2^{N-1}$ from right to left maps those wire voltages onto non-negative integers.
-On a 4-bit register ($N = 4$), pattern `0011` represents $0 \cdot 8 + 0 \cdot 4 + 1 \cdot 2 + 1 \cdot 1 = 3$, pattern `1011` represents $1 \cdot 8 + 0 \cdot 4 + 1 \cdot 2 + 1 \cdot 1 = 11$, and pattern `1111` represents $1 \cdot 8 + 1 \cdot 4 + 1 \cdot 2 + 1 \cdot 1 = 15$.
+On a 4-bit register ($N = 4$), place weights evaluate three sample patterns directly:
+
+$$\begin{aligned}
+\texttt{0011} &\;\mapsto\; 0 \cdot 8 + 0 \cdot 4 + 1 \cdot 2 + 1 \cdot 1 = 3 \\
+\texttt{1011} &\;\mapsto\; 1 \cdot 8 + 0 \cdot 4 + 1 \cdot 2 + 1 \cdot 1 = 11 \\
+\texttt{1111} &\;\mapsto\; 1 \cdot 8 + 1 \cdot 4 + 1 \cdot 2 + 1 \cdot 1 = 15
+\end{aligned}$$
 
 Generalizing from 4 wires to any width $N \ge 1$ defines the **unsigned integer interpretation** $U_N(b)$:
 
@@ -85,7 +92,7 @@ Because every wire satisfies $0 \le b_i \le 1$ and every weight $2^i$ is positiv
 We also need to verify that distinct bit patterns never collide on the same unsigned integer.
 Compare any two distinct $N$-bit patterns at their highest differing wire $k$, where all matching upper bits cancel.
 When $k = 0$, Bit 0 differs by $1$; when $k \ge 1$, the pattern with `1` at Bit $k$ contributes at least $2^k$ on Bits $k..0$, beating the pattern with `0` there because all $k$ lower bits sum to at most $2^k - 1 < 2^k$.
-Because all $2^N$ patterns land on distinct integers inside $[0, 2^N - 1]$, $U_N$ maps every pattern **one-to-one** (**bijection**) onto $[0, 2^N - 1]$.
+Because all $2^N$ patterns land on distinct integers inside the $2^N$-element interval $[0, 2^N - 1]$, $U_N$ maps every pattern one-to-one and onto $[0, 2^N - 1]$ (a **bijection**).
 
 To write wide 32-bit constants concisely, programmers use base-16 notation (**hexadecimal**), prefixed with `0x`, where each digit `0`–`9` or `A`–`F` packs four binary wires and underscores visually separate 4-digit groups.
 For $N = 32$, [`oracle.py`](../sim/oracle.py) names that upper bound `UINT32_MAX = 0xFFFF_FFFF` ($2^{32} - 1 = 4{,}294{,}967{,}295$).
@@ -108,7 +115,12 @@ Crucially, walking any $m$ consecutive integers around an $m$-slot clock visits 
 Any difference inside that window has magnitude strictly below $m$, so being a multiple of $m$ forces that difference to zero.
 
 Before applying this clock-face equivalence to signed encodings and hardware adders, let us verify why **modular congruence** passes cleanly through addition, subtraction, and multiplication for any positive modulus $m$.
-For a concrete check on our 16-slot ring ($m = 16$), $19 \equiv 3 \pmod{16}$ and $14 \equiv -2 \pmod{16}$ give sum $33 \equiv 3 + (-2) \equiv 1 \pmod{16}$ and product $266 \equiv 3 \cdot (-2) \equiv -6 \pmod{16}$.
+For a concrete check on our 16-slot ring ($m = 16$), swapping $19 \equiv 3 \pmod{16}$ and $14 \equiv -2 \pmod{16}$ preserves both sum and product residues:
+
+$$\begin{aligned}
+19 + 14 &= 33 \equiv 3 + (-2) = 1 \pmod{16} \\
+19 \cdot 14 &= 266 \equiv 3 \cdot (-2) = -6 \equiv 10 \pmod{16}
+\end{aligned}$$
 
 To prove this holds in general for any $x \equiv x' \pmod{m}$ and $y \equiv y' \pmod{m}$, write $x = x' + k_1 m$ and $y = y' + k_2 m$ for integers $k_1, k_2 \in \mathbb{Z}$, then expand both $x \pm y$ and $x \cdot y$:
 
@@ -136,8 +148,8 @@ x - x' &= k m && \text{(congruence def)} \\
 
 In practice, this theorem lets you treat $\equiv \pmod{m}$ as a drop-in substitution rule—once you know its boundaries:
 - **Safe Term-Wise Substitution**: Inside any formula built strictly from $+$, $-$, $\times$, and integer scaling under one shared modulus $m$, you may swap *every* congruent sub-term freely for any simpler representative (such as swapping $14$ for $-2$ modulo $16$) without re-proving the step.
-- **Modulus Scaling via Positive Multipliers**: Multiplying an entire congruence—every term *and* its modulus—by the same positive integer $c > 0$ (such as $c = 4$ scaling $\bmod\ 4$ up to $\bmod\ 16$) always stays valid, whereas scaling only one side or mixing unscaled moduli breaks equivalence.
-- **Every Replaced Term Must Match**: Congruence fails if *any* replaced term is not congruent modulo $m$ (swapping $14 \to 13$ modulo $16$ breaks $19 + 14 \not\equiv 3 + 13 \pmod{16}$) or if terms from different moduli are mixed.
+- **Modulus Scaling via Positive Multipliers**: Multiplying an entire congruence—every term *and* its modulus—by the same positive integer $c > 0$ always stays valid (scaling $5 \equiv 1 \pmod{4}$ by $c = 4$ yields $20 \equiv 4 \pmod{16}$), whereas scaling only the modulus ($5 \not\equiv 1 \pmod{16}$) or only one side ($20 \not\equiv 1 \pmod{16}$) breaks equivalence.
+- **Every Replaced Term Must Match**: Safe substitution is no longer guaranteed if *any* replaced term is not congruent modulo $m$ (swapping $14 \to 13$ modulo $16$ breaks the sum congruence, yielding $19 + 14 = 33 \not\equiv 16 = 3 + 13 \pmod{16}$) or if terms from different moduli are mixed.
 - **Operations That Break Congruence**: Unlike $+$, $-$, and $\times$, discarding remainders under integer division does not preserve congruence even when divisors share no common factor greater than $1$ with $m$: $19 \equiv 3 \pmod{16}$, yet whole-number division by $3$ yields $6 \not\equiv 1 \pmod{16}$.
   Even exact factor cancellation fails whenever a cancelled factor shares a common factor greater than $1$ with $m$, as in $2 \cdot 3 \equiv 2 \cdot 11 \pmod{16}$ yet $3 \not\equiv 11 \pmod{16}$.
 
@@ -166,7 +178,7 @@ Build fluency with symbolic congruence identities, integer-division pitfalls, ca
 
    <details><summary>Solution</summary>
 
-   Pick $a = 17$, $b = 1$, and $d = 3$ (sharing no common factor greater than $1$ with $16$): $17 \equiv 1 \pmod{16}$, yet dividing by $3$ and discarding remainders gives $5 \not\equiv 0 \pmod{16}$ ($17 = 5 \cdot 3 + 2$ versus $1 = 0 \cdot 3 + 1$).
+   Pick $a = 17$, $b = 1$, and $d = 5$ (sharing no common factor greater than $1$ with $16$): $17 \equiv 1 \pmod{16}$, yet dividing by $5$ and discarding remainders gives $3 \not\equiv 0 \pmod{16}$ ($17 = 3 \cdot 5 + 2$ versus $1 = 0 \cdot 5 + 1$).
 
    </details>
 
@@ -182,7 +194,7 @@ Build fluency with symbolic congruence identities, integer-division pitfalls, ca
 
    <details><summary>Solution</summary>
 
-   Setting $c = 0$ yields modulus $c m = 0$, violating $m > 0$ required for Euclidean division, while $c < 0$ produces a negative modulus $c m < 0$ outside our positive-modulus definition unless replaced by $|c|m$.
+   Setting $c = 0$ yields modulus $c m = 0$, violating the positive-modulus requirement ($c m > 0$) for Euclidean division, while $c < 0$ produces a negative modulus $c m < 0$ outside our positive-modulus definition unless replaced by $|c|m$.
 
    </details>
 
@@ -193,28 +205,28 @@ Unlike addition, every **bitwise gate** evaluates each wire position $i$ strictl
 
 | Operator | Python / Equation Token | Single-Bit Rule (`0` / `1`) | Primary Hardware Role |
 | :--- | :---: | :--- | :--- |
-| **Bitwise AND** | `a & b` | `1` only when both input bits equal `1` | Clears bits where mask holds `0`, keeping bits where mask holds `1` |
+| **Bitwise AND** | `a & b` | `1` only when both input bits equal `1` | Clears bits where a selector pattern (**bitmask**) holds `0`, keeping bits where it holds `1` |
 | **Bitwise OR** | `a \| b` | `1` whenever either input bit equals `1` | Sets flag bits or combines non-overlapping packed fields |
 | **Bitwise Exclusive-OR** (XOR) | `a ^ b` / $\oplus$ | `1` when the two input bits differ | Toggles bits paired with `1` and leaves bits paired with `0` unchanged |
 | **Bitwise NOT** | `~a` / $\bar{a}$ | Flips every bit (`0` $\leftrightarrow$ `1`, $\bar{a}_i = 1 - a_i$) | Inverts all wires in parallel |
-| **Left / Right Shift** | `a << k` / `a >> k` | Slides bits left or right by $k \ge 0$ positions | `1 << k` puts `1` at Bit $k$ ($2^k$); on unsigned $u$, `u >> k` zero-fills top bits |
+| **Left / Right Shift** | `a << k`, `a >> k` / $\ll$, $\gg$ | Slides bits left or right by $k \ge 0$ positions | `a << k` zero-fills vacated bottom bits (`1 << k` equals $2^k$ for $0 \le k < N$ on an $N$-bit word, or any $k \ge 0$ in Python); on unsigned $u$, `u >> k` zero-fills top bits |
 
 ### Two's Complement Signed Integers
 
 Robot control software also needs negative integers for joint velocity errors, signed sensor readings, and backward memory offsets, yet building separate positive and negative adder circuits would waste chip area and slow every clock cycle.
 Modern processors solve this with **two's complement**, reading negative integers counter-clockwise from zero on the modular clock ring so zero has a single representation and an ordinary unsigned adder handles both positive and negative sums without extra logic.
-Earlier alternatives failed one of those two requirements: dedicating the top wire as a separate sign bit creates two zeros and breaks plain addition, while inverting every bit leaves a duplicate negative zero (`1111`) and forces the overflow carry bit emerging past the top wire (**carry-out**) back into Bit 0:
+Earlier alternatives failed both requirements: dedicating the top wire as a separate sign bit creates two zeros and breaks plain addition, while inverting every bit leaves a duplicate negative zero (`1111`) and forces the overflow carry bit emerging past the top wire (**carry-out**) back into Bit 0:
 
 | Encoding | Rule for Negatives | $+5$ / $-5$ (4-Bit) | Zeros | Plain Unsigned Adder Works? |
 | :--- | :--- | :--- | :--- | :--- |
-| **Sign-Magnitude** | Dedicates top wire as sign flag ($1 = -$) on unsigned magnitude | `0101` / `1101` | `0000`, `1000` | No ($\texttt{0011} + \texttt{1101} = \texttt{0000}$, not $-2$) |
+| **Sign-Magnitude** | Dedicates top wire as sign flag ($1 = -$) on unsigned magnitude | `0101` / `1101` | `0000`, `1000` | No ($+3 + (-5)$: $\texttt{0011} + \texttt{1101} = \texttt{0000}$, not $-2$) |
 | **Ones' Complement** | Inverts every bit (`0` $\leftrightarrow$ `1`) to negate | `0101` / `1010` | `0000`, `1111` | No (must wrap top carry-out into Bit 0) |
-| **Two's Complement** | Assigns negative weight $-2^{N-1}$ to top wire | `0101` / `1011` | `0000` only | Yes ($\texttt{0011} + \texttt{1011} = \texttt{1110}$, which is $-2$) |
+| **Two's Complement** | Assigns negative weight $-2^{N-1}$ to top wire | `0101` / `1011` | `0000` only | Yes ($+3 + (-5)$: $\texttt{0011} + \texttt{1011} = \texttt{1110}$, which is $-2$) |
 
 Starting at `0000` ($0$) on a 16-slot ring and stepping counter-clockwise by $1$ lands on `1111` ($15 \equiv -1 \pmod{16}$), while stepping counter-clockwise by $5$ lands on `1011` ($11 \equiv -5 \pmod{16}$).
 Algebraically, two's complement keeps positive place weights $+2^0, \dots, +2^{N-2}$ on the lower $N - 1$ wires and assigns the leftmost wire (**Most Significant Bit**, or MSB, at Bit $N - 1$) a negative weight of $-2^{N-1}$.
 On 4 bits, `1011` evaluates to $-1 \cdot 8 + 0 \cdot 4 + 1 \cdot 2 + 1 \cdot 1 = -5$, and adding `0011` ($+3$) in ordinary binary gives $\texttt{1011} + \texttt{0011} = \texttt{1110}$ ($-8 + 4 + 2 = -2$) with zero sign-checking logic.
-Whenever a sum steps across the discontinuity between $+7$ (`0111`) and $-8$ (`1000`), it wraps around the 16-slot clock to produce **signed overflow** (outside $[-8, +7]$ on 4 bits), leaving exact hardware addition modulo $16$ unchanged.
+Whenever a true signed sum exits $[-8, +7]$ across the discontinuity between $+7$ (`0111`) and $-8$ (`1000`)—stepping clockwise past $+7$ or counter-clockwise past $-8$—it wraps around the 16-slot clock to produce **signed overflow**, leaving hardware addition modulo $16$ unchanged.
 
 The interactive 4-bit ring adder below displays both interpretations on the shared wheel—pairing raw bit toggles with unsigned ($0..15$) and signed ($-8..+7$) sums—before we generalize to $N$ bits.
 
@@ -224,15 +236,30 @@ Generalizing that negative MSB weight to any bit width $N \ge 1$ defines the **s
 
 $$S_N(b) = -b_{N-1} \cdot 2^{N-1} + \sum_{i=0}^{N-2} b_i \cdot 2^i$$
 
+Checking the top sign wire confirms that every $N$-bit pattern maps to a unique signed integer with only a single zero.
 At the 1-bit edge case $N = 1$, the lower sum has no terms, giving $S_1(b_0) = -b_0 \in \{-1, 0\}$.
-For $N \ge 2$, write $L = \sum_{i=0}^{N-2} b_i 2^i \in [0, 2^{N-1} - 1]$ for the lower $N - 1$ wires, so patterns with $b_{N-1} = 0$ map one-to-one onto $[0, 2^{N-1} - 1]$ and yield zero only on the all-zero pattern (`00...0`).
+For $N \ge 2$, the lower $N - 1$ wires form an $(N - 1)$-bit unsigned integer $L = U_{N-1}(b_{N-2..0}) = \sum_{i=0}^{N-2} b_i 2^i$, which maps bijectively onto $[0, 2^{N-1} - 1]$; patterns with $b_{N-1} = 0$ therefore map one-to-one onto $[0, 2^{N-1} - 1]$ and yield zero only on the all-zero pattern (`00...0`).
 Meanwhile, adding $-2^{N-1}$ to each distinct lower-wire sum $L$ for patterns with $b_{N-1} = 1$ maps them one-to-one onto $[-2^{N-1}, -1]$, sitting strictly below the non-negative half without duplicating zero.
 An $N$-bit two's-complement integer therefore maps every distinct bit pattern to one unique signed integer across the asymmetric interval $[-2^{N-1}, 2^{N-1} - 1]$ for every $N \ge 1$.
-For $N = 32$, [`oracle.py`](../sim/oracle.py) defines those endpoints using Python's left-shift syntax (`1 << 31` places a single `1` bit at Bit 31 for $2^{31}$) as `INT32_MIN = -(1 << 31)` ($-2{,}147{,}483{,}648$, hex `0x8000_0000`) and `INT32_MAX = (1 << 31) - 1` ($+2{,}147{,}483{,}647$, hex `0x7FFF_FFFF`).
+For $N = 32$, [`oracle.py`](../sim/oracle.py) defines those endpoints using Python's left-shift syntax (`1 << 31` places a single `1` bit at Bit 31 for $2^{31}$) as `INT32_MIN = -(1 << 31)` ($-2{,}147{,}483{,}648$, 32-bit bit pattern `0x8000_0000`) and `INT32_MAX = (1 << 31) - 1` ($+2{,}147{,}483{,}647$, 32-bit bit pattern `0x7FFF_FFFF`).
 
-Python evaluates bitwise operators on integers—including negatives—as infinite-width two's-complement bit patterns (extending the sign bit infinitely left), so applying bitwise AND (`&`) with `MASK32 = 0xFFFF_FFFF` ($2^{32} - 1$) isolates the lower 32 bits of any integer.
-Writing any integer $x \in \mathbb{Z}$ via Euclidean division as $x = q \cdot 2^{32} + r$ ($0 \le r < 2^{32}$), the multiple $q \cdot 2^{32}$ carries 32 trailing zero bits for *every* integer $q \in \mathbb{Z}$ (including negative $q$).
-Masking `-5 & 0xFFFF_FFFF` drops $(-1) \cdot 2^{32}$ and leaves remainder $2^{32} - 5 = 4{,}294{,}967{,}291$ (`0xFFFF_FFFB`), just as `0x1_0000_0002 & 0xFFFF_FFFF` wraps down to $2$.
+Because Python integers grow arbitrarily wide instead of wrapping at 32 wires, [`oracle.py`](../sim/oracle.py) must project every positive, zero, or negative intermediate result back onto the 32-bit unsigned ring $[0, 2^{32} - 1]$.
+A single bitwise AND with 32 one-bits (`MASK32 = 0xFFFF_FFFF`) computes that exact modulo-$2^{32}$ remainder for every sign.
+
+Python evaluates bitwise operators on arbitrary integers—including negatives—as two's-complement bit patterns of any sufficiently large width $N \ge 33$.
+Choosing $N \ge 33$ wide enough for $x$ (so $x \in [-2^{N-1}, 2^{N-1} - 1]$) ensures both $x$ and non-negative `MASK32` ($2^{32} - 1$) fit in $N$-bit two's complement with a zero sign wire on `MASK32`.
+Splitting $x = S_N(b)$ at Bit 32 factors $2^{32}$ out of all upper wires while isolating the unsigned low 32-bit slice $U_{32}(b_{31..0}) \in [0, 2^{32} - 1]$:
+
+$$\begin{aligned}
+x = S_N(b)
+&= 2^{32}\!\left(-b_{N-1} 2^{N-33} + \sum_{i=32}^{N-2} b_i 2^{i-32}\right) + \sum_{i=0}^{31} b_i 2^i \\
+&= q \cdot 2^{32} + U_{32}(b_{31..0})
+\end{aligned}$$
+
+Because $N \ge 33$ keeps exponents $N - 33 \ge 0$ and $i - 32 \ge 0$ non-negative (with $\sum_{i=32}^{N-2}$ empty when $N = 33$), the parenthesized factor $q$ is an integer.
+Together with $0 \le U_{32}(b_{31..0}) < 2^{32}$, Euclidean division uniqueness yields $U_{32}(b_{31..0}) = x \bmod 2^{32}$ for every positive, zero, or negative $x$.
+Masking with `MASK32 = 0xFFFF_FFFF` places `1` on Bits 31..0 and `0` on Bit 32 and above—clearing the negative Most Significant Bit $b_{N-1}$—so `x & MASK32` discards all upper wires and returns $U_{32}(b_{31..0})$ directly.
+For example, $-5 = (-1) \cdot 2^{32} + (2^{32} - 5)$ masks via `-5 & 0xFFFF_FFFF` to `0xFFFF_FFFB`, and `0x1_0000_0002 & 0xFFFF_FFFF` masks directly to `2`.
 [`u32`](../sim/oracle.py#L267-L269) implements that 32-bit modular projection in a single mask operation:
 
 <!-- book-sync: u32 -->
@@ -244,7 +271,7 @@ Comparing the unsigned sum $U_N(b)$ and signed sum $S_N(b)$ on the exact same $N
 Because two's complement places $U_N(b)$ and $S_N(b)$ in the same residue class modulo $2^N$, and adding, subtracting, negating, and left-shifting depend only on modular congruence modulo $2^N$, every one of those operations preserves signed meaning without separate signed hardware.
 On our 4-bit pattern `1011`, $U_4(\texttt{1011}) = 11$ and $S_4(\texttt{1011}) = -5$, which differ by $11 - (-5) = 16 = 2^4$.
 
-Separating wire $N - 1$ from the lower $N - 1$ wires (empty when $N = 1$) cancels every lower wire weight and proves $U_N(b) - S_N(b) = b_{N-1} \cdot 2^N$, which equals $2^N$ whenever $b_{N-1} = 1$ and $0$ when $b_{N-1} = 0$:
+Separating wire $N - 1$ from the lower $N - 1$ wires cancels every lower place weight and isolates $U_N(b) - S_N(b)$:
 
 $$\begin{aligned}
 U_N(b) - S_N(b)
@@ -254,7 +281,8 @@ U_N(b) - S_N(b)
 \implies\quad S_N(b) &= U_N(b) - b_{N-1} \cdot 2^N
 \end{aligned}$$
 
-Because $b_{N-1} \in \{0, 1\}$, the difference $U_N(b) - S_N(b) = b_{N-1} \cdot 2^N$ is always an integer multiple of $2^N$, meaning both readings of *every* $N$-bit pattern sit at the *exact same slot* on the $2^N$-hour modular clock:
+When $N = 1$, the lower sum has no terms and the same difference holds directly.
+Because $b_{N-1} \in \{0, 1\}$, that difference equals $2^N$ when $b_{N-1} = 1$ and $0$ when $b_{N-1} = 0$, so both readings of *every* $N$-bit pattern sit at the *exact same slot* on the $2^N$-hour modular clock:
 
 $$U_N(b) \equiv S_N(b) \pmod{2^N}$$
 
@@ -262,7 +290,12 @@ Since each slot on that $2^N$-hour clock belongs to a single unique bit pattern 
 Starting from each circuit's output wires $w$ and stepping back to the signed target proves how five arithmetic contracts reuse unsigned circuits unchanged:
 
 1. **Sign-Agnostic Addition**: Wrapping unsigned binary addition produces identical output bits for signed two's-complement addition because shifting negative operands upward by $2^N$ adds only multiples of $2^N$, which vanish upon wrap-around.
-   On 4-bit patterns `1011` ($11$ unsigned, $-5$ signed) and `1110` ($14$ unsigned, $-2$ signed), adding unsigned weights yields $11 + 14 = 25$, whose wrapped low 4 bits (`1001`, decimal $9$) evaluate directly to signed sum $-5 + (-2) = -7 \equiv 9 \pmod{16}$.
+   On 4-bit patterns `1011` ($11$ unsigned, $-5$ signed) and `1110` ($14$ unsigned, $-2$ signed), the low 4 bits (`1001`) satisfy both views simultaneously:
+
+   $$\begin{aligned}
+   U_4:\quad 11 + 14 &= 25 \equiv 9 \pmod{16} && (\texttt{1001}) \\
+   S_4:\quad (-5) + (-2) &= -7 \equiv 9 \pmod{16} && (\texttt{1001})
+   \end{aligned}$$
 
    An unsigned $N$-bit adder computes output wire pattern $w$ with $U_N(w) \equiv U_N(a) + U_N(b) \pmod{2^N}$, so evaluating $S_N(w)$ yields the signed sum modulo $2^N$ directly:
 
@@ -274,7 +307,12 @@ Starting from each circuit's output wires $w$ and stepping back to the signed ta
    \end{aligned}$$
 
 2. **Sign-Agnostic Subtraction Congruence**: Exact signed and unsigned differences obey the same modular wrap-around, ensuring any circuit matching $U_N(a) - U_N(b)$ modulo $2^N$ also computes signed subtraction.
-   On the same 4-bit patterns `1011` ($11$ unsigned, $-5$ signed) and `1110` ($14$ unsigned, $-2$ signed), unsigned difference $11 - 14 = -3$ wraps modulo $16$ to `1101` ($13$), matching signed difference $-5 - (-2) = -3$ under $S_4$.
+   On the same 4-bit patterns `1011` and `1110`, wrapping modulo $16$ produces `1101` under both readings:
+
+   $$\begin{aligned}
+   U_4:\quad 11 - 14 &= -3 \equiv 13 \pmod{16} && (\texttt{1101}) \\
+   S_4:\quad (-5) - (-2) &= -3 && (\texttt{1101})
+   \end{aligned}$$
 
    Whenever hardware outputs wire pattern $w$ satisfying $U_N(w) \equiv U_N(a) - U_N(b) \pmod{2^N}$, evaluating $S_N(w)$ returns the wrapped signed difference:
 
@@ -286,20 +324,18 @@ Starting from each circuit's output wires $w$ and stepping back to the signed ta
    \end{aligned}$$
 
 3. **Negation via Invert Plus One**: Negating a two's-complement word applies bitwise NOT (written `~b` in C and SystemVerilog) and adds `1`.
-   On 4 bits, inverting $+5$ (`0101`) gives `1010` ($10$ unsigned, $-6$ signed), and adding $1$ yields `1011` ($11 \equiv -5 \pmod{16}$, evaluating directly to $-5$ under $S_4$).
+   On 4 bits, inverting $+5$ (`0101`) and adding $1$ lands directly on $-5$ (`1011`):
+
+   $$\overline{\texttt{0101}} + 1 = \texttt{1010} + \texttt{0001} = \texttt{1011} \quad (S_4 = -5)$$
 
    Define each inverted wire $\bar{b}_i = 1 - b_i$, and feed $\bar{b}$ and $1$ into the unsigned adder so output $w$ obeys $U_N(w) \equiv U_N(\bar{b}) + 1 \pmod{2^N}$, giving $-S_N(b) \pmod{2^N}$:
 
    $$\begin{aligned}
    S_N(w)
-   &\equiv U_N(w) && \text{(}U_N\text{--}S_N\text{ on }w\text{)} \\
-   &\equiv U_N(\bar{b}) + 1 && \text{(unsigned adder spec)} \\
-   &= \sum_{i=0}^{N-1} (1 - b_i) 2^i + 1 && \text{(}\bar{b}_i = 1 - b_i\text{)} \\
-   &= \left(\sum_{i=0}^{N-1} 2^i - \sum_{i=0}^{N-1} b_i 2^i\right) + 1 && \text{(split sum)} \\
-   &= \left(2^N - 1 - U_N(b)\right) + 1 && \text{(}\sum 2^i = 2^N - 1\text{ and }U_N\text{ def)} \\
-   &= 2^N - U_N(b) && \text{(cancel }-1 + 1\text{)} \\
-   &\equiv -U_N(b) && \text{(drop }2^N\text{)} \\
-   &\equiv -S_N(b) \pmod{2^N} && \text{(}U_N(b) \equiv S_N(b)\text{)}
+   &\equiv U_N(w) \equiv U_N(\bar{b}) + 1 && \text{(}U_N \equiv S_N\text{; adder spec)} \\
+   &= \left(\sum_{i=0}^{N-1} 2^i - \sum_{i=0}^{N-1} b_i 2^i\right) + 1 && \text{(}\bar{b}_i = 1 - b_i\text{)} \\
+   &= (2^N - 1 - U_N(b)) + 1 = 2^N - U_N(b) && \text{(}\sum 2^i = 2^N - 1\text{)} \\
+   &\equiv -U_N(b) \equiv -S_N(b) \pmod{2^N} && \text{(drop }2^N\text{; }U_N \equiv S_N\text{)}
    \end{aligned}$$
 
    Two boundary patterns confirm wrap-around cleanly.
@@ -307,21 +343,27 @@ Starting from each circuit's output wires $w$ and stepping back to the signed ta
    For extremal negative value $S_N(b) = -2^{N-1}$ (`1000` on 4 bits, or `INT32_MIN` in hex `0x8000_0000` on 32 bits), exact negation $+2^{N-1}$ exceeds $2^{N-1} - 1$ by $1$ and wraps modulo $2^N$ right back to $-2^{N-1}$.
 
 4. **Subtraction via Invert Plus One**: Rather than building a separate subtractor unit alongside the binary adder, hardware computes $a - b$ on the *same* unsigned adder by inverting $b$ and adding $1$.
-   On 4-bit operands `1011` ($11$ unsigned, $-5$ signed) and `1110` ($14$ unsigned, $-2$ signed), inverting `1110` yields `0001` and the unsigned adder evaluates $\texttt{1011} + \texttt{0001} + 1 = \texttt{1101}$ ($13$ unsigned and $-3$ signed).
+   On 4-bit operands `1011` ($-5$) and `1110` ($-2$), adding `1011` to inverted `1110` (`0001`) plus $1$ yields `1101` ($13$ unsigned, $-3$ signed):
+
+   $$\texttt{1011} + \overline{\texttt{1110}} + 1 = \texttt{1011} + \texttt{0001} + \texttt{0001} = \texttt{1101}$$
 
    With adder output $w$ satisfying $U_N(w) \equiv U_N(a) + U_N(\bar{b}) + 1 \pmod{2^N}$, substituting Item 3's negation sum yields signed subtraction modulo $2^N$:
 
    $$\begin{aligned}
    S_N(w)
-   &\equiv U_N(w) && \text{(}U_N\text{--}S_N\text{ on }w\text{)} \\
-   &\equiv U_N(a) + U_N(\bar{b}) + 1 && \text{(unsigned adder spec)} \\
-   &= U_N(a) + 2^N - U_N(b) && \text{(Item 3 negation sum)} \\
+   &\equiv U_N(w) \equiv U_N(a) + U_N(\bar{b}) + 1 && \text{(}U_N \equiv S_N\text{; adder spec)} \\
+   &= U_N(a) + 2^N - U_N(b) && \text{(Item 3 sum)} \\
    &\equiv U_N(a) - U_N(b) && \text{(drop }2^N\text{)} \\
-   &\equiv S_N(a) - S_N(b) \pmod{2^N} && \text{(term-wise }U_N \equiv S_N\text{ in }-\text{)}
+   &\equiv S_N(a) - S_N(b) \pmod{2^N} && \text{(}U_N \equiv S_N\text{)}
    \end{aligned}$$
 
 5. **Sign-Agnostic Left Shifts**: Processors multiply integers by powers of two via a **left shift** ($a \ll k$ for shift distance $0 \le k < N$), sliding every bit $k$ positions toward higher place weights and zero-filling the vacated lower $k$ wires.
-   For example, shifting 4-bit `1011` ($11$ unsigned, $-5$ signed) left by $k = 1$ drops Bit 3 (`1`) and fills Bit 0 with `0` to give `0110` ($+6$), matching both $11 \cdot 2 = 22 \equiv 6 \pmod{16}$ and $(-5) \cdot 2 = -10 \equiv 6 \pmod{16}$.
+   Shifting 4-bit `1011` ($11$ unsigned, $-5$ signed) left by $k = 1$ drops Bit 3 (`1`) and fills Bit 0 with `0` to give `0110` ($+6$):
+
+   $$\begin{aligned}
+   U_4:\quad 11 \cdot 2 &= 22 \equiv 6 \pmod{16} && (\texttt{0110}) \\
+   S_4:\quad (-5) \cdot 2 &= -10 \equiv 6 \pmod{16} && (\texttt{0110})
+   \end{aligned}$$
 
    To verify that shifted wire pattern $a \ll k$ satisfies signed scaling $2^k S_N(a) \pmod{2^N}$, first evaluate $U_N(a \ll k)$.
    When $k = 0$, no wires move ($a \ll 0 = a$), so $U_N(a \ll 0) = 2^0 U_N(a)$ holds immediately.
@@ -331,8 +373,7 @@ Starting from each circuit's output wires $w$ and stepping back to the signed ta
    U_N(a \ll k)
    &= \sum_{i=0}^{N-1-k} a_i 2^{i+k} && \text{(surviving shifted weights)} \\
    &= \sum_{i=0}^{N-1} a_i 2^{i+k} - \sum_{i=N-k}^{N-1} a_i 2^{i+k} && \text{(add and drop top }k\text{ terms)} \\
-   &= 2^k \sum_{i=0}^{N-1} a_i 2^i - 2^N \sum_{i=N-k}^{N-1} a_i 2^{i+k-N} && \text{(factor }2^k\text{ and }2^N\text{)} \\
-   &= 2^k U_N(a) - 2^N \sum_{i=N-k}^{N-1} a_i 2^{i+k-N} && \text{(definition of }U_N\text{)} \\
+   &= 2^k U_N(a) - 2^N \sum_{i=N-k}^{N-1} a_i 2^{i+k-N} && \text{(factor }2^k\text{ and }2^N\text{)} \\
    &\equiv 2^k U_N(a) \pmod{2^N} && \text{(drop }2^N\text{ multiple)}
    \end{aligned}$$
 
@@ -390,11 +431,11 @@ Practice symbolic negation, left-shift wrap boundaries, power-of-two cancellatio
 
      </details>
 
-   - **(b)** Give one 4-bit negative pattern ($b_3 = 1$) where $S_4(b \ll 1) \neq 2 \cdot S_4(b)$.
+   - **(b)** Give one 4-bit negative pattern ($b_3 = 1$) other than `1011` where $S_4(b \ll 1) \neq 2 \cdot S_4(b)$.
 
      <details><summary>Solution</summary>
 
-     For `1011` ($S_4 = -5$, with $b_3 = 1 \neq 0 = b_2$), `1011 << 1 = 0110` evaluates to $S_4 = +6 \neq -10$.
+     For `1001` ($S_4 = -7$, with $b_3 = 1 \neq 0 = b_2$), `1001 << 1 = 0010` evaluates to $S_4 = +2 \neq -14$.
 
      </details>
 
@@ -408,20 +449,21 @@ Practice symbolic negation, left-shift wrap boundaries, power-of-two cancellatio
 
    </details>
 
-4. Suppose hardware used Ones' Complement, where $S^{\text{1c}}_N(b) = U_N(b) - b_{N-1}(2^N - 1)$.
+4. Suppose hardware uses $N$-bit Ones' Complement ($N \ge 2$), where $S^{\text{1c}}_N(b) = U_N(b) - b_{N-1}(2^N - 1)$.
    Find a congruence for $S^{\text{1c}}_N(b)$ modulo $2^N$ in terms of $U_N(b)$ and $b_{N-1}$ to explain why an ordinary modulo-$2^N$ adder fails when adding negative Ones'-Complement numbers.
 
    <details><summary>Solution</summary>
 
-   Reducing modulo $2^N$ turns $-(2^N - 1) \equiv +1 \pmod{2^N}$:
+   Let $a, b$ be $N$-bit operands ($N \ge 2$) and let $w$ be the unsigned modulo-$2^N$ adder output satisfying $U_N(w) \equiv U_N(a) + U_N(b) \pmod{2^N}$.
+   Reducing $-(2^N - 1) \equiv +1 \pmod{2^N}$ gives:
 
    $$\begin{aligned}
    S^{\text{1c}}_N(b) &\equiv U_N(b) + b_{N-1} \pmod{2^N} \\
    S^{\text{1c}}_N(a) + S^{\text{1c}}_N(b) &\equiv U_N(a) + U_N(b) + a_{N-1} + b_{N-1} \pmod{2^N} \\
-   S^{\text{1c}}_N(w) &\equiv U_N(a) + U_N(b) + w_{N-1} \pmod{2^N}
+   S^{\text{1c}}_N(w) &\equiv U_N(w) + w_{N-1} \equiv U_N(a) + U_N(b) + w_{N-1} \pmod{2^N}
    \end{aligned}$$
 
-   Because unsigned sum $w$ carries offset $w_{N-1}$ instead of $a_{N-1} + b_{N-1}$, plain modulo-$2^N$ addition produces the wrong residue whenever those sign offsets disagree and the adder discards carry-out instead of wrapping it into Bit 0.
+   The output residue carries offset $w_{N-1} \in \{0, 1\}$ instead of $a_{N-1} + b_{N-1} \in \{0, 1, 2\}$, so their offset difference has magnitude at most $2$; because $N \ge 2$ implies $2^N \ge 4 > 2$, distinct offsets cannot collide modulo $2^N$, and the residues disagree whenever $w_{N-1} \neq a_{N-1} + b_{N-1}$—in particular, for every pair of negative inputs where $a_{N-1} + b_{N-1} = 2$.
 
    </details>
 
@@ -430,7 +472,7 @@ Practice symbolic negation, left-shift wrap boundaries, power-of-two cancellatio
 ## 3. Core Registers and Instruction Encoding
 
 With fixed-width binary arithmetic established, we can define the core processor storage initialized in [`RV32Oracle.reset()`](../sim/oracle.py#L563-L593) and organize how a 32-bit machine word encodes operations, registers, and embedded constants.
-Separating core registers and instruction bit layouts from memory buses and peripheral timers keeps instruction decoding self-contained before adding external devices.
+Separating core registers and instruction bit layouts from external memory and hardware timers keeps instruction decoding self-contained before adding attached devices.
 
 ### Program Counter and Hardwired Zero Register
 
@@ -454,10 +496,10 @@ Rather than adding separate hardware instructions to clear, copy, or negate valu
 
 ### Six Functional Instruction Families
 
-The `brain` CPU executes instructions belonging to six functional groups, each solving a core programming need in [`oracle.py`](../sim/oracle.py) using an open hardware specification (**Reduced Instruction Set Computer, Fifth Generation**, or RISC-V).
+The `brain` CPU executes instructions belonging to six functional groups, each solving a core programming need in [`oracle.py`](../sim/oracle.py) using the open RISC-V hardware specification.
 The **32-bit Base Integer** (RV32I) instruction set handles arithmetic, control flow, and memory access, while **Integer Multiply and Divide** (RV32M) adds single-instruction multiplication and division.
-Combining both integer extensions defines the **RV32IM** target implemented by our simulator and processor.
-System management adds privileged inspection and configuration instructions to read processor settings and interrupt state, while a custom neural extension adds domain acceleration for real-time motor inference.
+Combining the base integer set with the multiply-divide extension defines the **RV32IM** target implemented by our simulator and processor.
+System management adds special processor-control instructions to read hardware settings and handle external or timer alert (interrupt) state, while a custom neural extension adds domain acceleration for real-time motor inference.
 
 | Group | Functional Category | Everyday Programming Role |
 | :---: | :--- | :--- |
@@ -465,7 +507,7 @@ System management adds privileged inspection and configuration instructions to r
 | **2** | **Hardware Multiply and Divide** | Up to 64-bit integer products, plus 32-bit quotients and remainders |
 | **3** | **Memory Loads and Stores** | Reading and writing 8-bit, 16-bit, and 32-bit values in memory and devices |
 | **4** | **Conditional Branches and Jumps** | Loops, `if`/`else` branches, direct calls, and function-pointer jumps |
-| **5** | **System and Control Registers** | System calls, debugger breakpoints, interrupt masks, and cycle counters |
+| **5** | **System and Control Registers** | System calls, debugger breakpoints, enabling or disabling timer and device interrupts, and cycle counters |
 | **6** | **Custom Neural Multiply-Accumulate** | Two-lane clamped dot products for real-time robot motor control |
 
 ### Bitfield Layouts and Offset Reach
@@ -475,18 +517,12 @@ In human-readable textual notation (**assembly syntax**), instructions list dest
 
 All standard 32-bit RISC-V primary operation codes (`opcode`, Bits 6..0) end with Bits 1..0 equal to `0b11` (decimal 3), reserving the other three 2-bit endings for optional 16-bit compressed instructions.
 Alongside `opcode`, instructions reuse two secondary sub-operation selectors—a 3-bit function code (`funct3`, Bits 14..12) and a 7-bit function code (`funct7`, Bits 31..25)—to distinguish individual operations sharing the same primary `opcode`.
-To pull an upper bitfield down to Bit 0, an unsigned **right shift** (`insn >> lo`) moves every bit right by `lo` positions, discarding the lowest `lo` bits and zero-filling the vacated upper slots on non-negative words like `insn` (signed right shifts arrive with arithmetic instructions in Section 4).
-Inside [`RV32Oracle.step()`](../sim/oracle.py#L1194-L1273), combining that right shift with a width bitmask ($2^w - 1$, such as `OPCODE_MASK = 0x7F`, `REG_MASK = 0x1F`, `FUNCT3_MASK = 0x7`, and `FUNCT7_MASK = 0x7F`) clears every bit above the field in parallel before dispatching on `opcode`:
-
-<!-- book-sync: RV32Oracle.step['opcode = insn & OPCODE_MASK'..'funct7 = (insn >> 25) & FUNCT7_MASK'] -->
-<<< @/systems/brain/sim/oracle.py#L1210-L1215
-
 Every 32-bit instruction conforms to one of six standard bitfield layouts (**Register** / R-type, **Immediate** / I-type, **Store** / S-type, **Branch** / B-type, **Upper Immediate** / U-type, and **Jump** / J-type):
 
 | Format | Primary Software Role | Registers and Selectors | Signed Constant & Byte Reach | Constant Bit Mapping Across `insn[31..0]` |
 | :---: | :--- | :--- | :--- | :--- |
-| **R-Type** | Register-register integer arithmetic and multiply/divide (combines `rs1` and `rs2` into `rd`) | `rs2` (24..20), `rs1` (19..15), `funct3` (14..12), `rd` (11..7), `funct7` (31..25) | None (all bits spent on selectors and registers) | None |
-| **I-Type** | Immediate integer math, memory loads (`rs1 + imm`), indirect jumps | `rs1` (19..15), `funct3` (14..12), `rd` (11..7) | 12-bit signed ($[-2{,}048, +2{,}047]$) | Bits 11..0 $\to$ `insn[31..20]` |
+| **R-Type** | Register-register integer arithmetic and multiply/divide (combines `rs1` and `rs2` into `rd`) | `funct7` (31..25), `rs2` (24..20), `rs1` (19..15), `funct3` (14..12), `rd` (11..7) | None (all bits spent on selectors and registers) | None |
+| **I-Type** | Immediate integer math, memory loads, and function-pointer (indirect) jumps (`rs1 + imm`) | `rs1` (19..15), `funct3` (14..12), `rd` (11..7) | 12-bit signed ($[-2{,}048, +2{,}047]$) | Bits 11..0 $\to$ `insn[31..20]` |
 | **S-Type** | Memory stores (write `rs2` to `rs1 + imm`) | `rs2` (24..20), `rs1` (19..15), `funct3` (14..12) | 12-bit signed ($[-2{,}048, +2{,}047]$) | Bits 11..5 $\to$ `insn[31..25]`; Bits 4..0 $\to$ `insn[11..7]` |
 | **B-Type** | Conditional PC-relative branches (`pc + offset`) | `rs2` (24..20), `rs1` (19..15), `funct3` (14..12) | 13-bit even ($[-4{,}096, +4{,}094]$ bytes, Bit 0 = 0) | Bit 12 $\to$ `insn[31]`; Bits 10..5 $\to$ `insn[30..25]`; Bits 4..1 $\to$ `insn[11..8]`; Bit 11 $\to$ `insn[7]` |
 | **U-Type** | Load 20-bit upper slice (Bits 31..12) into `rd` | `rd` (11..7) | 20-bit upper payload (`payload << 12`) | Bits 31..12 $\to$ `insn[31..12]` |
@@ -501,10 +537,18 @@ Notice two quantitative properties embedded directly in the bitfield layout tabl
    Because optional 16-bit compressed RISC-V instructions sit on even 2-byte addresses, the difference between any two instruction addresses is even (guaranteeing Bit 0 equals zero), letting hardware drop Bit 0 and double byte reach onto even offsets without spending an instruction wire.
    Consequently, B-type encodes 12 stored wires to cover $2 \times [-2^{11}, 2^{11} - 1]$ ($[-4{,}096, +4{,}094]$ even bytes, about $\pm 4\text{ KB}$), while J-type encodes 20 stored wires to cover $2 \times [-2^{19}, 2^{19} - 1]$ ($[-1{,}048{,}576, +1{,}048{,}574]$ even bytes, about $\pm 1\text{ MB}$).
    Because the `brain` CPU implements only fixed 32-bit instructions without 16-bit compressed encodings, the RISC-V specification tightens runtime fetch alignment to 32 bits, or 4-byte multiples (**Instruction Address Alignment**, or IALIGN = 32).
-2. **Decoder Multiplexer Wire-Sharing**: Hardware designers permuted B-type and J-type immediate bits deliberately to keep register indices (`rs1` at 19..15, `rs2` at 24..20, `rd` at 11..7) and the sign bit (Bit 31) stationary so the register file and sign-bit wires start settling immediately, shortening the longest logic chain within one clock tick (the **critical timing path**).
+2. **Decoder Multiplexer Wire-Sharing**: Hardware designers permuted B-type and J-type immediate bits deliberately to keep register indices (`rs1` at 19..15, `rs2` at 24..20, `rd` at 11..7) and the sign bit (Bit 31) stationary so the register file and sign-bit wires can start settling immediately in parallel with `opcode` decoding (before the instruction format is even determined), shortening the longest logic chain within one clock tick (the **critical timing path**).
    Even further, B-type shares 11 of its 12 stored immediate wires with S-type (`insn[31]` as sign, `insn[30..25]` as Bits 10..5, and `insn[11..8]` as Bits 4..1), repurposing only `insn[7]` from S-type Bit 0 to B-type Bit 11.
    Similarly, J-type shares all 8 middle wires `insn[19..12]` with U-type and all 10 low wires `insn[30..21]` with I-type (matching S-type and B-type on the upper 6 of those wires, `insn[30..25]`).
    Every shared wire eliminates a multi-way multiplexer input in the immediate reconstruction circuit.
+
+Because register columns (`rd` at 11..7, `rs1` at 19..15, `rs2` at 24..20) and selector columns (`opcode` at 6..0, `funct3` at 14..12, `funct7` at 31..25) stay pinned across formats, software can slice all six fields upfront before dispatching on `opcode` (formats omitting a field simply ignore its pre-sliced bits).
+To pull an upper bitfield down to Bit 0, an unsigned right shift (`insn >> lo`) moves every bit right by `lo` positions, discarding the lowest `lo` bits and zero-filling the vacated upper slots on non-negative words like `insn` (signed right shifts arrive with arithmetic instructions in Section 4).
+Inside [`RV32Oracle.step()`](../sim/oracle.py#L1194-L1273), combining that right shift with a $w$-bit mask $2^w - 1$ (holding `1` in Bits $w - 1..0$ and `0` above) clears every higher bit in parallel.
+Grouping those masks by field width—7-bit `OPCODE_MASK = 0x7F` and `FUNCT7_MASK = 0x7F`, 5-bit `REG_MASK = 0x1F`, and 3-bit `FUNCT3_MASK = 0x7`—extracts all six fields in six lines:
+
+<!-- book-sync: RV32Oracle.step['opcode = insn & OPCODE_MASK'..'funct7 = (insn >> 25) & FUNCT7_MASK'] -->
+<<< @/systems/brain/sim/oracle.py#L1210-L1215
 
 In [`oracle.py`](../sim/oracle.py), [`enc_r`](../sim/oracle.py#L322-L331), [`enc_i`](../sim/oracle.py#L334-L342), [`enc_s`](../sim/oracle.py#L345-L356), [`enc_b`](../sim/oracle.py#L359-L372), [`enc_u`](../sim/oracle.py#L375-L378), and [`enc_j`](../sim/oracle.py#L381-L392) assemble bit-exact test instructions across all six formats.
 These encoders position each field with left shifts (`<<`) and merge non-overlapping slices with bitwise OR (`|`).
@@ -514,24 +558,27 @@ During execution, [`_decode_imm_s`](../sim/oracle.py#L400-L402), [`_decode_imm_b
 
 In the previous subsection, instruction decoders unpacked narrow 12-bit, 13-bit, and 21-bit immediate payloads that must expand to full 32-bit operands before entering the processor execution unit.
 When widening a narrow integer from $k \ge 1$ bits to a strictly wider register of $M > k$ bits, **sign extension** preserves the signed value across all bit widths by copying the sign wire into every added upper position, whereas **zero extension** preserves unsigned values while corrupting negative numbers.
-For example, on 12 bits ($2^{12} = 4096$), $-5$ encodes as `0xFFB` ($4091$ unsigned, with sign wire Bit 11 equal to 1).
-Zero extension fills upper wires Bits 31..12 with zero bits to produce `0x0000_0FFB` ($+4091$, shifting $-5$ upward by $+4096$), whereas sign extension copies Bit 11 across Bits 31..12 to produce `0xFFFF_FFFB` ($-5$ signed, $4{,}294{,}967{,}291$ unsigned).
+For example, widening 12-bit $-5$ (`0xFFB`, with $U_{12} = 4{,}091$ and sign wire Bit 11 = `1`) to 32 bits separates the two rules cleanly:
 
-The interactive width widener below contrasts zero extension and sign extension across 8-bit, 12-bit, and 16-bit inputs as we prepare to prove both widening rules for arbitrary target width $M > k$.
+$$\begin{aligned}
+\text{Zero-extend } \texttt{0xFFB} &\;\mapsto\; \texttt{0x0000\_0FFB} && (U_{32} = +4{,}091,\; S_{32} = +4{,}091) \\
+\text{Sign-extend } \texttt{0xFFB} &\;\mapsto\; \texttt{0xFFFF\_FFFB} && (S_{32} = -5,\; U_{32} = 2^{32} - 5)
+\end{aligned}$$
+
+The interactive wire schematic below shows 4-bit to 8-bit widening—contrasting constant-`0` tie-offs against passive sign-wire copying across added upper lanes—before we prove both rules for arbitrary target width $M > k$.
 
 <SignExtensionWidener />
 
 Padding Bits $M - 1..k$ with zero keeps the unsigned value unchanged ($U_M = U_k$) and forces the wider signed reading non-negative, shifting negative inputs upward by $2^k$ and preventing one shared widener from serving both interpretations.
-Because $M > k$, zero-filling Bits $M-1..k$ sets Bit $M - 1$ and every upper wire above Bit $k - 1$ to zero:
+
+Because $M > k$, zero-filling Bits $M - 1..k$ sets Bit $M - 1$ and every upper wire above Bit $k - 1$ to zero:
 
 $$\begin{aligned}
-& U_M(\text{zero-extended } b) \\
-&\quad = \sum_{i=k}^{M-1} 0 \cdot 2^i + \sum_{i=0}^{k-1} b_i 2^i && \text{(upper bits zero)} \\
-&\quad = U_k(b) && \text{(}U_k\text{ def)} \\
-& S_M(\text{zero-extended } b) \\
-&\quad = -0 \cdot 2^{M-1} + \sum_{i=k}^{M-2} 0 \cdot 2^i + \sum_{i=0}^{k-1} b_i 2^i && \text{(Bit }M-1\text{ is zero)} \\
-&\quad = U_k(b) && \text{(zeroed terms drop)} \\
-&\quad = S_k(b) + b_{k-1} 2^k && \text{(}2^k\text{-offset identity)}
+U_M(\text{zero-extended } b)
+&= \sum_{i=k}^{M-1} 0 \cdot 2^i + \sum_{i=0}^{k-1} b_i 2^i = U_k(b) \\
+S_M(\text{zero-extended } b)
+&= -0 \cdot 2^{M-1} + \sum_{i=k}^{M-2} 0 \cdot 2^i + \sum_{i=0}^{k-1} b_i 2^i \\
+&= U_k(b) = S_k(b) + b_{k-1} 2^k
 \end{aligned}$$
 
 When $M = k + 1$, the middle sum $\sum_{i=k}^{M-2} 0 \cdot 2^i$ has no terms and equals $0$.
@@ -543,25 +590,28 @@ For any $k \ge 1$, first widen a $k$-bit pattern $b$ by one wire to $k + 1$ bits
 $$\begin{aligned}
 S_{k+1}(b')
 &= -b_{k-1} 2^k + b_{k-1} 2^{k-1} + \sum_{i=0}^{k-2} b_i 2^i \\
-&= -b_{k-1} 2^{k-1} + \sum_{i=0}^{k-2} b_i 2^i \\
-&= S_k(b)
+&= -b_{k-1} 2^{k-1} + \sum_{i=0}^{k-2} b_i 2^i = S_k(b)
 \end{aligned}$$
 
 When $k = 1$, the lower sum has zero terms and $-b_0 2^1 + b_0 2^0 = -b_0 = S_1(b)$ still holds directly.
 Repeating this single-wire copy by induction up to any target width $M \ge k$ proves $S_M(\text{extended } b) = S_k(b)$ using only passive wire splitting (**fan-out**, connecting one source output wire to multiple destination wires) from Bit $k - 1$.
-Converting both sides from signed values to unsigned integers via $U_N(x) = S_N(x) + x_{N-1} 2^N$ shows why sign extension shifts negative unsigned interpretations upward by $2^M - 2^k$:
+
+Relating the unsigned and signed views via $U_N(x) = S_N(x) + x_{N-1} 2^N$ (where sign extension places $b_{k-1}$ on top wire Bit $M - 1$) shows why sign extension shifts the unsigned interpretation of negative inputs upward by $2^M - 2^k$:
 
 $$\begin{aligned}
 U_M(\text{extended } b)
-&= S_M(\text{extended } b) + b_{k-1} 2^M \\
-&= S_k(b) + b_{k-1} 2^M \\
+&= S_M(\text{extended } b) + b_{k-1} 2^M = S_k(b) + b_{k-1} 2^M \\
 &= \left(U_k(b) - b_{k-1} 2^k\right) + b_{k-1} 2^M \\
 &= U_k(b) + b_{k-1}\left(2^M - 2^k\right)
 \end{aligned}$$
 
 Whereas physical hardware widens a $k$-bit integer to 32 wires by passively fanning out Bit $k - 1$, Python's arbitrary-precision integers carry no fixed upper wire count to replicate into.
-Instead, software masks the input down to its low $k$ bits using bitwise AND (`&`) with $2^k - 1$ so bits at positions $\ge k$ become zero, flips Bit $k - 1$ ($s = 2^{k-1}$) using bitwise XOR (`^` in Python and $\oplus$ in equations), and subtracts $s$ to evaluate $S_k(b)$ directly.
-For a concrete 12-bit check on `0xFFB` ($-5$, where $s = 2^{11} = \texttt{0x800} = 2{,}048$), flipping Bit 11 evaluates `(0xFFB ^ 0x800) - 0x800`, giving `0x7FB - 0x800` ($2{,}043 - 2{,}048 = -5$).
+Instead, software masks the input down to its low $k$ bits using bitwise AND (`&`) with $2^k - 1$ so all bits at positions $\ge k$ become zero.
+It then flips Bit $k - 1$ ($s = 2^{k-1}$) using bitwise XOR (`^` in Python and $\oplus$ in equations) and subtracts $s$ to evaluate $S_k(b)$ directly.
+
+On 12-bit `0xFFB` ($-5$, where $s = 2^{11} = \texttt{0x800} = 2{,}048$), flipping Bit 11 and subtracting $s$ recovers $-5$ directly:
+
+$$(\texttt{0xFFB} \oplus \texttt{0x800}) - \texttt{0x800} = \texttt{0x7FB} - \texttt{0x800} = 2{,}043 - 2{,}048 = -5$$
 
 Decomposing any masked $k$-bit value into its top bit and low payload proves this single-expression XOR-and-subtract formula matches $S_k(b)$ for every width $k \ge 1$.
 
@@ -571,10 +621,7 @@ XOR with $s = 2^{k-1}$ flips only Bit $k - 1$ to $1 - b_{k-1}$ while leaving $L$
 $$\begin{aligned}
 (v \oplus s) - s
 &= \left((1 - b_{k-1}) s + L\right) - s \\
-&= s - b_{k-1} s + L - s \\
-&= -b_{k-1} s + L \\
-&= -b_{k-1} 2^{k-1} + \sum_{i=0}^{k-2} b_i 2^i \\
-&= S_k(b)
+&= -b_{k-1} s + L = -b_{k-1} 2^{k-1} + \sum_{i=0}^{k-2} b_i 2^i = S_k(b)
 \end{aligned}$$
 
 At the boundary $k = 1$, $L$ is an empty sum equal to $0$ and $s = 1$, so $(v \oplus 1) - 1 = (1 - b_0) - 1 = -b_0 = S_1(b)$ still holds directly.
@@ -590,35 +637,36 @@ In [`oracle.py`](../sim/oracle.py), [`sign_extend`](../sim/oracle.py#L272-L279) 
 
 Once the decoder slices an instruction word, integer operations flow into an arithmetic and bitwise execution circuit (**Arithmetic Logic Unit**, or ALU) built from memoryless logic gates whose output wires settle purely as a function of current inputs (**combinational logic**).
 Before dispatching to the ALU, [`RV32Oracle.step()`](../sim/oracle.py#L1194-L1273) reads and holds both prior source register values (`rs1_u, rs2_u = self.regs[rs1], self.regs[rs2]`) and derives signed views via [`s32`](../sim/oracle.py#L282-L284) (`rs1_s`, `rs2_s`).
-Because source values are captured before writeback, an in-place addition such as `add x3, x3, x3` (adding `x3` to itself) reads the prior `x3` on both inputs and writes double that value back to `x3`.
+Because source values are captured before writing the result to `rd`, an in-place addition such as `add x3, x3, x3` (adding `x3` to itself) reads the prior `x3` on both inputs and writes double that value back to `x3`.
 
 ### Base Integer Operations and Zero Idioms
 
 Every integer instruction set pairs two-register arithmetic (for dynamic variables) with register-immediate operations so programs can apply loop increments, bit masks, and bounds checks without spending an extra register to hold a small constant.
-Using the three selector fields from Section 3—primary `opcode` (Bits 6..0), sub-operation `funct3` (Bits 14..12), and modifier `funct7` (Bits 31..25)—valid base ALU instructions execute cleanly in one step, while any unassigned pattern aborts before modifying `rd` and routes to Section 1's atomic trap handler.
+Combining Section 3's primary `opcode` (Bits 6..0) with secondary function-selector fields `funct3` (Bits 14..12) and `funct7` (Bits 31..25), valid base ALU instructions execute cleanly in one step, while any unassigned pattern aborts before modifying `rd` and routes to Section 1's atomic trap handler.
 In [`oracle.py`](../sim/oracle.py), [`_exec_op_imm`](../sim/oracle.py#L1023-L1055) executes register-immediate ALU instructions (`opcode` `0x13`), while [`_exec_op_reg`](../sim/oracle.py#L1083-L1115) executes register-register instructions (`opcode` `0x33`).
 
 Across the base operations table below, write `op2_u` for the 32-bit unsigned second operand (`rs2_u` in register-register instructions or `u32(imm)` after sign-extending 12-bit `imm` in register-immediate instructions) and `op2_s` for its signed view (`s32(op2_u)`).
-Because architectural registers `self.regs[rd]` store raw 32-bit unsigned patterns (`0..0xFFFF_FFFF`), outputs wrapped through `u32(...)` capture the exact two's-complement bit pattern whose signed value is `s32(self.regs[rd])` across four base categories:
-- **Modular Addition and Subtraction**: `add`, `addi`, and `sub` compute wrapped 32-bit sums or differences on Section 2's shared adder (`addi` accepts signed constants so `subi` is unnecessary).
-- **Single-Word Bit Shifts**: Left and right shifts mask a 5-bit unsigned **shift amount** (`shamt`, 0 to 31) via `rs2_u & 0x1F` (so passing 35 evaluates `35 & 31` equal to 3) or read `insn[24..20]`, because shifting by 32 or more places discards every original bit position (producing `0`, or `0xFFFF_FFFF` when sign-preserving right shifts operate on negative inputs).
+Because architectural registers `self.regs[rd]` store raw 32-bit unsigned patterns (`0..0xFFFF_FFFF`), the oracle normalizes arithmetic and shift outputs through `u32(...)` (preserving each signed view `s32(self.regs[rd])` by Section 2's modular congruence) across four base categories:
+- **Modular Addition and Subtraction**: `add`, `addi`, and `sub` compute wrapped 32-bit sums or differences on Section 2's shared adder (`addi` accepts signed constants, so no separate subtract-immediate instruction is needed).
+- **Single-Word Bit Shifts**: Because only shift distances from 0 to 31 retain any original bit positions of a 32-bit word, RISC-V defines a 5-bit unsigned **shift amount** (`shamt`, 0 to 31) via `insn[24..20]` or `rs2_u & 0x1F` rather than spending clamping circuitry on Bits 31..5.
+  Because `0x1F` is the 5-bit mask $2^5 - 1 = 31$ (retaining Bits 4..0 modulo 32), a register value of 35 ($32 + 3$) wraps to `35 & 31` equal to 3.
 - **Set-Less-Than Comparisons**: Signed comparisons (`slt`, `slti`) and unsigned comparisons (`sltu`, `sltiu`) compare two 32-bit values and write boolean flag `1` or `0` to `rd` after sign-extending any 12-bit immediate first.
 - **Parallel Bitwise Gates**: `xor`/`xori`, `or`/`ori`, and `and`/`andi` apply Section 2's column-wise boolean gates (`^`, `|`, `&`) across all 32 wires in parallel.
 
 In immediate-shift encodings (detailed in the table below), Bits 24..20 hold the 5-bit `shamt` so Bits 31..25 remain free for `funct7`, unlike other I-type instructions that spend Bits 31..25 on the 12-bit immediate.
-In Python's reference formulas below, `rs1_u >> shamt` zero-fills vacated high bits, whereas Python's unbounded `rs1_s >> shamt` performs floor division toward $-\infty$ so truncating it with `u32(...)` replicates Bit 31 across the upper vacated bits (proved in the next subsection).
+In Python's reference formulas below, `rs1_u >> shamt` models zero-filling right shifts, whereas `u32(rs1_s >> shamt)` wraps Python's signed downward-rounded right shift to match hardware Bit 31 replication (a correspondence derived in the next subsection).
 
 | Category | Register / Immediate Mnemonic | Selector (`funct3` / `funct7`) | 32-Bit Output Stored in `rd` | Key Hardware Rule |
 | :--- | :--- | :--- | :--- | :--- |
-| **Add / Subtract** | `add`, `addi` / `sub` | 0 / `0x00` (`sub`: `0x20`, R-type) | `u32(rs1_u + op2_u)` / `u32(rs1_u - rs2_u)` | Shared adder; `sub` inverts `rs2_u` and adds 1; negative constants use `addi` |
+| **Add / Subtract** | `add`, `addi` / `sub` | 0 / `0x00` (R-type; `sub`: `0x20`) | `u32(rs1_u + op2_u)` / `u32(rs1_u - rs2_u)` | Shared adder; `sub` inverts `rs2_u` and adds 1; negative constants use `addi` |
 | **Shift Left Logical** | `sll`, `slli` | 1 / `0x00` | `u32(rs1_u << shamt)` | Zero-fills low wires; `shamt` is `rs2_u & 0x1F` or `insn[24..20]`; invalid `funct7` traps |
-| **Shift Right Logical** | `srl`, `srli` | 5 / `0x00` | `rs1_u >> shamt` | Zero-fills upper wires (unsigned divide by $2^{\texttt{shamt}}$, proved next); invalid `funct7` traps |
-| **Shift Right Arithmetic** | `sra`, `srai` | 5 / `0x20` | `u32(rs1_s >> shamt)` | Copies Bit 31 (signed downward-rounded divide by $2^{\texttt{shamt}}$, proved next); invalid `funct7` traps |
+| **Shift Right Logical** | `srl`, `srli` | 5 / `0x00` | `rs1_u >> shamt` | Zero-fills upper wires (unsigned divide by $2^{\texttt{shamt}}$, derived next); invalid `funct7` traps |
+| **Shift Right Arithmetic** | `sra`, `srai` | 5 / `0x20` | `u32(rs1_s >> shamt)` | Replicates Bit 31 into upper wires (signed downward-rounded divide by $2^{\texttt{shamt}}$, derived next); invalid `funct7` traps |
 | **Set Less Than (Signed)** | `slt`, `slti` | 2 / `0x00` (R-type) | `1 if rs1_s < op2_s else 0` | Compares signed views `rs1_s` and `op2_s` |
 | **Set Less Than (Unsigned)** | `sltu`, `sltiu` | 3 / `0x00` (R-type) | `1 if rs1_u < op2_u else 0` | `sltiu` sign-extends 12-bit `imm` first, so $-1$ becomes `UINT32_MAX` |
 | **Bitwise Gates** | `xor`/`xori`, `or`/`ori`, `and`/`andi` | 4, 6, 7 / `0x00` (R-type) | `rs1_u ^ op2_u`, `rs1_u \| op2_u`, `rs1_u & op2_u` | Sign-extends 12-bit `imm` first (`xori rd, rs1, -1` flips all 32 bits) |
 
-Wiring `x0` or small constants into those base operations yields six everyday assembly pseudoinstructions without spending extra opcodes:
+Wiring `x0` or small constants into those base operations yields six everyday assembly shorthands (**pseudoinstructions**) that translate directly into existing base encodings without spending extra opcodes:
 
 | Assembly Shorthand | Underlying Machine Encoding | Architectural Effect |
 | :--- | :--- | :--- |
@@ -631,73 +679,63 @@ Wiring `x0` or small constants into those base operations yields six everyday as
 
 ### Right Shifts and Integer Floor Division
 
-Unlike addition, subtraction, or `sll`/`slli`, shifting every wire right by $k \ge 1$ positions discards the lower $k$ bits and leaves the top $k$ wire slots (Bits $N-1\dots N-k$) empty, forcing the ALU to split into `srl`/`srli` and `sra`/`srai`.
+Unlike addition, subtraction, or `sll`/`slli`, shifting every wire right by $k \ge 1$ positions discards the lower $k$ bits and leaves the top $k$ wire slots (Bits $N-1\dots N-k$) empty, forcing the processor to split into `srl`/`srli` and `sra`/`srai`.
 A **logical right shift** ($b \gg_{\text{log}} k$) fills those upper slots with zeros to divide unsigned values by $2^k$, whereas an **arithmetic right shift** ($b \gg_{\text{arith}} k$) replicates original sign wire $b_{N-1}$ to preserve the sign of two's-complement values.
 One shared right-shift circuit cannot serve both instructions because zero-filling a negative two's-complement word flips its sign wire to positive, whereas sign-replicating a large unsigned word injects phantom high bits.
 
-Both right shifts match exact division rounded downward toward $-\infty$ (**floor division**, written $\lfloor y \rfloor$ for the unique integer satisfying $\lfloor y \rfloor \le y < \lfloor y \rfloor + 1$).
-To see both shift modes side by side on 4-bit `1011` ($11$ unsigned, $-5$ signed) shifted right by $k = 1$, dropping Bit 0 (`1`) leaves logical result `0101` ($5 = \lfloor 11 / 2 \rfloor$) versus arithmetic result `1101` ($-3 = \lfloor -5 / 2 \rfloor$).
+Both right shifts match exact division rounded downward toward $-\infty$ (**floor division** $\lfloor x / d \rfloor$, where the floor $\lfloor y \rfloor$ is the unique integer satisfying $\lfloor y \rfloor \le y < \lfloor y \rfloor + 1$).
+Shifting 4-bit `1011` ($11$ unsigned, $-5$ signed) right by $k = 1$ drops Bit 0 (`1`) and separates the two fill rules cleanly:
 
-The interactive right-shift comparator below lets you test both shift modes across 32-bit positive and negative inputs and inspect the dropped remainder and downward-rounded quotient side by side before we prove the rule for arbitrary width $N$.
+$$\begin{aligned}
+\texttt{1011} \gg_{\text{log}} 1 &= \texttt{0101} && (U_4 = 5 = \lfloor 11 / 2 \rfloor) \\
+\texttt{1011} \gg_{\text{arith}} 1 &= \texttt{1101} && (S_4 = -3 = \lfloor -5 / 2 \rfloor)
+\end{aligned}$$
+
+The interactive 8-bit wire schematic below shows kept bits sliding right by $k$, discarded low bits dropping into remainder $R$, and vacated upper slots receiving `0` versus Bit 7 before we prove the rule for arbitrary width $N$.
 
 <RightShiftComparator />
 
 When $k = 0$, no bits drop and both shifts return $b$ unchanged, giving exact division for both interpretations $x \in \{U_N(b), S_N(b)\}$ ($x / 2^0 = \lfloor x / 1 \rfloor$).
-For any shift distance $1 \le k \le N - 1$, sliding wires right by $k$ places discards a non-negative low remainder strictly smaller than $2^k$ while keeping the upper $N - k$ bits intact.
-Write $H$ for that kept upper $(N - k)$-bit slice with bits $H_j = b_{j+k}$ ($0 \le j \le N - k - 1$, top bit $H_{N-k-1} = b_{N-1}$) and $R = \sum_{m=0}^{k-1} b_m 2^m \in [0, 2^k - 1]$ for the discarded lower $k$ bits.
-Splitting $U_N(b)$ and $S_N(b)$ at index $k$, re-indexing upper wires, and factoring out $2^k$ isolates $H$ and $R$:
+
+For $1 \le k \le N - 1$, splitting $b$ at Bit $k$ separates its kept upper bits from the dropped low remainder.
+
+Let $H$ be the kept $(N - k)$-bit slice ($H_j = b_{j+k}$, top bit $H_{N-k-1} = b_{N-1}$) and $R = \sum_{m=0}^{k-1} b_m 2^m \in [0, 2^k - 1]$ the dropped remainder.
+Factoring $2^k$ out of the kept upper terms into $H$ and applying Section 3's widening rules connects $U_N(b)$ and $S_N(b)$ directly to the shifted words:
 
 $$\begin{aligned}
 U_N(b)
-&= \sum_{i=k}^{N-1} b_i 2^i + R && \text{(split at bit }k\text{)} \\
-&= \sum_{j=0}^{N-k-1} b_{j+k} 2^{j+k} + R && \text{(let }i = j + k\text{)} \\
-&= \left(\sum_{j=0}^{N-k-1} b_{j+k} 2^j\right) 2^k + R && \text{(factor }2^k\text{)} \\
-&= U_{N-k}(H) \cdot 2^k + R && \text{(}U_{N-k}\text{ def)} \\
+&= \sum_{i=k}^{N-1} b_i 2^i + R = \left(\sum_{j=0}^{N-k-1} H_j 2^j\right) 2^k + R \\
+&= U_{N-k}(H) \cdot 2^k + R = U_N(b \gg_{\text{log}} k) \cdot 2^k + R \\
 S_N(b)
-&= -b_{N-1} 2^{N-1} + \sum_{i=k}^{N-2} b_i 2^i + R && \text{(split at bit }k\text{)} \\
-&= -b_{N-1} 2^{(N-k-1)+k} + \sum_{j=0}^{N-k-2} b_{j+k} 2^{j+k} + R && \text{(let }i = j + k\text{)} \\
-&= \left(-b_{N-1} 2^{N-k-1} + \sum_{j=0}^{N-k-2} b_{j+k} 2^j\right) 2^k + R && \text{(factor }2^k\text{)} \\
-&= S_{N-k}(H) \cdot 2^k + R && \text{(}S_{N-k}\text{ def)}
+&= -b_{N-1} 2^{N-1} + \sum_{i=k}^{N-2} b_i 2^i + R \\
+&= \left(-b_{N-1} 2^{N-k-1} + \sum_{j=0}^{N-k-2} H_j 2^j\right) 2^k + R \\
+&= S_{N-k}(H) \cdot 2^k + R = S_N(b \gg_{\text{arith}} k) \cdot 2^k + R
 \end{aligned}$$
 
-At the boundary $k = N - 1$, the lower sum $\sum_{j=0}^{N-k-2} b_{j+k} 2^j$ in $S_N(b)$ has no terms and equals $0$.
-Zero-padding the upper $k$ wires leaves $U_N(b \gg_{\text{log}} k) = U_{N-k}(H)$, while replicating $b_{N-1}$ into Bits $N - 1\dots N - k$ sign-extends the $(N - k)$-bit pattern $H$ to $N$ bits, so Section 3's sign extension gives $S_N(b \gg_{\text{arith}} k) = S_{N-k}(H)$ directly:
+At the extremal shift $k = N - 1$, the middle sum $\sum_{i=k}^{N-2} b_i 2^i$ (equivalently $\sum_{j=0}^{N-k-2} H_j 2^j$) has no terms and equals $0$, leaving the 1-bit slice $S_1(H) = -b_{N-1}$.
+
+Writing $(x, q)$ for either pair $(U_N(b), U_N(b \gg_{\text{log}} k))$ or $(S_N(b), S_N(b \gg_{\text{arith}} k))$ gives $x = q \cdot 2^k + R$, and dividing $0 \le R \le 2^k - 1 < 2^k$ by $2^k$ traps $x / 2^k$ inside $[q, q + 1)$:
+
+$$0 \le \frac{R}{2^k} < 1 \implies q \le q + \frac{R}{2^k} = \frac{x}{2^k} < q + 1 \implies q = \left\lfloor \frac{x}{2^k} \right\rfloor$$
+
+That also closes our Python oracle formula from the base-operations table above: Python's `rs1_s >> shamt` computes $\lfloor S_{32}(b) / 2^{\texttt{shamt}} \rfloor = S_{32}(b \gg_{\text{arith}} \texttt{shamt})$, so wrapping through `u32(rs1_s >> shamt)` recovers the exact hardware bit pattern via $U_{32} \equiv S_{32} \pmod{2^{32}}$.
+On 32-bit `0xFFFF_FFFB` ($-5$ signed, $2^{32} - 5$ unsigned), shifting right by $k = 1$ drops Bit 0 ($R = 1$) and highlights the sign split:
 
 $$\begin{aligned}
-U_N(b) &= U_N(b \gg_{\text{log}} k) \cdot 2^k + R \\
-S_N(b) &= S_N(b \gg_{\text{arith}} k) \cdot 2^k + R
+\texttt{srai}:&\quad \texttt{0xFFFF\_FFFB} \gg_{\text{arith}} 1 = \texttt{0xFFFF\_FFFD}\; (-3,\text{ not }-2) \\
+\texttt{srli}:&\quad \texttt{0xFFFF\_FFFB} \gg_{\text{log}} 1 = \texttt{0x7FFF\_FFFD}\; (+2{,}147{,}483{,}645)
 \end{aligned}$$
 
-Write $(x, q) = (U_N(b), U_N(b \gg_{\text{log}} k))$ for a logical shift or $(x, q) = (S_N(b), S_N(b \gg_{\text{arith}} k))$ for an arithmetic shift, so $x = q \cdot 2^k + R$.
-Bounding $0 \le R \le 2^k - 1 < 2^k$ and dividing by $2^k$ establishes $q = \lfloor x / 2^k \rfloor$ regardless of sign:
+Finally, comparing the two unsigned output words modulo $2^N$ confirms algebraically why `srl` and `sra` always produce distinct bit patterns whenever $b_{N-1} = 1$ and $1 \le k \le N - 1$:
 
 $$\begin{aligned}
-& 0 \le R \le \sum_{m=0}^{k-1} 2^m = 2^k - 1 < 2^k && \text{(}k\text{-bit sum)} \\
-&\implies\quad 0 \le \frac{R}{2^k} < 1 && \text{(divide by }2^k > 0\text{)} \\
-&\implies\quad q \le q + \frac{R}{2^k} = \frac{x}{2^k} < q + 1 && \text{(add }q\text{)} \\
-&\implies\quad q = \left\lfloor \frac{x}{2^k} \right\rfloor && \text{(floor interval)}
-\end{aligned}$$
-
-On 32-bit $-5$ (`0xFFFF_FFFB`), shifting right by $k = 1$ drops low Bit 0 ($R = 1$).
-An arithmetic shift computes $-5 = (-3) \cdot 2 + 1$ and yields $-3$ (rounding $-2.5$ toward $-\infty$, not $-2$), whereas a logical shift zeros Bit 31 to produce `0x7FFF_FFFD` ($+2{,}147{,}483{,}645 = \lfloor (2^{32} - 5) / 2 \rfloor$).
-
-Evaluating the offset between both $(N - k)$-bit interpretations explains algebraically why `srl` and `sra` diverge whenever $b_{N-1} = 1$ and $1 \le k \le N - 1$:
-
-$$\begin{aligned}
-U_N(b \gg_{\text{log}} k) &- S_N(b \gg_{\text{arith}} k) \\
+U_N(b \gg_{\text{log}} k) &- U_N(b \gg_{\text{arith}} k) \\
+&\equiv U_N(b \gg_{\text{log}} k) - S_N(b \gg_{\text{arith}} k) && \text{(}S_N \equiv U_N\text{ mod }2^N\text{)} \\
 &= U_{N-k}(H) - S_{N-k}(H) && \text{(slice }H\text{ values)} \\
-&= b_{N-1} \cdot 2^{N-k} && \text{(}2^{N-k}\text{ offset on }H\text{)}
+&= b_{N-1} \cdot 2^{N-k} \pmod{2^N} && \text{(}2^{N-k}\text{ offset on }H\text{)}
 \end{aligned}$$
 
-Swapping $S_N(b \gg_{\text{arith}} k)$ for its modular equivalent $U_N(b \gg_{\text{arith}} k) \pmod{2^N}$ shows why both output patterns differ:
-
-$$\begin{aligned}
-&U_N(b \gg_{\text{log}} k) - U_N(b \gg_{\text{arith}} k) \\
-&\quad \equiv U_N(b \gg_{\text{log}} k) - S_N(b \gg_{\text{arith}} k) && \text{(}S_N \equiv U_N\text{ mod }2^N\text{)} \\
-&\quad = b_{N-1} \cdot 2^{N-k} \pmod{2^N} && \text{(offset above)}
-\end{aligned}$$
-
-Because $1 \le k \le N - 1$ bounds $2 \le 2^{N-k} \le 2^{N-1} < 2^N$, setting $b_{N-1} = 1$ leaves a non-zero difference modulo $2^N$, guaranteeing the two shifts output different unsigned values and distinct bit patterns.
+Because $1 \le k \le N - 1$ bounds $2 \le 2^{N-k} \le 2^{N-1} < 2^N$, setting $b_{N-1} = 1$ leaves a non-zero difference modulo $2^N$, guaranteeing the two shifts output different bit patterns (visible directly at Bit $N - 1$, where `srl` writes `0` while `sra` writes `1`).
 
 ### Equality and Ordered Comparisons
 
@@ -717,10 +755,10 @@ When they differ ($a_{N-1} = 1$ and $b_{N-1} = 0$), unsigned place weights guara
 Swapping $a$ and $b$ reverses both inequalities identically whenever $a_{N-1} = 0$ and $b_{N-1} = 1$.
 For example, comparing $a$ equal to `1011` ($a_3 = 1$) against $b$ equal to `0011` ($b_3 = 0$) pulls $S_4(a)$ down by $16$: $U_4(\texttt{1011}) = 11 > 3 = U_4(\texttt{0011})$, yet $S_4(\texttt{1011}) = -5 < +3 = S_4(\texttt{0011})$.
 
-### Hardware Equivalence Summary
+### Base Integer Hardware Equivalence
 
-With all six fundamental integer operations derived alongside their processor instructions, algebraic invariance determines cleanly when one circuit serves both unsigned and signed interpretations versus when hardware must split.
-The table below compiles all six integer operation classes across Sections 2 through 4:
+With all six fundamental base integer operations derived alongside their processor instructions, algebraic invariance determines cleanly when one circuit serves both unsigned and signed interpretations versus when hardware must split.
+The table below compiles all six base integer operation classes above (multiplication and division follow after 32-bit constant construction):
 
 | Operation | Same Bits for Unsigned & Signed? | Algebraic Reason |
 | :--- | :--- | :--- |
@@ -729,81 +767,40 @@ The table below compiles all six integer operation classes across Sections 2 thr
 | **Left Shift** ($\ll$) | Yes | Discards multiples of $2^N$; shifts factor $2^k$ on residue class |
 | **Ordered Compare** ($<$, $\ge$) | No | Subtracting $b_{N-1} 2^N$ pulls $b_{N-1} = 1$ patterns below zero ($11 > 3$ versus $-5 < +3$) |
 | **Widening ($k \to 32$ bits)** | No | Zero-fill preserves $U_k(b)$ while sign-bit replication preserves $S_k(b)$ |
-| **Right Shift** ($\gg$) | No | On $(N - k)$-bit slice $H$ ($1 \le k \le N - 1$), $U_N(b \gg_{\text{log}} k) - U_N(b \gg_{\text{arith}} k)$ is congruent to $b_{N-1} 2^{N-k} \not\equiv 0 \pmod{2^N}$ when $b_{N-1} = 1$ ($2 \le 2^{N-k} < 2^N$); top wires fill $0$ or $b_{N-1}$ |
+| **Right Shift** ($\gg$) | No | For $1 \le k \le N - 1$ and $b_{N-1} = 1$, outputs differ by $2^{N-k} \not\equiv 0 \pmod{2^N}$ (`0` vs. `1` in top wires) |
 
 ### Full 32-Bit Constant Construction
 
 Because every 32-bit instruction spends at least 12 bits on `opcode` and non-immediate control or register fields, no single instruction can hold an arbitrary 32-bit constant inside itself.
 Instead, RISC-V provides two U-type instructions that place a 20-bit immediate into Bits 31..12 of `rd` while clearing Bits 11..0 to zero: **Load Upper Immediate** (`lui`) writes `imm20 << 12`, and **Add Upper Immediate to PC** (`auipc`) writes `u32(cur_pc + (imm20 << 12))`, where `cur_pc` denotes the current instruction's `self.pc`.
 
-Software materializes any 32-bit target constant $x$ in two instructions: `lui` loads an upper 20-bit slice into `rd`, and `addi` adds the remaining 12-bit slice modulo $2^{32}$.
-Representing $x$ by its unsigned value $X = U_{32}(x) \in [0, 2^{32} - 1]$ directly matches the unsigned 20-bit upper payload loaded by `lui`.
-Consider the concrete target constant $X = \texttt{0x1234\_5ABC}$, whose lower 12 bits are $\texttt{0xABC}$ (Bit 11 is 1).
-Because `addi` sign-extends its 12-bit immediate from Bit 11, hardware reads $\texttt{0xABC}$ ($2748$) as negative $2748 - 4096 = -1348$ ($-\texttt{0x544}$).
-Loading the unadjusted upper slice `0x1234_5000` with `lui` would make `addi` compute $\texttt{0x1234\_5000} - \texttt{0x544} = \texttt{0x1234\_4ABC}$, undershooting $X$ by $4096$ (`0x1000`).
-Adding $\texttt{0x800}$ ($2^{11} = 2048$) before extracting Bits 31..12 carries $+1$ into Bit 12 whenever Bit 11 is 1, raising the `lui` payload to `0x1234_6000` so `0x1234_6000 - 0x544` lands on `0x1234_5ABC` exactly.
+Software materializes any 32-bit target word $X = U_{32}(x) \in [0, 2^{32} - 1]$ in two instructions: `lui` loads a 20-bit upper payload, and `addi` adds the remaining sign-extended 12-bit slice modulo $2^{32}$.
+However, splitting $X$ naively at Bit 12 fails whenever Bit 11 equals `1`, because `addi` sign-extends those low 12 bits as a negative offset—subtracting `0x1000` ($2^{12}$) and undershooting $X$ unless `lui` increments its upper 20 bits by 1 to compensate.
+Software triggers that $+1$ adjustment automatically by adding carry bias `0x800` ($2^{11} = 2{,}048$) to $X$ before extracting Bits 31..12.
+When Bit 11 of $X$ is `0`, the lower 12 bits are at most `0x7FF`, so adding `0x800` stays strictly below `0x1000` and leaves Bits 31..12 untouched.
+When Bit 11 of $X$ is `1`—as in `0x1234_5ABC`, whose low 12 bits `0xABC` sign-extend to $-1{,}348$ ($-\texttt{0x544}$)—adding `0x800` carries $+1$ across the Bit 11 to Bit 12 seam to pre-compensate for `addi`'s subtraction:
 
-```mermaid
-flowchart TD
-    TARGET["Target Constant<br/>X = 0x1234_5ABC"]
-    SPLIT["Upper = 0x12345<br/>Lower = 0xABC"]
-    NAIVE["Unbiased lui 0x12345<br/>+ addi -0x544<br/>= 0x1234_4ABC"]
-    FIX["Bias X + 0x800<br/>Upper = 0x12346"]
-    EXACT["Biased lui 0x12346<br/>+ addi -0x544<br/>= 0x1234_5ABC"]
-    TARGET --> SPLIT
-    SPLIT -->|"No +0x800"| NAIVE
-    SPLIT -->|"Add +0x800"| FIX
-    FIX --> EXACT
-```
+<LuiBiasCarryDiagram />
 
-Applying positive Euclidean division directly to $X + 2^{11}$ proves this `0x800` bias for *every* 32-bit word $X \in [0, 2^{32} - 1]$.
-Divide $X + 2^{11}$ by $2^{12}$ to obtain unique quotient $q \in \mathbb{Z}_{\ge 0}$ and non-negative remainder $r'$ satisfying $0 \le r' < 2^{12}$, then shift both sides back by $-2^{11}$ and set $s = r' - 2^{11}$:
+Adding `0x800` before slicing Bits 31..12 reconstructs every 32-bit target $X$—including wrap-around words near `0xFFFF_FFFF`—exactly modulo $2^{32}$.
+
+Split $X$ at Bit 12 into upper 20-bit quotient $\text{hi}_{20} = \lfloor X / 2^{12} \rfloor$ and lower 12-bit pattern $\text{lo}_{12}$ ($U_{12}(\text{lo}_{12}) = X \bmod 2^{12}$, Bit 11 denoted $b_{11} \in \{0, 1\}$).
+Adding $2^{11}$ (`0x800`) carries into Bit 12 if and only if $U_{12}(\text{lo}_{12}) \ge 2^{11}$ ($b_{11} = 1$), so `hi_lui = (u32(X + 0x800) & 0xFFFF_F000) >> 12` equals $(\text{hi}_{20} + b_{11}) \bmod 2^{20}$.
+
+Scaling $\texttt{hi}_{\texttt{lui}} \equiv \text{hi}_{20} + b_{11} \pmod{2^{20}}$ by $2^{12}$ and substituting $S_{12}(\text{lo}_{12}) = U_{12}(\text{lo}_{12}) - b_{11} 2^{12}$ cancels the carry term modulo $2^{32}$:
 
 $$\begin{aligned}
-X + 2^{11} &= q \cdot 2^{12} + r', \qquad 0 \le r' < 2^{12} \\
-\implies\quad X &= q \cdot 2^{12} + \underbrace{(r' - 2^{11})}_{s \in [-2^{11}, 2^{11} - 1]}
+\texttt{hi}_{\texttt{lui}} \cdot 2^{12} &+ S_{12}(\text{lo}_{12}) \\
+&\equiv (\text{hi}_{20} + b_{11}) \cdot 2^{12} + \left(U_{12}(\text{lo}_{12}) - b_{11} 2^{12}\right) && \text{(scale by }2^{12}\text{)} \\
+&= \text{hi}_{20} \cdot 2^{12} + U_{12}(\text{lo}_{12}) = X \pmod{2^{32}} && \text{(}b_{11} 2^{12}\text{ cancels)}
 \end{aligned}$$
 
-Write $\text{lo}_{12}$ for the lower 12-bit wire pattern of $X$ ($U_{12}(\text{lo}_{12}) = X \bmod 2^{12}$).
-Combining $U_{12}$--$S_{12}$ congruence with the shifted remainder links $\text{lo}_{12}$ directly to signed offset $s$:
-
-$$\begin{aligned}
-S_{12}(\text{lo}_{12})
-&\equiv U_{12}(\text{lo}_{12}) && \text{(}U_{12}\text{--}S_{12}\text{ congruence on }\text{lo}_{12}\text{)} \\
-&\equiv X && \text{(}\text{lo}_{12}\text{ is }X \bmod 2^{12}\text{)} \\
-&= q \cdot 2^{12} + s && \text{(shifted Euclidean split)} \\
-&\equiv s \pmod{2^{12}} && \text{(}q \cdot 2^{12} \equiv 0 \pmod{2^{12}}\text{)}
-\end{aligned}$$
-
-Because both $S_{12}(\text{lo}_{12})$ and $s$ lie inside one $2^{12}$-number lap ($[-2^{11}, 2^{11} - 1]$), congruence modulo $2^{12}$ forces $S_{12}(\text{lo}_{12}) = s$.
-
-Masking and shifting `(u32(X + 0x800) & 0xFFFF_F000) >> 12` extracts upper payload $\texttt{hi}_{\texttt{lui}} = q \bmod 2^{20}$ cleanly even when $X + 2^{11}$ wraps modulo $2^{32}$.
-Scaling $(q \bmod 2^{20}) \equiv q \pmod{2^{20}}$ by $2^{12}$ and adding $r'$ preserves congruence modulo $2^{32}$:
-
-$$\begin{aligned}
-(q \bmod 2^{20}) \cdot 2^{12} &\equiv q \cdot 2^{12} \pmod{2^{32}} \\
-(q \bmod 2^{20}) \cdot 2^{12} + r' &\equiv q \cdot 2^{12} + r' = X + 2^{11} \pmod{2^{32}}
-\end{aligned}$$
-
-Because the largest reduced quotient $q \bmod 2^{20} \le 2^{20} - 1$ and remainder $r' \le 2^{12} - 1$ satisfy $(2^{20} - 1)2^{12} + (2^{12} - 1) = 2^{32} - 1$, the combined value $(q \bmod 2^{20}) \cdot 2^{12} + r'$ lies inside $[0, 2^{32} - 1]$.
-Consequently, it equals $(X + 2^{11}) \bmod 2^{32} = \texttt{u32}(X + \texttt{0x800})$.
-Because $r' < 2^{12}$ fills Bits 11..0 while $q \bmod 2^{20}$ occupies Bits 31..12, masking `& 0xFFFF_F000` clears $r'$ and shifting right by 12 isolates $\texttt{hi}_{\texttt{lui}} = q \bmod 2^{20}$.
-Rescaling $\texttt{hi}_{\texttt{lui}} \equiv q \pmod{2^{20}}$ by $2^{12}$ completes the 32-bit reconstruction:
-
-$$\begin{aligned}
-\texttt{hi}_{\texttt{lui}} &\equiv q \pmod{2^{20}} \\
-\texttt{hi}_{\texttt{lui}} \cdot 2^{12} &\equiv q \cdot 2^{12} \pmod{2^{32}} \\
-\texttt{hi}_{\texttt{lui}} \cdot 2^{12} + S_{12}(\text{lo}_{12}) &\equiv q \cdot 2^{12} + S_{12}(\text{lo}_{12}) \\
-&= q \cdot 2^{12} + s = X \pmod{2^{32}}
-\end{aligned}$$
-
-Wrapping that final sum through `u32` takes the unique remainder modulo $2^{32}$ inside $[0, 2^{32} - 1]$, landing directly on $X$.
-For $X \ge \texttt{0xFFFF\_F800}$, the quotient $q$ wraps modulo $2^{20}$ to `0x00000`, and adding the negative `addi` offset wraps modulo $2^{32}$ back onto $X$.
-Pairing `auipc` with `addi` using this same `0x800` bias extends relative addressing across the entire 32-bit address space.
+Wrapping through `u32` lands directly on the unique residue $X \in [0, 2^{32} - 1]$, even when `X + 0x800` carries out past Bit 31 and wraps `hi_lui` modulo $2^{20}$ back to `0x00000`.
+Applying this same `0x800` split to a `target - cur_pc` offset and pairing `auipc` with `addi` lets programs compute any address relative to `self.pc` across the full 32-bit address space.
 
 #### Exercise 4.1: Splitting Constants With Carry Bias
 
-Practice algebraic constant decomposition, centered remainders, and wraparound carry boundaries.
+Practice algebraic constant decomposition, centered remainders, and generalized carry-bias proofs.
 
 1. Let $X = q \cdot 2^{12} + s$ with centered remainder $s \in [-2^{11}, 2^{11} - 1]$.
    - **(a)** Prove $(X + 2^{11}) \bmod 2^{12} = s + 2^{11}$ and explain why every centered remainder falls inside $[0, 2^{12} - 1]$ after adding $2^{11}$.
@@ -822,18 +819,27 @@ Practice algebraic constant decomposition, centered remainders, and wraparound c
 
      </details>
 
-2. Determine all 32-bit unsigned targets $X \in [0, 2^{32} - 1]$ for which adding bias `0x800` carries out of Bit 31 so $\texttt{hi}_{\texttt{lui}} = q \bmod 2^{20}$ wraps to `0x00000`, and verify why reconstruction still hits $X$ modulo $2^{32}$.
+2. Generalize the carry-bias split from 12 bits to an arbitrary lower signed immediate width $k$ ($1 \le k < 32$) inside a 32-bit word $X = \text{hi} \cdot 2^k + U_k(\text{lo})$, with top bit $b_{k-1} \in \{0, 1\}$ of $\text{lo}$.
+   State the exact carry bias $B_k$ added to $X$ before wrapping `u32(X + B_k)` and shifting right by $k$ to form $\texttt{hi}_{\text{biased}} = (\text{hi} + b_{k-1}) \bmod 2^{32-k}$, and prove $\texttt{hi}_{\text{biased}} \cdot 2^k + S_k(\text{lo}) \equiv X \pmod{2^{32}}$.
 
    <details><summary>Solution</summary>
 
-   Carrying past $2^{32} - 1$ happens precisely for $X \ge 2^{32} - 2^{11}$ (`0xFFFF_F800` through `0xFFFF_FFFF`), where $q = 2^{20}$ gives $\texttt{hi}_{\texttt{lui}} = 0$ and $s = X - 2^{32} \in [-2^{11}, -1]$; then $\texttt{u32}(0 + s) = 2^{32} + s = X$.
+   The required bias is $B_k = 2^{k-1}$, because $U_k(\text{lo}) + 2^{k-1} \ge 2^k \iff U_k(\text{lo}) \ge 2^{k-1} \iff b_{k-1} = 1$, producing upper slice $\texttt{hi}_{\text{biased}} = (\text{hi} + b_{k-1}) \bmod 2^{32-k}$.
+   Scaling modulo $2^{32-k}$ by $2^k$ and substituting $S_k(\text{lo}) = U_k(\text{lo}) - b_{k-1} 2^k$ cancels $b_{k-1} 2^k$:
+
+   $$\begin{aligned}
+   \texttt{hi}_{\text{biased}} \cdot 2^k + S_k(\text{lo})
+   &\equiv (\text{hi} + b_{k-1}) \cdot 2^k + \left(U_k(\text{lo}) - b_{k-1} 2^k\right) \\
+   &= \text{hi} \cdot 2^k + U_k(\text{lo}) = X \pmod{2^{32}}
+   \end{aligned}$$
 
    </details>
 
 ### Full 64-Bit Integer Multiplication
 
 Multiplying two 32-bit integers spans up to 64 bits across unsigned, signed, and mixed operands, yet each instruction in the Integer Multiply and Divide extension (**RV32M**, `opcode` `0x33`, `funct7` `0x01`) writes one 32-bit register `rd`.
-RISC-V therefore pairs one shared lower-word instruction (**Multiply**, or `mul`) with three upper-word instructions (**Multiply High** `mulh`, **Multiply High Signed-Unsigned** `mulhsu`, and **Multiply High Unsigned** `mulhu`) matching every signedness combination:
+RISC-V therefore splits every 64-bit product into one shared lower-word instruction (**Multiply**, or `mul`, whose Bits 31..0 match across every signedness mode) and three upper-word instructions (**Multiply High** `mulh`, **Multiply High Signed-Unsigned** `mulhsu`, and **Multiply High Unsigned** `mulhu`).
+Unsigned-by-signed multiplication needs no fourth upper instruction because swapping `rs1` and `rs2` reduces $U_{32}(a) S_{32}(b) = S_{32}(b) U_{32}(a)$ directly to `mulhsu`:
 
 | Instruction | `funct3` | Operands (`rs1`, `rs2`) | Exact 64-Bit Product Range | Returned 32-Bit Slice |
 | :--- | :---: | :--- | :--- | :--- |
@@ -844,54 +850,48 @@ RISC-V therefore pairs one shared lower-word instruction (**Multiply**, or `mul`
 
 Each extremal product sits cleanly within 64 bits: signed pairs span $[-2^{62} + 2^{31},\; 2^{62}]$, mixed pairs span $[-2^{63} + 2^{31},\; 2^{63} - 2^{32} - 2^{31} + 1]$ inside $[-2^{63}, 2^{63} - 1]$, and unsigned pairs reach $(2^{32} - 1)^2 = 2^{64} - 2^{33} + 1 < 2^{64}$.
 
-To see why hardware needs three upper-half instructions yet only one `mul` instruction, evaluate `rs1` equal to `0xFFFF_FFFF` ($-1$ signed, or $2^{32} - 1$ unsigned) and `rs2` equal to `0x8000_0000` ($-2^{31}$ signed, or $+2^{31}$ unsigned):
-- **Signed by Signed**: `mulh` computes $(-1) \times (-2^{31}) = +2^{31}$ (`0x0000_0000_8000_0000`), returning `0x0000_0000` in Bits 63..32 and `0x8000_0000` in Bits 31..0.
-- **Signed by Unsigned**: `mulhsu` computes $(-1) \times (+2^{31}) = -2^{31}$ (`0xFFFF_FFFF_8000_0000`), returning `0xFFFF_FFFF` in Bits 63..32 and `0x8000_0000` in Bits 31..0.
-- **Unsigned by Unsigned**: `mulhu` computes $(2^{32} - 1) \times 2^{31} = 2^{63} - 2^{31}$ (`0x7FFF_FFFF_8000_0000`), returning `0x7FFF_FFFF` in Bits 63..32 and `0x8000_0000` in Bits 31..0.
-
-The interactive multiplier below compares all three 64-bit upper halves alongside the shared lower 32 bits (`mul`) across negative and carry-generating presets before we verify the general identity.
-
-<Product64Inspector />
-
-Expanding every unsigned operand via $U_{32}(x) = S_{32}(x) + x_{31} \cdot 2^{32}$ expresses both mixed (`mulhsu`) and unsigned (`mulhu`) products in terms of the signed product $S_{32}(a) \cdot S_{32}(b)$, isolating every sign-correction term with a factor of $2^{32}$ so it alters only Bits 63..32:
+Evaluating `rs1` equal to `0xFFFF_FFFF` ($-1$ signed, $2^{32} - 1$ unsigned) and `rs2` equal to `0x8000_0000` ($-2^{31}$ signed, $+2^{31}$ unsigned) shows all three modes sharing `0x8000_0000` in Bits 31..0 while diverging in Bits 63..32:
 
 $$\begin{aligned}
-S_{32}(a) \cdot U_{32}(b)
-&= S_{32}(a) \cdot \left(S_{32}(b) + b_{31} 2^{32}\right) \\
-&= S_{32}(a) \cdot S_{32}(b) + 2^{32} \cdot b_{31} S_{32}(a) \\
-U_{32}(a) \cdot U_{32}(b)
-&= \left(S_{32}(a) + a_{31} 2^{32}\right)\!\left(S_{32}(b) + b_{31} 2^{32}\right) \\
-&= S_{32}(a) \cdot S_{32}(b) + a_{31} S_{32}(b) 2^{32} \\
-&\quad + b_{31} S_{32}(a) 2^{32} + a_{31} b_{31} 2^{64} \\
-&= S_{32}(a) \cdot S_{32}(b) \\
-&\quad + 2^{32}\!\left(a_{31} S_{32}(b) + b_{31} S_{32}(a) + a_{31} b_{31} 2^{32}\right)
+\texttt{mulh}:\quad (-1) \times (-2^{31}) &= +2^{31} &&= \texttt{0x0000\_0000\_8000\_0000} \\
+\texttt{mulhsu}:\quad (-1) \times (+2^{31}) &= -2^{31} &&= \texttt{0xFFFF\_FFFF\_8000\_0000} \\
+\texttt{mulhu}:\quad (2^{32} - 1) \times 2^{31} &= 2^{63} - 2^{31} &&= \texttt{0x7FFF\_FFFF\_8000\_0000}
 \end{aligned}$$
 
-Because every $2^{32}$-scaled correction vanishes modulo $2^{32}$, any signedness pair's product $P$ obeys $P \equiv S_{32}(a) \cdot S_{32}(b) \pmod{2^{32}}$, so all three pairs share the exact same low remainder $P \bmod 2^{32}$ and produce one identical 32-bit wire pattern $v$ ($U_{32}(v) = P \bmod 2^{32}$):
+<Product64SplitDiagram />
+
+Expanding every unsigned operand via $U_{32}(x) = S_{32}(x) + x_{31} \cdot 2^{32}$ expresses both mixed (`mulhsu`) and unsigned (`mulhu`) products in terms of $S_{32}(a) \cdot S_{32}(b)$, isolating every sign-correction term with a factor of $2^{32}$ so it alters only Bits 63..32:
+
+$$\begin{aligned}
+S_{32}(a) U_{32}(b)
+&= S_{32}(a) S_{32}(b) + 2^{32} b_{31} S_{32}(a) \\
+U_{32}(a) U_{32}(b)
+&= \left(S_{32}(a) + a_{31} 2^{32}\right)\!\left(S_{32}(b) + b_{31} 2^{32}\right) \\
+&= S_{32}(a) S_{32}(b) + 2^{32}\!\left(a_{31} S_{32}(b) + b_{31} S_{32}(a) + a_{31} b_{31} 2^{32}\right)
+\end{aligned}$$
+
+Because every $2^{32}$-scaled correction vanishes modulo $2^{32}$, any signedness pair's product $P$ obeys $P \equiv S_{32}(a) \cdot S_{32}(b) \pmod{2^{32}}$, so all three pairs share the exact same low 32-bit pattern $v$ ($U_{32}(v) = P \bmod 2^{32}$):
 
 $$\begin{aligned}
 S_{32}(v)
-&\equiv U_{32}(v) && \text{(}U_{32}\text{--}S_{32}\text{ congruence on }v\text{)} \\
-&\equiv P && \text{(low 32 bits }P \bmod 2^{32}\text{)} \\
-&\equiv S_{32}(a) \cdot S_{32}(b) \pmod{2^{32}} && \text{(}2^{32}\text{ factors vanish mod }2^{32}\text{)}
+&\equiv U_{32}(v) \equiv P && \text{(}U_{32} \equiv S_{32}\text{; low 32 bits)} \\
+&\equiv S_{32}(a) \cdot S_{32}(b) \pmod{2^{32}} && \text{(drop }2^{32}\text{ multiples)}
 \end{aligned}$$
 
 Because every operand-signedness pair collapses to that identical 32-bit pattern $v$ satisfying both $U_{32}(v) \equiv P \pmod{2^{32}}$ and $S_{32}(v) \equiv P \pmod{2^{32}}$, hardware implements one single `mul` circuit—zero signedness mode bits and zero separate low-half multiplier paths—while differing high-word correction terms above Bit 31 force three separate upper instructions (`mulh`, `mulhsu`, and `mulhu`).
 
-Writing $P = H \cdot 2^{32} + L$ with low remainder $L \in [0, 2^{32} - 1]$ and upper quotient $H = \lfloor P / 2^{32} \rfloor$ confirms why Python's `(a * b) >> 32` passed into `u32` extracts exact hardware Bits 63..32 even when $P < 0$.
-Because Python right shift floors toward $-\infty$, evaluating `(rs1_s * rs2_s) >> 32`, `(rs1_s * rs2_u) >> 32`, or `(rs1_u * rs2_u) >> 32` returns $\lfloor H + L / 2^{32} \rfloor = H$ directly.
-To verify that wrapping $H$ into a 32-bit unsigned register (`u32(H)`) still reconstructs the exact signed or unsigned 64-bit product $P$ even when $H < 0$, track the combined 64-bit value formed by joining `u32(H)` and $L$.
-Define $Q = (H \bmod 2^{32}) \cdot 2^{32} + L$.
-Because $H \bmod 2^{32} \in [0, 2^{32} - 1]$ and $L \in [0, 2^{32} - 1]$, $Q$ obeys $0 \le Q \le (2^{32} - 1)2^{32} + (2^{32} - 1) = 2^{64} - 1$.
-Scaling $H \bmod 2^{32} \equiv H \pmod{2^{32}}$ by $2^{32}$ lifts congruence to modulo $2^{64}$, and writing $w$ for the unique 64-bit wire pattern storing `u32(H)` in Bits 63..32 and $L$ in Bits 31..0 ($U_{64}(w) = Q$) gives:
+Writing $P = H \cdot 2^{32} + L$ with low remainder $L \in [0, 2^{32} - 1]$ and upper quotient $H = \lfloor P / 2^{32} \rfloor$ confirms why Python's `u32(P >> 32)` (where `P` is `rs1_s * rs2_s`, `rs1_s * rs2_u`, or `rs1_u * rs2_u` in `oracle.py`) extracts exact hardware Bits 63..32 even when $P < 0$.
+Because Python right shift floors toward $-\infty$, `P >> 32` evaluates $\lfloor H + L / 2^{32} \rfloor = H$ directly.
+
+Wrapping $H$ into a 32-bit register via `u32(H)` places $H \bmod 2^{32}$ in Bits 63..32 of a 64-bit word $w$ alongside $L$ in Bits 31..0; scaling $H \bmod 2^{32} \equiv H \pmod{2^{32}}$ by $2^{32}$ lifts equivalence straight to modulo $2^{64}$:
 
 $$\begin{aligned}
-S_{64}(w) &\equiv U_{64}(w) && \text{(}U_{64}\text{--}S_{64}\text{ congruence on }w\text{)} \\
+S_{64}(w) \equiv U_{64}(w)
 &= (H \bmod 2^{32}) \cdot 2^{32} + L \\
-&\equiv H \cdot 2^{32} + L = P \pmod{2^{64}} && \text{(scaled mod }2^{32}\text{)}
+&\equiv H \cdot 2^{32} + L = P \pmod{2^{64}}
 \end{aligned}$$
 
-Because exact 32-bit products never exceed one 64-bit lap—$[0, 2^{64} - 1]$ for `mulhu`, or $[-2^{63}, 2^{63} - 1]$ for `mulh` and `mulhsu`—that congruence forces $U_{64}(w) = P$ (for `mulhu`) and $S_{64}(w) = P$ (for `mulh` and `mulhsu`), proving `u32(H)` equals Bits 63..32 committed to `rd` by [`_set_reg`](../sim/oracle.py#L893-L899).
+Because exact 32-bit products never exceed one 64-bit lap ($[0, 2^{64} - 1]$ for `mulhu`, or $[-2^{63}, 2^{63} - 1]$ for `mulh` and `mulhsu`), that congruence uniquely forces $U_{64}(w) = P$ (for `mulhu`) and $S_{64}(w) = P$ (for `mulh` and `mulhsu`), proving `u32(H)` equals Bits 63..32 committed to `rd` by [`_set_reg`](../sim/oracle.py#L893-L899).
 
 #### Exercise 4.2: High-Half and Low-Word Multiplication
 
@@ -928,18 +928,22 @@ RV32M completes integer arithmetic with signed **Divide** (`div`) and **Divide U
 Python's integer operators (`a // b` and `a % b`) use floor division ($\lfloor a / b \rfloor$), rounding negative quotients downward toward $-\infty$ (`-7 // 3 == -3` with remainder $+2$).
 In contrast, C, SystemVerilog, and RISC-V define **truncating division** toward zero, yielding quotient $-2$ and remainder $-1$ for $-7 / 3$ (unlike the arithmetic right shift earlier in Section 4, which rounds `-5 >> 1 == -3`).
 
+The interactive number line below contrasts RISC-V truncation toward zero against Python floor division across all four dividend/divisor sign combinations before we derive the remainder sign rule and sentinel corner cases:
+
+<TruncatingDivisionComparator />
+
 For any integer dividend $a \in \mathbb{Z}$ and nonzero divisor $b \neq 0$, write $\operatorname{sgn}(x) \in \{-1, 0, +1\}$ for the sign of $x$ ($+1$ if $x > 0$, $-1$ if $x < 0$, and $0$ if $x = 0$), which determines quotient $q$ and remainder $r$:
 
 $$q = \operatorname{sgn}(a)\operatorname{sgn}(b) \left\lfloor \frac{|a|}{|b|} \right\rfloor, \qquad r = a - q b$$
 
 Splitting integer magnitude $|a|$ with positive Euclidean division guarantees $|r| < |b|$ and shows why `rem` keeps the dividend's sign rather than the divisor's sign used by Python's `%` operator.
+
 Write $|a| = k |b| + r_0$ with $k = \lfloor |a| / |b| \rfloor$ and $0 \le r_0 < |b|$, then substitute $a = \operatorname{sgn}(a)|a|$ and $|b| = \operatorname{sgn}(b)b$ to isolate $qb$ plus a dividend-signed remainder:
 
 $$\begin{aligned}
 a &= \operatorname{sgn}(a)\left(k|b| + r_0\right) \\
-&= \operatorname{sgn}(a) k |b| + \operatorname{sgn}(a) r_0 \\
-&= \operatorname{sgn}(a)\operatorname{sgn}(b) k b + \operatorname{sgn}(a) r_0 \\
-&= q b + \operatorname{sgn}(a) r_0
+&= \operatorname{sgn}(a)\operatorname{sgn}(b) k b + \operatorname{sgn}(a) r_0 && \text{(}|b| = \operatorname{sgn}(b)b\text{)} \\
+&= q b + \operatorname{sgn}(a) r_0 && \text{(}q = \operatorname{sgn}(a)\operatorname{sgn}(b)k\text{)}
 \end{aligned}$$
 
 Therefore remainder $r = \operatorname{sgn}(a) r_0$ satisfies $|r| = r_0 < |b|$, equals $0$ when $r_0 = 0$, and matches the sign of dividend $a$ (`rs1_s`) otherwise.
@@ -954,7 +958,9 @@ Bounding quotient magnitude $|q| = \lfloor |a| / |b| \rfloor$ across all signed 
 Two sentinel rules keep every hardware corner case deterministic without raising traps.
 When dividing by zero (`rs2_u == 0`), `div` returns `-1` (`0xFFFF_FFFF`) and `divu` returns `UINT32_MAX` (`0xFFFF_FFFF`), while `rem` returns `rs1_s` and `remu` returns `rs1_u` unchanged so any quotient $q$ satisfies $q \cdot 0 + a = a$.
 On signed overflow (`INT32_MIN` divided by $-1$), `div` wraps $+2^{31}$ to `INT32_MIN` and `rem` returns $0$ because $-1$ divides $-2^{31}$ evenly, satisfying $-2^{31} \equiv (-2^{31})(-1) + 0 \pmod{2^{32}}$.
-Notice how [`trunc_div_s32`](../sim/oracle.py#L301-L309) evaluates `abs(dividend) // abs(divisor)` first and applies Python's boolean XOR (`(dividend < 0) ^ (divisor < 0)`) to negate `q` strictly when the operands carry opposite signs (keeping `-0 == 0` when `dividend == 0`), while [`RV32Oracle._exec_muldiv`](../sim/oracle.py#L1057-L1081) dispatches `div`, `divu`, `rem`, and `remu`:
+
+Inside [`oracle.py`](../sim/oracle.py), [`trunc_div_s32`](../sim/oracle.py#L301-L309) evaluates `abs(dividend) // abs(divisor)` first and uses Python's boolean XOR (`(dividend < 0) ^ (divisor < 0)`) to negate `q` whenever exactly one operand is negative (producing `-0 == 0` whenever `q == 0`, including `dividend == 0` with `divisor < 0`).
+[`RV32Oracle._exec_muldiv`](../sim/oracle.py#L1057-L1081) then dispatches `div`, `divu`, `rem`, and `remu` via selector constants `F3_DIV` through `F3_REMU` (`funct3` 4 through 7):
 
 <!-- book-sync: trunc_div_s32 -->
 <<< @/systems/brain/sim/oracle.py#L301-L309
@@ -962,16 +968,12 @@ Notice how [`trunc_div_s32`](../sim/oracle.py#L301-L309) evaluates `abs(dividend
 <!-- book-sync: RV32Oracle._exec_muldiv['elif funct3 == F3_DIV:'..'res = rs1_u if rs2_u == 0'] -->
 <<< @/systems/brain/sim/oracle.py#L1068-L1080
 
-| Instruction | Operand Interpretation | Divide by Zero (`rs2_u == 0`) | Signed Overflow (`INT32_MIN` by $-1$) | Standard Rule |
-| :--- | :--- | :--- | :--- | :--- |
-| **`div`** | Signed quotient of `rs1_s` by `rs2_s` | $-1$ (`0xFFFF_FFFF`) | `INT32_MIN` (`0x8000_0000`) | Truncate quotient magnitude toward 0 |
-| **`divu`** | Unsigned quotient of `rs1_u` by `rs2_u` | `0xFFFF_FFFF` (`UINT32_MAX`) | Not applicable | Unsigned quotient `rs1_u // rs2_u` |
-| **`rem`** | Signed remainder of `rs1_s` by `rs2_s` | `rs1_s` (original dividend) | 0 | Remainder sign matches `rs1_s` when non-zero |
-| **`remu`** | Unsigned remainder of `rs1_u` by `rs2_u` | `rs1_u` (original dividend) | Not applicable | Unsigned remainder `rs1_u % rs2_u` |
-
-The interactive comparator below exercises every division case above—contrasting RISC-V truncation toward zero in [`trunc_div_s32`](../sim/oracle.py#L301-L309) against Python floor division across positive, negative, divide-by-zero, and `INT32_MIN / -1` overflow presets:
-
-<TruncatingDivisionComparator />
+| Instruction | `funct3` | Operand Interpretation | Divide by Zero (`rs2_u == 0`) | Signed Overflow (`INT32_MIN` by $-1$) | Standard Rule |
+| :--- | :---: | :--- | :--- | :--- | :--- |
+| **`div`** | 4 | Signed quotient of `rs1_s` by `rs2_s` | $-1$ (`0xFFFF_FFFF`) | `INT32_MIN` (`0x8000_0000`) | Truncate quotient magnitude toward 0 |
+| **`divu`** | 5 | Unsigned quotient of `rs1_u` by `rs2_u` | `0xFFFF_FFFF` (`UINT32_MAX`) | Not applicable | Unsigned quotient `rs1_u // rs2_u` |
+| **`rem`** | 6 | Signed remainder of `rs1_s` by `rs2_s` | `rs1_s` (original dividend) | 0 | Remainder sign matches `rs1_s` when non-zero |
+| **`remu`** | 7 | Unsigned remainder of `rs1_u` by `rs2_u` | `rs1_u` (original dividend) | Not applicable | Unsigned remainder `rs1_u % rs2_u` |
 
 #### Exercise 4.3: Truncating Division and Edge Cases
 
@@ -1009,21 +1011,20 @@ Contrast truncating versus floor remainders symbolically, and check signed quoti
 General-purpose registers hold only 32 words at a time, so programs rely on addressable memory to hold machine code, neural weights, call stacks, and hardware device registers.
 Every memory access transfers one of three standard widths: an 8-bit **byte** (1 byte), a 16-bit **halfword** (2 bytes), or a 32-bit **word** (4 bytes).
 
-### Address Decoding and Memory Regions
+### Memory Instructions, Regions, and Prefix Decoding
 
-Real programs store arrays, nested data structures, and function call stacks at contiguous offsets relative to a base address held in a register.
-Although hardware treats registers `x1` through `x31` identically, standard RISC-V software convention reserves `x2` as the call-stack pointer and `x1` as the subroutine return-link register.
-Rather than forcing firmware to compute explicit `add` instructions before every single read or write, RISC-V load and store instructions add a sign-extended 12-bit constant offset directly to base register `rs1` (`offset(rs1)`), reaching roughly $\pm 2\text{ KB}$ ($-2{,}048$ to $+2{,}047$ bytes) around any pointer in one instruction.
-Eight memory instructions pair those base-plus-offset addresses with the three transfer widths and signed/unsigned extension rules:
+Real programs store arrays, nested data structures, and function call stacks across addressable memory regions and device registers.
+Rather than forcing firmware to compute explicit `add` instructions before every read or write, RISC-V load and store instructions add a sign-extended 12-bit constant offset directly to base register `rs1` (`offset(rs1)`), reaching roughly $\pm 2\text{ KB}$ ($-2{,}048$ to $+2{,}047$ bytes) around any pointer in one instruction.
+Eight memory instructions pair those base-plus-offset addresses with the three transfer widths and signed/unsigned extension rules (whose address-alignment bit checks we derive in the next subsection):
 
 | Mnemonic | Direction & Width | `funct3` | Required Alignment | Register / Bus Extension Rule |
 | :--- | :--- | :---: | :--- | :--- |
 | **Load Byte** (`lb`) / **Load Byte Unsigned** (`lbu`) | Load 1 byte | 0 / 4 | Any byte address | Sign-extends (`lb`) or zero-extends (`lbu`) Bits 7..0 to 32 bits |
-| **Load Halfword** (`lh`) / **Load Halfword Unsigned** (`lhu`) | Load 2 bytes | 1 / 5 | Even (`(addr & 1) == 0`) | Sign-extends (`lh`) or zero-extends (`lhu`) Bits 15..0 to 32 bits |
-| **Load Word** (`lw`) | Load 4 bytes | 2 | 4-byte (`(addr & 3) == 0`) | Copies full 32-bit word into `rd` |
+| **Load Halfword** (`lh`) / **Load Halfword Unsigned** (`lhu`) | Load 2 bytes | 1 / 5 | Even (2-byte aligned) | Sign-extends (`lh`) or zero-extends (`lhu`) Bits 15..0 to 32 bits |
+| **Load Word** (`lw`) | Load 4 bytes | 2 | 4-byte aligned | Copies full 32-bit word into `rd` |
 | **Store Byte** (`sb`) | Store 1 byte | 0 | Any byte address | Writes low 8 bits (`rs2 & 0xFF`) to memory |
-| **Store Halfword** (`sh`) | Store 2 bytes | 1 | Even (`(addr & 1) == 0`) | Writes low 16 bits (`rs2 & 0xFFFF`) to memory |
-| **Store Word** (`sw`) | Store 4 bytes | 2 | 4-byte (`(addr & 3) == 0`) | Writes full 32-bit word `rs2` to memory |
+| **Store Halfword** (`sh`) | Store 2 bytes | 1 | Even (2-byte aligned) | Writes low 16 bits (`rs2 & 0xFFFF`) to memory |
+| **Store Word** (`sw`) | Store 4 bytes | 2 | 4-byte aligned | Writes full 32-bit word `rs2` to memory |
 
 Rather than adding separate input/output opcodes for timers or serial ports, peripheral controllers attach their registers to fixed address ranges on the shared address, data, and control wires linking the CPU to memory (the hardware **bus**) in a design called **Memory-Mapped Input/Output** (MMIO).
 Combining the CPU core, local memory arrays, and MMIO peripherals inside one integrated design creates a complete **System-on-Chip** (SoC).
@@ -1045,35 +1046,36 @@ Finally, high-capacity external **Synchronous Dynamic Random-Access Memory** (SD
 | **MMIO Stubs** | `0x8002_0000`–`0x8006_FFFF` | Five 64 KB blocks ($2^{16}$ each) | Read / Write | Reserved windows for sensor serial links, dual differential motor buses, camera trigger sync, and general-purpose digital pins (`MMIO_STUB_BASE`) |
 
 Each SoC memory or peripheral window above (treating the five MMIO stub blocks as individual 64 KB windows) uses a power-of-two capacity $2^K$ ($1 \le K < 32$) aligned to a base address $B = m \cdot 2^K$ for an integer $m \ge 0$ so address decoding needs zero subtractions or magnitude comparators.
-For example, BRAM ($K = 16$, $B = \texttt{0x1000\_0000}$) decodes any incoming address using only a 16-bit prefix check `(addr >> 16) == 0x1000` while wiring the low 16 bits directly as the offset inside BRAM.
+For example, BRAM ($K = 16$, $B = \texttt{0x1000\_0000}$) decodes any incoming byte address `addr` using only a 16-bit prefix check `(addr >> 16) == 0x1000` while wiring the low 16 bits directly as the offset inside BRAM.
 
-To verify why aligned range checking collapses into prefix equality for *every* window, write any 32-bit address $a \in [0, 2^{32} - 1]$ via Euclidean division by $2^K$ as $a = q \cdot 2^K + r$ with $0 \le r < 2^K$.
-Here the upper $32 - K$ wires (Bits $31..K$) hold integer quotient $q = a \gg K = \lfloor a / 2^K \rfloor$ and the aligned base prefix is integer $m = B / 2^K = B \gg K$:
+Splitting any byte address into its upper prefix and low $K$-bit offset turns an aligned memory range test into simple prefix equality for every window.
+For any 32-bit address $a$ (`addr`) in $[0, 2^{32} - 1]$ and aligned base $B = m \cdot 2^K$ (so $m = B / 2^K = B \gg K$), dividing by $2^K$ isolates the integer prefix directly:
 
 $$\begin{aligned}
 B \le a < B + 2^K
-&\iff m \cdot 2^K \le q \cdot 2^K + r < (m + 1) \cdot 2^K \\
-&\iff m \le \frac{a}{2^K} = q + \frac{r}{2^K} < m + 1 \\
-&\iff \left\lfloor \frac{a}{2^K} \right\rfloor = q = m \\
-&\iff (a \gg K) = (B \gg K)
+&\iff m \cdot 2^K \le a < (m + 1) \cdot 2^K \\
+&\iff m \le \frac{a}{2^K} < m + 1 \\
+&\iff \left\lfloor \frac{a}{2^K} \right\rfloor = m \iff (a \gg K) = (B \gg K)
 \end{aligned}$$
 
-The floor equivalence in the third step holds because $q$ and $m$ are integers and $0 \le r / 2^K < 1$.
-Because $B$ is an exact multiple of $2^K$, a full range test $B \le a < B + 2^K$—which would otherwise require two 32-bit magnitude comparators (or a 32-bit subtractor and comparator)—collapses into a single $(32 - K)$-bit prefix equality check `(addr >> K) == (B >> K)`.
+The third equivalence follows directly from the definition of floor for integer $m$, and the final step uses Section 4's unsigned right-shift floor identity $\lfloor a / 2^K \rfloor = a \gg K$.
+Whenever $\lfloor a / 2^K \rfloor = m$, Euclidean division gives $a = m \cdot 2^K + (a \bmod 2^K) = B + (a \bmod 2^K)$, so the window offset $a - B = a \bmod 2^K$ is simply the low $K$ bits of `addr` with zero subtraction.
+Because $B$ is an exact multiple of $2^K$, a full range test $B \le a < B + 2^K$—which would otherwise require two 32-bit magnitude comparators (or a 32-bit subtractor and comparator)—collapses into comparing only the upper $32 - K$ wires (Bits $31..K$) via `(addr >> K) == (B >> K)`.
 
-To inspect and drive memory from Python tests, [`RV32Oracle`](../sim/oracle.py#L528-L1291) provides [`load_bytes`](../sim/oracle.py#L605-L612) and [`load_words`](../sim/oracle.py#L614-L621) (internally passing `bypass_ro=True` to populate read-only code regions while rejecting MMIO windows), alongside [`push_uart_rx`](../sim/oracle.py#L623-L627) and [`read_uart_tx`](../sim/oracle.py#L629-L634) for serial buffers.
-Calling [`reset`](../sim/oracle.py#L563-L593) clears CPU registers and queues while keeping loaded program bytes intact, whereas any invalid CPU access triggers [`MemoryAccessFault`](../sim/oracle.py#L430-L431) inside [`bus_read`](../sim/oracle.py#L713-L726) or [`bus_write`](../sim/oracle.py#L728-L745) to raise a load or store access-fault trap.
+To inspect and drive memory from Python tests, [`RV32Oracle`](../sim/oracle.py#L528-L1291) provides [`load_bytes`](../sim/oracle.py#L605-L612) and [`load_words`](../sim/oracle.py#L614-L621) (internally passing `bypass_ro=True` to populate read-only code regions while rejecting MMIO windows).
+Calling [`reset`](../sim/oracle.py#L563-L593) clears CPU registers while keeping loaded program bytes intact, whereas any invalid CPU access triggers [`MemoryAccessFault`](../sim/oracle.py#L430-L431) inside [`bus_read`](../sim/oracle.py#L713-L726) or [`bus_write`](../sim/oracle.py#L728-L745) to raise a load or store access-fault trap.
 
 ### Natural Alignment and Little-Endian Storage
 
 Physical 32-bit memory buses wire four byte lanes across aligned 4-byte rows, so reading a 4-byte word split across two rows would require two bus transfers and extra byte-steering multiplexers.
 Our CPU instead enforces **natural alignment**: instruction fetches and word accesses (`lw`, `sw`) require addresses divisible by 4, while halfword accesses (`lh`, `lhu`, `sh`) require even addresses divisible by 2.
+
 For any access width $w = 2^k$ ($k \in \{0, 1, 2\}$), Euclidean division writes $\texttt{addr} = q \cdot 2^k + r$ ($0 \le r < 2^k$) with remainder $r = \texttt{addr} \mathbin{\&} (w - 1)$ in the low $k$ wires:
 
 $$\texttt{addr} \equiv 0 \pmod{2^k} \iff \texttt{addr} \mathbin{\&} (w - 1) = 0$$
 
 Inside [`RV32Oracle._exec_load`](../sim/oracle.py#L973-L1000) and [`RV32Oracle._exec_store`](../sim/oracle.py#L1002-L1021), hardware checks `(addr & (width - 1)) != 0` before calling [`bus_read`](../sim/oracle.py#L713-L726) or [`bus_write`](../sim/oracle.py#L728-L745).
-That check guarantees an unaligned pointer into unmapped memory deterministically reports a misaligned trap (`CAUSE_LOAD_MISALIGNED = 4` or `CAUSE_STORE_MISALIGNED = 6`) ahead of an access fault (`CAUSE_LOAD_ACCESS_FAULT = 5` or `CAUSE_STORE_ACCESS_FAULT = 7`).
+That ordering guarantees an unaligned pointer into unmapped memory deterministically reports a load- or store-misaligned trap ahead of a load- or store-access fault.
 
 All memory regions store multi-byte integers in **little-endian byte order**, placing Bits 7..0 at the lowest byte address and successively higher bytes at increasing addresses (`0x1122_80FF` at `0x1000_0000` stores `0xFF`, `0x80`, `0x22`, `0x11`).
 For any width $w \in \{1, 2, 4\}$, reassembling those $w$ bytes gives $\texttt{val} = \sum_{i=0}^{w-1} \texttt{mem}[\texttt{addr} + i] \cdot 2^{8i}$.
@@ -1085,7 +1087,7 @@ Because SDRAM (32 MB) and QSPI flash (16 MB) span 48 MB combined, [`SparseMemory
 ### Monotonic Timer and Serial Console
 
 Autonomous control firmware relies on CLINT for deterministic timing and UART0 for ordered diagnostic byte streams whose bytes leave in arrival order (**First-In, First-Out** queues, or FIFOs).
-CLINT exposes a 64-bit monotonic tick counter (`mtime`) and alarm compare threshold (`mtimecmp`) over 32-bit bus registers, while UART0 exposes outgoing bytes (`uart_tx_buf`), incoming bytes (`uart_rx_fifo`), and a clock divider setting its serial bit rate (**baud rate**) without a shared clock wire.
+CLINT exposes a 64-bit monotonic tick counter (`mtime`) and alarm compare threshold (`mtimecmp`) over 32-bit bus registers, while UART0 exposes outgoing bytes (`uart_tx_buf`), incoming bytes (`uart_rx_fifo`), and a clock divider setting its serial bit rate (**baud rate**) without a shared clock wire (driven in Python tests via [`push_uart_rx`](../sim/oracle.py#L623-L627) and [`read_uart_tx`](../sim/oracle.py#L629-L634), both cleared by [`reset`](../sim/oracle.py#L563-L593)).
 Inside [`oracle.py`](../sim/oracle.py), [`_clint_offset`](../sim/oracle.py#L643-L648), [`_clint_read`](../sim/oracle.py#L650-L661), and [`_clint_write`](../sim/oracle.py#L663-L674) enforce 4-byte aligned 32-bit-only access across CLINT's four registers.
 Serial register validation in [`_uart_offset`](../sim/oracle.py#L680-L688), [`_uart_read`](../sim/oracle.py#L690-L700), and [`_uart_write`](../sim/oracle.py#L702-L711) permits 1- or 4-byte transfers on byte streams while enforcing 4-byte width on status and baud-divider words:
 
@@ -1101,28 +1103,47 @@ Serial register validation in [`_uart_offset`](../sim/oracle.py#L680-L688), [`_u
 | **UART0** | `0x0C` | `UART0_BAUDDIV` | 4-byte only | Returns divider ticks per serial bit | Sets `max(1, u32(val))` (prevents divide-by-0) | 434 (115,200 baud default, derived below) |
 
 Three quantitative hardware invariants explain the CLINT and UART0 design choices in [`oracle.py`](../sim/oracle.py):
-1. **64-Bit Counter Lifetime and Rollover Tearing**: On the `brain` board, a 50 MHz crystal oscillator (`SYS_CLK_HZ = 50_000_000`) ticks 50 million times per second.
-   A 32-bit counter wraps every $2^{32} / 50{,}000{,}000 \approx 85.9$ seconds, whereas a 64-bit counter runs for $2^{64}$ ticks (about $11{,}691$ years at $50 \times 10^6 \times 86{,}400 \times 365.25$ ticks per year) without rolling over (`mtimecmp` resets to `UINT64_MAX`, `0xFFFF_FFFF_FFFF_FFFF`, so alarms never fire prematurely).
-   Reading 64-bit `mtime` over a 32-bit bus creates a classic **rollover tear hazard**: if firmware executes `lw` on `CLINT_MTIME_LO` when `mtime` equals `0x0000_0000_FFFF_FFFF` (`0xFFFF_FFFF`) and `mtime` increments to `0x0000_0001_0000_0000` before `lw` reads `CLINT_MTIME_HI` (`0x0000_0001`), the combined pair `0x0000_0001_FFFF_FFFF` overshoots post-tick true time (`0x0000_0001_0000_0000`) by $+2^{32} - 1$ ticks (about 85.9 seconds).
-   Firmware eliminates tearing with a 3-read **tear-free retry loop**: read `hi1` from `CLINT_MTIME_HI`, `lo` from `CLINT_MTIME_LO`, and `hi2` from `CLINT_MTIME_HI`, looping while `hi1 != hi2`.
-   Because `mtime` increments monotonically and takes $2^{64}$ ticks (about $11{,}691$ years) to wrap `CLINT_MTIME_HI` all the way back to its starting value, matching `hi1 == hi2` guarantees zero carries occurred between those two high reads so `(hi1, lo)` is an exact snapshot, while the roughly 85.9-second ($85.899\text{ s}$) spacing between carries keeps retries bounded to at most one pass.
-2. **Glitch-Free 3-Store Alarm Updates**: CLINT compares the two 64-bit registers continuously and asserts an alarm signal whenever `mtime >= mtimecmp`.
-   Combining non-overlapping high and low halves with bitwise OR (`|`), write the prior threshold as $T_{\text{old}} = (\text{old}_{\text{hi}} \ll 32) \mid \text{old}_{\text{lo}}$, the target threshold as $T_{\text{new}} = (\text{new}_{\text{hi}} \ll 32) \mid \text{new}_{\text{lo}}$, and current time as $\texttt{mtime} = (\text{mtime}_{\text{hi}} \ll 32) \mid \text{mtime}_{\text{lo}}$.
-   When $\text{old}_{\text{hi}} = \text{mtime}_{\text{hi}}$ and $\text{new}_{\text{hi}} > \text{old}_{\text{hi}}$, writing $\text{new}_{\text{lo}}$ to `CLINT_MTIMECMP_LO` first sets intermediate threshold $(\text{old}_{\text{hi}} \ll 32) \mid \text{new}_{\text{lo}}$, which drops to or below `mtime` and fires a spurious alarm whenever $\text{new}_{\text{lo}} \le \text{mtime}_{\text{lo}}$ (even though $T_{\text{new}} > \texttt{mtime}$).
-   To prevent that glitch while $T_{\text{old}}, T_{\text{new}} > \texttt{mtime}$ throughout the update, firmware writes `0xFFFF_FFFF` to `CLINT_MTIMECMP_LO` first, $\text{new}_{\text{hi}}$ to `CLINT_MTIMECMP_HI` second, and $\text{new}_{\text{lo}}$ to `CLINT_MTIMECMP_LO` third.
-   Because `0xFFFF_FFFF` is at least $\text{old}_{\text{lo}}$ and $\text{new}_{\text{lo}}$, both intermediate thresholds stay strictly above `mtime`:
+1. **64-Bit Counter Lifetime and Rollover Tearing**: On the `brain` board, a 50 MHz crystal oscillator (`SYS_CLK_HZ = 50_000_000`) ticks 50 million times per second, so a 32-bit counter wraps quickly while a 64-bit counter never rolls over in service:
+
+   $$\begin{aligned}
+   T_{32} &= \frac{2^{32}}{50 \times 10^6\text{ Hz}} \approx 85.899\text{ s} \\
+   T_{64} &= \frac{2^{64}}{50 \times 10^6\text{ Hz} \times 86{,}400\text{ s/day} \times 365.25\text{ days/yr}} \approx 11{,}691\text{ years}
+   \end{aligned}$$
+
+   Because a 32-bit bus reads `mtime` in two separate instructions, a carry tick landing between the low-word and high-word reads stitches halves from different ticks into a bogus timestamp (**rollover tear hazard**).
+   Firmware eliminates tearing with a 3-read **tear-free retry loop** (`hi1` from `CLINT_MTIME_HI`, `lo` from `CLINT_MTIME_LO`, and `hi2` from `CLINT_MTIME_HI`, retrying while `hi1 != hi2`):
+
+   <TimerRolloverTearDiagram />
+
+   Because `mtime` increments monotonically and takes $2^{64}$ ticks (about $11{,}691$ years) to wrap `CLINT_MTIME_HI` back to its starting value, `hi1 == hi2` guarantees zero carries occurred between those two reads, and the 85.9-second spacing between carries bounds retries to at most one extra pass.
+
+2. **Glitch-Free 3-Store Alarm Updates**: CLINT compares the two 64-bit registers continuously and asserts an alarm signal whenever `mtime >= mtimecmp` (`mtimecmp` resets to `UINT64_MAX`, `0xFFFF_FFFF_FFFF_FFFF`, so alarms never fire before firmware arms them).
+   Because a 32-bit CPU cannot update both halves of `mtimecmp` in one store, either 2-store order briefly exposes a half-updated hybrid value that can dip to or below `mtime` and fire a false alarm—even when both the old and new 64-bit thresholds sit safely in the future.
+   Writing the new low word first dips to or below `mtime` when the old high word matches `mtime`'s upper half and the new low word is at or below `mtime`'s lower half.
+   Conversely, writing the new high word first dips to or below `mtime` when the new high word matches `mtime`'s upper half and the old low word is at or below `mtime`'s lower half.
+
+   Representing 64-bit thresholds by combining non-overlapping high and low halves via bitwise OR (`|`), write:
+
+   $$\begin{aligned}
+   T_{\text{old}} &= (\text{old}_{\text{hi}} \ll 32) \mid \text{old}_{\text{lo}} > \texttt{mtime} \\
+   T_{\text{new}} &= (\text{new}_{\text{hi}} \ll 32) \mid \text{new}_{\text{lo}} > \texttt{mtime}
+   \end{aligned}$$
+
+   To eliminate spurious alarms throughout the transition, firmware writes `0xFFFF_FFFF` to `CLINT_MTIMECMP_LO` first (pushing the threshold upward), $\text{new}_{\text{hi}}$ to `CLINT_MTIMECMP_HI` second, and $\text{new}_{\text{lo}}$ to `CLINT_MTIMECMP_LO` third.
+   Because `0xFFFF_FFFF` is at least both $\text{old}_{\text{lo}}$ and $\text{new}_{\text{lo}}$, every intermediate threshold stays strictly above `mtime`:
 
    $$\begin{aligned}
    T_1 &= (\text{old}_{\text{hi}} \ll 32) \mid \texttt{0xFFFF\_FFFF} \ge T_{\text{old}} > \texttt{mtime} \\
    T_2 &= (\text{new}_{\text{hi}} \ll 32) \mid \texttt{0xFFFF\_FFFF} \ge T_{\text{new}} > \texttt{mtime}
    \end{aligned}$$
 
-3. **UART Baud Quantization Drift**: At `SYS_CLK_HZ = 50_000_000` and $115{,}200$ baud, dividing $50{,}000{,}000$ by $115{,}200$ yields exact divider period $15{,}625 / 36$ ($\approx 434.0278$) ticks per serial bit.
-   Rounding to default integer divider `self.uart_bauddiv` (434, stored in `UART0_BAUDDIV`) introduces per-bit relative timing error:
+3. **UART Baud Quantization Drift**: Without a shared clock wire, a UART transmitter wraps each 8-bit byte inside a 10-bit frame (1 start bit, 8 data bits, 1 stop bit); the receiver synchronizes on the start edge and samples the center of every bit cell, succeeding as long as cumulative timing drift stays within $\pm 0.5$ bit-periods ($\pm 50\%$).
+
+   At `SYS_CLK_HZ = 50_000_000` and $115{,}200$ baud, dividing $50{,}000{,}000$ by $115{,}200$ yields exact divider period $15{,}625 / 36$ ($\approx 434.0278$) ticks per serial bit, so rounding to default integer divider `self.uart_bauddiv` (434, stored in `UART0_BAUDDIV`) introduces per-bit relative timing error:
 
    $$\epsilon = \frac{434 - \tfrac{15{,}625}{36}}{\tfrac{15{,}625}{36}} = -\frac{1}{15{,}625} = -0.0064\%$$
 
-   Across a 10-bit serial frame (1 start bit, 8 data bits, 1 stop bit), cumulative phase drift reaches only $10|\epsilon| = 0.064\%$—nearly three orders of magnitude inside the $\pm 0.5$ bit-period ($\pm 50\%$) half-bit sampling window.
+   Across all 10 bits of a frame, cumulative phase drift reaches only $10|\epsilon| = 0.064\%$—nearly three orders of magnitude inside the $\pm 50\%$ half-bit sampling window.
 
 ---
 
@@ -1134,12 +1155,12 @@ Execution departs from sequential `pc + 4` flow in two ways: explicit control-fl
 ### Conditional Branches and Subroutine Jumps
 
 Every non-trivial robot controller needs conditional `if`/`else` choices, counting loops, direct subroutine calls, and jump tables through function pointers.
-RISC-V separates those two departures from `pc + 4` cleanly: six conditional B-type branches compare two registers and jump when the relation holds, while two unconditional jump instructions save return **link address** `cur_pc + 4` in `rd` so subroutines can return cleanly.
+RISC-V splits explicit control-flow transfers cleanly into two groups: six conditional B-type branches compare two registers and jump when the relation holds, while two unconditional jump instructions save return **link address** `cur_pc + 4` in `rd` (conventionally `x1`, the subroutine return-link register) so subroutines can return cleanly.
 In [`oracle.py`](../sim/oracle.py), [`RV32Oracle._exec_branch`](../sim/oracle.py#L950-L971) handles conditional branches (`opcode` `0x63`), [`_exec_jal`](../sim/oracle.py#L929-L935) (`opcode` `0x6F`) handles direct jumps, and [`_exec_jalr`](../sim/oracle.py#L937-L948) (`opcode` `0x67`) handles indirect jumps:
 
 | Mnemonic | Format / `funct3` | Branch / Jump Condition and Target | Link Writeback and Alignment Rule |
 | :--- | :--- | :--- | :--- |
-| **Branch if Equal** (`beq`) | B-type / 0 | Jump to `u32(cur_pc + imm13)` if `rs1_u == rs2_u` | Traps with `CAUSE_INSN_MISALIGNED` if taken and `(target & 3) != 0` |
+| **Branch if Equal** (`beq`) | B-type / 0 | Jump to `u32(cur_pc + imm13)` if `rs1_u == rs2_u` | Traps with an instruction-misaligned fault if taken and `(target & 3) != 0` |
 | **Branch if Not Equal** (`bne`) | B-type / 1 | Jump to `u32(cur_pc + imm13)` if `rs1_u != rs2_u` | Untaken branches advance to `cur_pc + 4` without checking target alignment |
 | **Branch if Less Than** (`blt`) | B-type / 4 | Jump to `u32(cur_pc + imm13)` if `rs1_s < rs2_s` | Signed 32-bit comparison; alignment checked only if taken |
 | **Branch Greater or Equal** (`bge`) | B-type / 5 | Jump to `u32(cur_pc + imm13)` if `rs1_s >= rs2_s` | Signed 32-bit comparison; alignment checked only if taken |
@@ -1148,7 +1169,7 @@ In [`oracle.py`](../sim/oracle.py), [`RV32Oracle._exec_branch`](../sim/oracle.py
 | **Jump and Link** (`jal`) | J-type / none | Unconditional `u32(cur_pc + imm21)` | Saves `cur_pc + 4` to `rd`; traps before writeback if `(target & 3) != 0` |
 | **Jump and Link Register** (`jalr`) | I-type / 0 | `u32((rs1_u + imm12) & JALR_TARGET_MASK)` (`0xFFFF_FFFE`) | Sign-extends `imm12`, clears Bit 0 first, checks `(target & 3) != 0`, and latches `rs1_u` before saving `cur_pc + 4` |
 
-Because `jalr` clears Bit 0 (`JALR_TARGET_MASK = 0xFFFF_FFFE`) *before* testing 4-byte alignment, an odd sum such as `x1 + 1` snaps down cleanly onto 4-byte-aligned address `x1` without trapping, whereas setting Bit 1 (`(target & 2) != 0`) triggers `CAUSE_INSN_MISALIGNED` on our 4-byte-aligned core.
+Because `jalr` clears Bit 0 (`JALR_TARGET_MASK = 0xFFFF_FFFE`) *before* testing 4-byte alignment, an odd sum such as `x1 + 1` snaps down cleanly onto 4-byte-aligned address `x1` without trapping, whereas setting Bit 1 (`(target & 2) != 0`) triggers an instruction-misaligned fault on our 4-byte-aligned core.
 Latching `rs1_u` before saving `cur_pc + 4` also ensures self-updating calls such as `jalr x1, 0(x1)` read their jump target safely before overwriting link register `x1`.
 
 Wiring `x0` into `beq`, `jal`, and `jalr` provides standard control pseudoinstructions without extra opcodes, while swapping `rs1` and `rs2` in the six B-type branches covers all ten signed and unsigned relational comparisons:
@@ -1161,9 +1182,10 @@ Wiring `x0` into `beq`, `jal`, and `jalr` provides standard control pseudoinstru
 | **Unconditional Jump** (`j off`) | `jal x0, off` | Unconditional jump discarding return link into `x0` |
 | **Return from Subroutine** (`ret`) | `jalr x0, 0(x1)` | Returns to link register `x1` without saving a new link |
 
-Why do six branch opcodes suffice for all ten comparisons ($=$, $\neq$, $<$, $\ge$, $>$, $\le$ across signed and unsigned)?
-Equality and inequality ($=$ and $\neq$, handled by `beq` and `bne`) are identical for signed and unsigned operands per Section 4's equality invariance, leaving two shared equality instructions plus four base inequalities ($<$ and $\ge$ in signed and unsigned variants).
-Because integer ordering is total, logical negation flips $<$ into $\ge$ ($\neg(a < b) \iff a \ge b$) using one 1-bit inverter wire on the comparator output, while operand commutation flips $<$ and $\ge$ into $>$ and $\le$ ($a > b \iff b < a$ and $a \le b \iff b \ge a$) by swapping `rs1` and `rs2` in software at zero hardware cost.
+Why do six branch instructions suffice for all ten comparisons ($=$, $\neq$, $<$, $\ge$, $>$, $\le$ across signed and unsigned)?
+Equality and inequality ($=$ and $\neq$, handled by `beq` and `bne`) are identical for signed and unsigned operands per Section 4's equality invariance, leaving two shared equality relations plus eight ordered inequalities ($<$, $\ge$, $>$, $\le$ in signed and unsigned variants)—ten distinct comparisons in total.
+Operand commutation ($a > b \iff b < a$ and $a \le b \iff b \ge a$) maps the four $>$ and $\le$ relations onto the four base $<$ and $\ge$ instructions (`blt`, `bge`, `bltu`, `bgeu`) by swapping `rs1` and `rs2` in software at zero hardware cost, so $2 + 4 = 6$ branch instructions suffice.
+Inside hardware, because integer ordering is total ($\neg(a < b) \iff a \ge b$), each $\ge$ branch reuses the corresponding $<$ comparator through a single 1-bit inverter wire.
 
 ### Control Registers and System Instructions
 
@@ -1171,7 +1193,7 @@ To configure interrupt masks, trap vector addresses, and cycle counters without 
 The RISC-V **Zicsr** extension organizes those registers into a 12-bit address space (`0x000`–`0xFFF`, 4,096 slots).
 Our single-core CPU runs permanently in **Machine privilege mode** (M-mode, binary `0b11`), the highest RISC-V privilege level with direct access to physical memory and control registers.
 Most writable CSR fields silently mask unsupported bits rather than faulting, a convention called **Write Any Values, Reads Legal Values** (WARL).
-In contrast, writes to read-only CSRs (`misa` and the static identification registers) raise `CAUSE_ILLEGAL_INSN` in [`_write_csr`](../sim/oracle.py#L807-L858) (paired with reads in [`_read_csr`](../sim/oracle.py#L775-L805)):
+In contrast, writes to read-only CSRs (`misa` and the static identification registers) raise an illegal-instruction trap in [`_write_csr`](../sim/oracle.py#L807-L858) (paired with reads in [`_read_csr`](../sim/oracle.py#L775-L805)):
 
 | CSR Address | Register | Access and WARL Masking | Architectural Role |
 | :---: | :--- | :--- | :--- |
@@ -1184,8 +1206,8 @@ In contrast, writes to read-only CSRs (`misa` and the static identification regi
 | `0x342` | `mcause` | Full 32-bit Read / Write | **Machine Trap Cause**: Bit 31 (1 interrupt / 0 exception) + cause code |
 | `0x343` | `mtval` | Full 32-bit Read / Write | **Machine Trap Value**: offending address or raw instruction word |
 | `0x344` | `mip` | Software (Bit 3) and External (Bit 11) writable; Timer (Bit 7) live wire | **Machine Interrupt Pending**: software/external latches and `mtime >= mtimecmp` |
-| `0xB00` / `0xB80` | `mcycle` / `mcycleh` | Full 64-bit Read / Write | **Machine Cycle Counter**: increments on every step (instructions and traps) |
-| `0xB02` / `0xB82` | `minstret` / `minstreth` | Full 64-bit Read / Write | **Machine Instructions Retired**: counts completed non-trapping instructions |
+| `0xB00` / `0xB80` | `mcycle` / `mcycleh` | Two 32-bit Read / Write halves (low / high) | **Machine Cycle Counter**: 64-bit counter incrementing on every step (instructions and traps) |
+| `0xB02` / `0xB82` | `minstret` / `minstreth` | Two 32-bit Read / Write halves (low / high) | **Machine Instructions Retired**: 64-bit counter for completed non-trapping instructions |
 | `0xF11`–`0xF14` | `mvendorid`, `marchid`, `mimpid`, `mhartid` | Read-Only zero; writes trap | Static vendor, architecture, implementation, and core (0) IDs |
 
 Inside `mstatus`, the global **Machine Interrupt Enable** (MIE, Bit 3) switch gates all interrupts.
@@ -1196,25 +1218,28 @@ Notice how `mie` and **Machine Interrupt Pending** (`mip`) align every interrupt
 
 | Interrupt Channel | Bit Index | `mie` Mask Bit | `mip` Pending Bit | Trigger Source |
 | :--- | :---: | :--- | :--- | :--- |
-| **Software** | Bit 3 | **MSIE** (Machine Software Interrupt Enable) | **MSIP** (Machine Software Interrupt Pending) | Software write to `mip` Bit 3 |
-| **Timer** | Bit 7 | **MTIE** (Machine Timer Interrupt Enable) | **MTIP** (Machine Timer Interrupt Pending) | Live wire `mtime >= mtimecmp` |
-| **External** | Bit 11 | **MEIE** (Machine External Interrupt Enable) | **MEIP** (Machine External Interrupt Pending) | External peripheral interrupt line |
+| **Software** | Bit 3 | **Machine Software Interrupt Enable** (MSIE) | **Machine Software Interrupt Pending** (MSIP) | Software write to `mip` Bit 3 |
+| **Timer** | Bit 7 | **Machine Timer Interrupt Enable** (MTIE) | **Machine Timer Interrupt Pending** (MTIP) | Live wire `mtime >= mtimecmp` |
+| **External** | Bit 11 | **Machine External Interrupt Enable** (MEIE) | **Machine External Interrupt Pending** (MEIP) | External peripheral interrupt line |
 
 Inside [`RV32Oracle._exec_zicsr`](../sim/oracle.py#L1117-L1144), six Zicsr instructions (`opcode` `0x73`) perform indivisible (**atomic**) CSR **Read and Write** (`csrrw`), **Read and Set** (`csrrs`), and **Read and Clear** (`csrrc`) updates on `csr_addr` (Bits 31..20).
 Their immediate counterparts (`csrrwi`, `csrrsi`, `csrrci`) replace register operand `rs1_u` with a zero-extended **5-bit unsigned immediate** (`uimm`, stored in Bits 19..15), where `src` denotes whichever source value (`rs1_u` or `uimm`) supplies the update:
 
 | Mnemonic | `funct3` | Atomic Operation (Reads `old`, Writes New Value) | Write Suppression Rule |
 | :--- | :---: | :--- | :--- |
-| **`csrrw`** / **`csrrwi`** | 1 / 5 | Writes `old` to `rd`, then `src` to `csr` | Never suppressed (`do_write` set to `True`; `csrrw x0, misa, x0` traps) |
-| **`csrrs`** / **`csrrsi`** | 2 / 6 | Writes `old` to `rd`, then `old \| src` to `csr` | Writes only if source field `rs1` (or 5-bit `uimm`) is non-zero (`csrr rd, csr` aliases `csrrs rd, csr, x0` to read safely) |
-| **`csrrc`** / **`csrrci`** | 3 / 7 | Writes `old` to `rd`, then `old & (MASK32 ^ src)` to `csr` | Writes only if source field `rs1` (or 5-bit `uimm`) is non-zero (uses `MASK32 ^ src` instead of signed `~src`) |
+| **`csrrw`** / **`csrrwi`** | 1 / 5 | Atomically writes `src` to `csr` and returns `old` into `rd` (leaving `rd` untouched on trap) | Never suppressed (always attempts the CSR write; `csrrw x0, misa, x0` traps) |
+| **`csrrs`** / **`csrrsi`** | 2 / 6 | Atomically writes `old \| src` to `csr` and returns `old` into `rd` (leaving `rd` untouched on trap) | Writes only if source field `rs1` (or 5-bit `uimm`) is non-zero (`csrr rd, csr` aliases `csrrs rd, csr, x0` to read safely) |
+| **`csrrc`** / **`csrrci`** | 3 / 7 | Atomically clears every bit set to 1 in `src` (32-bit `old & ~src`) and returns `old` into `rd` (leaving `rd` untouched on trap) | Writes only if source field `rs1` (or 5-bit `uimm`) is non-zero |
 
-Notice below that [`_exec_zicsr`](../sim/oracle.py#L1117-L1144) records `wrote_minstret` whenever the target CSR is `minstret` or `minstreth` so normal retirement does not increment past an explicit counter write:
+Inside [`_exec_zicsr`](../sim/oracle.py#L1117-L1144), `funct3` factors cleanly by bit position: Bit 2 (`ZICSR_IMM_BIT`, `funct3` 5–7 vs. 1–3) selects the immediate variant, while Bits 1..0 (`ZICSR_OP_MASK`) select `rw` (`1`), `rs` (`2`), or `rc` (`3`).
+Because `uimm` occupies the exact same Bits 19..15 slice as `rs1`, the method reuses the 5-bit integer `rs1` directly as `src_val` and checks `rs1 != 0` uniformly for both `rs1 == x0` and `uimm == 0` write suppression.
+For bit-clear (`rc`), XORing `src_val` with all-ones `MASK32` flips Bits 31..0 as an unsigned 32-bit NOT without producing Python's negative `~src_val`.
+Finally, `wrote_minstret` suppresses the normal retirement increment whenever an explicit CSR write targets `minstret` or `minstreth`:
 
 <!-- book-sync: RV32Oracle._exec_zicsr['src_val = rs1'..'csr_addr in (CSR_MINSTRET'] -->
 <<< @/systems/brain/sim/oracle.py#L1127-L1142
 
-Under `opcode` `0x73` (`funct3` equal to 0) in [`RV32Oracle._exec_system`](../sim/oracle.py#L1146-L1169) and `opcode` `0x0F` in [`step()`](../sim/oracle.py#L1194-L1273), six fixed system and ordering instructions handle kernel traps, debugging, trap return, and bus barriers:
+Under `opcode` `0x73` (`funct3` equal to 0) in [`RV32Oracle._exec_system`](../sim/oracle.py#L1146-L1169) and `opcode` `0x0F` in [`step()`](../sim/oracle.py#L1194-L1273), six fixed system and ordering instructions handle system traps, debugging, trap return, and bus barriers:
 
 | Instruction | Opcode / Encoding | Architectural Effect |
 | :--- | :--- | :--- |
@@ -1227,8 +1252,12 @@ Under `opcode` `0x73` (`funct3` equal to 0) in [`RV32Oracle._exec_system`](../si
 
 ### Trap Entry and Return Choreography
 
-Before fetching an instruction, [`RV32Oracle._check_pending_interrupt`](../sim/oracle.py#L904-L918) checks whether global MIE in `mstatus` equals 1 and any enabled request in `self._live_mip() & self.mie` is active, arbitrating external ahead of software ahead of timer.
-Whether triggered by a pre-fetch interrupt or a synchronous exception, [`RV32Oracle._take_trap`](../sim/oracle.py#L860-L878) switches context atomically in one step—clearing the low two address bits with `WORD_ALIGN_MASK` (`0xFFFF_FFFC`) and extracting the lower 31-bit trap number from `mcause` with `MCAUSE_CODE_MASK` (`0x7FFF_FFFF`).
+Whenever an enabled asynchronous interrupt or synchronous exception fires, hardware switches into the trap handler atomically without modifying any general-purpose register `x1`–`x31`.
+In one step, the processor saves the word-aligned resume address into `mepc` (alongside `mcause` and `mtval`), copies global MIE into MPIE while clearing MIE to 0 to shield the handler from nested preemption, and jumps `pc` to the handler address encoded in `mtvec`.
+After the handler services the interrupt source (or advances `mepc` past a synchronous trap such as `ecall`), executing `mret` restores MIE from MPIE and resumes normal execution at `mepc`.
+
+In [`oracle.py`](../sim/oracle.py), [`RV32Oracle._check_pending_interrupt`](../sim/oracle.py#L904-L918) runs before every instruction fetch to check whether global MIE equals 1 and any enabled request in `self._live_mip() & self.mie` is active, arbitrating external ahead of software ahead of timer.
+Whether triggered by a pre-fetch interrupt or a synchronous exception, [`RV32Oracle._take_trap`](../sim/oracle.py#L860-L878) executes that atomic transition—clearing the low two address bits with `WORD_ALIGN_MASK` (`0xFFFF_FFFC`) and extracting the lower 31-bit trap number from `mcause` with `MCAUSE_CODE_MASK` (`0x7FFF_FFFF`).
 When `mtvec` selects Direct dispatch (`mode == 0`), every trap jumps to `base`; when `mtvec` selects Vectored dispatch (`mode == 1`), synchronous exceptions still enter at `base` whereas asynchronous interrupts index into a contiguous jump table of 4-byte instruction slots starting at `base`, entering at `u32(base + 4 * code)`:
 
 ```mermaid
@@ -1252,15 +1281,15 @@ Every trap source in [`oracle.py`](../sim/oracle.py) obeys one strict single-ste
 | **1** | External Interrupt (**MEIP**) | `0x8000_000B` | Asynchronous IRQ | `cur_pc & 0xFFFF_FFFC` (unexecuted next instruction) | 0 |
 | **2** | Software Interrupt (**MSIP**) | `0x8000_0003` | Asynchronous IRQ | `cur_pc & 0xFFFF_FFFC` (unexecuted next instruction) | 0 |
 | **3** | Timer Interrupt (**MTIP**) | `0x8000_0007` | Asynchronous IRQ | `cur_pc & 0xFFFF_FFFC` (unexecuted next instruction) | 0 |
-| **4** | Fetch PC Misaligned (`(cur_pc & 3) != 0`) | 0 | Synchronous Fault | `cur_pc & 0xFFFF_FFFC` | `cur_pc` (offending PC) |
+| **4** | Fetch PC Misaligned (`(cur_pc & 3) != 0`) | 0 (`CAUSE_INSN_MISALIGNED`) | Synchronous Fault | `cur_pc & 0xFFFF_FFFC` | `cur_pc` (offending PC) |
 | **5** | Fetch Access Fault (unmapped or MMIO fetch) | 1 | Synchronous Fault | `cur_pc & 0xFFFF_FFFC` | `cur_pc` (offending PC) |
-| **6** | Illegal Instruction (`opcode`/`funct3`/`funct7`/`misa` fault) | 2 | Synchronous Fault | `cur_pc & 0xFFFF_FFFC` | `insn` (raw 32-bit word) |
+| **6** | Illegal Instruction (`opcode`/`funct3`/`funct7`/`misa` fault) | 2 (`CAUSE_ILLEGAL_INSN`) | Synchronous Fault | `cur_pc & 0xFFFF_FFFC` | `insn` (raw 32-bit word) |
 | **7** | Breakpoint (`ebreak`) / Environment Call (`ecall`) | 3 / 11 | Synchronous Trap | `cur_pc & 0xFFFF_FFFC` | `cur_pc` (`ebreak`) / 0 (`ecall`) |
-| **8** | Taken Branch or Jump Target Misaligned | 0 | Synchronous Fault | `cur_pc & 0xFFFF_FFFC` | `target` (misaligned target) |
-| **9** | Load / Store Misaligned (`(addr & (width - 1)) != 0`) | 4 / 6 | Synchronous Fault | `cur_pc & 0xFFFF_FFFC` | `addr` (bad byte address) |
-| **10** | Load / Store Access Fault (`MemoryAccessFault`) | 5 / 7 | Synchronous Fault | `cur_pc & 0xFFFF_FFFC` | `addr` (bad byte address) |
+| **8** | Taken Branch or Jump Target Misaligned | 0 (`CAUSE_INSN_MISALIGNED`) | Synchronous Fault | `cur_pc & 0xFFFF_FFFC` | `target` (misaligned target) |
+| **9** | Load / Store Misaligned (`(addr & (width - 1)) != 0`) | 4 (`CAUSE_LOAD_MISALIGNED`) / 6 (`CAUSE_STORE_MISALIGNED`) | Synchronous Fault | `cur_pc & 0xFFFF_FFFC` | `addr` (bad byte address) |
+| **10** | Load / Store Access Fault (`MemoryAccessFault`) | 5 (`CAUSE_LOAD_ACCESS_FAULT`) / 7 (`CAUSE_STORE_ACCESS_FAULT`) | Synchronous Fault | `cur_pc & 0xFFFF_FFFC` | `addr` (bad byte address) |
 
-Writing trap entry and `mret` as explicit state-transition equations over $(\texttt{pc}, \texttt{mepc}, \texttt{MIE}, \texttt{MPIE})$ clarifies both resumption and interrupt stack bootstrapping.
+Writing trap entry and `mret` as explicit state-transition equations over $(\texttt{pc}, \texttt{mepc}, \texttt{MIE}, \texttt{MPIE})$—alongside the rule that hardware leaves all 31 general-purpose registers `x1`–`x31` untouched—clarifies both resumption and interrupt stack bootstrapping.
 Here primed symbols ($\texttt{pc}'$, $\texttt{mepc}'$, $\texttt{MIE}'$, $\texttt{MPIE}'$, $\texttt{mcause}'$) denote post-transition state values immediately after trap entry or `mret`:
 - $\text{irq} \in \{0, 1\}$ is Bit 31 of $\texttt{mcause}'$ (1 for asynchronous interrupts, 0 for synchronous exceptions).
 - $\texttt{base} = \texttt{mtvec} \mathbin{\&} \texttt{0xFFFF\_FFFC}$ (`WORD_ALIGN_MASK`) and $\texttt{mode} = \texttt{mtvec} \mathbin{\&} 3$.
@@ -1275,22 +1304,22 @@ $$\begin{aligned}
 \texttt{pc}' &= \texttt{mepc} \mathbin{\&} \texttt{0xFFFF\_FFFC}
 \end{aligned}$$
 
-Two architectural consequences follow immediately from these equations:
-1. **Exact Resume Offset and Stackable Interrupts**: Clearing MIE to zero after copying it into MPIE shields the handler (**Interrupt Service Routine**, or ISR) from re-entrant preemption while saving registers, and `mret` restores MIE to its prior value (1 when interrupting normal execution) before jumping back to `mepc`.
-   Because an asynchronous interrupt preempted the instruction at `mepc` *before* it ran, the ISR clears the IRQ source (for example, advancing `mtimecmp`) and executes `mret` with `mepc` unchanged, whereas a synchronous `ecall` or `ebreak` handler advances `mepc` to `mepc + 4` so `mret` resumes at the next instruction instead of repeating the trap.
-2. **Zero-Clobber `mscratch` Bootstrap**: When an asynchronous timer or external interrupt fires, *all 31* writable registers `x1`–`x31` hold live interrupted program state, so an ISR cannot even execute `lui`/`addi` to load a stack pointer without overwriting a live register.
+Three architectural consequences follow from these state-transition equations together with hardware leaving `x1`–`x31` untouched:
+1. **Atomic Interrupt Masking and Restore**: Clearing MIE to zero after copying it into MPIE shields the handler (**Interrupt Service Routine**, or ISR) from re-entrant preemption while saving registers, and `mret` atomically restores MIE to its prior value (1 when interrupting normal execution) upon return.
+2. **Exact Resume Offset**: Because an asynchronous interrupt preempted the instruction at `mepc` *before* it ran, the ISR clears the IRQ source (for example, advancing `mtimecmp`) and executes `mret` with `mepc` unchanged, whereas a synchronous `ecall` or `ebreak` handler advances `mepc` to `mepc + 4` so `mret` resumes at the next instruction instead of repeating the trap.
+3. **Zero-Clobber `mscratch` Bootstrap**: When an asynchronous timer or external interrupt fires, *all 31* writable registers `x1`–`x31` hold live interrupted program state, so an ISR cannot even execute `lui`/`addi` to load a stack pointer (conventionally `x2`) without overwriting a live register.
    Executing the single atomic swap `csrrw x2, mscratch, x2` saves the interrupted program's stack pointer `x2` into `mscratch` while loading the dedicated ISR stack pointer from `mscratch` into `x2` in the exact same instruction—freeing `x2` to push the remaining registers onto the ISR stack with zero register loss.
 
 ---
 
 ## 7. Custom Neural Multiply-Accumulate Extension
 
-Running real-time neural inference on an embedded robot control loop reduces mathematically to dense matrix-vector multiplication and vector dot products of the form $\sum_{j} a_j b_j$.
-Computing one element of that sum with base integer instructions (`lw`, `lh`, `mul`, `add`, and conditional saturation branches `blt`/`bge`) requires roughly six to eight instructions per weight—plus loop-counter updates and branch overhead.
+Running real-time neural inference on an embedded robot control loop reduces mathematically to dense matrix-vector multiplication and vector dot products plus a constant per-neuron offset (**bias**) of the form $c + \sum_{j} a_j b_j$.
+Computing one element of that sum with base integer instructions (`lw`, `lh`, `mul`, `add`, and conditional overflow-clamping branches `blt`/`bge`) requires roughly six to eight instructions per weight—plus loop-counter updates and branch overhead.
 Doubling throughput while eliminating inner-loop overflow branches frees real-time processor budget for sensor filtering and motor safety checks.
 
 Our `brain` robot controller solves a concrete instance of this workload inside a 50 Hz (20 ms period) quadruped walking policy.
-The controller feeds a 48-element sensor state vector (joint angles, velocities, body orientation, and gait clock phase) through a compact neural network (**Multi-Layer Perceptron**, or MLP) with layer widths 48, 128, 128, and 12 motor targets, holding $48 \times 128 + 128 \times 128$ plus $128 \times 12$ ($24{,}064$ total) signed 16-bit weights (47.0 KB, fitting completely inside the 64 KB on-chip BRAM introduced in Section 5).
+The controller feeds a 48-element sensor state vector (joint angles, velocities, body orientation, and gait clock phase) through a compact neural network (**Multi-Layer Perceptron**, or MLP) with layer widths 48, 128, 128, and 12 motor targets, holding $48 \times 128 + 128 \times 128 + 128 \times 12 = 24{,}064$ signed 16-bit weights (47.0 KB, fitting completely inside the 64 KB on-chip BRAM introduced in Section 5).
 The `brain` CPU is implemented as a **softcore processor**, meaning its logic blocks and wiring are configured onto a reprogrammable **Field-Programmable Gate Array** (FPGA) chip rather than etched into fixed custom silicon.
 Two physical limits of that reprogrammable chip directly motivate our custom neural instructions.
 
@@ -1303,7 +1332,7 @@ Control datapaths prevent violent sign inversions using **saturating arithmetic*
 <<< @/systems/brain/sim/oracle.py#L292-L298
 
 Two physical limits on the target FPGA chip shape our custom instruction encoding (`opcode` `0x0B`):
-1. **Register-File Port Limit**: Programmable logic blocks inside our FPGA implement a two-read, one-write (2R1W) general-purpose register file efficiently, whereas feeding an accumulator (`acc + a0*b0 + a1*b1`) alongside two packed operand words (`rs1`, `rs2`) would demand three simultaneous register reads (3R1W).
+1. **Register-File Port Limit**: Programmable logic blocks inside our FPGA implement a two-read, one-write (2R1W) general-purpose register file efficiently, whereas feeding a running accumulator alongside two source operand registers (`rs1`, `rs2`) would demand three simultaneous register reads (3R1W).
    Keeping a dedicated 32-bit signed architectural accumulator (`self.mac_acc`) alongside `x0`–`x31` supplies the third operand internally inside [`RV32Oracle`](../sim/oracle.py#L528-L1291) with zero extra register-file ports.
 2. **Hardwired 18-Bit Multiplier Blocks**: Embedded FPGA dedicated arithmetic blocks (**Digital Signal Processing** slices, or DSP slices) contain hardwired $18 \times 18$-bit signed multipliers, making two parallel 16-bit signed lanes packed inside one 32-bit register nearly free alongside existing 32-bit multiplier hardware.
    Packing lower halfword Bits 15..0 (`a0`, `b0`) and upper halfword Bits 31..16 (`a1`, `b1`) into `rs1` and `rs2` delivers two signed 16-bit multiply-accumulates in a single instruction (**Single Instruction, Multiple Data**, or SIMD), sign-extending each 16-bit lane via [`s16`](../sim/oracle.py#L287-L289):
@@ -1320,7 +1349,7 @@ All four instructions of our custom neural extension (**Apex Neural Multiply-Acc
 | **`mac.set rd, rs1`** | 2 | `rs1` | Sets `mac_acc` to `s32(rs1)` (preloads bias) | Writes `u32(rs1)` into `rd` (discarded if `rd == 0`) |
 | **`mac.get rd`** | 3 | `mac_acc` | Reads accumulator without modifying it | Writes `u32(mac_acc)` into `rd` (discarded if `rd == 0`) |
 
-The datapath inspector below lets you drive packed dual-16-bit vectors into `mac`, `mac.clr`, `mac.set`, and `mac.get` to observe lane splitting, exact intermediate sums, saturation clamping, and hardwired `x0` discard.
+The interactive datapath schematic below routes packed dual-16-bit vectors across `mac`, `mac.clr`, `mac.set`, and `mac.get` to illustrate lane slicing, twin multipliers, accumulator multiplexing, saturation clamping, and `x0` write discard.
 
 <XapexMacDatapath />
 
@@ -1333,37 +1362,38 @@ Notice one crucial subtlety about hardwired-zero write discard: `mac.clr x0, x1,
 
 ### First-Step Accumulator Overflow Proof
 
-Although a single signed 16-bit product $a_i b_i$ appears tiny relative to 32-bit integers, starting from zero (`mac.clr` or `mac_acc` equal to 0) can still saturate on the very first `mac.clr` instruction for a unique extremal input pair.
-For instance, packing $-32{,}768$ into all four halfword lanes (`rs1` and `rs2` both equal `0x8000_8000`) computes $(-32{,}768)^2 + (-32{,}768)^2 = +2^{31}$, overflowing `INT32_MAX` by one, whereas mixing $-32{,}768$ with $+32{,}767$ (`0x8000_8000` times `0x7FFF_7FFF`) yields $-2^{31} + 65{,}536$, remaining safely above `INT32_MIN`.
-
-To establish the exact minimum and maximum two-lane sum, first bound a single lane product $p_i = a_i b_i$ inside $[-2^{30} + 2^{15},\; 2^{30}]$.
-Each signed 16-bit lane obeys $a_i, b_i \in [-2^{15}, 2^{15} - 1]$, so $|a_i|, |b_i| \le 2^{15}$ with $(2^{15} - 1)^2 = 2^{30} - 2^{16} + 1 < 2^{30}$.
-When both factors share the same sign, their product maximizes at $(-2^{15})(-2^{15}) = +2^{30}$; when they carry opposite signs, hitting magnitude $2^{30}$ would require $+2^{15}$, which lies outside the 16-bit signed interval, so the positive factor caps at $2^{15} - 1$:
+Because `mac.clr` starts each dot product from a cleared accumulator (`base_acc = 0`), a natural hardware question is whether the saturation clamp can ever be bypassed on that first step.
+Starting from zero can still saturate positively on the very first step for one unique extremal input pair, whereas no input pair can saturate negatively:
 
 $$\begin{aligned}
-(-2^{15})(2^{15} - 1) &= -2^{30} + 2^{15} \le p_i \\
-p_i &\le (-2^{15})(-2^{15}) = +2^{30}
+\texttt{mac.clr}(\texttt{0x8000\_8000}, \texttt{0x8000\_8000}):&\quad (-32{,}768)^2 + (-32{,}768)^2 \\
+&= +2^{31} = \texttt{INT32\_MAX} + 1 \\
+\texttt{mac.clr}(\texttt{0x8000\_8000}, \texttt{0x7FFF\_7FFF}):&\quad 2(-32{,}768)(+32{,}767) \\
+&= -2^{31} + 65{,}536 > \texttt{INT32\_MIN}
 \end{aligned}$$
 
-Summing both independent lane products $p_0 + p_1$ from `base_acc` equal to 0 gives the exact achievable extrema $S_{\min}$ and $S_{\max}$ across every 32-bit register pair:
+Because every unpacked signed 16-bit lane lies in $[-2^{15}, 2^{15} - 1]$, each lane product $p_i = a_i b_i$ ($i \in \{0, 1\}$) is tightly bounded by its asymmetric endpoints, which sum directly to the two-lane extrema $S_{\min}$ and $S_{\max}$:
 
 $$\begin{aligned}
-S_{\min} &= 2 \cdot (-2^{30} + 2^{15}) = -2^{31} + 2^{16} > -2^{31} = \texttt{INT32\_MIN} \\
-S_{\max} &= 2 \cdot (+2^{30}) = +2^{31} = \texttt{INT32\_MAX} + 1
+(-2^{15})(2^{15} - 1) = -2^{30} + 2^{15} &\le p_i \le (-2^{15})(-2^{15}) = +2^{30} \\
+S_{\min} &= -2^{31} + 2^{16} > \texttt{INT32\_MIN} \\
+S_{\max} &= +2^{31} = \texttt{INT32\_MAX} + 1
 \end{aligned}$$
 
-Notice the exact asymmetry between negative and positive endpoints:
-1. **No First-Step Negative Saturation**: Because $S_{\min} = -2^{31} + 65{,}536$ exceeds `INT32_MIN` by $65{,}536$, no `mac.clr` invocation can ever saturate negatively in a single instruction.
-2. **Unique First-Step Positive Saturation**: Suppose lane $i$ avoids $(-2^{15}, -2^{15})$ while the other lane $1 - i$ obeys $p_{1-i} \le 2^{30}$.
-   When $a_i \ge 0$ or $b_i \ge 0$, opposite signs or zero give $p_i \le 0$ and non-negative factors give $p_i \le (2^{15} - 1)^2$.
-   When both factors are negative, one is at least $-2^{15} + 1$, forcing $p_i \le (-2^{15})(-2^{15} + 1)$ and keeping $p_0 + p_1$ strictly below `INT32_MAX`:
+Those bounds immediately establish both asymmetry properties:
+1. **No First-Step Negative Saturation**: $S_{\min} = -2^{31} + 65{,}536$ sits $65{,}536$ above `INT32_MIN`, so `mac.clr` can never clamp negatively in one instruction.
+2. **Unique First-Step Positive Saturation**: Whenever lane $i$ avoids $(-2^{15}, -2^{15})$, opposite-sign or zero-factor pairs yield $p_i \le 0$ and same-sign pairs peak at $(-2^{15})(-2^{15} + 1)$ rather than $(2^{15} - 1)^2$:
 
    $$\begin{aligned}
-   p_i &\le \max\big((-2^{15})(-2^{15} + 1),\; (2^{15} - 1)^2\big) = 2^{30} - 2^{15} \\
-   p_0 + p_1 &= p_i + p_{1-i} \le (2^{30} - 2^{15}) + 2^{30} = 2^{31} - 2^{15} < \texttt{INT32\_MAX}
+   p_i &\le \max\bigl((-2^{15})(-2^{15} + 1),\; (2^{15} - 1)^2\bigr) \\
+   &= \max\bigl(2^{30} - 2^{15},\; 2^{30} - 2^{16} + 1\bigr) = 2^{30} - 2^{15}
    \end{aligned}$$
 
-   Consequently, only when all four inputs equal $-2^{15}$ (`0x8000_8000` times `0x8000_8000`) does `sat32` clamp to `INT32_MAX` (`0x7FFF_FFFF`).
+   Combined with $p_{1-i} \le 2^{30}$ on the other lane, the two-lane sum stays strictly below `INT32_MAX`:
+
+   $$p_0 + p_1 \le (2^{30} - 2^{15}) + 2^{30} = 2^{31} - 2^{15} < \texttt{INT32\_MAX}$$
+
+   Only when all four halfwords equal $-2^{15}$ (`0x8000_8000` paired with `0x8000_8000`) does `sat32` clamp to `INT32_MAX` (`0x7FFF_FFFF`).
 
 ---
 
@@ -1383,17 +1413,17 @@ Under opcodes `0x0F` and `0x73`, the ordering barriers, wait hint, and environme
 | `0x03` | I-Type Loads | `funct3` in `{0, 1, 2, 4, 5}` (`lb`, `lh`, `lw`, `lbu`, `lhu`) | `funct3` in `{3, 6, 7}` traps (`mcause` 2) |
 | `0x0B` | R-Type Xapex | `funct7 == 0x00` and `funct3` in `{0, 1, 2, 3}` | Any other `funct7` or `funct3 >= 4` traps |
 | `0x0F` | I-Type Ordering | `funct3` in `{0, 1}` (`fence`, `fence.i`) | `funct3 >= 2` traps |
-| `0x13` | I-Type ALU | `funct3` in `{0, 2, 3, 4, 6, 7}`; shifts 1 (`0x00`) and 5 (`0x00`/`0x20`) | `funct3 == 1` traps for `funct7 != 0x00`; `funct3 == 5` traps for `funct7` outside `{0x00, 0x20}` |
+| `0x13` | I-Type Integer | `funct3` in `{0, 2, 3, 4, 6, 7}`; shifts 1 (`0x00`) and 5 (`0x00`/`0x20`) | `funct3 == 1` traps for `funct7 != 0x00`; `funct3 == 5` traps for `funct7` outside `{0x00, 0x20}` |
 | `0x17` | U-Type PC Offset | Unique `auipc` encoding (no `funct3`/`funct7`) | None (all upper 25 bits legal) |
 | `0x23` | S-Type Stores | `funct3` in `{0, 1, 2}` (`sb`, `sh`, `sw`) | `funct3 >= 3` traps |
-| `0x33` | R-Type ALU / RV32M | `funct7 == 0x00` (all 8 `funct3`), `0x01` (all 8 RV32M), `0x20` (`funct3` 0 or 5) | Any other `funct7` or `0x20` sub-code traps |
+| `0x33` | R-Type Integer / RV32M | `funct7 == 0x00` (all 8 `funct3`), `0x01` (all 8 RV32M), `0x20` (`funct3` 0 or 5) | Any other `funct7` or `0x20` sub-code traps |
 | `0x37` | U-Type Upper Load | Unique `lui` encoding (no `funct3`/`funct7`) | None (all upper 25 bits legal) |
 | `0x63` | B-Type Branches | `funct3` in `{0, 1, 4, 5, 6, 7}` (`beq`..`bgeu`) | `funct3` in `{2, 3}` traps |
 | `0x67` | I-Type Indirect Jump | `funct3 == 0` (`jalr`) | `funct3 != 0` traps |
 | `0x6F` | J-Type Direct Jump | Unique `jal` encoding (no `funct3`/`funct7`) | None (all upper 25 bits legal) |
 | `0x73` | I-Type System / CSR | `funct3 == 0` exact `ecall`/`ebreak`/`mret`/`wfi`; `funct3` in `{1, 2, 3, 5, 6, 7}` valid CSR | Privileged encodings (`funct3 == 0` outside those four words), `funct3 == 4`, unimplemented CSR addresses, or read-only CSR writes trap |
 
-The interactive decoder below splits any 32-bit word across all twelve opcode partitions, letting you flip individual wires to verify how opcode, sub-selector, and illegal-trap boundaries respond.
+The interactive wire decoder below splits any 32-bit word across all twelve opcode partitions, letting you flip individual wires to verify how opcode, sub-selector, and illegal-trap boundaries respond.
 
 <RiscvBitfieldDecoder />
 
@@ -1412,7 +1442,8 @@ Four strict ordering guarantees govern every clock tick inside [`step()`](../sim
 1. **Pre-Fetch Clock Advance**: `mcycle` and `mtime` increment modulo $2^{64}$ (`MASK64`) *before* checking pending interrupts so a timer deadline expiring on cycle $k$ triggers preemption immediately on step $k$ (`mcycle` counts every step, trapping or retiring).
 2. **Pre-Fetch Interrupt Priority**: Enabled external, software, and timer interrupts preempt `cur_pc` before instruction fetch runs, guaranteeing zero speculative memory reads when an interrupt fires.
 3. **Fault-Checked Operand Latching and Dispatch**: Unsigned 32-bit source register reads (`rs1_u`, `rs2_u` from `self.regs[rs1]` and `self.regs[rs2]`) latch prior values before writeback, and dispatch helpers validate instruction legality, alignment, bus bounds, and CSR write permissions *before* executing any validated store, CSR, `mstatus`, or `mac_acc` mutation—returning either an early [`StepTrace`](../sim/oracle.py#L483-L504) trap receipt or a pending [`ExecOutcome`](../sim/oracle.py#L507-L522).
-4. **Atomic Retirement Commit**: Only non-trapping instructions reach commit, applying hardwired `x0` protection via [`_set_reg`](../sim/oracle.py#L893-L899), updating `self.pc`, and incrementing `minstret` (unless `suppress_minstret` is set by a Zicsr write targeting `minstret` or `minstreth`).
+4. **Atomic Retirement Commit**: Only non-trapping instructions reach commit, applying hardwired `x0` protection via [`_set_reg`](../sim/oracle.py#L893-L899), updating `self.pc`, and incrementing `minstret` (unless `suppress_minstret` preserves an explicit Zicsr write targeting `minstret` or `minstreth`).
+   Because every step increments `mcycle` modulo $2^{64}$ while only non-trapping retirements increment `minstret`, $(\texttt{mcycle} - \texttt{minstret}) \bmod 2^{64}$ equals the cumulative trap count modulo $2^{64}$ whenever software leaves `mcycle`/`mcycleh` and `minstret`/`minstreth` untouched.
 
 ### Precise Faults and Inductive Trace Equivalence
 
@@ -1427,7 +1458,7 @@ The table below maps how each field populates across normal instruction retireme
 
 | Trace Fields | Populated On Normal Retirement | Populated On Trap / Interrupt | Verification Purpose |
 | :--- | :--- | :--- | :--- |
-| `pc`, `insn` | Executed instruction address and 32-bit word | Offending `cur_pc` and fetched word (or 0 on fetch or interrupt fault) | Pinpoints exact instruction pointer and fetched opcode |
+| `pc`, `insn` | Executed instruction address and 32-bit word | Offending `cur_pc` and fetched word (or 0 on a fetch fault or interrupt) | Pinpoints exact instruction pointer and fetched opcode |
 | `next_pc` | `cur_pc + 4` or resolved branch/jump/`mret` target | Handler vector address derived from `mtvec` | Verifies control flow and vector table dispatch |
 | `rd`, `rd_val` | Destination index and written `u32` value (0 if `x0`) | 0 and 0 (zero architectural register mutation) | Enforces single-register writeback equality and `x0` lock |
 | `mem_addr`, `mem_val`, `mem_write` | Byte address, written (masked) or extended read value, direction flag (or `None`, `None`, `False` for non-memory instructions) | `None`, `None`, `False` (no partial memory mutation on fault) | Audits load/store data width, endianness, and MMIO ordering |
@@ -1436,12 +1467,12 @@ The table below maps how each field populates across normal instruction retireme
 Two formal invariants close the mathematical loop opened in Section 1 ($S_{t+1} = \texttt{step}(S_t)$):
 1. **Precise Exception Atomicity**: Any step that traps leaves architectural registers, `mac_acc`, memory contents, and `minstret` untouched.
    Because [`RV32Oracle.step()`](../sim/oracle.py#L1194-L1273) defers register writeback, PC updates, and `minstret` increments behind [`ExecOutcome`](../sim/oracle.py#L507-L522) and validates alignment, CSR permissions, and bus bounds before mutating memory, CSRs, or `mac_acc`, any step returning a non-`None` `trap_cause` enforces $\text{regs}_{t+1} = \text{regs}_t$, $\text{mac\_acc}_{t+1} = \text{mac\_acc}_t$, $\text{mem}_{t+1} = \text{mem}_t$, and $\text{minstret}_{t+1} = \text{minstret}_t$.
-2. **$O(1)$ Inductive Lockstep Sufficiency**: Aside from deterministic per-step counter ticks (`mcycle`, `mtime`, and non-suppressed `minstret`), every non-trapping instruction mutates `pc`, at most one architectural register `rd`, at most one $w \in \{1, 2, 4\}$-byte memory or peripheral slice, and at most one explicit target CSR or `mac_acc` register (including `mac.clr x0, x1, x2`, which updates `mac_acc` while discarding `rd` into `x0`).
-   Whenever software writes `minstret` or `minstreth` directly via Zicsr, `suppress_minstret` skips the retirement increment on that single instruction so the written counter value is preserved, keeping $(\texttt{mcycle} - \texttt{minstret}) \bmod 2^{64}$ equal to the cumulative trap count unless `mcycle`/`mcycleh` or `minstret`/`minstreth` is overwritten directly.
-   Starting hardware and oracle from identical reset state $S_0^{\text{hardware}} = S_0^{\text{oracle}}$ under identical external peripheral inputs, comparing the 10-field [`StepTrace`](../sim/oracle.py#L483-L504) receipt every cycle therefore verifies `pc`, all 32 general-purpose registers, every memory write, and every trap transition in $O(1)$ comparisons per step.
-   Deterministic transition rules keep internal CSR, peripheral, and `mac_acc` state synchronized across steps and expose any hidden divergence immediately on subsequent `csrrw`, `csrrs`, `csrrc`, `lw`, or `mac.get` readbacks.
+2. **$O(1)$ Inductive Lockstep Sufficiency**: Comparing the 10-field [`StepTrace`](../sim/oracle.py#L483-L504) receipt on every step verifies full register, `pc`, memory, and trap lockstep in constant work per cycle.
+   Aside from deterministic per-step counter ticks (`mcycle`, `mtime`, and non-suppressed `minstret`), every non-trapping instruction mutates `pc`, at most one architectural register `rd`, at most one $w \in \{1, 2, 4\}$-byte memory or peripheral slice, and at most one explicit target CSR or `mac_acc` register (including `mac.clr x0, x1, x2`, which updates `mac_acc` while discarding `rd` into `x0`).
+   Starting hardware and oracle from identical reset state $S_0^{\text{hardware}} = S_0^{\text{oracle}}$ under identical external peripheral inputs, step-by-step comparison of `StepTrace` therefore verifies `pc`, all 32 general-purpose registers, every memory write, and every trap transition in $O(1)$ comparisons per step.
+   In a conforming implementation, deterministic transition rules keep unlogged internal CSR, peripheral, and `mac_acc` state synchronized across steps; any hardware divergence in those internal registers surfaces in `StepTrace` as soon as a subsequent trap, interrupt, readback (`csrrw`, `csrrs`, `csrrc`, `csrrwi`, `csrrsi`, `csrrci`, `lw`, `mac.get`), or non-`x0` `mac` writeback depends on it.
 
-The multi-step trace explorer below runs real scenarios from [`RV32Oracle.run()`](../sim/oracle.py#L1275-L1291) step by step—including subroutine calls, a pre-fetch timer interrupt, and a saturating neural layer—showing each live register, CSR, memory write, and emitted `StepTrace` receipt side by side.
+The interactive trace explorer below pairs a live single-step flow schematic with real scenarios from [`RV32Oracle.step()`](../sim/oracle.py#L1194-L1273)—highlighting clock ticks, pre-fetch interrupt preemption, normal retirement, and emitted `StepTrace` receipts side by side.
 
 <OracleStepTracer />
 
@@ -1450,51 +1481,87 @@ The multi-step trace explorer below runs real scenarios from [`RV32Oracle.run()`
 ## 9. Problems
 
 The problems below consolidate every architectural invariant across Sections 2 through 8 using real instruction encodings and regression tests in [`test_oracle.py`](../tb/test_oracle.py).
-Each problem isolates one hardware corner case—signed constant splitting, non-trapping arithmetic exceptions, timer rollover tearing, alignment precedence, interrupt dispatch, or saturating dot products—before revealing the exact bit-level calculation verified in software simulation.
+Each problem isolates one hardware corner case—signed constant splitting, non-trapping arithmetic exceptions, timer rollover tearing, alignment precedence, interrupt dispatch, or saturating dot products—with collapsible worked solutions directly beneath each sub-part.
 
 ### Problem 1: Two's Complement and Constant Bias
 
 Verify why decomposing `0xFFFF_F800` into an upper 20-bit load (`lui`) and a signed 12-bit adjustment (`addi`) requires a carry correction—and identify the exact boundary where `addi` switches from positive to negative sign extension.
 
-1. Convert the unsigned 32-bit word $X = \texttt{0xFFFF\_F800}$ (representing signed $-2{,}048$) using the centered division formula from Section 4 (`hi20`, matching $\texttt{hi}_{\texttt{lui}}$, equal to `((X + 0x800) >> 12) & 0xFFFFF`, and `lo12`, matching $S_{12}(\text{lo}_{12})$, equal to `sign_extend(X & 0xFFF, 12)`), and verify `u32((hi20 << 12) + lo12) == 0xFFFF_F800`.
+1. Convert the unsigned 32-bit word $X = \texttt{0xFFFF\_F800}$ (representing signed $-2{,}048$) using Section 4's carry-bias split (`hi20`, matching $\texttt{hi}_{\texttt{lui}}$, equal to `((X + 0x800) >> 12) & 0xFFFFF`, and `lo12`, matching $S_{12}(\text{lo}_{12})$, equal to `sign_extend(X & 0xFFF, 12)`), and verify `u32((hi20 << 12) + lo12) == 0xFFFF_F800`.
+
+   <details><summary>Worked Solution</summary>
+
+   Adding bias `0x800` ($2^{11}$) wraps the upper slice to zero while `0x800` (Bit 11 = `1`, immediately following $+2{,}047$ at `0x7FF`) sign-extends to $-2{,}048$:
+
+   $$\begin{aligned}
+   \texttt{hi20} &= (\texttt{u32}(\texttt{0xFFFF\_F800} + \texttt{0x800}) \gg 12) = \texttt{0x00000} \\
+   \texttt{lo12} &= S_{12}(\texttt{0x800}) = -2{,}048 \\
+   \texttt{u32}(0 + (-2{,}048)) &= 2^{32} - 2{,}048 = \texttt{0xFFFF\_F800}
+   \end{aligned}$$
+
+   </details>
+
 2. Repeat the calculation for $X = \texttt{0x1234\_5FFF}$ (decimal 305,422,335), explaining why raw slicing without adding `0x800` fails even when `lui` writes the true top 20 bits.
 
-<details>
-<summary>Worked Solution</summary>
+   <details><summary>Worked Solution</summary>
 
-1. Adding centering bias `0x800` (2,048) to $X = \texttt{0xFFFF\_F800}$ computes `(0xFFFF_F800 + 0x0000_0800) & 0xFFFF_FFFF`, yielding `0x0000_0000` so `hi20` equals `0x00000` (`lui rd, 0` writes 0).
-   Meanwhile, `lo12` equals `sign_extend(0x800, 12)`, evaluating to $-2{,}048$ (`0xFFFF_F800` unsigned); `0x800` (Bit 11 = 1, $-2{,}048$) immediately follows `0x7FF` (Bit 11 = 0, $+2{,}047$), marking the exact 12-bit positive-to-negative switch boundary.
-   Their sum `(0 << 12) + (-2048)` wraps to `0xFFFF_F800` in one `addi rd, x0, -2048` instruction (`lui` contributes 0).
-2. For $X = \texttt{0x1234\_5FFF}$, the low 12 bits are `0xFFF` ($-1$ signed, since Bit 11 equals 1 and sign extension subtracts `0x1000`).
-   Adding `0x800` carries out of Bit 11 (`0x1234_5FFF + 0x800` equals `0x1234_67FF`), producing `hi20` equal to `0x12346` (`lui rd, 0x12346` sets `0x1234_6000`).
-   Executing `addi rd, rd, -1` computes `0x1234_6000 + (-1)`, yielding `0x1234_5FFF`.
-   Without adding `0x800`, `0x1234_5000 + (-1)` would undershoot by 4,096 and yield `0x1234_4FFF`.
+   Because low 12 bits `0xFFF` have Bit 11 = `1`, `addi` sign-extends them to $-1$ (subtracting `0x1000` relative to unsigned `0xFFF`).
+   Adding `0x800` carries $+1$ into Bit 12 (`0x1234_5FFF + 0x800 = 0x1234_67FF`), giving exact reconstruction whereas unbiased slicing undershoots by `0x1000` ($4{,}096$):
 
-</details>
+   $$\begin{aligned}
+   \text{Biased:}&\quad \texttt{0x1234\_6000} + (-1) = \texttt{0x1234\_5FFF} \\
+   \text{Unbiased:}&\quad \texttt{0x1234\_5000} + (-1) = \texttt{0x1234\_4FFF}\; (\text{off by } -\texttt{0x1000})
+   \end{aligned}$$
+
+   </details>
 
 ### Problem 2: Shifts, Comparisons, 64-Bit Products, and Division
 
-Contrast arithmetic right shift against truncating division, verify unsigned comparison masking, and trace signed/unsigned upper-half products in [`_exec_muldiv`](../sim/oracle.py#L1057-L1081).
+Contrast arithmetic right shift against truncating division, verify immediate sign-extension in unsigned comparisons, and trace signed/unsigned upper-half products in [`_exec_muldiv`](../sim/oracle.py#L1057-L1081).
 
-1. Contrast `srai` (`-7 >> 1`) against `div` (`-7 / 3`) on negative dividend $-7$, and evaluate `sltiu rd, rs1, -1` (12-bit `imm` equal to `0xFFF`) when `rs1` holds `0xFFFF_FFFC`.
-2. Compute the 32-bit `mulhu` and `mulhsu` outputs for unsigned/signed inputs `a` equal to `0xFFFF_FFFC` ($-4$ signed, $2^{32} - 4$ unsigned) and `b` equal to `0x0000_0003` ($+3$).
-3. Evaluate `div`, `divu`, `rem`, and `remu` on dividend $-7$, divisor $3$ and on unsigned inputs `rs1_u` equal to `0x8000_0000` (`INT32_MIN` signed) and `rs2_u` equal to `0xFFFF_FFFF` ($-1$ signed), showing how RISC-V avoids arithmetic overflow exceptions while preserving the fundamental remainder identity.
+1. On negative dividend $-7$ and the *same* divisor 2, contrast `srai` (`-7 >> 1`) against `div` (`-7 / 2`).
 
-<details>
-<summary>Worked Solution</summary>
+   <details><summary>Worked Solution</summary>
 
-1. Arithmetic right shift rounds downward toward $-\infty$, giving $-7 \gg_{\text{arith}} 1 = -4$ (`-7 = (-4) * 2 + 1`), whereas truncating `div` rounds toward zero, giving $q = -2$ and remainder $r = -7 - (-2) \cdot 3 = -1$.
-   For `sltiu rd, rs1, -1`, sign extension widens 12-bit `0xFFF` to `0xFFFF_FFFF` (`UINT32_MAX`), and comparing `0xFFFF_FFFC < 0xFFFF_FFFF` as unsigned 32-bit integers writes 1 into `rd`.
-2. Using the algebraic identity $U_{32}(x) = S_{32}(x) + x_{31} \cdot 2^{32}$ from Sections 2 and 4:
-   - `mulhu` treats both operands as unsigned: $(2^{32} - 4) \times 3 = 3 \cdot 2^{32} - 12$, which decomposes into $2 \cdot 2^{32} + (2^{32} - 12)$, so upper 32 bits equal 2 (`0x0000_0002`).
-   - `mulhsu` treats `a` as signed ($-4$) and `b` as unsigned ($+3$): the exact product $(-4) \times 3 = -12$ equals $(-1) \cdot 2^{32} + (2^{32} - 12)$, so upper 32 bits equal `0xFFFF_FFFF` ($-1$).
-3. Inside [`trunc_div_s32`](../sim/oracle.py#L301-L309) and [`test_rv32m_division_truncation_overflow_and_div_by_zero`](../tb/test_oracle.py#L433-L486):
-   - For -7 (`0xFFFF_FFF9` unsigned) divided by 3, `div` truncates toward zero to $-2$ (`0xFFFF_FFFE`, contrasting Python's floor division `-7 // 3 == -3`) with `rem` equal to $-7 - (-2) \cdot 3 = -1$ (`0xFFFF_FFFF`), keeping remainder sign equal to dividend sign.
-   - Meanwhile, `divu` treats `0xFFFF_FFF9` as $2^{32} - 7 = 4{,}294{,}967{,}289$, yielding quotient `0x5555_5553` ($1{,}431{,}655{,}763$) and `remu` equal to 0 because $2^{32} - 7 = 3 \times 1{,}431{,}655{,}763$.
-   - When dividing `INT32_MIN` (`0x8000_0000`) by -1 (`0xFFFF_FFFF`), the exact quotient $+2^{31}$ overflows signed 32 bits, so `div` returns `INT32_MIN` (`0x8000_0000`) and `rem` returns 0, satisfying $\texttt{INT32\_MIN} \equiv \texttt{INT32\_MIN} \cdot (-1) + 0$ modulo $2^{32}$.
-   - Meanwhile, `divu` and `remu` interpret `0x8000_0000` as $+2^{31}$ and `0xFFFF_FFFF` as $2^{32} - 1$, giving quotient 0 and remainder `0x8000_0000`.
+   Arithmetic right shift rounds downward toward $-\infty$ ($-7 = (-4) \cdot 2 + 1 \implies \texttt{srai} = -4$), whereas truncating `div` rounds toward $0$ ($-7 = (-3) \cdot 2 + (-1) \implies q = -3,\; r = -1$).
 
-</details>
+   </details>
+
+2. Evaluate `sltiu rd, rs1, -1` (12-bit `imm` equal to `0xFFF`) when `rs1` holds `0xFFFF_FFFC`.
+
+   <details><summary>Worked Solution</summary>
+
+   `sltiu` sign-extends 12-bit `0xFFF` to `0xFFFF_FFFF` (`UINT32_MAX`) *before* comparing unsigned 32-bit integers: `0xFFFF_FFFC < 0xFFFF_FFFF` holds, writing `1` into `rd`.
+
+   </details>
+
+3. Compute the 32-bit `mulhu` and `mulhsu` outputs for inputs `a` equal to `0xFFFF_FFFC` ($-4$ signed, $2^{32} - 4$ unsigned) and `b` equal to `0x0000_0003` ($+3$).
+
+   <details><summary>Worked Solution</summary>
+
+   $$\begin{aligned}
+   \texttt{mulhu}:\quad (2^{32} - 4) \cdot 3 &= 2 \cdot 2^{32} + (2^{32} - 12) \\
+   &\implies \texttt{0x0000\_0002}\; (2) \\
+   \texttt{mulhsu}:\quad (-4) \cdot 3 &= (-1) \cdot 2^{32} + (2^{32} - 12) \\
+   &\implies \texttt{0xFFFF\_FFFF}\; (-1)
+   \end{aligned}$$
+
+   </details>
+
+4. Evaluate `div`, `divu`, `rem`, and `remu` on dividend $-7$, divisor $3$ and on unsigned inputs `rs1_u` equal to `0x8000_0000` (`INT32_MIN` signed) and `rs2_u` equal to `0xFFFF_FFFF` ($-1$ signed), showing how RISC-V avoids overflow traps while preserving the remainder identity.
+
+   <details><summary>Worked Solution</summary>
+
+   Inside [`trunc_div_s32`](../sim/oracle.py#L301-L309) and [`test_rv32m_division_truncation_overflow_and_div_by_zero`](../tb/test_oracle.py#L433-L486):
+
+   | Inputs (`rs1`, `rs2`) | `div` | `rem` | `divu` | `remu` |
+   | :--- | :--- | :--- | :--- | :--- |
+   | `-7` (`0xFFFF_FFF9`), `3` | `-2` (`0xFFFF_FFFE`) | `-1` (`0xFFFF_FFFF`) | `0x5555_5553` ($1{,}431{,}655{,}763$) | `0` ($2^{32} - 7 = 3 \cdot 1{,}431{,}655{,}763$) |
+   | `0x8000_0000`, `0xFFFF_FFFF` | `INT32_MIN` (`0x8000_0000`) | `0` | `0` ($2^{31} < 2^{32} - 1$) | `0x8000_0000` ($2^{31}$) |
+
+   For `INT32_MIN` divided by $-1$, exact quotient $+2^{31}$ wraps modulo $2^{32}$ to `INT32_MIN` with `rem` = `0`, preserving $\texttt{INT32\_MIN} \equiv \texttt{INT32\_MIN} \cdot (-1) + 0 \pmod{2^{32}}$ without trapping.
+
+   </details>
 
 ### Problem 3: Address Decoding, Alignment, and 64-Bit Timers
 
@@ -1502,24 +1569,38 @@ Analyze prefix address decoding, alignment precedence, 64-bit counter carry, and
 
 1. Suppose firmware executes `lh x5, 1(x1)` with `x1` equal to `0x8000_0000` (`CLINT_BASE`).
    Verify CLINT's prefix match `(addr >> 16) == 0x8000`, and determine which trap fires (`CAUSE_LOAD_MISALIGNED` at code 4 or `CAUSE_LOAD_ACCESS_FAULT` at code 5).
+
+   <details><summary>Worked Solution</summary>
+
+   `0x8000_0001 >> 16` equals `0x8000`, matching CLINT's 64 KB prefix.
+   However, [`_exec_load`](../sim/oracle.py#L973-L1000) checks natural alignment (`(addr & 1) != 0` for `lh`) *before* `bus_read`, so `lh` at `0x8000_0001` raises `CAUSE_LOAD_MISALIGNED` (`mcause` = 4, `mtval` = `0x8000_0001`), whereas `lh` at even `0x8000_0000` passes alignment and fails CLINT's 32-bit-only width check in [`_clint_offset`](../sim/oracle.py#L643-L648) (`mcause` = 5).
+
+   </details>
+
 2. Suppose `mtime` equals `0x0000_0000_FFFF_FFFF` ([`test_counter_carry_and_64bit_rollover`](../tb/test_oracle.py#L1053-L1076)).
-   Explain what buggy timestamp firmware reconstructs if it reads `CLINT_MTIME_LO` before the next tick and `CLINT_MTIME_HI` after the next tick, verify how the 3-read retry loop eliminates tearing, and verify why writing `0xFFFF_FFFF` to `CLINT_MTIMECMP_LO` first prevents glitch alarms when moving `mtimecmp` from `0x0000_0000_FFFF_FFFF` to `0x0000_0001_0000_0010` while `mtime` starts at `0x0000_0000_FFFF_FF00`.
+   Compute the buggy timestamp reconstructed if firmware reads `CLINT_MTIME_LO` before the next tick and `CLINT_MTIME_HI` after it, and explain how the 3-read retry loop catches the carry.
 
-<details>
-<summary>Worked Solution</summary>
+   <details><summary>Worked Solution</summary>
 
-1. Because CLINT spans $2^{16}$ bytes at `0x8000_0000`, `0x8000_0001 >> 16` equals `0x8000` (`0x8000_0000 >> 16`), matching CLINT inside the bus decoder.
-   However, inside [`_exec_load`](../sim/oracle.py#L973-L1000), hardware checks natural alignment (`(addr & 1) != 0` for `lh`) *before* dispatching to `bus_read`, so `lh` at odd offset `0x8000_0001` raises `CAUSE_LOAD_MISALIGNED` (`mcause` equals 4, `mtval` equals `0x8000_0001`).
-   By contrast, reading `lh` at even offset `0x8000_0000` passes natural alignment and then fails CLINT's 32-bit-only width check inside [`_clint_offset`](../sim/oracle.py#L643-L648), raising `CAUSE_LOAD_ACCESS_FAULT` (`mcause` equals 5, `mtval` equals `0x8000_0000`).
-2. Before the rollover step (`mtime` equal to `0x0000_0000_FFFF_FFFF`, verified in [`test_counter_carry_and_64bit_rollover`](../tb/test_oracle.py#L1053-L1076)), `CLINT_MTIME_LO` returns `0xFFFF_FFFF`.
-   On the following `step()`, `mtime` rolls across the 32-bit boundary to `0x0000_0001_0000_0000`, so reading `CLINT_MTIME_HI` next returns `0x0000_0001`.
-   Pairing them naively yields `0x0000_0001_FFFF_FFFF`, overshooting the post-rollover timestamp `0x0000_0001_0000_0000` by $+2^{32} - 1 \approx 4.29 \times 10^9$ ticks (about 85.9 seconds at 50 MHz).
-   With the 3-read tear-free loop (`hi1`, `lo`, `hi2`), any carry between `hi1` and `lo` changes `CLINT_MTIME_HI` so `hi1 != hi2` retries until `hi1 == hi2` captures an exact snapshot.
-   Similarly, when updating `mtimecmp` from `0x0000_0000_FFFF_FFFF` to `0x0000_0001_0000_0010` starting from `mtime` equal to `0x0000_0000_FFFF_FF00`, firmware leaves 255 ticks of headroom before `0x0000_0000_FFFF_FFFF`.
-   Writing `0x0000_0010` to `CLINT_MTIMECMP_LO` first would temporarily form `0x0000_0000_0000_0010 <= mtime` and trigger a spurious interrupt.
-   Instead, writing `0xFFFF_FFFF` first (`T1` equal to `0x0000_0000_FFFF_FFFF`), `0x0000_0001` second (`T2` equal to `0x0000_0001_FFFF_FFFF`), and `0x0000_0010` third (`T_new` equal to `0x0000_0001_0000_0010`) keeps both intermediate thresholds strictly above `mtime` across all three stores.
+   Reading `CLINT_MTIME_LO` before the tick returns `0xFFFF_FFFF`; after `step()` rolls `mtime` to `0x0000_0001_0000_0000`, reading `CLINT_MTIME_HI` returns `0x0000_0001`, forming torn timestamp `0x0000_0001_FFFF_FFFF` (overshooting true post-tick time by $+2^{32} - 1 \approx 4.29 \times 10^9$ ticks, or about 85.9 s at 50 MHz).
+   With the 3-read loop (`hi1`, `lo`, `hi2`), `hi1 = 0x0000_0000` disagrees with `hi2 = 0x0000_0001`, forcing a retry that captures a consistent post-rollover pair with `hi1 == hi2 == 0x0000_0001` and a small post-carry low word (specifically `(0x0000_0001, 0x0000_0003)` under one `mtime` tick per instruction across `bne`, `lw hi1`, and `lw lo`, or `(0x0000_0001, 0x0000_0000)` only if `mtime` ticks slower than the CPU loop).
 
-</details>
+   </details>
+
+3. Starting from `mtime` equal to `0x0000_0000_FFFF_FF00` and prior `mtimecmp` equal to `0x0000_0000_FFFF_FF80`, trace the 3-store update to `0x0000_0001_0000_0010` and explain why writing `CLINT_MTIMECMP_LO` to `0x0000_0010` directly would fire a spurious interrupt.
+
+   <details><summary>Worked Solution</summary>
+
+   Writing `0x0000_0010` to `CLINT_MTIMECMP_LO` first would form `0x0000_0000_0000_0010 <= mtime` and immediately trigger a false alarm.
+   Writing `0xFFFF_FFFF` to `CLINT_MTIMECMP_LO` first keeps every intermediate 64-bit threshold strictly above `mtime`:
+
+   | Store Step | Target Register | Written Word | Resulting 64-Bit `mtimecmp` | Relation to `mtime` |
+   | :---: | :--- | :---: | :---: | :--- |
+   | **1** | `CLINT_MTIMECMP_LO` | `0xFFFF_FFFF` | `0x0000_0000_FFFF_FFFF` | `> mtime` (safe) |
+   | **2** | `CLINT_MTIMECMP_HI` | `0x0000_0001` | `0x0000_0001_FFFF_FFFF` | `> mtime` (safe) |
+   | **3** | `CLINT_MTIMECMP_LO` | `0x0000_0010` | `0x0000_0001_0000_0010` | `> mtime` (target) |
+
+   </details>
 
 ### Problem 4: Indirect Jumps, Decoding, and Fault Atomicity
 
@@ -1527,59 +1608,84 @@ Trace [`_exec_jalr`](../sim/oracle.py#L937-L948) and decoder illegal-instruction
 
 1. Suppose `x2` equals `0x1000_0000` (`BRAM_BASE`) and the CPU executes `jalr x2, 1(x2)` at `pc` equal to `0x0000_0000`.
    Does `jalr` trap, and what values remain in `pc` and `x2` immediately after retirement?
+
+   <details><summary>Worked Solution</summary>
+
+   No trap: hardware clears Bit 0 unconditionally via `(0x1000_0000 + 1) & 0xFFFF_FFFE = 0x1000_0000`, which is 4-byte aligned.
+   Because source `x2` is latched before writeback, `self.pc` jumps to `0x1000_0000` and `x2` receives return link address `0x0000_0004` (`cur_pc + 4`).
+
+   </details>
+
 2. Change the offset to `jalr x2, 2(x2)`.
    Does `x2` receive `0x0000_0004`, or does it preserve `0x1000_0000`?
+
+   <details><summary>Worked Solution</summary>
+
+   Clearing Bit 0 leaves `0x1000_0002` (Bit 1 = `1`), triggering `CAUSE_INSN_MISALIGNED` (`mcause` = 0, `mepc` = `0x0000_0000`, `mtval` = `0x1000_0002`).
+   By Precise Exception Atomicity (Section 8), `_exec_jalr` returns the trap before writeback, so `x2` keeps `0x1000_0000` untouched.
+
+   </details>
+
 3. Inspect word `0x4210_8013` (`opcode` equal to `0x13`, `funct3` equal to `0`, `funct7` equal to `0x21`) versus word `0x0210_9013` (`opcode` equal to `0x13`, `funct3` equal to `1`, `funct7` equal to `0x01`).
    Which instruction is legal (`addi` or `slli`), and which traps with `CAUSE_ILLEGAL_INSN` (`mcause` equal to 2)?
 
-<details>
-<summary>Worked Solution</summary>
+   <details><summary>Worked Solution</summary>
 
-1. Hardware computes `(x2 + 1) & 0xFFFF_FFFE`, which masks `0x1000_0001 & 0xFFFF_FFFE` to `0x1000_0000`, clearing Bit 0 unconditionally per the RISC-V spec.
-   Because `0x1000_0000` is 4-byte aligned, `(target & 3) == 0` passes the 4-byte instruction address alignment rule; `self.pc` jumps to `0x1000_0000` (computed safely because source `x2` was latched before writeback) and `x2` receives return link address `0x0000_0004` (`cur_pc + 4`).
-2. With offset 2, clearing Bit 0 leaves `target` equal to `0x1000_0002`, whose Bit 1 equals 1, so `(target & 3) != 0` triggers `CAUSE_INSN_MISALIGNED` (`mcause` equals 0, `mepc` equals `0x0000_0000`, `mtval` equals `0x1000_0002`).
-   By Precise Exception Atomicity in Section 8, `_exec_jalr` returns the trap before retirement writeback runs, so `x2` keeps its original value `0x1000_0000` untouched.
-3. For `0x4210_8013`, `opcode == 0x13` and `funct3 == 0` select `addi`, where all upper 12 bits (Bits 31..20, including `0x421`) form a valid signed 12-bit immediate ($+1{,}057$).
-   For `0x0210_9013`, `opcode == 0x13` and `funct3 == 1` (`slli`) require `funct7 == 0x00`, so `funct7 == 0x01` traps immediately with `CAUSE_ILLEGAL_INSN` (`mcause` equals 2).
+   `0x4210_8013` (`funct3 == 0`, `addi`) is legal because all upper 12 bits (`0x421`, $+1{,}057$) form a valid signed immediate, whereas `0x0210_9013` (`funct3 == 1`, `slli`) requires `funct7 == 0x00` and traps with `CAUSE_ILLEGAL_INSN` (`mcause` = 2) because `funct7 == 0x01`.
 
-</details>
+   </details>
 
 ### Problem 5: Control Registers, Preemption, and Step Traces
 
-Trace Vectored dispatch, timer preemption, and [`StepTrace`](../sim/oracle.py#L483-L504) receipts verified in [`test_clint_timer_interrupt_and_ecall_handler`](../tb/test_oracle.py#L781-L839) and [`test_vectored_mtvec_dispatch_and_sync_ecall_fallback`](../tb/test_oracle.py#L842-L876).
+Trace WARL mode snapping, Vectored dispatch, timer preemption, and [`StepTrace`](../sim/oracle.py#L483-L504) receipts verified in [`test_clint_timer_interrupt_and_ecall_handler`](../tb/test_oracle.py#L781-L839) and [`test_vectored_mtvec_dispatch_and_sync_ecall_fallback`](../tb/test_oracle.py#L842-L876).
 
 1. Firmware writes `0x1000_0103` to `mtvec`, `1 << 7` (MTIE) to `mie`, `1 << 3` (MIE) to `mstatus`, sets `mtimecmp` to 5 while `mtime` equals 4, and has both `mcycle` and `minstret` at 10.
-   On the next `step()` at `pc` equal to `0x0000_0020`, determine `mtvec`, `mcause`, `mepc`, `mstatus` (MIE/MPIE), `pc`, `(mcycle - minstret)`, and the emitted `StepTrace` trap fields (`rd`, `mem_write`, `interrupt`).
-2. Next, while inside the handler (with MIE equal to zero), an instruction executes `ecall`.
-   To what address does `pc` jump now, why does the vector offset drop to zero, and what is `(mcycle - minstret)` after both trap steps?
+   On the next `step()` at `pc` equal to `0x0000_0020`, determine `mtvec`, `mcause`, `mepc`, `mstatus` (MIE/MPIE), `pc`, `(mcycle - minstret)`, and the emitted `StepTrace` fields (`rd`, `mem_write`, `interrupt`).
 
-<details>
-<summary>Worked Solution</summary>
+   <details><summary>Worked Solution</summary>
 
-1. Because Bits 1..0 of `0x1000_0103` equal `0b11` (decimal 3, which exceeds 1), Section 6's legal-value mode snapping (Write Any Values, Reads Legal Values) in [`_write_csr`](../sim/oracle.py#L807-L858) collapses mode 3 to 0 (Direct), storing `0x1000_0100` in `mtvec`.
-   On that `step()`, `mcycle` and `mtime` first advance (`mcycle` becomes 11, `mtime` becomes 5), triggering `mtime >= mtimecmp` (asserting MTIP) pre-fetch: `mcause` becomes `0x8000_0007`, `mepc` becomes `0x0000_0020`, MPIE becomes 1, MIE clears to 0, `pc` jumps to `0x1000_0100`, `minstret` stays 10 so `(mcycle - minstret)` equals 1, and `StepTrace` emits `rd=0`, `rd_val=0`, `mem_write=False`, `trap_cause=0x8000_0007`, `interrupt=True`.
-   (Had firmware written `0x1000_0101` to `mtvec` for Vectored mode 1, the timer interrupt cause code 7 would instead vector to `base + 4 * 7`, or `0x1000_011C`.)
-2. Executing synchronous `ecall` jumps directly to `base` (`0x1000_0100`) because RISC-V vectors only asynchronous interrupts (`interrupt == True`, Bit 31 of `mcause` equal to 1).
-   Because `ecall` traps (`mcycle` advances to 12 while `minstret` stays 10), `(mcycle - minstret)` becomes 2, tracking exact cumulative trap count.
+   Because Bits 1..0 of `0x1000_0103` equal `0b11` (mode 3 > 1), Section 6's WARL rule in [`_write_csr`](../sim/oracle.py#L807-L858) snaps `mtvec` to Direct mode `0x1000_0100`.
+   On the next `step()`:
+   - **Pre-fetch clock and interrupt**: `mcycle` advances to 11 and `mtime` advances to 5 (`mtime >= mtimecmp` asserts MTIP), preempting `0x0000_0020` before fetch.
+   - **Trap CSRs and PC**: `mcause = 0x8000_0007`, `mepc = 0x0000_0020`, `MPIE = 1`, `MIE = 0`, `pc = 0x1000_0100`, and `minstret` stays 10 so `(mcycle - minstret) = 1`.
+   - **Emitted `StepTrace`**: `rd = 0`, `rd_val = 0`, `mem_write = False`, `trap_cause = 0x8000_0007`, `interrupt = True`.
 
-</details>
+   </details>
+
+2. Now repeat the same timer preemption with `mtvec` set to `0x1000_0101` (Vectored mode 1), and then execute `ecall` from inside that Vectored handler.
+   Compare the timer-interrupt entry address against the `ecall` entry address, explain why the vector offset drops to zero on `ecall`, and state `(mcycle - minstret)` after both traps.
+
+   <details><summary>Worked Solution</summary>
+
+   With `mtvec = 0x1000_0101` (`base = 0x1000_0100`, `mode = 1`):
+   - **Timer interrupt** (`code = 7`, `interrupt = True`): Enters at vectored slot `base + 4 * 7 = 0x1000_011C` (`(mcycle - minstret) = 1`).
+   - **Synchronous `ecall`** (`code = 11`, `interrupt = False`): RISC-V vectors *only* asynchronous interrupts ($\mathbb{I}[\text{irq} = 1 \land \texttt{mode} = 1] = 0$), so `ecall` drops its vector offset to zero and enters at `base = 0x1000_0100` (`mcycle = 12`, `minstret = 10`, giving `(mcycle - minstret) = 2`).
+
+   </details>
 
 ### Problem 6: Neural Accumulator Preloading and Saturation
 
 Trace dual-16-bit lane extraction, bias preloading, and saturating clamp boundaries inside [`_exec_mac`](../sim/oracle.py#L1171-L1189) and [`test_xapex_custom_mac_dot_product_and_saturation`](../tb/test_oracle.py#L1273-L1313).
 
-1. Execute `mac.set x10, x1` with `x1` holding `0xFFFF_FC00` (-1,024), followed by `mac x11, x2, x3` where `x2` holds `0xFFEC_000A` (packed -20, +10) and `x3` holds `0x0006_0005` (packed +6, +5).
+1. Execute `mac.set x10, x1` with `x1` holding `0xFFFF_FC00` ($-1{,}024$), followed by `mac x11, x2, x3` where `x2` holds `0xFFEC_000A` (packed $-20$, $+10$) and `x3` holds `0x0006_0005` (packed $+6$, $+5$).
    Compute `mac_acc`, `x10`, and `x11`.
-2. Next, execute `mac.clr x0, x4, x4` with `x4` holding `0x8000_8000` (packed -32,768, -32,768), followed by `mac.get x12`.
+
+   <details><summary>Worked Solution</summary>
+
+   `mac.set` preloads `mac_acc = s32(0xFFFF_FC00)` ($-1{,}024$) and writes `x10 = 0xFFFF_FC00`; then `mac` unpacks $(a_1, a_0) = (-20, +10)$ and $(b_1, b_0) = (+6, +5)$:
+
+   $$\begin{aligned}
+   \texttt{mac\_acc} &= -1{,}024 + (10 \cdot 5) + (-20 \cdot 6) = -1{,}024 - 70 = -1{,}094 \\
+   \texttt{x11} &= \texttt{u32}(-1{,}094) = \texttt{0xFFFF\_FBBA}
+   \end{aligned}$$
+
+   </details>
+
+2. Next, execute `mac.clr x0, x4, x4` with `x4` holding `0x8000_8000` (packed $-32{,}768$, $-32{,}768$), followed by `mac.get x12`.
    What values remain in `x0`, `mac_acc`, and `x12` after retirement?
 
-<details>
-<summary>Worked Solution</summary>
+   <details><summary>Worked Solution</summary>
 
-1. `mac.set x10, x1` sign-extends `x1` via `s32(0xFFFF_FC00)` ($-1{,}024$), sets `mac_acc` to $-1{,}024$, and writes `u32(-1024)` (`0xFFFF_FC00`) to `x10`.
-   Then `mac x11, x2, x3` unpacks lower and upper lanes $a_0 = +10$, $a_1 = -20$, $b_0 = +5$, and $b_1 = +6$ and adds their dot product ($10 \times 5 + (-20) \times 6 = 50 - 120 = -70$) onto `mac_acc` ($-1{,}024$), yielding `mac_acc` equal to $-1{,}094$ and `x11` equal to `u32(-1094)` (`0xFFFF_FBBA`).
-2. `mac.clr x0, x4, x4` resets `base_acc` to 0 and evaluates $(-32{,}768)^2 + (-32{,}768)^2 = +2^{31}$, equal to $\texttt{INT32\_MAX} + 1$.
-   Calling `sat32` clamps `self.mac_acc` to `INT32_MAX` (`0x7FFF_FFFF`), while `rd` set to `x0` discards register writeback so `x0` stays 0.
-   Finally, `mac.get x12` copies `self.mac_acc` into `x12` (`0x7FFF_FFFF`) without modifying `self.mac_acc`.
+   `mac.clr` starts from `base_acc = 0` and computes $(-32{,}768)^2 + (-32{,}768)^2 = +2^{31} = \texttt{INT32\_MAX} + 1$, so `sat32` clamps `mac_acc` to `INT32_MAX` (`0x7FFF_FFFF`), `rd = x0` discards writeback (`x0` stays `0`), and `mac.get x12` copies `0x7FFF_FFFF` into `x12` without modifying `mac_acc`.
 
-</details>
+   </details>
