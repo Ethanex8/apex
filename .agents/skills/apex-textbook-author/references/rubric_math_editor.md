@@ -12,7 +12,7 @@ Audit every heading, subsection bridge, equation intro, aligned proof block, num
 ## 2. Equations & Dual-Interpretation Derivations
 6. **Prose-to-Equation Action Alignment**: Flag intro sentences before `$$` that describe operations absent from the displayed symbols below, or dense >40-word prose walls preceding an equation.
 7. **Post-Equation Sub-Term Remarks**: Flag prose commenting on unseen equation sub-terms, indices, or exponents before `$$` appears, or stating integrality/parity preconditions without naming the theorem step needing them.
-8. **Step-by-Step Display Algebra**: Flag in-paragraph multi-substitution algebra or collapsed `=` chains skipping non-trivial splits, bound substitutions, or factoring steps (keep display width `<= 624 px`).
+8. **Step-by-Step Clarity, Proof Economy & Scannable Examples**: Flag skipped algebraic steps **and** overly long, multi-block, or auxiliary-variable-heavy proofs where a direct 3–5 line or structural argument is clearer; flag multi-step numeric/symbolic examples buried inside prose paragraphs instead of aligned LaTeX blocks (`<= 624 px`) or SVGs.
 9. **Justified Output-to-Target Bridges**: Flag shared-hardware proofs argued in prose instead of an aligned `target(output)` derivation down through circuit semantics with concise right-hand reasons; ensure shared bridges appear once before parallel lists.
 10. **Parenthetical Sub-Proofs & Redundant Proofs**: Flag hidden sub-proofs or unexplained examples inside parentheses, motivating sentences overloaded with secondary boundary caveats, or full parallel re-derivations duplicating established congruence.
 

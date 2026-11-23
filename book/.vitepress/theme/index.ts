@@ -9,7 +9,9 @@ import RightShiftComparator from './components/brain01/RightShiftComparator.vue'
 import RiscvBitfieldDecoder from './components/brain01/RiscvBitfieldDecoder.vue'
 import OracleStepTracer from './components/brain01/OracleStepTracer.vue'
 import RiscvFormatMatrix from './components/brain01/RiscvFormatMatrix.vue'
-import Product64Inspector from './components/brain01/Product64Inspector.vue'
+import Product64SplitDiagram from './components/brain01/Product64SplitDiagram.vue'
+import LuiBiasCarryDiagram from './components/brain01/LuiBiasCarryDiagram.vue'
+import TimerRolloverTearDiagram from './components/brain01/TimerRolloverTearDiagram.vue'
 import TruncatingDivisionComparator from './components/brain01/TruncatingDivisionComparator.vue'
 import XapexMacDatapath from './components/brain01/XapexMacDatapath.vue'
 import './custom.css'
@@ -26,7 +28,9 @@ export default {
     app.component('RiscvBitfieldDecoder', RiscvBitfieldDecoder)
     app.component('OracleStepTracer', OracleStepTracer)
     app.component('RiscvFormatMatrix', RiscvFormatMatrix)
-    app.component('Product64Inspector', Product64Inspector)
+    app.component('Product64SplitDiagram', Product64SplitDiagram)
+    app.component('LuiBiasCarryDiagram', LuiBiasCarryDiagram)
+    app.component('TimerRolloverTearDiagram', TimerRolloverTearDiagram)
     app.component('TruncatingDivisionComparator', TruncatingDivisionComparator)
     app.component('XapexMacDatapath', XapexMacDatapath)
   },

@@ -13,7 +13,7 @@ Read primary shard lines strictly from top to bottom assuming only general progr
 6. **Plain Intuition Before Mechanics**: Flag proofs, boundary cases, or formal blocks that open cold into symbolic manipulation without 1–2 plain, low-symbol sentences stating what is shown and why it matters here.
 7. **Unbraided & Proportional Topic Flow**: Flag non sequiturs, unintroduced mechanism leaps, missing paragraph breaks before formal proofs, separate mechanisms braided inside one item, or multi-category table lead-ins that disproportionately elaborate one narrow parameter while neglecting major table groups.
 8. **Upfront Takeaways & Honest Rationales**: Flag comparative sections that bury the main takeaway after examples, or claims boasting about avoiding language constructs (`if`/`else`) without genuine cost or correctness motivation.
-9. **Zero Prose-Math Walls or Boilerplate**: Flag consecutive prose sentences crammed with dense symbolic clauses, forward section catalogs, or repetitive cross-section boilerplate (`Section X's ... corollary`, repeated per-item uniqueness restatements).
+9. **Zero Prose-Math Walls, Bloated Proofs, or Dense Text Examples**: Flag multi-step numeric/hex examples crammed into prose blocks instead of aligned LaTeX/SVGs, exhausting multi-block symbolic detours obscuring simple mechanisms, forward section catalogs, or repetitive cross-section boilerplate.
 10. **Mechanism-First Acronyms & Code-Only Backticks**: Flag detached term definitions (`— ... (**Acronym**)`), 3+ stacked new acronyms in one sentence, backticks on English acronyms/proper nouns/prose numbers, and boldface over 6 words.
 
 ## 3. Inline Drill Scoping & Interactive UX

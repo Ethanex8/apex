@@ -113,7 +113,7 @@ const scenarios: Scenario[] = [
         stepNum: 0,
         asm: 'Preloaded Test Setup: x1 = 0x1000_0000 (BRAM), x2 = 0x1122_80FF',
         stageNote:
-          'Testbench preloads x1 (BRAM base) and x2 (4-byte test pattern) at PC = 0; 4 unwritten bytes at 0x1000_0000..03 start at 0.',
+          'Test setup preloads x1 (BRAM base) and x2 (4-byte test pattern) at PC = 0; 4 unwritten bytes at 0x1000_0000..03 start at 0.',
         pc: '0x0000_0000',
         insnHex: '—',
         nextPc: '0x0000_0000',
@@ -379,15 +379,15 @@ const scenarios: Scenario[] = [
       {
         stepNum: 0,
         asm: 'Initial State: Preloaded Bias & Packed Dual-Int16 Vectors',
-        stageNote: 'x1=+1000 (bias), x2=pack(lo=+10, hi=-20), x3=pack(lo=+5, hi=+6), x6=pack(lo=+32767, hi=+32767).',
+        stageNote: 'x1 = +1000 (bias); packed dual-16-bit pairs (Bits 31..16, Bits 15..0): x2 = (-20, +10), x3 = (+6, +5), x6 = (+32767, +32767).',
         pc: '0x0000_0000',
         insnHex: '—',
         nextPc: '0x0000_0000',
         regs: {
           'x1 (bias)': '+1,000',
-          'x2 (a1:a0)': '0xFFEC_000A (-20, +10)',
-          'x3 (b1:b0)': '0x0006_0005 (+6, +5)',
-          'x6 (max)': '0x7FFF_7FFF (+32767, +32767)',
+          'x2 (a1,a0)': '0xFFEC_000A (-20,+10)',
+          'x3 (b1,b0)': '0x0006_0005 (+6,+5)',
+          'x6 (max)': '0x7FFF_7FFF (+32767,+32767)',
           x10: '0',
           x11: '0',
           x14: '0',
@@ -406,9 +406,9 @@ const scenarios: Scenario[] = [
         nextPc: '0x0000_0004',
         regs: {
           'x1 (bias)': '+1,000',
-          'x2 (a1:a0)': '0xFFEC_000A (-20, +10)',
-          'x3 (b1:b0)': '0x0006_0005 (+6, +5)',
-          'x6 (max)': '0x7FFF_7FFF (+32767, +32767)',
+          'x2 (a1,a0)': '0xFFEC_000A (-20,+10)',
+          'x3 (b1,b0)': '0x0006_0005 (+6,+5)',
+          'x6 (max)': '0x7FFF_7FFF (+32767,+32767)',
           x10: '+1,000',
           x11: '0',
           x14: '0',
@@ -427,9 +427,9 @@ const scenarios: Scenario[] = [
         nextPc: '0x0000_0008',
         regs: {
           'x1 (bias)': '+1,000',
-          'x2 (a1:a0)': '0xFFEC_000A (-20, +10)',
-          'x3 (b1:b0)': '0x0006_0005 (+6, +5)',
-          'x6 (max)': '0x7FFF_7FFF (+32767, +32767)',
+          'x2 (a1,a0)': '0xFFEC_000A (-20,+10)',
+          'x3 (b1,b0)': '0x0006_0005 (+6,+5)',
+          'x6 (max)': '0x7FFF_7FFF (+32767,+32767)',
           x10: '+1,000',
           x11: '+930',
           x14: '0',
@@ -448,9 +448,9 @@ const scenarios: Scenario[] = [
         nextPc: '0x0000_000C',
         regs: {
           'x1 (bias)': '+1,000',
-          'x2 (a1:a0)': '0xFFEC_000A (-20, +10)',
-          'x3 (b1:b0)': '0x0006_0005 (+6, +5)',
-          'x6 (max)': '0x7FFF_7FFF (+32767, +32767)',
+          'x2 (a1,a0)': '0xFFEC_000A (-20,+10)',
+          'x3 (b1,b0)': '0x0006_0005 (+6,+5)',
+          'x6 (max)': '0x7FFF_7FFF (+32767,+32767)',
           x10: '+1,000',
           x11: '+930',
           x14: '+2,147,352,578',
@@ -469,9 +469,9 @@ const scenarios: Scenario[] = [
         nextPc: '0x0000_0010',
         regs: {
           'x1 (bias)': '+1,000',
-          'x2 (a1:a0)': '0xFFEC_000A (-20, +10)',
-          'x3 (b1:b0)': '0x0006_0005 (+6, +5)',
-          'x6 (max)': '0x7FFF_7FFF (+32767, +32767)',
+          'x2 (a1,a0)': '0xFFEC_000A (-20,+10)',
+          'x3 (b1,b0)': '0x0006_0005 (+6,+5)',
+          'x6 (max)': '0x7FFF_7FFF (+32767,+32767)',
           x10: '+1,000',
           x11: '+930',
           x14: '+2,147,352,578',
@@ -497,15 +497,22 @@ function pickScenario(id: string) {
   selectedId.value = id
   frameIdx.value = 0
 }
+
+const flowState = computed(() => {
+  const f = currentFrame.value
+  const isIdle = f.stepNum === 0
+  const receipt = f.traceReceipt.toLowerCase()
+  const isIrq = !isIdle && (receipt.includes('interrupt=true') || receipt.includes('irq'))
+  const isTrap = !isIdle && !isIrq && (receipt.includes('trap_cause=') && !receipt.includes('trap_cause=none'))
+  const isNormal = !isIdle && !isIrq && !isTrap
+  return { isIdle, isIrq, isTrap, isNormal }
+})
 </script>
 
 <template>
   <div class="hw-widget">
     <div class="hw-widget-header">
-      <div class="hw-widget-title">
-        <span class="hw-badge">Execution Simulator</span>
-        <span>Step-by-Step RV32Oracle.step() Trace Explorer</span>
-      </div>
+      <div class="hw-widget-title">RV32Oracle.step() Single-Step Execution Tracer</div>
       <div style="display: flex; gap: 6px">
         <button
           type="button"
@@ -552,18 +559,139 @@ function pickScenario(id: string) {
       {{ currentScenario.summary }}
     </p>
 
+    <!-- Live Interactive SVG Single-Step Flow Schematic -->
+    <div class="hw-mobile-scroll-hint">↔ Swipe horizontally to inspect all 5 execution stages</div>
+    <div style="overflow-x: auto; padding-bottom: 4px; margin-bottom: 10px">
+    <svg
+      viewBox="0 0 680 96"
+      class="hw-svg-diagram"
+      style="min-width: 550px"
+      role="img"
+      aria-label="Single-step execution flow diagram highlighting clock advance, interrupt preemption check, fetch and decode, execute, and commit or trap"
+    >
+      <defs>
+        <marker id="tr-arr-on" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+          <path d="M 0 1 L 10 5 L 0 9 z" fill="var(--vp-c-brand-1)" />
+        </marker>
+        <marker id="tr-arr-red" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+          <path d="M 0 1 L 10 5 L 0 9 z" fill="var(--hw-red)" />
+        </marker>
+        <marker id="tr-arr-off" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+          <path d="M 0 1 L 10 5 L 0 9 z" fill="var(--vp-c-text-3)" />
+        </marker>
+      </defs>
+
+      <!-- Stage 1: Clock Tick -->
+      <rect
+        x="8"
+        y="12"
+        width="108"
+        height="42"
+        rx="6"
+        :fill="flowState.isIdle ? 'var(--vp-c-bg)' : 'var(--vp-c-brand-soft)'"
+        :stroke="flowState.isIdle ? 'var(--vp-c-divider)' : 'var(--vp-c-brand-1)'"
+        stroke-width="1.4"
+      />
+      <text x="62" y="29" text-anchor="middle" font-size="9.5" font-weight="700" fill="var(--vp-c-text-1)">1. Clock Tick</text>
+      <text x="62" y="44" text-anchor="middle" font-size="8.5" font-family="var(--vp-font-family-mono)" fill="var(--vp-c-text-2)">mcycle, mtime +1</text>
+
+      <line x1="116" y1="33" x2="140" y2="33" :stroke="flowState.isIdle ? 'var(--vp-c-text-3)' : 'var(--vp-c-brand-1)'" stroke-width="1.8" :marker-end="flowState.isIdle ? 'url(#tr-arr-off)' : 'url(#tr-arr-on)'" />
+
+      <!-- Stage 2: IRQ Check -->
+      <rect
+        x="144"
+        y="12"
+        width="112"
+        height="42"
+        rx="6"
+        :fill="flowState.isIrq ? 'rgba(220, 38, 38, 0.12)' : flowState.isIdle ? 'var(--vp-c-bg)' : 'var(--vp-c-brand-soft)'"
+        :stroke="flowState.isIrq ? 'var(--hw-red)' : flowState.isIdle ? 'var(--vp-c-divider)' : 'var(--vp-c-brand-1)'"
+        stroke-width="1.4"
+      />
+      <text x="200" y="29" text-anchor="middle" font-size="9.5" font-weight="700" :fill="flowState.isIrq ? 'var(--hw-red)' : 'var(--vp-c-text-1)'">2. Interrupt</text>
+      <text x="200" y="44" text-anchor="middle" font-size="8.5" font-family="var(--vp-font-family-mono)" fill="var(--vp-c-text-2)">{{ flowState.isIrq ? 'PREEMPT!' : 'mip & mie' }}</text>
+
+      <!-- Arrow 2 -> 3 (Normal / Sync path) -->
+      <line x1="256" y1="33" x2="280" y2="33" :stroke="flowState.isNormal || flowState.isTrap ? 'var(--vp-c-brand-1)' : 'var(--vp-c-text-3)'" stroke-width="1.8" :marker-end="flowState.isNormal || flowState.isTrap ? 'url(#tr-arr-on)' : 'url(#tr-arr-off)'" />
+
+      <!-- Stage 3: Fetch & Decode -->
+      <rect
+        x="284"
+        y="12"
+        width="114"
+        height="42"
+        rx="6"
+        :fill="flowState.isNormal || flowState.isTrap ? 'var(--vp-c-brand-soft)' : 'var(--vp-c-bg)'"
+        :stroke="flowState.isNormal || flowState.isTrap ? 'var(--vp-c-brand-1)' : 'var(--vp-c-divider)'"
+        stroke-width="1.4"
+        :opacity="flowState.isIrq ? 0.4 : 1"
+      />
+      <text x="341" y="29" text-anchor="middle" font-size="9.5" font-weight="700" fill="var(--vp-c-text-1)">3. Fetch/Decode</text>
+      <text x="341" y="44" text-anchor="middle" font-size="8.5" font-family="var(--vp-font-family-mono)" fill="var(--vp-c-text-2)">{{ flowState.isIrq ? 'Skipped' : currentFrame.insnHex }}</text>
+
+      <line x1="398" y1="33" x2="422" y2="33" :stroke="flowState.isNormal || flowState.isTrap ? 'var(--vp-c-brand-1)' : 'var(--vp-c-text-3)'" stroke-width="1.8" :marker-end="flowState.isNormal || flowState.isTrap ? 'url(#tr-arr-on)' : 'url(#tr-arr-off)'" />
+
+      <!-- Stage 4: Execute -->
+      <rect
+        x="426"
+        y="12"
+        width="104"
+        height="42"
+        rx="6"
+        :fill="flowState.isTrap ? 'rgba(220, 38, 38, 0.12)' : flowState.isNormal ? 'var(--vp-c-brand-soft)' : 'var(--vp-c-bg)'"
+        :stroke="flowState.isTrap ? 'var(--hw-red)' : flowState.isNormal ? 'var(--vp-c-brand-1)' : 'var(--vp-c-divider)'"
+        stroke-width="1.4"
+        :opacity="flowState.isIrq ? 0.4 : 1"
+      />
+      <text x="478" y="29" text-anchor="middle" font-size="9.5" font-weight="700" fill="var(--vp-c-text-1)">4. Execute</text>
+      <text x="478" y="44" text-anchor="middle" font-size="8.5" font-family="var(--vp-font-family-mono)" fill="var(--vp-c-text-2)">{{ flowState.isTrap ? 'Trap Abort' : 'Int/Mem/CSR' }}</text>
+
+      <line x1="530" y1="33" x2="554" y2="33" :stroke="flowState.isNormal ? 'var(--vp-c-brand-1)' : flowState.isTrap ? 'var(--hw-red)' : 'var(--vp-c-text-3)'" stroke-width="1.8" :marker-end="flowState.isNormal ? 'url(#tr-arr-on)' : flowState.isTrap ? 'url(#tr-arr-red)' : 'url(#tr-arr-off)'" />
+
+      <!-- Stage 5: Commit / Trap -->
+      <rect
+        x="558"
+        y="12"
+        width="114"
+        height="42"
+        rx="6"
+        :fill="flowState.isIrq || flowState.isTrap ? 'rgba(220, 38, 38, 0.12)' : flowState.isNormal ? 'rgba(5, 150, 105, 0.12)' : 'var(--vp-c-bg)'"
+        :stroke="flowState.isIrq || flowState.isTrap ? 'var(--hw-red)' : flowState.isNormal ? 'var(--hw-green)' : 'var(--vp-c-divider)'"
+        stroke-width="1.5"
+      />
+      <text
+        x="615"
+        y="29"
+        text-anchor="middle"
+        font-size="9.5"
+        font-weight="700"
+        :fill="flowState.isIrq || flowState.isTrap ? 'var(--hw-red)' : flowState.isNormal ? 'var(--hw-green)' : 'var(--vp-c-text-1)'"
+      >
+        {{ flowState.isIrq ? '5. Interrupt' : flowState.isTrap ? '5. Sync Trap' : flowState.isNormal ? '5. Retire' : '5. Commit' }}
+      </text>
+      <text x="615" y="44" text-anchor="middle" font-size="8.5" font-family="var(--vp-font-family-mono)" fill="var(--vp-c-text-2)">
+        {{ flowState.isIdle ? 'Reset State' : `→ ${currentFrame.nextPc}` }}
+      </text>
+
+      <!-- Pre-fetch interrupt bypass arc from Stage 2 straight to Stage 5 -->
+      <path
+        v-if="flowState.isIrq"
+        d="M 200 54 L 200 72 L 615 72 L 615 58"
+        fill="none"
+        stroke="var(--hw-red)"
+        stroke-width="2"
+        stroke-dasharray="4 2"
+        marker-end="url(#tr-arr-red)"
+      />
+      <text x="340" y="88" text-anchor="middle" font-size="9.5" font-family="var(--vp-font-family-mono)" fill="var(--vp-c-text-2)">
+        {{ flowState.isIrq ? 'Pre-fetch interrupt skips fetch & writeback → jumps directly to mtvec' : `PC: ${currentFrame.pc} → Next PC: ${currentFrame.nextPc} · Step ${currentFrame.stepNum} / ${currentScenario.frames.length - 1}` }}
+      </text>
+    </svg>
+    </div>
+
     <!-- Active Instruction Banner -->
     <div class="hw-card" style="margin-bottom: 12px; border-color: var(--vp-c-brand-1)">
-      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px">
-        <span class="hw-label" style="margin: 0">
-          Step {{ currentFrame.stepNum }} / {{ currentScenario.frames.length - 1 }}
-        </span>
-        <div class="hw-mono" style="font-size: 12px; color: var(--vp-c-text-2); display: flex; flex-wrap: wrap; gap: 2px 10px">
-          <span>PC: <strong>{{ currentFrame.pc }}</strong> → Next PC: <strong>{{ currentFrame.nextPc }}</strong></span>
-          <span>Word: <code>{{ currentFrame.insnHex }}</code></span>
-        </div>
-      </div>
-      <div class="hw-mono" style="font-size: 14.5px; font-weight: 700; color: var(--vp-c-brand-1); margin: 6px 0 4px 0">
+      <div class="hw-mono" style="font-size: 14px; font-weight: 700; color: var(--vp-c-brand-1); margin-bottom: 4px">
         {{ currentFrame.asm }}
       </div>
       <div style="font-size: 13px">{{ currentFrame.stageNote }}</div>
@@ -581,10 +709,10 @@ function pickScenario(id: string) {
             display: flex;
             justify-content: space-between;
             align-items: baseline;
-            gap: 10px;
-            padding: 3px 6px;
+            gap: 6px;
+            padding: 3px 4px;
             border-radius: 4px;
-            font-size: 12px;
+            font-size: 11px;
           "
           :style="{
             background: currentFrame.changedKey === reg ? 'var(--vp-c-brand-soft)' : 'transparent',

@@ -25,7 +25,7 @@ Execute this skill whenever user feedback arrives on an open PR or in chat durin
    ```bash
    python3 scripts/build_review_plan.py --chapter <chapter_path>
    ```
-   - **Zero Orchestrator Bias & Zero Leakage**: Invoke every emitted shard/global `research` subagent using `build_review_plan.py`'s **exact frozen prompt**—never hand-write custom prompts hinting at current comments, and forbid reading `/tmp/`, triage artifacts, `calibration_log.md`, `gh`, or session logs.
+   - **Zero Orchestrator Bias & Full-Chapter Tier 2 Sweep**: Invoke **every** emitted shard (`1..K`), `Global Macro Critic`, and `Visual Pedagogy Critic` using `build_review_plan.py`'s **exact frozen prompt** whenever a Tier 2 rule changes (never cherry-picking only commented shards), forbidding `/tmp/`, triage artifacts, `calibration_log.md`, `gh`, or session logs.
 3. Map every **Tier 2** item in `U_agreed` semantically to `CAUGHT_BY_GATE`, `CAUGHT_BY_BLIND_SUBAGENT`, or `MISSED`.
 4. If any Tier 2 item is `MISSED`, generalize the governing rubric/skill/gate rule cleanly, re-sync via `save_skill`, and re-run **fresh** frozen-prompt subagents on affected shards until $\text{U}_{\text{tier2}} \subseteq \text{Panel} \cup \text{Gates}$.
 5. **Conditional Gate 2**: If Step 2 altered any persona/rubric prompt beyond Step 1's approved diff, **STOP** for human anti-cheating sign-off; otherwise continue directly to Step 3.
@@ -36,11 +36,11 @@ Execute this skill whenever user feedback arrives on an open PR or in chat durin
 
 1. Fix **all** panel, gate, and `U_agreed` findings across code, tests, widgets, CSS, and chapter prose (`apex-artifact-author` + `apex-textbook-author`).
 2. Append the retrospective root-cause entry to the relevant `references/calibration_log.md` and run all verification gates (`pytest --cov-fail-under=95`, `check_code.py`, `sync_book.py --check`, `check_book.py`, `build.py --check`, `BOOK_BASE=/apex/ npm --prefix book run build`, `check_visuals.py --screenshot-dir .cache/visual-audit`).
-3. Generate the Step 3 manifest including the pre-fix diff baseline and converge **fresh** frozen-prompt clean-room reviewers:
+3. Generate the Step 3 manifest including the pre-fix diff baseline and converge **fresh** frozen-prompt clean-room reviewers across **every emitted shard (`1..K`), Global Macro Critic, Visual Pedagogy Critic, and Diff & Flow Regression Guardian**:
    ```bash
    python3 scripts/build_review_plan.py --chapter <chapter_path> --base-ref <untouched_head_sha>
    ```
-   Iterate until every shard, the `Global Structure & Visual Critic`, and the `Diff & Flow Regression Guardian` return zero P0/P1/P2 defects.
+   Iterate until every shard, global critic, visual critic, and the Diff Guardian return zero P0/P1/P2 defects.
 
 ---
 

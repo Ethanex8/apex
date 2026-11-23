@@ -371,11 +371,11 @@ const decoded = computed(() => {
         : 'Traps with mcause = 2 (Illegal Instruction).',
       scrambleNote: `Reassembly: Bits 31..25 (${b(31, 25)}) + Bits 11..7 (${b(11, 7)}) → 0b${imm12Raw.toString(2).padStart(12, '0')} = ${imm12}`,
       spans: [
-        { name: 'Off 11..5', range: 'Bits 31..25', bits: b(31, 25), value: `0b${b(31, 25)}`, color: 'var(--hw-purple)', widthCols: 7 },
+        { name: 'Off Bits 11..5', range: 'Bits 31..25', bits: b(31, 25), value: `0b${b(31, 25)}`, color: 'var(--hw-purple)', widthCols: 7 },
         { name: 'rs2 (Data)', range: 'Bits 24..20', bits: b(24, 20), value: `x${rs2}`, color: 'var(--hw-amber)', widthCols: 5 },
         { name: 'rs1 (Base)', range: 'Bits 19..15', bits: b(19, 15), value: `x${rs1}`, color: 'var(--hw-green)', widthCols: 5 },
         { name: 'funct3', range: 'Bits 14..12', bits: b(14, 12), value: `${funct3}`, color: 'var(--hw-cyan)', widthCols: 3 },
-        { name: 'Off 4..0', range: 'Bits 11..7', bits: b(11, 7), value: `0b${b(11, 7)}`, color: 'var(--hw-purple)', widthCols: 5 },
+        { name: 'Off Bits 4..0', range: 'Bits 11..7', bits: b(11, 7), value: `0b${b(11, 7)}`, color: 'var(--hw-purple)', widthCols: 5 },
         { name: 'opcode', range: 'Bits 6..0', bits: b(6, 0), value: '0x23', color: 'var(--hw-pink)', widthCols: 7 },
       ],
     }
@@ -406,13 +406,13 @@ const decoded = computed(() => {
         : 'Traps with mcause = 2 (Illegal Instruction).',
       scrambleNote: `Reassembly: Bit 31 (${b(31, 31)}) · Bit 7 (${b(7, 7)}) · Bits 30..25 (${b(30, 25)}) · Bits 11..8 (${b(11, 8)}) · 0 → ${imm13 >= 0 ? `+${imm13}` : imm13} B`,
       spans: [
-        { name: 'S', range: 'Bit\n31', bits: b(31, 31), value: b(31, 31), color: 'var(--hw-purple)', widthCols: 1, title: 'Bit 31 -> Offset Bit 12 (Sign)' },
-        { name: 'Off 10..5', range: 'Bits 30..25', bits: b(30, 25), value: `0b${b(30, 25)}`, color: 'var(--hw-purple)', widthCols: 6 },
+        { name: 'S', range: '31', bits: b(31, 31), value: b(31, 31), color: 'var(--hw-purple)', widthCols: 1, title: 'Bit 31 -> Offset Bit 12 (Sign)' },
+        { name: 'Off Bits 10..5', range: 'Bits 30..25', bits: b(30, 25), value: `0b${b(30, 25)}`, color: 'var(--hw-purple)', widthCols: 6 },
         { name: 'rs2 (Src 2)', range: 'Bits 24..20', bits: b(24, 20), value: `x${rs2}`, color: 'var(--hw-amber)', widthCols: 5 },
         { name: 'rs1 (Src 1)', range: 'Bits 19..15', bits: b(19, 15), value: `x${rs1}`, color: 'var(--hw-green)', widthCols: 5 },
         { name: 'funct3', range: 'Bits 14..12', bits: b(14, 12), value: `${funct3}`, color: 'var(--hw-cyan)', widthCols: 3 },
-        { name: 'Off 4..1', range: 'Bits 11..8', bits: b(11, 8), value: `0b${b(11, 8)}`, color: 'var(--hw-purple)', widthCols: 4 },
-        { name: '11', range: 'Bit\n7', bits: b(7, 7), value: b(7, 7), color: 'var(--hw-purple)', widthCols: 1, title: 'Bit 7 -> Offset Bit 11' },
+        { name: 'Off Bits 4..1', range: 'Bits 11..8', bits: b(11, 8), value: `0b${b(11, 8)}`, color: 'var(--hw-purple)', widthCols: 4 },
+        { name: '11', range: '7', bits: b(7, 7), value: b(7, 7), color: 'var(--hw-purple)', widthCols: 1, title: 'Bit 7 -> Offset Bit 11' },
         { name: 'opcode', range: 'Bits 6..0', bits: b(6, 0), value: '0x63', color: 'var(--hw-pink)', widthCols: 7 },
       ],
     }
@@ -454,10 +454,10 @@ const decoded = computed(() => {
       effect: `Saves return link address (PC + 4) into x${rd}${rdSuffix(rd)} and jumps to PC + (${imm21}).`,
       scrambleNote: `Reassembly: Bit 31 (${b(31, 31)}) · Bits 19..12 (${b(19, 12)}) · Bit 20 (${b(20, 20)}) · Bits 30..21 (${b(30, 21)}) · 0 → ${imm21 >= 0 ? `+${imm21}` : imm21} B`,
       spans: [
-        { name: 'S', range: 'Bit\n31', bits: b(31, 31), value: b(31, 31), color: 'var(--hw-purple)', widthCols: 1, title: 'Bit 31 -> Offset Bit 20 (Sign)' },
-        { name: 'Off 10..1', range: 'Bits 30..21', bits: b(30, 21), value: `0b${b(30, 21)}`, color: 'var(--hw-purple)', widthCols: 10 },
-        { name: '11', range: 'Bit\n20', bits: b(20, 20), value: b(20, 20), color: 'var(--hw-purple)', widthCols: 1, title: 'Bit 20 -> Offset Bit 11' },
-        { name: 'Off 19..12', range: 'Bits 19..12', bits: b(19, 12), value: `0b${b(19, 12)}`, color: 'var(--hw-purple)', widthCols: 8 },
+        { name: 'S', range: '31', bits: b(31, 31), value: b(31, 31), color: 'var(--hw-purple)', widthCols: 1, title: 'Bit 31 -> Offset Bit 20 (Sign)' },
+        { name: 'Off Bits 10..1', range: 'Bits 30..21', bits: b(30, 21), value: `0b${b(30, 21)}`, color: 'var(--hw-purple)', widthCols: 10 },
+        { name: '11', range: '20', bits: b(20, 20), value: b(20, 20), color: 'var(--hw-purple)', widthCols: 1, title: 'Bit 20 -> Offset Bit 11' },
+        { name: 'Off Bits 19..12', range: 'Bits 19..12', bits: b(19, 12), value: `0b${b(19, 12)}`, color: 'var(--hw-purple)', widthCols: 8 },
         { name: 'rd (Link)', range: 'Bits 11..7', bits: b(11, 7), value: `x${rd}`, color: 'var(--vp-c-brand-1)', widthCols: 5 },
         { name: 'opcode', range: 'Bits 6..0', bits: b(6, 0), value: '0x6F', color: 'var(--hw-pink)', widthCols: 7 },
       ],
@@ -475,15 +475,25 @@ const decoded = computed(() => {
     ],
   }
 })
+
+// Precompute SVG geometry for each decoded field span across 32 columns (viewBox 716 x 122)
+const COL_W = 22
+const LEFT_PAD = 6
+const positionedSpans = computed(() => {
+  let cursor = 0
+  return decoded.value.spans.map((sp) => {
+    const x = LEFT_PAD + cursor * COL_W
+    const w = sp.widthCols * COL_W
+    cursor += sp.widthCols
+    return { ...sp, x, w }
+  })
+})
 </script>
 
 <template>
   <div class="hw-widget">
     <div class="hw-widget-header">
-      <div class="hw-widget-title">
-        <span class="hw-badge">Interactive Decoder</span>
-        <span>32-Bit Instruction Inspector (Bits 31..0)</span>
-      </div>
+      <div class="hw-widget-title">32-Bit Instruction Bitfield Decoder (Bits 31..0)</div>
       <div style="display: flex; align-items: center; gap: 6px">
         <span style="font-size: 12px; color: var(--vp-c-text-2)">Hex Word:</span>
         <input
@@ -505,7 +515,7 @@ const decoded = computed(() => {
     </div>
 
     <!-- Preset Buttons -->
-    <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px">
+    <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px">
       <button
         v-for="p in presets"
         :key="p.label"
@@ -519,88 +529,122 @@ const decoded = computed(() => {
       </button>
     </div>
 
-    <!-- Clickable 32 individual bits sized cleanly for VitePress desktop width -->
-    <div class="hw-label">Toggle any instruction bit (Bit 31 down to Bit 0):</div>
-    <div class="hw-mobile-scroll-hint">↔ Swipe horizontally to inspect all 32 bit columns</div>
-    <div style="overflow-x: auto; padding-bottom: 4px; margin-bottom: 10px">
-      <div class="hw-grid-32-scroll" style="display: grid; grid-template-columns: repeat(32, minmax(0, 1fr)); gap: 1px">
-        <button
+    <!-- Interactive 32-bit SVG wire & field schematic -->
+    <div class="hw-label">Click any wire cell (Bit 31 down to Bit 0) to flip its bit and watch fields re-decode:</div>
+    <div class="hw-mobile-scroll-hint">↔ Swipe horizontally to inspect all 32 bit wires</div>
+    <div style="overflow-x: auto; padding-bottom: 4px; margin-bottom: 8px">
+      <svg
+        viewBox="0 0 716 126"
+        class="hw-svg-diagram"
+        style="min-width: 550px"
+        role="img"
+        aria-label="Interactive 32-bit instruction wire decoder showing clickable bits 31 down to 0 wired to aligned field boxes"
+      >
+        <!-- Row 1: 32 clickable bit switches -->
+        <g
           v-for="bitIdx in 32"
-          :key="bitIdx"
-          type="button"
-          class="hw-mono"
-          style="
-            padding: 3px 0;
-            border-radius: 4px;
-            border: 1px solid var(--vp-c-divider);
-            background: var(--vp-c-bg);
-            cursor: pointer;
-            font-size: 10px;
-            text-align: center;
-          "
-          :title="`Bit ${32 - bitIdx}`"
+          :key="`wire-${bitIdx}`"
+          style="cursor: pointer"
           @click="flipBit(32 - bitIdx)"
         >
-          <div style="font-size: 7.5px; opacity: 0.7">{{ 32 - bitIdx }}</div>
-          <div style="font-weight: 700; color: var(--vp-c-brand-1)">
+          <rect
+            :x="LEFT_PAD + (bitIdx - 1) * COL_W + 1"
+            y="4"
+            :width="COL_W - 2"
+            height="34"
+            rx="4"
+            :fill="((insnWord >>> (32 - bitIdx)) & 1) ? 'var(--vp-c-brand-soft)' : 'var(--vp-c-bg)'"
+            stroke="var(--vp-c-divider)"
+            stroke-width="1"
+          />
+          <text
+            :x="LEFT_PAD + (bitIdx - 1) * COL_W + COL_W / 2"
+            y="16"
+            text-anchor="middle"
+            font-size="8"
+            font-family="var(--vp-font-family-mono)"
+            fill="var(--vp-c-text-2)"
+          >
+            {{ 32 - bitIdx }}
+          </text>
+          <text
+            :x="LEFT_PAD + (bitIdx - 1) * COL_W + COL_W / 2"
+            y="32"
+            text-anchor="middle"
+            font-size="11.5"
+            font-weight="700"
+            font-family="var(--vp-font-family-mono)"
+            fill="var(--vp-c-brand-1)"
+          >
             {{ (insnWord >>> (32 - bitIdx)) & 1 }}
-          </div>
-        </button>
-      </div>
+          </text>
+        </g>
 
-      <!-- Aligned Field Spans -->
-      <div
-        class="hw-grid-32-scroll"
-        style="
-          display: grid;
-          grid-template-columns: repeat(32, minmax(0, 1fr));
-          gap: 1px;
-          margin-top: 5px;
-        "
-      >
-        <div
-          v-for="(sp, idx) in decoded.spans"
-          :key="idx"
-          :title="sp.title ?? `${sp.range}: ${sp.name}`"
-          :style="{
-            gridColumn: `span ${sp.widthCols}`,
-            borderTop: `3px solid ${sp.color}`,
-            background: 'var(--vp-c-bg)',
-            padding: sp.widthCols === 1 ? '4px 0' : sp.widthCols <= 4 ? '4px 2px' : '5px 5px',
-            borderRadius: '5px',
-            borderLeft: '1px solid var(--vp-c-divider)',
-            borderRight: '1px solid var(--vp-c-divider)',
-            borderBottom: '1px solid var(--vp-c-divider)',
-            textAlign: sp.widthCols === 1 ? 'center' : 'left',
-            overflow: 'hidden',
-          }"
-        >
-          <div
-            style="font-weight: 700; white-space: pre-line; line-height: 1.05"
-            :style="{ color: sp.color, fontSize: sp.widthCols === 1 ? '8px' : sp.widthCols <= 4 ? '8px' : '9px' }"
+        <!-- Bracket connectors & Aligned Field Spans -->
+        <g v-for="(sp, idx) in positionedSpans" :key="`span-${idx}`">
+          <!-- Wire group bracket dropping from bit cells into field box -->
+          <path
+            :d="`M ${sp.x + 3} 41 L ${sp.x + 3} 47 L ${sp.x + sp.w - 3} 47 L ${sp.x + sp.w - 3} 41 M ${sp.x + sp.w / 2} 47 L ${sp.x + sp.w / 2} 55`"
+            fill="none"
+            :stroke="sp.color"
+            stroke-width="1.3"
+          />
+          <rect
+            :x="sp.x + 1"
+            y="56"
+            :width="sp.w - 2"
+            height="64"
+            rx="5"
+            fill="var(--vp-c-bg)"
+            stroke="var(--vp-c-divider)"
+            stroke-width="1"
+          />
+          <rect
+            :x="sp.x + 1"
+            y="56"
+            :width="sp.w - 2"
+            height="3.5"
+            rx="1.5"
+            :fill="sp.color"
+          />
+          <text
+            :x="sp.x + sp.w / 2"
+            y="74"
+            text-anchor="middle"
+            :font-size="sp.widthCols === 1 ? '8.5' : sp.widthCols <= 3 ? '9' : '9.5'"
+            font-weight="700"
+            font-family="var(--vp-font-family-mono)"
+            :fill="sp.color"
           >
             {{ sp.range }}
-          </div>
-          <div
-            style="font-weight: 700; margin: 1px 0; white-space: nowrap"
-            :style="{ fontSize: sp.widthCols === 1 ? '8.5px' : sp.widthCols <= 4 ? '10px' : '11px' }"
+          </text>
+          <text
+            :x="sp.x + sp.w / 2"
+            y="92"
+            text-anchor="middle"
+            :font-size="sp.widthCols === 1 ? '9.5' : sp.widthCols <= 4 ? '9.5' : '10.5'"
+            font-weight="700"
+            fill="var(--vp-c-text-1)"
           >
             {{ sp.name }}
-          </div>
-          <div
-            class="hw-mono"
-            style="color: var(--vp-c-text-2); white-space: nowrap"
-            :style="{ fontSize: sp.widthCols === 1 ? '9px' : sp.widthCols <= 4 ? '9.5px' : '10.5px' }"
+          </text>
+          <text
+            :x="sp.x + sp.w / 2"
+            y="110"
+            text-anchor="middle"
+            :font-size="sp.widthCols === 1 ? '9.5' : sp.widthCols <= 4 ? '9.5' : '10.5'"
+            font-family="var(--vp-font-family-mono)"
+            fill="var(--vp-c-text-2)"
           >
             {{ sp.value }}
-          </div>
-        </div>
-      </div>
+          </text>
+        </g>
+      </svg>
 
       <div
         v-if="decoded.spans.some((sp) => sp.widthCols === 1)"
         class="hw-mono"
-        style="margin-top: 5px; font-size: 11px; color: var(--vp-c-text-2)"
+        style="margin-top: 4px; font-size: 11px; color: var(--vp-c-text-2)"
       >
         <template v-if="(insnWord & 0x7f) === 0x63">
           Legend: <strong>S</strong> = Sign bit pinned at Bit 31 (Offset Bit 12); <strong>11</strong> = Offset Bit 11 at Bit 7.

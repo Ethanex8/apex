@@ -35,8 +35,8 @@ We write a **publication-grade systems engineering textbook** (*Harris & Harris*
    - Keep `###` subsections aligned to headings, unbraid distinct mechanisms into separate items/subsections, order simplest direct consequences before implementation tricks, and open new operations with plain-English intuition before corner cases.
 3. **Concise Headings & Calm Bridges**:
    - Keep H1 (`<= 6` words) and `##`/`###` (`<= 8` words) crisp without `:`, `&`, parentheticals, or backticks, opening each section with a calm 2–4 sentence conceptual bridge.
-4. **Upfront Visuals, Exact Insertion Audits & Focused Transclusions**:
-   - Replace raw ASCII fences with single-concept `.vue` widgets right where geometric metaphors first appear (zero meta-pedagogical filler badges) or compact vertical Mermaid (`flowchart TD`), auditing each widget at its exact insertion line for zero forward symbols.
+4. **SVG-First Visuals, Exact Insertion Audits & Focused Transclusions**:
+   - Build figures as static or interactive `<svg>` diagrams depicting geometry, wire/signal paths, or aligned lanes (never text-only calculator cards) with one unambiguous title (zero duplicate pill + title stacking), auditing each figure at its insertion line for zero forward symbols.
    - Derive non-obvious bit-manipulation or algorithmic formulas **before** transcluding their code snippet; keep `<!-- book-sync: <spec> -->` + `<<<` slices `<= 25` lines and anchor every code/test link (`#L<start>-L<end>`).
 
 ### Pass 2: Uncompressed Multi-Chunk Drafting
@@ -44,11 +44,11 @@ We write a **publication-grade systems engineering textbook** (*Harris & Harris*
 2. **Mechanism First & Code-Only Backticks**:
    - State what each new term does before placing `(**expanded name / acronym**)` immediately adjacent (never after an em-dash clause, and never stacking `3+` acronyms); tabulate `3+` structured coordinates, opcodes, or maps, balancing lead-in prose proportionally across all table groups.
    - Reserve backticks strictly for literal code, tokens, constants, CLI flags, and paths—never acronyms, proper nouns, prose numbers/units, or raw TeX; keep boldface `<= 6` words.
-3. **Step-by-Step Math, Sound Logic & Prose Hygiene**:
+3. **Step-by-Step Math, Proof Economy & Scannable Examples**:
    - Refresh prerequisite identities with examples before use, prove rounding directions cleanly, keep motivating sentences single-purpose, and state shared bridges once before parallel lists without prose-math walls, `"Next we prove..."` boilerplate, or forward catalogs.
    - Open proofs with 1–2 plain, low-symbol sentences giving intuitive meaning; pair reusable theorems with operational usage intuition (safe substitutions vs. broken preconditions/inverses).
    - Place inline `#### Exercise <S.K>: <Title>` drills **selectively** only for genuinely new, error-prone math or **symbolic algebraic manipulation** (using fresh inputs distinct from prose examples, widgets, and `Problems`), embedding a compact collapsible terse solution right below each question/sub-part using strictly introduced notation.
-   - Promote multi-step or in-paragraph algebra into compact aligned blocks (`<= 624 px`), keep equation intros faithful to displayed symbols below, enforce strict causal entailment, spotlight hardware-polymorphism wins, and state theorem purposes before preconditions without commenting on unseen sub-terms.
+   - Pair step-by-step clarity with **proof economy**: choose the shortest transparent valid proof over multi-block symbolic detours, lift dense multi-step numeric worked examples out of prose paragraphs into aligned LaTeX (`<= 624 px`) or SVGs, enforce causal entailment, and spotlight hardware-polymorphism wins.
 4. **Responsive Widgets & Math Hygiene**: Isolate `.hw-widget` from `.book-serif-mode`, keep inline MathJax `display: inline; overflow: visible`, label `Bits hi..lo`, escape `\$`, and avoid prose `~` or bare line numbers.
 
 ### Pass 3: Deterministic Sharded Clean-Room Audit & Convergence

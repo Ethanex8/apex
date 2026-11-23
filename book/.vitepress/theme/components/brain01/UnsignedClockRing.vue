@@ -11,7 +11,7 @@ const presets: PresetCase[] = [
   { label: 'x = 18', x: 18, expr: '11 + 7 = 18' },
   { label: 'x = 2', x: 2, expr: '2 (base slot)' },
   { label: 'x = -5', x: -5, expr: 'Step back 5 from 0' },
-  { label: 'x = 19 × 14 = 266', x: 266, expr: '19 × 14 = 266' },
+  { label: 'x = 34', x: 34, expr: '2 full laps + 2' },
 ]
 
 const rawX = ref<number>(18)
@@ -57,10 +57,7 @@ const clockSlots = computed(() => {
 <template>
   <div class="hw-widget">
     <div class="hw-widget-header">
-      <div class="hw-widget-title">
-        <span class="hw-badge">4-Bit Modular Ring</span>
-        <span>16-Slot Unsigned Clock Face (Modulo 16)</span>
-      </div>
+      <div class="hw-widget-title">16-Slot Unsigned Modular Clock (Modulo 16)</div>
       <div style="display: flex; gap: 6px; flex-wrap: wrap">
         <button
           v-for="p in presets"
@@ -110,7 +107,7 @@ const clockSlots = computed(() => {
               <span> ({{ remainder }} unsigned)</span>
             </div>
             <div>
-              <strong>Congruence Class:</strong>
+              <strong>Residue Class:</strong>
               <code class="hw-mono" style="margin-left: 4px">{{ rawX }} ≡ {{ remainder }} (mod 16)</code>
             </div>
           </div>
