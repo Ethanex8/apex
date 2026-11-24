@@ -28,7 +28,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: ${{ github.event_name == 'pull_request' && 0 || 1 }}
+          fetch-depth: ${{ github.event_name == 'pull_request' && '0' || '1' }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -48,6 +48,7 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
+          git fetch --no-tags origin "${BASE_SHA}" "${HEAD_SHA}" || true
           python3 scripts/export_pr_review_meta.py \
             --pr "${PR_NUM}" \
             --repo "${REPO_SLUG}" \
