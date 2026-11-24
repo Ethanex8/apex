@@ -87,14 +87,24 @@ def watch_pr_until_feedback(
     *,
     interval_s: float = 25.0,
     max_polls: int | None = None,
+    max_consecutive_errors: int = 5,
 ) -> int:
     """Poll `repo` PR `#pr_number` until new feedback appears, then print summary and exit 0."""
     baseline = capture_snapshot(repo, pr_number)
     polls = 0
+    consecutive_errors = 0
     while max_polls is None or polls < max_polls:
         time.sleep(interval_s)
         polls += 1
-        current = capture_snapshot(repo, pr_number)
+        try:
+            current = capture_snapshot(repo, pr_number)
+            consecutive_errors = 0
+        except RuntimeError as exc:
+            consecutive_errors += 1
+            print(f"WARN: transient poll error ({consecutive_errors}/{max_consecutive_errors}): {exc}", file=sys.stderr)
+            if consecutive_errors >= max_consecutive_errors:
+                raise
+            continue
         new_comments, new_reviews = find_new_activity(baseline, current)
         if new_comments or new_reviews:
             unresolved = harvest_feedback.normalize_pr_feedback(repo, pr_number)

@@ -206,3 +206,32 @@ def test_watch_pr_feedback_detection_and_timeout(
     )
     assert watch_pr_feedback.main(["--pr", "9"]) == 1
 
+
+def test_watch_pr_feedback_transient_errors(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Verify transient gh poll errors retry cleanly while persistent failures raise."""
+    monkeypatch.setattr(watch_pr_feedback.time, "sleep", lambda _sec: None)
+    monkeypatch.setattr(watch_pr_feedback.harvest_feedback, "normalize_pr_feedback", lambda _r, _p, **_k: [])
+    calls = {"count": 0}
+
+    def _flaky_reviews(_endpoint: str) -> list[dict[str, object]]:
+        """Fail once transiently, recover cleanly, then fail repeatedly to trigger abort."""
+        calls["count"] += 1
+        if calls["count"] == 2:
+            raise RuntimeError("unexpected end of JSON input")
+        if calls["count"] >= 4:
+            raise RuntimeError("persistent network failure")
+        return []
+
+    monkeypatch.setattr(watch_pr_feedback.harvest_feedback, "fetch_gh_json", _flaky_reviews)
+    rc_recover = watch_pr_feedback.watch_pr_until_feedback("Ethanex8/apex", 9, interval_s=0.01, max_polls=2)
+    assert rc_recover == 2
+    assert "WARN: transient poll error (1/5)" in capsys.readouterr().err
+
+    with pytest.raises(RuntimeError, match="persistent network failure"):
+        watch_pr_feedback.watch_pr_until_feedback(
+            "Ethanex8/apex", 9, interval_s=0.01, max_polls=3, max_consecutive_errors=2
+        )
+
+
