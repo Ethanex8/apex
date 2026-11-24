@@ -1185,7 +1185,9 @@ def test_harvest_feedback_preview_loc_fallback(monkeypatch: pytest.MonkeyPatch) 
     assert all_items[1]["path"] == "VISION.md"
     assert all_items[1]["is_resolved"] is True
     assert all_items[2]["is_resolved"] is True
-    assert all_items[2]["replies"][0]["body"] == "Reply to fixed."
+    replies = all_items[2]["replies"]
+    assert isinstance(replies, list)
+    assert replies[0]["body"] == "Reply to fixed."
     assert harvest_feedback._extract_preview_location("plain text") == (None, None)
 
 
