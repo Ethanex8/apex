@@ -595,6 +595,30 @@ function addDraftToCart() {
   submitNotice.value = `Queued comment at ${target.path}:${target.startLine}`
 }
 
+function stageSummaryDraft() {
+  const trimmed = summaryBody.value.trim()
+  if (!trimmed) return
+  drafts.value.push({
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    kind: 'comment',
+    path: '',
+    startLine: 1,
+    endLine: 1,
+    apiStartLine: 1,
+    apiLine: 1,
+    mode: 'issue',
+    quote: '',
+    sectionTitle: `PR #${meta.prNumber}`,
+    blockKind: 'PR Comment',
+    body: trimmed,
+    createdAt: new Date().toISOString(),
+  })
+  saveDraftState()
+  summaryBody.value = ''
+  submitError.value = ''
+  submitNotice.value = 'Staged top-level PR comment draft. Click Submit when ready to send.'
+}
+
 function removeDraft(id: string) {
   drafts.value = drafts.value.filter((d) => d.id !== id)
   saveDraftState()
@@ -1239,9 +1263,9 @@ onUnmounted(() => {
               <textarea v-model="d.body" rows="2" class="apex-textarea" />
               <span
                 class="apex-mode-badge"
-                :class="{ 'is-warn': d.kind !== 'reply' && d.mode !== 'inline' }"
+                :class="{ 'is-warn': d.kind !== 'reply' && d.mode !== 'inline' && Boolean(d.path) }"
               >
-                {{ d.kind === 'reply' && d.replyTarget ? `Reply to @${d.replyTarget.author}` : modeBadgeLabel(d.mode) }}
+                {{ d.kind === 'reply' && d.replyTarget ? `Reply to @${d.replyTarget.author}` : !d.path ? 'Top-level PR comment' : modeBadgeLabel(d.mode) }}
               </span>
             </div>
 
@@ -1418,25 +1442,37 @@ onUnmounted(() => {
               v-model="summaryBody"
               rows="2"
               class="apex-textarea"
-              placeholder="Optional overall PR comment..."
+              placeholder="Top-level PR comment (stage as draft or include on Submit)..."
+              @keydown.meta.enter.prevent="stageSummaryDraft"
+              @keydown.ctrl.enter.prevent="stageSummaryDraft"
             />
-            <div style="display: flex; gap: 8px; justify-content: flex-end">
+            <div style="display: flex; gap: 8px; justify-content: space-between; align-items: center">
               <button
                 type="button"
                 class="apex-rev-btn"
-                :disabled="drafts.length === 0 && !summaryBody.trim()"
-                @click="copyMarkdownCart"
+                :disabled="!summaryBody.trim()"
+                @click="stageSummaryDraft"
               >
-                Copy MD
+                Stage Draft
               </button>
-              <button
-                type="button"
-                class="apex-rev-btn is-primary"
-                :disabled="submitBusy || (Boolean(auth.token) && drafts.length === 0 && !summaryBody.trim())"
-                @click="submitQueuedReview"
-              >
-                {{ submitBusy ? 'Submitting…' : auth.token ? (drafts.length > 0 ? `Submit (${drafts.length})` : 'Submit') : 'Connect & Submit' }}
-              </button>
+              <div style="display: flex; gap: 8px">
+                <button
+                  type="button"
+                  class="apex-rev-btn"
+                  :disabled="drafts.length === 0 && !summaryBody.trim()"
+                  @click="copyMarkdownCart"
+                >
+                  Copy MD
+                </button>
+                <button
+                  type="button"
+                  class="apex-rev-btn is-primary"
+                  :disabled="submitBusy || (Boolean(auth.token) && drafts.length === 0 && !summaryBody.trim())"
+                  @click="submitQueuedReview"
+                >
+                  {{ submitBusy ? 'Submitting…' : auth.token ? (drafts.length > 0 ? `Submit (${drafts.length})` : 'Submit') : 'Connect & Submit' }}
+                </button>
+              </div>
             </div>
           </div>
         </template>

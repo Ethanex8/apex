@@ -351,18 +351,10 @@ def _build_grouped_inline_items(
     return items
 
 
-def _collect_conv_and_review_items(
-    repo: str,
-    pr_number: int,
-    *,
-    include_bots: bool,
-    include_resolved: bool,
-    since_dt: datetime | None,
-    after_review_id: int | None,
-) -> list[dict[str, object]]:
-    """Collect PR review bodies and issue comments while respecting preview resolution markers."""
-    review_entries = fetch_gh_json(f"repos/{repo}/pulls/{pr_number}/reviews")
-    issue_entries = fetch_gh_json(f"repos/{repo}/issues/{pr_number}/comments")
+def _collect_resolved_roots(
+    review_entries: list[dict[str, object]], issue_entries: list[dict[str, object]]
+) -> set[int]:
+    """Resolve root comment/review IDs using state-comment overrides and body markers."""
     state_overrides: dict[int, bool] = {}
     for entry in issue_entries:
         if m := PREVIEW_STATE_RE.search(str(entry.get("body") or "")):
@@ -377,8 +369,28 @@ def _collect_conv_and_review_items(
             and PREVIEW_RESOLVED_RE.search(str(entry.get("body") or ""))
         ):
             resolved_roots.add(cid)
+    return resolved_roots
 
-    items: list[dict[str, object]] = []
+
+def _collect_conv_and_review_items(
+    repo: str,
+    pr_number: int,
+    *,
+    include_bots: bool,
+    include_resolved: bool,
+    since_dt: datetime | None,
+    after_review_id: int | None,
+) -> list[dict[str, object]]:
+    """Collect PR review bodies and issue comments while grouping preview replies onto parents."""
+    review_entries = fetch_gh_json(f"repos/{repo}/pulls/{pr_number}/reviews")
+    issue_entries = fetch_gh_json(f"repos/{repo}/issues/{pr_number}/comments")
+    resolved_roots = _collect_resolved_roots(review_entries, issue_entries)
+
+    roots: list[dict[str, object]] = []
+    roots_by_id: dict[int, dict[str, object]] = {}
+    replies_by_parent: dict[int, list[dict[str, object]]] = {}
+    skipped_reviews: set[int] = set()
+
     for source, raw_entries in (("review", review_entries), ("issue", issue_entries)):
         for entry in raw_entries:
             visible = _visible_entry_body_and_user(entry, include_bots)
@@ -388,14 +400,8 @@ def _collect_conv_and_review_items(
             if PREVIEW_STATE_RE.search(body):
                 continue
             comment_id = entry.get("id")
-            if (
-                source == "review"
-                and after_review_id is not None
-                and isinstance(comment_id, int)
-                and comment_id <= after_review_id
-            ):
-                continue
-            if not _passes_since(_entry_timestamp(entry), since_dt):
+            if source == "review" and after_review_id is not None and isinstance(comment_id, int) and comment_id <= after_review_id:
+                skipped_reviews.add(comment_id)
                 continue
             reply_m = PREVIEW_REPLY_RE.search(body)
             parent_id = int(reply_m.group(1)) if reply_m else None
@@ -408,8 +414,41 @@ def _collect_conv_and_review_items(
             item = _base_feedback_item(entry, source, body, user)
             if is_marked_resolved:
                 item["is_resolved"] = True
-            items.append(item)
-    return items
+            if parent_id is not None:
+                replies_by_parent.setdefault(parent_id, []).append(item)
+            else:
+                item["replies"] = []
+                item["reply_count"] = 0
+                item["last_author"] = str(item["author"])
+                item["last_activity_at"] = str(item["created_at"] or "")
+                roots.append(item)
+                if isinstance(comment_id, int):
+                    roots_by_id[comment_id] = item
+
+    for parent_id, rep_items in replies_by_parent.items():
+        if parent_id in skipped_reviews:
+            continue
+        parent = roots_by_id.get(parent_id)
+        if parent is None:
+            for rep in rep_items:
+                if _passes_since(str(rep.get("created_at") or ""), since_dt):
+                    roots.append(rep)
+            continue
+        existing = parent["replies"]
+        assert isinstance(existing, list)
+        for rep in rep_items:
+            existing.append({
+                "id": rep.get("id"),
+                "author": rep.get("author"),
+                "created_at": rep.get("created_at"),
+                "body": rep.get("body"),
+            })
+            if ts := str(rep.get("created_at") or ""):
+                parent["last_activity_at"] = ts
+        parent["reply_count"] = len(existing)
+        parent["last_author"] = str(existing[-1]["author"])
+
+    return [item for item in roots if _passes_since(str(item.get("last_activity_at") or item.get("created_at") or ""), since_dt)]
 
 
 def normalize_pr_feedback(

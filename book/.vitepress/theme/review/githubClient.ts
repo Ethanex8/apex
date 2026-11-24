@@ -606,20 +606,21 @@ export async function submitBatchedReview(
 
   for (const d of issueDrafts) {
     try {
+      const commentBody = d.path
+        ? formatPreviewLocationBody(
+            d.body,
+            d.path,
+            d.startLine,
+            d.endLine,
+            d.quote,
+            d.sectionTitle,
+          )
+        : d.body.trim()
       await apiRequest(
         `${GITHUB_API}/repos/${meta.repo}/issues/${meta.prNumber}/comments`,
         {
           method: 'POST',
-          body: JSON.stringify({
-            body: formatPreviewLocationBody(
-              d.body,
-              d.path,
-              d.startLine,
-              d.endLine,
-              d.quote,
-              d.sectionTitle,
-            ),
-          }),
+          body: JSON.stringify({ body: commentBody }),
         },
         token,
         fetcher,
@@ -816,6 +817,10 @@ export function formatMarkdownBundle(
         lines.push(
           `- **Reply to @${item.replyTarget.author}** (${loc}#${item.replyTarget.rootCommentId}): ${item.body.trim()}`,
         )
+        continue
+      }
+      if (!item.path) {
+        lines.push(`- **Top-level PR comment**: ${item.body.trim()}`)
         continue
       }
       const span =

@@ -450,4 +450,29 @@ test('githubClient handles auth, paginated GraphQL threads, unauthenticated REST
     )
   })
   assert.deepEqual(headInfo, { headSha: 'deadbeef1234', state: 'open' })
+
+  const topDraft: DraftComment[] = [
+    {
+      id: 'top1',
+      kind: 'comment',
+      path: '',
+      startLine: 1,
+      endLine: 1,
+      apiStartLine: 1,
+      apiLine: 1,
+      mode: 'issue',
+      quote: '',
+      sectionTitle: 'PR #42',
+      blockKind: 'PR Comment',
+      body: 'Staged top-level PR note',
+      createdAt: '2026-11-24T00:00:00Z',
+    },
+  ]
+  const topRes = await submitBatchedReview(meta, topDraft, '', 'COMMENT', 'pat_123', mockFetch)
+  assert.equal(topRes.outcomes[0].ok, true)
+  const topIssuePost = calls.find(
+    (c) => c.method === 'POST' && c.url.endsWith('/issues/42/comments') && (c.body as { body?: string })?.body === 'Staged top-level PR note',
+  )
+  assert.ok(topIssuePost)
+  assert.match(formatMarkdownBundle(meta, topDraft, ''), /\*\*Top-level PR comment\*\*: Staged top-level PR note/)
 })

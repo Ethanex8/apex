@@ -235,3 +235,49 @@ def test_watch_pr_feedback_transient_errors(
         )
 
 
+def test_harvest_feedback_groups_preview_replies(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Verify preview-anchored replies attach to parent review/issue items with reply_count metadata."""
+    reviews_payload = [
+        {
+            "id": 900,
+            "submitted_at": "2026-11-24T10:00:00Z",
+            "body": "Initial review question",
+            "user": {"login": "reviewer", "type": "User"},
+        }
+    ]
+    issues_payload = [
+        {
+            "id": 901,
+            "created_at": "2026-11-24T11:00:00Z",
+            "body": "Agent response\n\n<!-- apex-preview-reply-to: 900 -->",
+            "user": {"login": "agent", "type": "User"},
+        },
+        {
+            "id": 902,
+            "created_at": "2026-11-24T11:05:00Z",
+            "body": "Orphan reply\n\n<!-- apex-preview-reply-to: 9999 -->",
+            "user": {"login": "agent", "type": "User"},
+        },
+    ]
+
+    def _fake_gh(endpoint: str) -> list[dict[str, object]]:
+        """Return mocked review and issue comment payloads for reply grouping tests."""
+        if endpoint.endswith("/reviews"):
+            return reviews_payload
+        if endpoint.endswith("/issues/9/comments"):
+            return issues_payload
+        return []
+
+    monkeypatch.setattr(watch_pr_feedback.harvest_feedback, "fetch_gh_json", _fake_gh)
+    monkeypatch.setattr(watch_pr_feedback.harvest_feedback, "fetch_review_thread_states", lambda _r, _p: {})
+    items = watch_pr_feedback.harvest_feedback.normalize_pr_feedback(
+        "Ethanex8/apex", 9, since="2026-11-24T10:30:00Z"
+    )
+    assert len(items) == 2
+    assert items[0]["id"] == 900
+    assert items[0]["reply_count"] == 1
+    assert items[0]["last_author"] == "agent"
+    assert items[1]["id"] == 902
+
+
+
