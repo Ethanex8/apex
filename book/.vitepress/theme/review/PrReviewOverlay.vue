@@ -94,7 +94,6 @@ const selectionRect = ref<{ x: number; y: number } | null>(null)
 
 const composerTarget = ref<CommentTarget | null>(null)
 const composerBody = ref('')
-const composerBusy = ref(false)
 const composerError = ref('')
 
 const activeThread = ref<RemoteReviewThread | null>(null)
@@ -542,43 +541,6 @@ function addDraftToCart() {
   submitNotice.value = `Queued comment at ${target.path}:${target.startLine}`
 }
 
-async function postComposerNow() {
-  if (!composerTarget.value || !auth.value.token) return
-  const text = composerBody.value.trim()
-  if (!text) {
-    composerError.value = 'Write a comment first.'
-    return
-  }
-  composerBusy.value = true
-  composerError.value = ''
-  const draft: DraftComment = {
-    id: `${Date.now()}`,
-    ...composerTarget.value,
-    body: text,
-    createdAt: new Date().toISOString(),
-  }
-  try {
-    const outcomes = await submitBatchedReview(
-      meta,
-      [draft],
-      '',
-      'COMMENT',
-      auth.value.token,
-    )
-    const failed = outcomes.find((o) => !o.ok)
-    if (failed) {
-      composerError.value = failed.error ?? 'Failed to post comment'
-      return
-    }
-    composerTarget.value = null
-    composerBody.value = ''
-    submitNotice.value = 'Posted inline comment to PR.'
-    await refreshThreads()
-  } finally {
-    composerBusy.value = false
-  }
-}
-
 function removeDraft(id: string) {
   drafts.value = drafts.value.filter((d) => d.id !== id)
   saveDraftState()
@@ -744,6 +706,20 @@ watch(
   { deep: true },
 )
 
+function syncBodyScrollLock(locked: boolean) {
+  if (typeof document === 'undefined') return
+  const val = locked ? 'hidden' : ''
+  document.documentElement.style.overflow = val
+  document.body.style.overflow = val
+}
+
+watch(
+  [drawerOpen, composerTarget, activeThread],
+  ([drawer, composer, thread]) => {
+    syncBodyScrollLock(Boolean(drawer || composer || thread))
+  },
+)
+
 onMounted(async () => {
   updateViewportMode()
   loadDraftState()
@@ -762,6 +738,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  syncBodyScrollLock(false)
   docObserver?.disconnect()
   docResizeObserver?.disconnect()
   blockIntersectionObserver?.disconnect()
@@ -880,6 +857,8 @@ onUnmounted(() => {
       v-if="composerTarget"
       class="apex-review-ui apex-modal-backdrop"
       @click.self="composerTarget = null"
+      @wheel.self.prevent
+      @touchmove.self.prevent
     >
       <div class="apex-modal-card" role="dialog" aria-label="Draft inline PR comment">
         <div class="apex-meta-row">
@@ -914,20 +893,11 @@ onUnmounted(() => {
             Cancel
           </button>
           <button
-            v-if="auth.token"
-            type="button"
-            class="apex-rev-btn"
-            :disabled="composerBusy"
-            @click="postComposerNow"
-          >
-            {{ composerBusy ? 'Posting…' : 'Post Now' }}
-          </button>
-          <button
             type="button"
             class="apex-rev-btn is-primary"
             @click="addDraftToCart"
           >
-            Add to Review Cart
+            Add
           </button>
         </div>
       </div>
@@ -937,6 +907,8 @@ onUnmounted(() => {
       v-if="activeThread"
       class="apex-review-ui apex-modal-backdrop"
       @click.self="activeThread = null"
+      @wheel.self.prevent
+      @touchmove.self.prevent
     >
       <div class="apex-modal-card" role="dialog" aria-label="PR Review Thread">
         <div class="apex-meta-row">
@@ -1033,6 +1005,8 @@ onUnmounted(() => {
       v-if="drawerOpen"
       class="apex-review-ui apex-drawer-backdrop"
       @click.self="drawerOpen = false"
+      @wheel.self.prevent
+      @touchmove.self.prevent
     >
       <aside class="apex-drawer-panel" aria-label="PR Inline Review Drawer">
         <div class="apex-drawer-header">
