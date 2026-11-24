@@ -1,9 +1,9 @@
 repository:
   title: 'Apex: Autonomous Quadruped from Custom Silicon to Locomotion'
-  tagline: A full-stack robotics platform engineered from first principles—comprising a custom RISC-V processor and
-    6-layer carrier board (`brain`), force-controlled brushless actuators (`drive`), solid-state power protection
-    (`power`), a 3-DOF hopping leg (`limb`), simulator-trained locomotion (`walker`), and synchronized stereo
-    navigation (`sight`).
+  tagline: A full-stack robotics platform engineered from first principles—comprising a custom RISC-V processor
+    and 6-layer carrier board (`brain`), force-controlled brushless actuators (`drive`), solid-state power protection
+    (`power`), a 3-DOF hopping leg (`limb`), simulator-trained locomotion (`walker`), and synchronized stereo navigation
+    (`sight`).
   robot_class: About 2.5 kg Desktop Research Class (about 35 cm long, < 22V touch-safe power, < 2.5 N·m finger-safe
     joints)
   estimated_total_bom_usd: About \$1,495 for robot parts across roughly 12 months (about \$125/mo), plus about \$310–\$540
@@ -37,8 +37,8 @@ phased_procurement:
     and 2x factory-assembled 4-layer motor-driver boards
 - stage: 'System 3: power (Month 6)'
   est_cost_usd: \$150
-  items: 2x factory-assembled 4-layer power/breaker boards, physical mushroom E-stop switch, and 6-cell LiFePO4 battery,
-    charger, and fire-safe storage bag
+  items: 2x factory-assembled 4-layer power/breaker boards, physical mushroom E-stop switch, and 6-cell LiFePO4
+    battery, charger, and fire-safe storage bag
 - stage: 'System 4: limb (Months 7–8)'
   est_cost_usd: \$185
   items: 2x additional motors, housings, carbon-fiber leg tubes, timing belts, and tabletop slotted-aluminum linear-rail
@@ -49,7 +49,8 @@ phased_procurement:
     and tabletop bungee safety gantry (\$180)
 - stage: 'System 6: sight (Months 11–12)'
   est_cost_usd: \$220
-  items: 2x synchronized global-shutter stereo cameras, compact Linux/NPU vision computer, and 3D-printed stereo mount
+  items: 2x synchronized global-shutter stereo cameras, compact Linux/NPU vision computer, and 3D-printed stereo
+    mount
 systems:
 - id: brain
   order: 1
@@ -59,8 +60,8 @@ systems:
   depends_on: []
   est_weeks: 10–12 weeks (8–12 hr/wk)
   graduation_demo: 'Boots from persistent QSPI Flash into 32 MB SDRAM on the custom 6-layer board running the custom
-    SysC compiler and RTOS: interactive ash shell, deterministic 1,000 Hz tilt/PID loop (< 2 µs jitter), and < 0.6 ms
-    neural locomotion inference via the custom mac instruction.'
+    SysC compiler and RTOS: interactive ash shell, deterministic 1,000 Hz tilt/PID loop (< 2 µs jitter), and < 0.6
+    ms neural locomotion inference via the custom mac instruction.'
   phases:
   - id: brain-P1
     name: 'Phase 1: Simulator Tools, Reference CPU & Digital Building Blocks'
@@ -86,7 +87,8 @@ systems:
   depends_on:
   - brain
   est_weeks: 7–8 weeks
-  graduation_demo: A haptic wheel behaving as a programmable spring and damper under live 1,000 Hz commands from brain.
+  graduation_demo: A haptic wheel behaving as a programmable spring and damper under live 1,000 Hz commands from
+    brain.
   phases:
   - id: drive-P1
     name: 'Phase 1: Brushless Motor Physics & Force-Control Simulation'
@@ -120,14 +122,15 @@ systems:
 - id: limb
   order: 4
   name: 3-Joint Force-Controlled Leg & Tabletop Hopping Stand
-  role: '3D leg kinematics, Cartesian impedance, and soft impact landings on a linear rail; becomes Front-Left Leg #1'
+  role: '3D leg kinematics, Cartesian impedance, and soft impact landings on a linear rail; becomes Front-Left Leg
+    #1'
   workspace: ./systems/limb/
   depends_on:
   - drive
   - power
   est_weeks: 6–7 weeks
-  graduation_demo: 'Leg #1 mounted on a compact linear rail floats under gravity compensation and hops smoothly, driven
-    by SysC firmware on brain.'
+  graduation_demo: 'Leg #1 mounted on a compact linear rail floats under gravity compensation and hops smoothly,
+    driven by SysC firmware on brain.'
   phases:
   - id: limb-P1
     name: 'Phase 1: 3D Leg Geometry, Force-Torque Mapping & Gravity Compensation'
@@ -145,8 +148,8 @@ systems:
   depends_on:
   - limb
   est_weeks: 8–10 weeks
-  graduation_demo: Untethered 2.5 kg quadruped stands autonomously, recovers from lateral perturbations, and trots across
-    indoor flooring using a quantized neural policy running natively on brain.
+  graduation_demo: Untethered 2.5 kg quadruped stands autonomously, recovers from lateral perturbations, and trots
+    across indoor flooring using a quantized neural policy running natively on brain.
   phases:
   - id: walker-P1
     name: 'Phase 1: Full 12-Joint Robot Simulation & Body Speed Estimator'
@@ -185,20 +188,23 @@ book:
     number: I
     title: Digital Logic and Processor Architecture
     system: brain
-    summary: Fixed-width binary algebra, instruction set contracts, combinational and sequential logic, single-cycle and 5-stage pipelined processor design, and timing closure.
+    summary: Fixed-width binary algebra, instruction set contracts, combinational and sequential logic, single-cycle
+      and 5-stage pipelined processor design, and timing closure.
     chapters:
     - id: ch-01
       number: 1
       slug: 01_isa_and_binary_arithmetic
       title: Instruction Set Architecture
-      summary: Golden reference modeling, modular binary arithmetic and two's complement, 32-bit instruction encoding, memory-mapped device registers, and hardware traps.
+      summary: Golden reference modeling, modular binary arithmetic and two's complement, 32-bit instruction encoding,
+        memory-mapped device registers, and hardware traps.
       steps:
       - brain-01
     - id: ch-02
       number: 2
       slug: 02_combinational_and_sequential_logic
       title: Combinational and Sequential Logic
-      summary: Carry-chain adders, single-cycle barrel shifters, signed/unsigned comparators, clocked flip-flops, setup/hold windows, 32x32 register files, and sign extension.
+      summary: Carry-chain adders, single-cycle barrel shifters, signed/unsigned comparators, clocked flip-flops,
+        setup/hold windows, 32x32 register files, and sign extension.
       steps:
       - brain-02
       - brain-03
@@ -206,7 +212,8 @@ book:
       number: 3
       slug: 03_clock_domains_and_serial_framing
       title: Clock Domains and Serial Framing
-      summary: Flip-flop metastability, two-stage synchronizers, 16x-oversampled serial framing with byte queues, and logic-analyzer hardware capture.
+      summary: Flip-flop metastability, two-stage synchronizers, 16x-oversampled serial framing with byte queues,
+        and logic-analyzer hardware capture.
       steps:
       - brain-04
       - brain-05
@@ -214,7 +221,8 @@ book:
       number: 4
       slug: 04_single_cycle_datapath_and_memory
       title: Single-Cycle Processor Design
-      summary: Control-table decoding, conditional branches, little-endian byte/halfword alignment, on-chip static memory, and 10k-instruction lockstep verification.
+      summary: Control-table decoding, conditional branches, little-endian byte/halfword alignment, on-chip static
+        memory, and 10k-instruction lockstep verification.
       steps:
       - brain-06
       - brain-07
@@ -223,7 +231,8 @@ book:
       number: 5
       slug: 05_multicycle_math_neural_simd_and_traps
       title: Multi-Cycle Arithmetic and Traps
-      summary: Valid/ready handshakes, shift-add multiply and restoring divide, two-lane 16-bit dot-product hardware, control registers, and 64-bit cycle timers.
+      summary: Valid/ready handshakes, shift-add multiply and restoring divide, two-lane 16-bit dot-product hardware,
+        control registers, and 64-bit cycle timers.
       steps:
       - brain-09
       - brain-10
@@ -232,7 +241,8 @@ book:
       number: 6
       slug: 06_pipelined_execution_and_timing_closure
       title: Pipelined Processor Design
-      summary: Five-stage throughput vs. latency, data-hazard forwarding networks, load-use stalls, precise trap flushes, 100k-instruction stress testing, and 50 MHz timing closure.
+      summary: Five-stage throughput vs. latency, data-hazard forwarding networks, load-use stalls, precise trap
+        flushes, 100k-instruction stress testing, and 50 MHz timing closure.
       steps:
       - brain-12
       - brain-13
@@ -243,13 +253,15 @@ book:
     number: II
     title: Circuit-Board Physics and Memory Interconnects
     system: brain
-    summary: Switching power supplies, transmission-line electromagnetics, 6-layer controlled-impedance circuit-board routing, and external flash, dynamic RAM, and real-time controllers.
+    summary: Switching power supplies, transmission-line electromagnetics, 6-layer controlled-impedance circuit-board
+      routing, and external flash, dynamic RAM, and real-time controllers.
     chapters:
     - id: ch-07
       number: 7
       slug: 07_power_conversion_and_transmission_lines
       title: Power Delivery and Transmission Lines
-      summary: Synchronous step-down switching physics, USB-C power negotiation, copper traces as waveguides, impedance reflections, and multi-stage ceramic capacitor networks.
+      summary: Synchronous step-down switching physics, USB-C power negotiation, copper traces as waveguides, impedance
+        reflections, and multi-stage ceramic capacitor networks.
       steps:
       - brain-17
       - brain-18
@@ -257,7 +269,8 @@ book:
       number: 8
       slug: 08_six_layer_controlled_impedance_pcb
       title: Six-Layer Circuit Board Design
-      summary: Unbroken ground return planes, four-wire voltage sensing, series damping, 120-ohm differential bus termination, test coupons, length matching, and layout verification.
+      summary: Unbroken ground return planes, four-wire voltage sensing, series damping, 120-ohm differential bus
+        termination, test coupons, length matching, and layout verification.
       steps:
       - brain-19
       - brain-20
@@ -268,7 +281,8 @@ book:
       number: 9
       slug: 09_bus_crossbars_flash_and_sdram
       title: Memory Bus and External Controllers
-      summary: Address-decoded bus crossbars, 4-wire persistent flash direct-execution engines, and dynamic RAM capacitor refresh, row/column timing, and burst scheduling.
+      summary: Address-decoded bus crossbars, 4-wire persistent flash direct-execution engines, and dynamic RAM
+        capacitor refresh, row/column timing, and burst scheduling.
       steps:
       - brain-24
       - brain-25
@@ -277,7 +291,8 @@ book:
       number: 10
       slug: 10_realtime_peripherals_and_soc_clocking
       title: System-on-Chip Peripherals and Clocking
-      summary: Motion-sensor serial bursts, sub-microsecond camera shutter latching, differential motor-bus framing and checksums, phase-shifted clock capture, and dock boot.
+      summary: Motion-sensor serial bursts, sub-microsecond camera shutter latching, differential motor-bus framing
+        and checksums, phase-shifted clock capture, and dock boot.
       steps:
       - brain-27
       - brain-28
@@ -286,13 +301,15 @@ book:
     number: III
     title: Compilers and Real-Time Operating Systems
     system: brain
-    summary: Two-pass machine assembly, C compilation from lexing to register allocation, preemptive real-time scheduling, quantized neural inference, and custom-board bring-up.
+    summary: Two-pass machine assembly, C compilation from lexing to register allocation, preemptive real-time scheduling,
+      quantized neural inference, and custom-board bring-up.
     chapters:
     - id: ch-11
       number: 11
       slug: 11_assembly_linking_and_c_parsing
       title: Assembly and C Front-End Parsing
-      summary: Two-pass label resolution, upper/lower address relocations, Flash-to-RAM linker maps, lexical scanning, recursive-descent parsing, pointer typing, and intermediate lowering.
+      summary: Two-pass label resolution, upper/lower address relocations, Flash-to-RAM linker maps, lexical scanning,
+        recursive-descent parsing, pointer typing, and intermediate lowering.
       steps:
       - brain-30
       - brain-31
@@ -301,7 +318,8 @@ book:
       number: 12
       slug: 12_optimization_register_allocation_and_codegen
       title: Compiler Optimization and Code Generation
-      summary: Fixed-point optimization with hardware-register ordering barriers, backward liveness, linear-scan register allocation, stack frames, dot-product emission, and equivalence checks.
+      summary: Fixed-point optimization with hardware-register ordering barriers, backward liveness, linear-scan
+        register allocation, stack frames, dot-product emission, and equivalence checks.
       steps:
       - brain-33
       - brain-34
@@ -310,7 +328,8 @@ book:
       number: 13
       slug: 13_preemptive_rtos_and_synchronization
       title: Preemptive Real-Time Kernel
-      summary: Bare-metal startup, Flash-to-RAM bootloading, 31-register trap context switching, priority-inheritance locks, and single-producer ring buffers.
+      summary: Bare-metal startup, Flash-to-RAM bootloading, 31-register trap context switching, priority-inheritance
+        locks, and single-producer ring buffers.
       steps:
       - brain-36
       - brain-37
@@ -318,7 +337,8 @@ book:
       number: 14
       slug: 14_fixed_point_control_and_board_bringup
       title: Fixed-Point Control and Bring-Up
-      summary: Scaled-integer attitude filtering, 1 kHz feedback jitter histograms, interactive serial shell, sub-millisecond 16-bit neural inference, trace-reflection sweeps, and board graduation.
+      summary: Scaled-integer attitude filtering, 1 kHz feedback jitter histograms, interactive serial shell, sub-millisecond
+        16-bit neural inference, trace-reflection sweeps, and board graduation.
       steps:
       - brain-38
       - brain-39
@@ -329,13 +349,15 @@ book:
     number: IV
     title: Brushless Motors and Power Inverters
     system: drive
-    summary: Permanent-magnet motor physics, rotating-frame current control, 24V 3-phase inverter hardware, 20 kHz embedded firmware, 8:1 planetary gearing, and haptic bench validation.
+    summary: Permanent-magnet motor physics, rotating-frame current control, 24V 3-phase inverter hardware, 20 kHz
+      embedded firmware, 8:1 planetary gearing, and haptic bench validation.
     chapters:
     - id: ch-15
       number: 15
       slug: 15_brushless_electromechanics_and_foc
       title: Field-Oriented Motor Control
-      summary: Three-phase motor induced voltage and magnetic torque, rotating coordinate transforms, space-vector modulation headroom, and nested 20 kHz current plus 1 kHz stiffness loops.
+      summary: Three-phase motor induced voltage and magnetic torque, rotating coordinate transforms, space-vector
+        modulation headroom, and nested 20 kHz current plus 1 kHz stiffness loops.
       steps:
       - drive-01
       - drive-02
@@ -345,7 +367,8 @@ book:
       number: 16
       slug: 16_three_phase_inverters_and_switching
       title: Three-Phase Power Inverters
-      summary: Low-side resistor current sampling, scaled-integer motor packets, transistor switching losses and gate-drive charge pumps, ringing damping, and 4-layer circular board layout.
+      summary: Low-side resistor current sampling, scaled-integer motor packets, transistor switching losses and
+        gate-drive charge pumps, ringing damping, and 4-layer circular board layout.
       steps:
       - drive-05
       - drive-06
@@ -360,7 +383,8 @@ book:
       number: 17
       slug: 17_realtime_motor_firmware_and_observers
       title: Real-Time Motor Control Firmware
-      summary: Shift-add fixed-point trigonometry, timer-triggered analog sampling, 14-bit magnetic angle speed tracking, coil resistance/inductance calibration, cogging compensation, and zero-wait RAM execution.
+      summary: Shift-add fixed-point trigonometry, timer-triggered analog sampling, 14-bit magnetic angle speed
+        tracking, coil resistance/inductance calibration, cogging compensation, and zero-wait RAM execution.
       steps:
       - drive-13
       - drive-15
@@ -374,7 +398,8 @@ book:
       number: 18
       slug: 18_planetary_transmissions_and_actuator_bringup
       title: Planetary Geartrains and Actuator Bring-Up
-      summary: Reflected rotor inertia, 8:1 gear-tooth geometry, parametric 3D CAD, finite-element tooth stress analysis, tolerance stack-ups, oscilloscope switching checks, and haptic wheel graduation.
+      summary: Reflected rotor inertia, 8:1 gear-tooth geometry, parametric 3D CAD, finite-element tooth stress
+        analysis, tolerance stack-ups, oscilloscope switching checks, and haptic wheel graduation.
       steps:
       - drive-22
       - drive-23
@@ -389,13 +414,15 @@ book:
     number: V
     title: Battery Systems and Solid-State Protection
     system: power
-    summary: Lithium-iron-phosphate battery modeling, capacitive surge physics, nonlinear Kalman charge estimation, microsecond solid-state circuit breakers, and fault-injection testing.
+    summary: Lithium-iron-phosphate battery modeling, capacitive surge physics, nonlinear Kalman charge estimation,
+      microsecond solid-state circuit breakers, and fault-injection testing.
     chapters:
     - id: ch-19
       number: 19
       slug: 19_battery_dynamics_and_kalman_estimation
       title: Battery Dynamics and State Estimation
-      summary: Six-cell lithium-iron-phosphate internal impedance and flat voltage plateaus, capacitive startup surge and regenerative braking energy, and nonlinear Kalman fuel-gauge estimation.
+      summary: Six-cell lithium-iron-phosphate internal impedance and flat voltage plateaus, capacitive startup
+        surge and regenerative braking energy, and nonlinear Kalman fuel-gauge estimation.
       steps:
       - power-01
       - power-02
@@ -404,7 +431,8 @@ book:
       number: 20
       slug: 20_solid_state_breakers_and_power_layout
       title: Solid-State Circuit Breakers
-      summary: Back-to-back transistor current blocking, transient-clamped inductive turn-off, 5V step-down loop stability, emergency-stop latching, and thick-copper thermal board layout.
+      summary: Back-to-back transistor current blocking, transient-clamped inductive turn-off, 5V step-down loop
+        stability, emergency-stop latching, and thick-copper thermal board layout.
       steps:
       - power-04
       - power-05
@@ -419,7 +447,8 @@ book:
       number: 21
       slug: 21_power_supervision_and_fault_bringup
       title: Power Supervision and Fault Testing
-      summary: Numerically stable C covariance updates, pre-trigger black-box fault logs, soft pre-charge short-circuit guards, thermistor temperature calibration, and sub-5 us short-circuit bench tests.
+      summary: Numerically stable C covariance updates, pre-trigger black-box fault logs, soft pre-charge short-circuit
+        guards, thermistor temperature calibration, and sub-5 us short-circuit bench tests.
       steps:
       - power-12
       - power-13
@@ -437,13 +466,15 @@ book:
     number: VI
     title: Rigid-Body Kinematics and Compliant Limbs
     system: limb
-    summary: 3D rigid-body transformations, screw-axis kinematics, recursive dynamics, foot-space spring-damper control, hopping control, low-inertia leg mechanics, and rail bring-up.
+    summary: 3D rigid-body transformations, screw-axis kinematics, recursive dynamics, foot-space spring-damper
+      control, hopping control, low-inertia leg mechanics, and rail bring-up.
     chapters:
     - id: ch-22
       number: 22
       slug: 22_rigid_body_motion_and_screw_kinematics
       title: Rigid-Body Kinematics
-      summary: 3D rotation matrices and rigid-body twists, exponential-map forward kinematics, closed-form geometric inverse kinematics with singularity clamping, and virtual-work Jacobian torque mapping.
+      summary: 3D rotation matrices and rigid-body twists, exponential-map forward kinematics, closed-form geometric
+        inverse kinematics with singularity clamping, and virtual-work Jacobian torque mapping.
       steps:
       - limb-01
       - limb-02
@@ -453,7 +484,8 @@ book:
       number: 23
       slug: 23_inverse_dynamics_and_cartesian_impedance
       title: Inverse Dynamics and Impedance Control
-      summary: Linear-time Newton-Euler gravity and inertia sweeps, 3D foot-space spring-damper control, and physics-engine verification with 64x reflected rotor inertia.
+      summary: Linear-time Newton-Euler gravity and inertia sweeps, 3D foot-space spring-damper control, and physics-engine
+        verification with 64x reflected rotor inertia.
       steps:
       - limb-05
       - limb-06
@@ -462,7 +494,8 @@ book:
       number: 24
       slug: 24_contact_estimation_and_hopping_control
       title: Contact Estimation and Hopping Control
-      summary: Sensorless momentum-based impact detection, smooth polynomial foot swing paths, spring-loaded pogo energy control, fixed-point C kinematics, and hardware-to-physics co-simulation.
+      summary: Sensorless momentum-based impact detection, smooth polynomial foot swing paths, spring-loaded pogo
+        energy control, fixed-point C kinematics, and hardware-to-physics co-simulation.
       steps:
       - limb-08
       - limb-09
@@ -473,7 +506,8 @@ book:
       number: 25
       slug: 25_low_inertia_limb_mechanics_and_buckling
       title: Low-Inertia Limb Mechanics
-      summary: Hip-mounted belt transmissions, landing impulse and column buckling, neutral-axis cable routing, 4g landing stress analysis, vertical rail test stand CAD, and software torque limits.
+      summary: Hip-mounted belt transmissions, landing impulse and column buckling, neutral-axis cable routing,
+        4g landing stress analysis, vertical rail test stand CAD, and software torque limits.
       steps:
       - limb-13
       - limb-14
@@ -488,7 +522,8 @@ book:
       number: 26
       slug: 26_embedded_impedance_and_rail_hopping
       title: Embedded Leg Control and Hopping
-      summary: 1 kHz C leg control loop, joint zero-offset calibration, dynamic friction identification, weightless gravity float, soft drop landings, and 30-hop rail graduation.
+      summary: 1 kHz C leg control loop, joint zero-offset calibration, dynamic friction identification, weightless
+        gravity float, soft drop landings, and 30-hop rail graduation.
       steps:
       - limb-22
       - limb-23
@@ -501,13 +536,15 @@ book:
     number: VII
     title: Optimal Balance and Learned Locomotion
     system: walker
-    summary: Floating-base state estimation, constrained quadratic-program balance, receding-horizon predictive control, parallel reinforcement learning, 16-bit quantization, and untethered walking.
+    summary: Floating-base state estimation, constrained quadratic-program balance, receding-horizon predictive
+      control, parallel reinforcement learning, 16-bit quantization, and untethered walking.
     chapters:
     - id: ch-27
       number: 27
       slug: 27_floating_base_estimation_and_qp_balance
       title: Floating-Base State Estimation
-      summary: Unanchored 18-degree-of-freedom body modeling, foot-contact Kalman speed/height estimation, friction-cone force optimization, capture-point footholds, motor voltage limits, and fall reflexes.
+      summary: Unanchored 18-degree-of-freedom body modeling, foot-contact Kalman speed/height estimation, friction-cone
+        force optimization, capture-point footholds, motor voltage limits, and fall reflexes.
       steps:
       - walker-01
       - walker-02
@@ -520,7 +557,8 @@ book:
       number: 28
       slug: 28_centroidal_dynamics_and_convex_mpc
       title: Centroidal Model Predictive Control
-      summary: Single-rigid-body linearization, 200 ms receding-horizon convex force optimization, predictive diagonal trotting, slip reflexes, and energy-efficiency benchmarks.
+      summary: Single-rigid-body linearization, 200 ms receding-horizon convex force optimization, predictive diagonal
+        trotting, slip reflexes, and energy-efficiency benchmarks.
       steps:
       - walker-08
       - walker-09
@@ -533,7 +571,8 @@ book:
       number: 29
       slug: 29_reinforcement_learning_and_quantized_policy
       title: Learned Locomotion Policies
-      summary: Partially observable locomotion formulation, from-scratch policy-gradient reinforcement learning, parallel physics domain randomization, 16-bit dot-product export, and cycle-accurate walking simulation.
+      summary: Partially observable locomotion formulation, from-scratch policy-gradient reinforcement learning,
+        parallel physics domain randomization, 16-bit dot-product export, and cycle-accurate walking simulation.
       steps:
       - walker-15
       - walker-16
@@ -547,7 +586,8 @@ book:
       number: 30
       slug: 30_quadruped_chassis_and_sim_to_real_walking
       title: Quadruped Chassis and Field Walking
-      summary: Carbon sandwich torso CAD, diagonal-trot torsional stress analysis, twisted-pair motor-bus harnesses, overhead safety gantry, actuator system identification, and untethered walking graduation.
+      summary: Carbon sandwich torso CAD, diagonal-trot torsional stress analysis, twisted-pair motor-bus harnesses,
+        overhead safety gantry, actuator system identification, and untethered walking graduation.
       steps:
       - walker-23
       - walker-24
@@ -565,13 +605,15 @@ book:
     number: VIII
     title: Stereo Vision and Autonomous Navigation
     system: sight
-    summary: Camera projection and stereo depth, inertial motion integration, visual-inertial odometry and factor-graph mapping, 3D obstacle grids, motion planning, and autonomous navigation.
+    summary: Camera projection and stereo depth, inertial motion integration, visual-inertial odometry and factor-graph
+      mapping, 3D obstacle grids, motion planning, and autonomous navigation.
     chapters:
     - id: ch-31
       number: 31
       slug: 31_projective_geometry_stereo_and_preintegration
       title: Stereo Camera Geometry
-      summary: Pinhole optics and lens distortion, stereo image rectification and quadratic depth error, feature optical flow with outlier rejection, inertial integration, and sub-50 us shutter sync.
+      summary: Pinhole optics and lens distortion, stereo image rectification and quadratic depth error, feature
+        optical flow with outlier rejection, inertial integration, and sub-50 us shutter sync.
       steps:
       - sight-01
       - sight-02
@@ -583,7 +625,8 @@ book:
       number: 32
       slug: 32_visual_inertial_odometry_slam_and_mapping
       title: Visual-Inertial Odometry and Mapping
-      summary: Rotation-manifold visual-inertial state estimation, sparse bundle adjustment, loop closure, probabilistic 2.5D/3D obstacle grids, metric scale observability, and the 2 Mbps vision-to-spine link.
+      summary: Rotation-manifold visual-inertial state estimation, sparse bundle adjustment, loop closure, probabilistic
+        2.5D/3D obstacle grids, metric scale observability, and the 2 Mbps vision-to-spine link.
       steps:
       - sight-07
       - sight-08
@@ -596,7 +639,8 @@ book:
       number: 33
       slug: 33_motion_planning_and_semantic_safety
       title: Motion Planning and Navigation Safety
-      summary: Robot-radius obstacle inflation with graph/tree path search, dynamic-window velocity tracking, 8-bit neural safety margins, 150 ms communication-timeout safe stops, and full autonomy simulation.
+      summary: Robot-radius obstacle inflation with graph/tree path search, dynamic-window velocity tracking, 8-bit
+        neural safety margins, 150 ms communication-timeout safe stops, and full autonomy simulation.
       steps:
       - sight-14
       - sight-15
@@ -607,7 +651,8 @@ book:
       number: 34
       slug: 34_synchronized_stereo_hardware_and_autonomy
       title: Stereo Vision Hardware and Autonomy
-      summary: Global-shutter stereo baseline sizing, rigid head pod CAD, shutter-sync cable interface, calibration target geometry, handheld room mapping, and untethered obstacle-avoiding quadruped graduation.
+      summary: Global-shutter stereo baseline sizing, rigid head pod CAD, shutter-sync cable interface, calibration
+        target geometry, handheld room mapping, and untethered obstacle-avoiding quadruped graduation.
       steps:
       - sight-19
       - sight-20
@@ -637,10 +682,10 @@ steps:
   first_principles: Instruction bit-field decoding, architectural CPU state (Program Counter + 32 registers + Control/Status
     Registers), two's complement arithmetic & comparing real hardware against a golden software oracle
   reference_reading: Harris & Harris (RISC-V Ed.), Ch. 6
-  status: in_review
+  status: approved
   pr_url: https://github.com/Ethanex8/apex/pull/1
-  commit: null
-  approved_date: null
+  commit: e5fe7a5
+  approved_date: '2026-11-24'
 - id: brain-02
   system: brain
   phase: brain-P1
@@ -701,7 +746,8 @@ steps:
   mode: bench
   title: 'Bench 1: Order Tang Primer 20K FPGA + Logic Analyzer & Flash Serial Echo'
   deliverables:
-  - Order Sipeed Tang Primer 20K Dock Kit (Core SOM + Dock baseboard, $45), 8-ch 24 MHz FX2LP USB logic analyzer ($15), and male-to-female 2.54 mm Dupont jumper wires ($6)
+  - Order Sipeed Tang Primer 20K Dock Kit (Core SOM + Dock baseboard, $45), 8-ch 24 MHz FX2LP USB logic analyzer
+    ($15), and male-to-female 2.54 mm Dupont jumper wires ($6)
   - Flash uart_echo_top bitstream onto Tang Primer 20K and capture live serial frames in PulseView
   verification: Serial terminal echoes typed characters cleanly at 115200 baud and logic analyzer decodes valid
     8N1 UART timing
@@ -1347,8 +1393,8 @@ steps:
     < 2 µs task jitter on logic analyzer
   verification: 32 MB SDRAM memtest passes 100%, ash shell reports < 0.6 ms MLP inference, and logic analyzer confirms
     < 2 µs 1 kHz control loop jitter
-  first_principles: 'Full-stack convergence: custom SystemVerilog -> custom 6-layer PCB -> custom C compiler -> custom
-    RTOS operating together as one deterministic physical machine'
+  first_principles: 'Full-stack convergence: custom SystemVerilog -> custom 6-layer PCB -> custom C compiler ->
+    custom RTOS operating together as one deterministic physical machine'
   reference_reading: VISION.md
   status: pending
   pr_url: null
@@ -1785,8 +1831,8 @@ steps:
   - Power FOC PCB from current-limited bench PSU (20V / 0.5A cap), flash STM32G4 & probe 3-phase PWM edges + dead-time
     on oscilloscope
   verification: Clean 3.3V/10V rails, crisp complementary PWM dead-time with zero switch shoot-through voltage spikes
-  first_principles: Comparing real transistor switching edges on an oscilloscope directly against the drive-12
-    SPICE simulation
+  first_principles: Comparing real transistor switching edges on an oscilloscope directly against the drive-12 SPICE
+    simulation
   reference_reading: systems/drive/README.md
   status: pending
   pr_url: null
@@ -1815,8 +1861,8 @@ steps:
   deliverables:
   - Assemble bearings, 8:1 gearbox, motor & rear driver PCB; measure static backdrive torque and tooth play (backlash)
   verification: Smooth manual backdrivability (< 0.12 N·m friction) and backlash < 0.3 deg
-  first_principles: Observing how low reflected inertia and low friction turn motor coil current into a clean
-    torque sensor
+  first_principles: Observing how low reflected inertia and low friction turn motor coil current into a clean torque
+    sensor
   reference_reading: systems/drive/README.md
   status: pending
   pr_url: null
@@ -3002,8 +3048,8 @@ steps:
   - systems/walker/tb/test_brain_walks_mujoco.py (compiled SysC ESKF + 50 Hz RL neural network running inside Verilator
     chip sim drives the 12-joint MuJoCo quadruped)
   verification: uv run --with pytest pytest systems/walker/tb/test_brain_walks_mujoco.py
-  first_principles: Verifying end-to-end that the custom CPU, compiler, RTOS, and quantized neural network
-    locomote a full physics model prior to physical leg bring-up
+  first_principles: Verifying end-to-end that the custom CPU, compiler, RTOS, and quantized neural network locomote
+    a full physics model prior to physical leg bring-up
   reference_reading: VISION.md
   status: pending
   pr_url: null
@@ -3530,8 +3576,8 @@ steps:
   - systems/sight/tb/test_full_autonomy_sim.py (navigates walker autonomously through cluttered virtual room around
     moving obstacles)
   verification: uv run --with pytest pytest systems/sight/tb/test_full_autonomy_sim.py
-  first_principles: Closing the full perception-planning-locomotion loop in physics simulation before mounting
-    stereo cameras onto the physical quadruped
+  first_principles: Closing the full perception-planning-locomotion loop in physics simulation before mounting stereo
+    cameras onto the physical quadruped
   reference_reading: VISION.md
   status: pending
   pr_url: null

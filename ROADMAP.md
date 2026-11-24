@@ -6,13 +6,13 @@ Generated from [`roadmap.yaml`](./roadmap.yaml). Tracks **6 integrated subsystem
 
 ## Overall Progress
 
-- **Total Completion**: `░░░░░░░░░░░░░░░░` **0 / 186 steps** (`0.0%`)
-- **Design & Simulation**: **0 / 154** · **Hardware Bench Sessions**: **0 / 32**
-- **Active Step**: **`brain-01`** (🛋️ Couch, 🔍 In Review) — Hardware Simulator Toolchain & Golden RISC-V Reference Emulator
+- **Total Completion**: `░░░░░░░░░░░░░░░░` **1 / 186 steps** (`0.5%`)
+- **Design & Simulation**: **1 / 154** · **Hardware Bench Sessions**: **0 / 32**
+- **Active Step**: **`brain-02`** (🛋️ Couch, ⬜ Pending) — 32-Bit Combinational Arithmetic Logic Unit (ALU) & Single-Cycle Bit Shifter
 
 | # | Subsystem | Role | Progress | Design / Bench | Est. Timeline | Workspace |
 | :---: | :--- | :--- | :--- | :---: | :---: | :--- |
-| **1** | [`brain`](#brain-custom-cpu-on-fpga-6-layer-circuit-board-c-compiler--real-time-os) — Custom CPU on FPGA, 6-Layer Circuit Board, C Compiler & Real-Time OS | Real-time spinal cord and locomotion processor (also operates standalone as a custom FPGA computer) | `░░░░░░░░░░` 0/42 (`0%`) | 36 / 6 | 10–12 weeks (8–12 hr/wk) | [./systems/brain/](./systems/brain/) |
+| **1** | [`brain`](#brain-custom-cpu-on-fpga-6-layer-circuit-board-c-compiler--real-time-os) — Custom CPU on FPGA, 6-Layer Circuit Board, C Compiler & Real-Time OS | Real-time spinal cord and locomotion processor (also operates standalone as a custom FPGA computer) | `░░░░░░░░░░` 1/42 (`2%`) | 36 / 6 | 10–12 weeks (8–12 hr/wk) | [./systems/brain/](./systems/brain/) |
 | **2** | [`drive`](#drive-force-controlled-brushless-motor-driver--81-gearbox) — Force-Controlled Brushless Motor Driver & 8:1 Gearbox | Backdrivable, finger-safe robotic joint actuator (< 2.5 N·m; 12x used in final quadruped) | `░░░░░░░░░░` 0/30 (`0%`) | 24 / 6 | 7–8 weeks | [./systems/drive/](./systems/drive/) |
 | **3** | [`power`](#power-smart-power-distribution-soft-startup--electronic-breaker-spine) — Smart Power Distribution, Soft Startup & Electronic Breaker Spine | Pre-charge limiter, microsecond electronic circuit breaker, and battery fuel gauge protecting all electronics | `░░░░░░░░░░` 0/24 (`0%`) | 19 / 5 | 5–6 weeks | [./systems/power/](./systems/power/) |
 | **4** | [`limb`](#limb-3-joint-force-controlled-leg--tabletop-hopping-stand) — 3-Joint Force-Controlled Leg & Tabletop Hopping Stand | 3D leg kinematics, Cartesian impedance, and soft impact landings on a linear rail; becomes Front-Left Leg #1 | `░░░░░░░░░░` 0/28 (`0%`) | 23 / 5 | 6–7 weeks | [./systems/limb/](./systems/limb/) |
@@ -25,7 +25,7 @@ Generated from [`roadmap.yaml`](./roadmap.yaml). Tracks **6 integrated subsystem
 
 ```mermaid
 flowchart LR
-    brain["1. brain<br/>0/42 steps"]
+    brain["1. brain<br/>1/42 steps"]
     drive["2. drive<br/>0/30 steps"]
     power["3. power<br/>0/24 steps"]
     limb["4. limb<br/>0/28 steps"]
@@ -68,11 +68,11 @@ flowchart LR
 - **Workspace**: [`./systems/brain/`](./systems/brain/)
 - **Builds On**: None (Entry Subsystem)
 - **Integration Milestone**: Boots from persistent QSPI Flash into 32 MB SDRAM on the custom 6-layer board running the custom SysC compiler and RTOS: interactive ash shell, deterministic 1,000 Hz tilt/PID loop (< 2 µs jitter), and < 0.6 ms neural locomotion inference via the custom mac instruction.
-- **Progress**: `░░░░░░░░░░░░` **0 / 42** (`36` design / `6` bench)
+- **Progress**: `░░░░░░░░░░░░` **1 / 42** (`36` design / `6` bench)
 
 | Phase | Steps Done | Design / Bench | Progress |
 | :--- | :---: | :---: | :--- |
-| **Phase 1: Simulator Tools, Reference CPU & Digital Building Blocks** | 0 / 5 | 4 / 1 | `░░░░░░░░░░` `0%` |
+| **Phase 1: Simulator Tools, Reference CPU & Digital Building Blocks** | 1 / 5 | 4 / 1 | `██░░░░░░░░` `20%` |
 | **Phase 2: Basic RISC-V CPU, AI Multiplier & Interrupt Handling** | 0 / 6 | 6 / 0 | `░░░░░░░░░░` `0%` |
 | **Phase 3: 5-Stage Pipelined Processor & FPGA Timing Closure** | 0 / 5 | 5 / 0 | `░░░░░░░░░░` `0%` |
 | **Phase 4: 6-Layer Circuit Board Design & Factory Launch** | 0 / 7 | 6 / 1 | `░░░░░░░░░░` `0%` |
@@ -86,7 +86,7 @@ flowchart LR
 
 #### Phase 1: Simulator Tools, Reference CPU & Digital Building Blocks
 
-- [ ] **`brain-01`** — **Hardware Simulator Toolchain & Golden RISC-V Reference Emulator** *(🛋️ Couch · 🔍 In Review · [PR](https://github.com/Ethanex8/apex/pull/1))*
+- [x] **`brain-01`** — **Hardware Simulator Toolchain & Golden RISC-V Reference Emulator** *(🛋️ Couch · ✅ Approved · approved `2026-11-24` · [PR](https://github.com/Ethanex8/apex/pull/1))*
   - **Deliverables**: `systems/brain/scripts/setup_tools.sh (installs Verilator digital simulator, Yosys/nextpnr FPGA compiler, Icarus, and pytest/cocotb in .tools/)`; `systems/brain/sim/oracle.py (instruction-by-instruction Python reference CPU emulator supporting RV32IM integer/multiply, machine-mode control registers Zicsr, CLINT timer, UART console & custom mac instruction)`; `systems/brain/tb/test_oracle.py (unit tests covering arithmetic, branches, memory loads/stores, interrupt traps & custom mac)`
   - **Verify**: `uv run --with pytest --with pytest-cov pytest --cov=systems/brain/sim --cov-report=term-missing --cov-fail-under=95 systems/brain/tb/test_oracle.py && which verilator yosys nextpnr-himbaechel`
   - **First Principles**: Instruction bit-field decoding, architectural CPU state (Program Counter + 32 registers + Control/Status Registers), two's complement arithmetic & comparing real hardware against a golden software oracle *(Harris & Harris (RISC-V Ed.), Ch. 6)*

@@ -10,10 +10,10 @@ A full-stack robotics platform engineered from first principles—comprising a c
 
 ## Active Milestone
 
-**Current Focus**: **`brain-01`** (🛋️ Couch · 🔍 In Review) — **Hardware Simulator Toolchain & Golden RISC-V Reference Emulator**
+**Current Focus**: **`brain-02`** (🛋️ Couch · ⬜ Pending) — **32-Bit Combinational Arithmetic Logic Unit (ALU) & Single-Cycle Bit Shifter**
 
-- **First Principles**: Instruction bit-field decoding, architectural CPU state (Program Counter + 32 registers + Control/Status Registers), two's complement arithmetic & comparing real hardware against a golden software oracle
-- **Verification Gate**: `uv run --with pytest --with pytest-cov pytest --cov=systems/brain/sim --cov-report=term-missing --cov-fail-under=95 systems/brain/tb/test_oracle.py && which verilator yosys nextpnr-himbaechel`
+- **First Principles**: Ripple-carry vs. carry-lookahead addition, arithmetic (sign-preserving) vs. logical right shifts, signed (SLT) vs. unsigned (SLTU) comparisons, and stateless always_comb logic-gate synthesis rules
+- **Verification Gate**: `make -C systems/brain/tb MODULE=test_alu`
 
 ```bash
 python3 scripts/step.py status          # Progress across all 6 subsystems
@@ -28,7 +28,7 @@ python3 scripts/build.py --check        # Validate roadmap invariants, book sync
 
 | # | Subsystem | Scope | Progress | Design / Bench | Timeline |
 | :---: | :--- | :--- | :---: | :---: | :---: |
-| **1** | [**`brain`**](./systems/brain/) | Custom CPU on FPGA, 6-Layer Circuit Board, C Compiler & Real-Time OS | `░░░░░░░░` **0 / 42** | 36 / 6 | 10–12 weeks (8–12 hr/wk) |
+| **1** | [**`brain`**](./systems/brain/) | Custom CPU on FPGA, 6-Layer Circuit Board, C Compiler & Real-Time OS | `░░░░░░░░` **1 / 42** | 36 / 6 | 10–12 weeks (8–12 hr/wk) |
 | **2** | [**`drive`**](./systems/drive/) | Force-Controlled Brushless Motor Driver & 8:1 Gearbox | `░░░░░░░░` **0 / 30** | 24 / 6 | 7–8 weeks |
 | **3** | [**`power`**](./systems/power/) | Smart Power Distribution, Soft Startup & Electronic Breaker Spine | `░░░░░░░░` **0 / 24** | 19 / 5 | 5–6 weeks |
 | **4** | [**`limb`**](./systems/limb/) | 3-Joint Force-Controlled Leg & Tabletop Hopping Stand | `░░░░░░░░` **0 / 28** | 23 / 5 | 6–7 weeks |
