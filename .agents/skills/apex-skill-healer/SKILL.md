@@ -4,11 +4,11 @@ description: Closed-loop 4-step subset-recall PR review and skill self-healing p
 ---
 # Apex 4-Step Subset-Recall Review & Self-Healing Protocol
 
-Execute this skill whenever user feedback arrives on an open PR or in chat during `in_review` (`docs/REVIEW_PROCESS.md`). Pure mechanical typos (`Tier 0`) fix directly; local editorial polish (`Tier 1`) skips rubric edits and Step 2 recall; only cross-discipline gaps (`Tier 2`) run full Steps 1–4.
+Execute this skill whenever user feedback arrives on an open PR or in chat (`docs/REVIEW_PROCESS.md`). Pure mechanical typos (`Tier 0`) fix directly; local editorial polish (`Tier 1`) skips rubric edits and Step 2 recall; only cross-discipline gaps (`Tier 2`) run full Steps 1–4.
 
 ## Step 1: Comment Sanity Check, Pushback & Persona Proposal (Human Gate 1)
 
-1. Harvest feedback **outside** the repository workspace and record the untouched `HEAD` SHA:
+1. Harvest **unresolved** feedback **outside** the repository workspace and record the untouched `HEAD` SHA:
    ```bash
    python3 scripts/harvest_feedback.py --pr <N> --out /tmp/apex-feedback/pr-<N>.json
    ```
@@ -34,7 +34,7 @@ Execute this skill whenever user feedback arrives on an open PR or in chat durin
 
 ## Step 3: Deliverable Healing, Diff Guard & Clean-Room Convergence
 
-1. Fix **all** panel, gate, and `U_agreed` findings across code, tests, widgets, CSS, and chapter prose (`apex-artifact-author` + `apex-textbook-author`).
+1. Fix **all** panel, gate, and `U_agreed` findings across code, tests, widgets, CSS, and chapter prose (`apex-artifact-author` + `apex-textbook-author`), refreshing `approved_date` on the PR branch via `step.py approve <step-id>` if needed.
 2. Append the retrospective root-cause entry to the relevant `references/calibration_log.md` and run all verification gates (`pytest --cov-fail-under=95`, `check_code.py`, `sync_book.py --check`, `check_book.py`, `build.py --check`, `BOOK_BASE=/apex/ npm --prefix book run build`, `check_visuals.py --screenshot-dir .cache/visual-audit`).
 3. Generate the Step 3 manifest including the pre-fix diff baseline and converge **fresh** frozen-prompt clean-room reviewers across **every emitted shard (`1..K`), Global Macro Critic, Visual Pedagogy Critic, and Diff & Flow Regression Guardian**:
    ```bash
@@ -44,10 +44,9 @@ Execute this skill whenever user feedback arrives on an open PR or in chat durin
 
 ---
 
-## Step 4: Fast-Forward PR Update, Thread Resolution, Book Deploy & `LGTM` Close-Out
+## Step 4: Fast-Forward PR Update, Thread Resolution & 1-Tap Merge Close-Out
 
-1. Commit and push fast-forward updates cleanly (keeping the Ready-for-Review PR open across cycles without force-pushing).
-2. Post concise inline replies on every addressed PR comment (`gh api -X POST repos/<owner>/<repo>/pulls/<N>/comments/<id>/replies`) noting both the deliverable fix and the upstream persona/rubric/gate change.
+1. Commit and push fast-forward updates strictly to the open `step/<step-id>` PR branch (never directly to `main`, and never force-push reviewed commits).
+2. Post concise inline replies on every addressed PR comment (`gh api -X POST repos/<owner>/<repo>/pulls/<N>/comments/<id>/replies`) noting both the deliverable fix and any upstream persona/rubric/gate change.
 3. Resolve every addressed GitHub review thread via GraphQL `resolveReviewThread`, leaving a thread unresolved **only** if a genuine open question remains.
-4. Confirm GitHub Actions CI + GitHub Pages deploy pass, update bookmarks if needed, and await the next review cycle.
-5. **On Explicit `LGTM`**: Run `python3 scripts/step.py approve <step-id> --commit <sha>`, `python3 scripts/build.py --check`, merge changes to `main`, close/merge the PR, and delete temporary branches locally and on `origin`.
+4. Confirm `Apex CI` and the `/apex/pr-<N>/` preview deploy pass, update bookmarks if needed, and await the reviewer's **1-tap Merge** on GitHub (or next review cycle). Never call `gh pr merge` unilaterally.

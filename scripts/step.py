@@ -198,6 +198,9 @@ def cmd_approve(args: argparse.Namespace) -> int:
     if args.commit is not None and not args.commit.strip():
         print("ERROR: --commit SHA cannot be empty", file=sys.stderr)
         return 1
+    if args.pr is not None and not args.pr.strip():
+        print("ERROR: --pr URL cannot be empty", file=sys.stderr)
+        return 1
     data = load_roadmap()
     st = find_step(data, args.step_id)
     if not st:
@@ -215,7 +218,9 @@ def cmd_approve(args: argparse.Namespace) -> int:
     st["approved_date"] = adate
     if args.commit:
         st["commit"] = args.commit.strip()
-    print(f"Approved [{st['id']}] on {adate}")
+    if args.pr:
+        st["pr_url"] = args.pr.strip()
+    print(f"Approved [{st['id']}] on {adate}" + (f" (PR: {st['pr_url']})" if args.pr else ""))
     return save_and_rebuild(data)
 
 
@@ -252,10 +257,11 @@ def main(argv: list[str] | None = None) -> int:
     p_review.add_argument("--pr", help="Optional GitHub PR URL")
     p_review.set_defaults(func=cmd_review)
 
-    p_approve = sub.add_parser("approve", help="Mark a step as approved after explicit LGTM")
+    p_approve = sub.add_parser("approve", help="Mark a step as approved for PR merge or after LGTM")
     p_approve.add_argument("step_id", help="Step ID (e.g. brain-01)")
     p_approve.add_argument("--commit", help="Optional commit SHA")
     p_approve.add_argument("--date", help="Approval date YYYY-MM-DD (defaults to today)")
+    p_approve.add_argument("--pr", help="Optional GitHub PR URL")
     p_approve.set_defaults(func=cmd_approve)
 
     p_reset = sub.add_parser("reset", help="Reset a step back to pending")

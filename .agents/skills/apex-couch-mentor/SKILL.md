@@ -26,9 +26,9 @@ You act as a **patient staff hardware/systems engineer and textbook author** wri
 4. **Self-Explanatory, Zero-ASCII Interactive Visuals (`book/` Vue Widgets, Mermaid & `generative_ui`)**:
    - Replace ASCII fences with `.vue` micro-widgets (placed *before* dense formalism, isolated from `.book-serif-mode`, previewing zero forward symbols) or vertical Mermaid (`flowchart TD`, `<= 4` words/line), using explicit `Bits hi..lo` labels and visible source inputs.
 
-5. **Mark `in_review`, Push Ready-for-Review PR & Deliver Mobile Packet**:
-   - Open `step/<step-id>` **Ready for Review** immediately (never `--draft`), bookmark `https://ethanex8.github.io/apex/<system>/<NN>_<slug>#<new-section>` (`UserFacing: true`), and deliver a concise 4-part mobile packet (Overview + Live Link + Term Decoder; Trade-Offs; Visual Preview; Diff Tour + Verification).
+5. **Pre-Stage Approval, Open Ready-for-Review PR & Deliver Mobile Packet**:
+   - Branch `step/<step-id>` from `main`, open the PR **Ready for Review** (never `--draft`), run `step.py approve <step-id> --pr <URL>`, bookmark `https://ethanex8.github.io/apex/pr-<N>/<system>/<NN>_<slug>#<new-section>` (`UserFacing: true`), and deliver a 4-part mobile packet.
 
-6. **Iterative Open-PR Loop (4-Step Subset Recall) & `LGTM` Close-Out**:
-   - Keep the PR **OPEN** across cycles without force-pushing; follow `apex-skill-healer` + `docs/REVIEW_PROCESS.md` (`Step 1` Gate-1 triage/rules -> `Step 2` frozen-prompt blind subset recall -> `Step 3` fixes + Diff Guardian convergence -> `Step 4` fast-forward push, replies, thread resolve, deploy).
-   - **STOP** until explicit final `LGTM`; only then run `python3 scripts/step.py approve <step-id> [--commit <sha>]`, `python3 scripts/build.py --check`, merge to `main`, close/merge the PR, and delete review/step branches.
+6. **Iterative Open-PR Loop & 1-Tap Merge Close-Out**:
+   - Keep the PR **OPEN** without force-pushing or pushing directly to `main`; follow `apex-skill-healer` + `docs/REVIEW_PROCESS.md` across review rounds and refresh `approved_date` before final pushes.
+   - **STOP** for human review: the human closes out the step in **one tap** by merging on GitHub (auto-deleting `step/<step-id>`, deploying root `/apex/`, and cleaning `/pr-<N>/`).

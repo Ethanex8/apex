@@ -462,9 +462,16 @@ def test_step_cli_lifecycle_and_atomic_rollback(
             ["approve", "alpha-01", "--date", "  "],
             ["approve", "alpha-01", "--date", "2026/11/15"],
             ["approve", "alpha-01", "--commit", " "],
+            ["approve", "alpha-01", "--pr", " "],
         ):
             assert step.main(bad_args) == 1
-        assert step.main(["approve", "alpha-01", "--date", "2026-11-15", "--commit", "abc1234"]) == 0
+        assert (
+            step.main(
+                ["approve", "alpha-01", "--date", "2026-11-15", "--commit", "abc1234", "--pr", "https://example.com/pr/11"]
+            )
+            == 0
+        )
+        assert step.load_roadmap()["steps"][0]["pr_url"] == "https://example.com/pr/11"
 
         # Moving approved -> in_review clears approved_date & commit
         assert step.main(["review", "alpha-01"]) == 0

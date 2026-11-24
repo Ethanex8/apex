@@ -556,6 +556,8 @@ def test_harvest_feedback_pr_normalization_and_cli(tmp_path: Path, monkeypatch: 
         harvest_feedback.resolve_repo_slug()
     with pytest.raises(RuntimeError):
         harvest_feedback.fetch_gh_json("repos/a/b/issues/1/comments")
+    with pytest.raises(RuntimeError):
+        harvest_feedback.fetch_review_thread_states("Ethanex8/apex", 3)
 
     monkeypatch.setattr(harvest_feedback.shutil, "which", lambda _n: "/bin/gh")
     page1 = json.dumps([
@@ -564,24 +566,48 @@ def test_harvest_feedback_pr_normalization_and_cli(tmp_path: Path, monkeypatch: 
     page2 = json.dumps([
         {"id": 2, "path": "ch1.md", "line": 20, "body": "   ", "user": {"login": "Ethanex8", "type": "User"}},
     ])
+    graphql_payload = json.dumps({
+        "data": {
+            "repository": {
+                "pullRequest": {
+                    "reviewThreads": {
+                        "pageInfo": {"hasNextPage": False, "endCursor": None},
+                        "nodes": [
+                            {"id": "PRRT_1", "isResolved": False, "isOutdated": False, "comments": {"nodes": [{"databaseId": 1}]}},
+                        ],
+                    }
+                }
+            }
+        }
+    })
     responses = {
+        "graphql": graphql_payload,
         "pulls/3/comments": f"{page1}\n{page2}",
         "pulls/3/reviews": json.dumps([
             {"id": 3, "body": "Overall nice", "user": {"login": "Ethanex8", "type": "User"}},
         ]),
         "issues/3/comments": json.dumps([
             {"id": 4, "body": "bot noise", "user": {"login": "vercel[bot]", "type": "Bot"}},
+            {"id": 5, "body": f"{harvest_feedback.PREVIEW_COMMENT_MARKER}\nPreview link", "user": {"login": "Ethanex8", "type": "User"}},
         ]),
         "empty": "",
         "dictpayload": json.dumps({"message": "unexpected object"}),
     }
 
-    monkeypatch.setattr(harvest_feedback.subprocess, "run", _FakeGhRunner(responses))
+    def _run_gh(cmd: list[str], **_kw: object) -> subprocess.CompletedProcess[str]:
+        """Stub gh REST, repo view, and GraphQL queries."""
+        if "graphql" in cmd:
+            return subprocess.CompletedProcess(cmd, 0, responses["graphql"], "")
+        return _FakeGhRunner(responses)(cmd)
+
+    monkeypatch.setattr(harvest_feedback.subprocess, "run", _run_gh)
     out_json = tmp_path / "pr3.json"
     assert harvest_feedback.main(["--pr", "3", "--out", str(out_json)]) == 0
     saved = json.loads(out_json.read_text(encoding="utf-8"))
     assert len(saved["items"]) == 2
     assert saved["items"][0]["body"] == "Cut off text"
+    assert saved["items"][0]["thread_id"] == "PRRT_1"
+    assert saved["items"][0]["is_resolved"] is False
     assert harvest_feedback.main(["--pr", "3", "--include-bots"]) == 0
     assert "No human feedback" in harvest_feedback.format_feedback_markdown(9, [])
     assert harvest_feedback.fetch_gh_json("repos/Ethanex8/apex/empty") == []
@@ -592,6 +618,69 @@ def test_harvest_feedback_pr_normalization_and_cli(tmp_path: Path, monkeypatch: 
         harvest_feedback.fetch_gh_json("repos/Ethanex8/apex/bad/endpoint")
     monkeypatch.setattr(harvest_feedback.subprocess, "run", _FakeGhRunner({}))
     assert harvest_feedback.main(["--pr", "3"]) == 1
+
+
+def test_harvest_feedback_thread_filtering_and_pagination(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Verify GraphQL reviewThreads pagination, resolved thread filtering, --include-resolved, and errors."""
+    monkeypatch.setattr(harvest_feedback.shutil, "which", lambda _n: "/bin/gh")
+    page1 = json.dumps({
+        "data": {
+            "repository": {
+                "pullRequest": {
+                    "reviewThreads": {
+                        "pageInfo": {"hasNextPage": True, "endCursor": "CUR1"},
+                        "nodes": [
+                            {"id": "T_OPEN", "isResolved": False, "isOutdated": False, "comments": {"nodes": [{"databaseId": 10}]}},
+                        ],
+                    }
+                }
+            }
+        }
+    })
+    page2 = json.dumps({
+        "data": {
+            "repository": {
+                "pullRequest": {
+                    "reviewThreads": {
+                        "pageInfo": {"hasNextPage": False, "endCursor": None},
+                        "nodes": [
+                            {"id": "T_DONE", "isResolved": True, "isOutdated": True, "comments": {"nodes": [{"databaseId": 20}]}},
+                        ],
+                    }
+                }
+            }
+        }
+    })
+    rest_comments = json.dumps([
+        {"id": 10, "path": "ch1.md", "line": 5, "body": "Open comment", "user": {"login": "Ethanex8", "type": "User"}},
+        {"id": 20, "path": "ch1.md", "line": 9, "body": "Old resolved", "user": {"login": "Ethanex8", "type": "User"}},
+    ])
+
+    def _run_paged(cmd: list[str], **_kw: object) -> subprocess.CompletedProcess[str]:
+        """Stub multi-page GraphQL reviewThreads and REST PR comment endpoints."""
+        if "graphql" in cmd:
+            return subprocess.CompletedProcess(cmd, 0, page2 if "after=CUR1" in cmd else page1, "")
+        if cmd[-1].endswith("pulls/7/comments"):
+            return subprocess.CompletedProcess(cmd, 0, rest_comments, "")
+        return subprocess.CompletedProcess(cmd, 0, "[]", "")
+
+    monkeypatch.setattr(harvest_feedback.subprocess, "run", _run_paged)
+    unresolved = harvest_feedback.normalize_pr_feedback("Ethanex8/apex", 7)
+    assert len(unresolved) == 1
+    assert unresolved[0]["thread_id"] == "T_OPEN"
+
+    all_items = harvest_feedback.normalize_pr_feedback("Ethanex8/apex", 7, include_resolved=True)
+    assert len(all_items) == 2
+    assert all_items[1]["is_resolved"] is True
+    assert "(resolved)" in harvest_feedback.format_feedback_markdown(7, all_items)
+
+    monkeypatch.setattr(
+        harvest_feedback.subprocess,
+        "run",
+        lambda cmd, **_kw: subprocess.CompletedProcess(cmd, 0, "[]", ""),
+    )
+    with pytest.raises(RuntimeError, match="Unexpected GraphQL payload"):
+        harvest_feedback.fetch_review_thread_states("Ethanex8/apex", 7)
 
 
 def test_review_process_doc_and_repo_skills() -> None:

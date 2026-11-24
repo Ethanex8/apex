@@ -2,9 +2,13 @@ name: Apex CI
 
 on:
   push:
-    branches: [main, "step/**"]
+    branches: [main]
   pull_request:
     branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   verify-python-roadmap-and-book:
@@ -34,7 +38,7 @@ jobs:
       - name: Build VitePress interactive textbook (strict link & math check)
         env:
           BOOK_BASE: /${{ github.event.repository.name }}/
-          GITHUB_REF_NAME: ${{ github.ref_name }}
+          GITHUB_REF_NAME: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.ref_name }}
         run: |
           npm --prefix book ci
           npm --prefix book run build
@@ -49,6 +53,7 @@ jobs:
           PYTHONPATH=scripts uv run --with pytest --with pytest-cov --with pyyaml --with playwright
           pytest -v --cov=code_anchors --cov=sync_book --cov=check_book --cov=check_code
           --cov=check_visuals --cov=harvest_feedback --cov=build --cov=step
+          --cov=build_review_plan --cov=chapter_index
           --cov-report=term-missing --cov-fail-under=95 scripts/tests/
 
       - name: Run brain oracle unit tests with >=95% line coverage
