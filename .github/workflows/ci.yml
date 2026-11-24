@@ -43,6 +43,9 @@ jobs:
           npm --prefix book ci
           npm --prefix book run build
 
+      - name: Run PR inline review TypeScript unit tests
+        run: node --test book/.vitepress/theme/review/review.test.mts
+
       - name: Run headless Chromium visual, Mermaid SVG, and contrast gate
         run: |
           uv run --with playwright playwright install --with-deps chromium
@@ -53,7 +56,7 @@ jobs:
           PYTHONPATH=scripts uv run --with pytest --with pytest-cov --with pyyaml --with playwright
           pytest -v --cov=code_anchors --cov=sync_book --cov=check_book --cov=check_code
           --cov=check_visuals --cov=harvest_feedback --cov=build --cov=step
-          --cov=build_review_plan --cov=chapter_index
+          --cov=build_review_plan --cov=chapter_index --cov=export_pr_review_meta
           --cov-report=term-missing --cov-fail-under=95 scripts/tests/
 
       - name: Run pure-Python subsystem test suites with >=95% line coverage

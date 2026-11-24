@@ -6,7 +6,7 @@ This document defines the canonical **3-Tier, 4-Step Subset-Recall PR Review Pro
 
 - **Protected `main` Branch**: Direct pushes, force-pushes, and deletion are disabled via a GitHub Repository Ruleset (`Protect main`), requiring passing `Apex CI` (`verify-python-roadmap-and-book`) and **100% review thread resolution**.
 - **Single PR per Step (`step/<step-id>`)**: Open one Ready-for-Review PR targeting `main` with `step.py approve <step-id> --pr <URL>` pre-staged on the branch so `main` stays `pending` until human merge—zero shadow `review/*` PRs and zero direct-to-`main` pushes.
-- **Isolated PR Previews**: Root `https://ethanex8.github.io/apex/` remains strictly `main`-only, while `book.yml` deploys same-repo PR previews to `https://ethanex8.github.io/apex/pr-<N>/` and cleans them up automatically when the PR closes.
+- **Isolated PR Previews with Inline Reviewing**: Root `https://ethanex8.github.io/apex/` remains strictly `main`-only, while `book.yml` deploys same-repo PR previews to `https://ethanex8.github.io/apex/pr-<N>/` with a two-way inline review overlay—select any sentence or tap any diagram/widget (`+ Annotate`) to queue native GitHub PR review comments (using a repo-scoped `Pull requests: Read and write` fine-grained PAT or zero-token Markdown export), and view, reply to, or resolve existing PR threads inline.
 - **Core Tier-2 Invariant**: Before editing any deliverable on a systemic (`Tier 2`) comment, enforce:
 
 $$

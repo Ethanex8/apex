@@ -1,0 +1,133 @@
+"""Unit tests for PR diff hunk line-range metadata export (`scripts/export_pr_review_meta.py`)."""
+
+from __future__ import annotations
+
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
+SCRIPTS_DIR = Path(__file__).resolve().parents[1]
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
+
+import export_pr_review_meta  # noqa: E402 — repo test runner imports standalone scripts without package install
+
+
+def _git(repo: Path, *args: str) -> str:
+    """Run git in `repo` and return stripped stdout."""
+    proc = subprocess.run(
+        ["git", "-C", str(repo), *args],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return proc.stdout.strip()
+
+
+def test_parse_unified_diff_ranges_handles_hunks_and_deletions() -> None:
+    """Verify unified diff parser extracts merged commentable/added intervals and skips deleted files."""
+    sample_diff = "\n".join([
+        "diff --git a/systems/brain/chapters/01.md b/systems/brain/chapters/01.md",
+        "index 1111111..2222222 100644",
+        "--- a/systems/brain/chapters/01.md",
+        "+++ b/systems/brain/chapters/01.md",
+        "@@ -10,3 +10,4 @@",
+        " context A",
+        "-old line",
+        "+new line A",
+        "+new line B",
+        " context B",
+        "@@ -40 +41,2 @@",
+        "+tail one",
+        "+tail two",
+        "\\ No newline at end of file",
+        "diff --git a/old.md b/old.md",
+        "deleted file mode 100644",
+        "--- a/old.md",
+        "+++ /dev/null",
+        "@@ -1,2 +0,0 @@",
+        "-gone 1",
+        "-gone 2",
+        'diff --git "a/dir/with space.md" "b/dir/with space.md"',
+        '--- "a/dir/with space.md"',
+        '+++ "b/dir/with space.md"',
+        "@@ -1 +1 @@",
+        "-x",
+        "+y",
+    ])
+    parsed = export_pr_review_meta.parse_unified_diff_ranges(sample_diff)
+    assert parsed["systems/brain/chapters/01.md"]["commentable"] == [[10, 13], [41, 42]]
+    assert parsed["systems/brain/chapters/01.md"]["added"] == [[11, 12], [41, 42]]
+    assert "old.md" not in parsed
+    assert parsed["dir/with space.md"]["added"] == [[1, 1]]
+    assert export_pr_review_meta._merge_intervals([]) == []
+    assert export_pr_review_meta._extract_new_path("") is None
+
+
+def test_export_pr_review_meta_real_git_repo_and_cli(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """Verify git diff integration on a temp repo, CLI file output, stdout output, and validation errors."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init")
+    _git(repo, "config", "user.name", "Test")
+    _git(repo, "config", "user.email", "test@example.com")
+
+    target = repo / "chapter.md"
+    target.write_text("line1\nline2\nline3\nline4\nline5\n", encoding="utf-8")
+    _git(repo, "add", "chapter.md")
+    _git(repo, "commit", "-m", "base")
+    base_sha = _git(repo, "rev-parse", "HEAD")
+
+    target.write_text("line1\nline2-edited\nline3\nline4\nline5\nline6-added\n", encoding="utf-8")
+    _git(repo, "add", "chapter.md")
+    _git(repo, "commit", "-m", "head")
+    head_sha = _git(repo, "rev-parse", "HEAD")
+
+    out_file = tmp_path / "out" / "meta.json"
+    rc = export_pr_review_meta.main([
+        "--pr",
+        "42",
+        "--repo",
+        "Ethanex8/apex",
+        "--base-sha",
+        base_sha,
+        "--head-sha",
+        head_sha,
+        "--repo-root",
+        str(repo),
+        "--out",
+        str(out_file),
+    ])
+    assert rc == 0
+    payload = json.loads(out_file.read_text(encoding="utf-8"))
+    assert payload["enabled"] is True
+    assert payload["prNumber"] == 42
+    assert payload["prUrl"] == "https://github.com/Ethanex8/apex/pull/42"
+    assert payload["files"]["chapter.md"]["added"] == [[2, 2], [6, 6]]
+
+    rc_stdout = export_pr_review_meta.main([
+        "--pr",
+        "42",
+        "--repo",
+        "Ethanex8/apex",
+        "--base-sha",
+        base_sha,
+        "--head-sha",
+        head_sha,
+        "--repo-root",
+        str(repo),
+    ])
+    assert rc_stdout == 0
+    assert '"prNumber": 42' in capsys.readouterr().out
+
+    for bad_args in (
+        ["--pr", "0", "--repo", "Ethanex8/apex", "--base-sha", base_sha, "--head-sha", head_sha],
+        ["--pr", "1", "--repo", "badslug", "--base-sha", base_sha, "--head-sha", head_sha],
+        ["--pr", "1", "--repo", "Ethanex8/apex", "--base-sha", "bad!", "--head-sha", head_sha],
+        ["--pr", "1", "--repo", "Ethanex8/apex", "--base-sha", base_sha, "--head-sha", "bad!"],
+        ["--pr", "1", "--repo", "Ethanex8/apex", "--base-sha", "deadbeef", "--head-sha", head_sha, "--repo-root", str(repo)],
+    ):
+        assert export_pr_review_meta.main(bad_args) == 1

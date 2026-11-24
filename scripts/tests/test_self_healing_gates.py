@@ -1111,3 +1111,63 @@ def test_chapter_index_generation_and_consumers(tmp_path: Path, monkeypatch: pyt
     assert out_idx.is_file()
 
 
+def test_harvest_feedback_preview_loc_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Verify harvest_feedback populates missing path/line from apex-preview-loc markers."""
+    monkeypatch.setattr(harvest_feedback.shutil, "which", lambda _n: "/bin/gh")
+    gql = json.dumps({
+        "data": {
+            "repository": {
+                "pullRequest": {
+                    "reviewThreads": {
+                        "pageInfo": {"hasNextPage": False, "endCursor": None},
+                        "nodes": [
+                            {
+                                "id": "T_FILE",
+                                "isResolved": False,
+                                "isOutdated": False,
+                                "comments": {"nodes": [{"databaseId": 301}]},
+                            }
+                        ],
+                    }
+                }
+            }
+        }
+    })
+    inline = json.dumps([
+        {
+            "id": 301,
+            "path": "systems/brain/chapters/01_isa_and_binary_arithmetic.md",
+            "line": None,
+            "body": "Clarify bit range.\n\n<!-- apex-preview-loc: path=systems/brain/chapters/01_isa_and_binary_arithmetic.md line=42-43 -->",
+            "user": {"login": "Ethanex8", "type": "User"},
+        }
+    ])
+    issue_comments = json.dumps([
+        {
+            "id": 302,
+            "body": "Check figure.\n<!-- apex-preview-loc: path=VISION.md line=15 -->",
+            "user": {"login": "Ethanex8", "type": "User"},
+        }
+    ])
+
+    def _run_stub(cmd: list[str], **_kw: object) -> subprocess.CompletedProcess[str]:
+        """Serve GraphQL thread state, file-level inline thread, and issue comment fallback."""
+        if "graphql" in cmd:
+            return subprocess.CompletedProcess(cmd, 0, gql, "")
+        if cmd[-1].endswith("pulls/11/comments"):
+            return subprocess.CompletedProcess(cmd, 0, inline, "")
+        if cmd[-1].endswith("issues/11/comments"):
+            return subprocess.CompletedProcess(cmd, 0, issue_comments, "")
+        return subprocess.CompletedProcess(cmd, 0, "[]", "")
+
+    monkeypatch.setattr(harvest_feedback.subprocess, "run", _run_stub)
+    items = harvest_feedback.normalize_pr_feedback("Ethanex8/apex", 11)
+    assert len(items) == 2
+    assert items[0]["line"] == 42
+    assert items[0]["body"] == "Clarify bit range."
+    assert items[1]["path"] == "VISION.md"
+    assert items[1]["line"] == 15
+    assert items[1]["body"] == "Check figure."
+    assert harvest_feedback._extract_preview_location("plain text") == (None, None)
+
+

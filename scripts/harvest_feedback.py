@@ -31,6 +31,9 @@ from typing import NamedTuple
 
 REPO_SLUG_RE = re.compile(r"^[^/\s]+/[^/\s]+$")
 PREVIEW_COMMENT_MARKER = "<!-- apex-book-preview -->"
+PREVIEW_LOC_RE = re.compile(
+    r"<!--\s*apex-preview-loc:\s*path=([^\s>]+?)(?:\s+line=(\d+)(?:-\d+)?)?\s*-->"
+)
 UNKNOWN_AUTHOR = "unknown"
 REVIEW_THREADS_QUERY = """
 query($owner: String!, $name: String!, $pr: Int!, $after: String) {
@@ -238,20 +241,31 @@ def _visible_entry_body_and_user(
     return body, user
 
 
+def _extract_preview_location(body: str) -> tuple[str | None, int | None]:
+    """Parse optional `<!-- apex-preview-loc: path=... line=... -->` metadata from `body`."""
+    match = PREVIEW_LOC_RE.search(body)
+    if match is None:
+        return None, None
+    parsed_line = int(match.group(2)) if match.group(2) else None
+    return match.group(1), parsed_line
+
+
 def _base_feedback_item(
     entry: dict[str, object], source: str, body: str, user: dict[str, object]
 ) -> dict[str, object]:
     """Construct the shared normalized feedback schema from a GitHub comment or review payload."""
+    fallback_path, fallback_line = _extract_preview_location(body)
+    cleaned_body = PREVIEW_LOC_RE.sub("", body).strip() if fallback_path is not None else body
     return {
         "id": entry.get("id"),
         "source": source,
         "author": _author_login(user),
-        "path": entry.get("path"),
-        "line": entry.get("line") or entry.get("original_line"),
+        "path": entry.get("path") or fallback_path,
+        "line": entry.get("line") or entry.get("original_line") or fallback_line,
         "diff_hunk": entry.get("diff_hunk"),
         "url": entry.get("html_url"),
         "created_at": _entry_timestamp(entry),
-        "body": body,
+        "body": cleaned_body,
     }
 
 
