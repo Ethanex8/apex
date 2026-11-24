@@ -1181,11 +1181,11 @@ def test_harvest_feedback_preview_loc_fallback(monkeypatch: pytest.MonkeyPatch) 
     assert items[0]["line"] == 42
     assert items[0]["body"] == "Clarify bit range."
     all_items = harvest_feedback.normalize_pr_feedback("Ethanex8/apex", 11, include_resolved=True)
-    assert len(all_items) == 4
+    assert len(all_items) == 3
     assert all_items[1]["path"] == "VISION.md"
     assert all_items[1]["is_resolved"] is True
     assert all_items[2]["is_resolved"] is True
-    assert all_items[3]["body"] == "Reply to fixed."
+    assert all_items[2]["replies"][0]["body"] == "Reply to fixed."
     assert harvest_feedback._extract_preview_location("plain text") == (None, None)
 
 
