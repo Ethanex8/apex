@@ -3,6 +3,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useData, useRoute, useRouter, withBase } from 'vitepress'
 import prReviewMeta from 'virtual:apex-pr-review'
 import {
+  fetchPrHeadInfo,
   fetchPrThreads,
   formatMarkdownBundle,
   setThreadResolved,
@@ -82,6 +83,11 @@ const threads = ref<RemoteReviewThread[]>([])
 const threadsLoading = ref(false)
 const threadsLoadedOnce = ref(false)
 const threadsError = ref('')
+const remoteHeadSha = ref('')
+const isPreviewStale = computed(() =>
+  Boolean(remoteHeadSha.value && remoteHeadSha.value !== meta.headSha),
+)
+let lastRefreshAt = 0
 
 const drawerOpen = ref(false)
 const drawerView = ref<'main' | 'setup'>('main')
@@ -315,8 +321,16 @@ async function refreshThreads() {
   threadsLoading.value = true
   threadsError.value = ''
   try {
-    threads.value = await fetchPrThreads(meta.repo, meta.prNumber, auth.value.token)
+    const [fetchedThreads, headInfo] = await Promise.all([
+      fetchPrThreads(meta.repo, meta.prNumber, auth.value.token),
+      fetchPrHeadInfo(meta.repo, meta.prNumber, auth.value.token).catch(() => null),
+    ])
+    threads.value = fetchedThreads
+    if (headInfo?.headSha) {
+      remoteHeadSha.value = headInfo.headSha
+    }
     threadsLoadedOnce.value = true
+    lastRefreshAt = Date.now()
     if (activeThread.value) {
       const updated = threads.value.find((t) => t.id === activeThread.value?.id)
       activeThread.value = updated ?? null
@@ -330,11 +344,19 @@ async function refreshThreads() {
   }
 }
 
+function maybeAutoRefreshThreads() {
+  if (threadsLoading.value) return
+  const minCooldownMs = auth.value.token ? 15_000 : 60_000
+  if (!threadsLoadedOnce.value || Date.now() - lastRefreshAt > minCooldownMs) {
+    refreshThreads()
+  }
+}
+
 function openReviewDrawer(view: 'main' | 'setup' = 'main') {
   drawerOpen.value = true
   drawerView.value = view
-  if (view === 'main' && !threadsLoadedOnce.value && !threadsLoading.value) {
-    refreshThreads()
+  if (view === 'main') {
+    maybeAutoRefreshThreads()
   }
 }
 
@@ -798,6 +820,17 @@ watch(
   },
 )
 
+function handleWindowFocus() {
+  if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
+  maybeAutoRefreshThreads()
+}
+
+function reloadPreviewPage() {
+  if (typeof window !== 'undefined') {
+    window.location.reload()
+  }
+}
+
 onMounted(async () => {
   updateViewportMode()
   loadDraftState()
@@ -810,6 +843,8 @@ onMounted(async () => {
   scheduleMeasure()
   window.addEventListener('resize', updateViewportMode, { passive: true })
   window.addEventListener('resize', scheduleMeasure, { passive: true })
+  window.addEventListener('focus', handleWindowFocus)
+  document.addEventListener('visibilitychange', handleWindowFocus)
   document.addEventListener('selectionchange', scheduleSelectionCheck)
   document.addEventListener('mouseup', scheduleSelectionCheck)
   document.addEventListener('touchend', scheduleSelectionCheck)
@@ -825,6 +860,8 @@ onUnmounted(() => {
   if (typeof window !== 'undefined') {
     window.removeEventListener('resize', updateViewportMode)
     window.removeEventListener('resize', scheduleMeasure)
+    window.removeEventListener('focus', handleWindowFocus)
+    document.removeEventListener('visibilitychange', handleWindowFocus)
     document.removeEventListener('selectionchange', scheduleSelectionCheck)
     document.removeEventListener('mouseup', scheduleSelectionCheck)
     document.removeEventListener('touchend', scheduleSelectionCheck)
@@ -1155,6 +1192,19 @@ onUnmounted(() => {
 
         <template v-if="drawerView === 'main'">
           <div class="apex-drawer-body">
+            <div
+              v-if="isPreviewStale"
+              class="apex-status-banner"
+              style="display: flex; align-items: center; justify-content: space-between; gap: 8px"
+            >
+              <span>
+                PR updated to <code>{{ remoteHeadSha.slice(0, 7) }}</code> (this preview is
+                <code>{{ meta.headSha.slice(0, 7) }}</code>). Reload once deploy completes; drafts stay saved.
+              </span>
+              <button type="button" class="apex-rev-btn" @click="reloadPreviewPage">
+                Reload
+              </button>
+            </div>
             <div v-if="submitNotice" class="apex-status-banner">{{ submitNotice }}</div>
             <div v-if="submitError" class="apex-error-banner">{{ submitError }}</div>
 

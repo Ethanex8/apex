@@ -9,6 +9,7 @@ import {
   normalizeQuote,
 } from './sourceMapper.ts'
 import {
+  fetchPrHeadInfo,
   fetchPrThreads,
   formatMarkdownBundle,
   parsePreviewLocationMarker,
@@ -440,4 +441,13 @@ test('githubClient handles auth, paginated GraphQL threads, unauthenticated REST
   const replyMd = formatMarkdownBundle(meta, replyDrafts, '')
   assert.match(replyMd, /\*\*Reply to @Ethanex8\*\* \(L14, #101\): Staged inline reply/)
   assert.match(replyMd, /\*\*Reply to @Ethanex8\*\* \(#501\): Staged review reply/)
+
+  const headInfo = await fetchPrHeadInfo('Ethanex8/apex', 42, 'pat_123', async (input) => {
+    assert.match(String(input), /\/pulls\/42\?_t=\d+$/)
+    return new Response(
+      JSON.stringify({ head: { sha: 'deadbeef1234' }, state: 'open' }),
+      { status: 200 },
+    )
+  })
+  assert.deepEqual(headInfo, { headSha: 'deadbeef1234', state: 'open' })
 })

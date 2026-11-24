@@ -167,6 +167,24 @@ export async function verifyGitHubToken(
   }
 }
 
+export async function fetchPrHeadInfo(
+  repo: string,
+  prNumber: number,
+  token = '',
+  fetcher: FetchLike = fetch,
+): Promise<{ headSha: string; state: string }> {
+  const pr = await apiRequest<{ head?: { sha?: string }; state?: string }>(
+    `${GITHUB_API}/repos/${repo}/pulls/${prNumber}?_t=${Date.now()}`,
+    { method: 'GET' },
+    token,
+    fetcher,
+  )
+  return {
+    headSha: typeof pr.head?.sha === 'string' ? pr.head.sha : '',
+    state: typeof pr.state === 'string' ? pr.state : 'open',
+  }
+}
+
 interface GqlThreadNode {
   id: string
   isResolved: boolean
