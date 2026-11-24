@@ -56,9 +56,23 @@ jobs:
           --cov=build_review_plan --cov=chapter_index
           --cov-report=term-missing --cov-fail-under=95 scripts/tests/
 
-      - name: Run brain oracle unit tests with >=95% line coverage
-        run: >
-          uv run --with pytest --with pytest-cov
-          pytest -v --cov=systems/brain/sim --cov-report=term-missing --cov-fail-under=95
-          systems/brain/tb/test_oracle.py
+      - name: Run pure-Python subsystem test suites with >=95% line coverage
+        run: |
+          shopt -s nullglob
+          for sys_dir in systems/*/; do
+            sys_name="$(basename "$sys_dir")"
+            tests=()
+            for f in "${sys_dir}"tb/test_*.py "${sys_dir}"sim/test_*.py; do
+              if ! grep -q "cocotb" "$f"; then
+                tests+=("$f")
+              fi
+            done
+            if [ "${#tests[@]}" -gt 0 ]; then
+              echo "Running pytest + >=95% coverage for subsystem: ${sys_name}"
+              cov_mod="${sys_dir}sim"
+              [ -d "$cov_mod" ] || cov_mod="$sys_dir"
+              uv run --with pytest --with pytest-cov pytest -v \
+                --cov="$cov_mod" --cov-report=term-missing --cov-fail-under=95 "${tests[@]}"
+            fi
+          done
 

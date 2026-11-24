@@ -25,6 +25,7 @@ import subprocess
 import sys
 import urllib.request
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -37,6 +38,7 @@ import chapter_index  # noqa: E402 — repo test runner imports standalone scrip
 import check_book  # noqa: E402 — repo test runner imports standalone scripts without package install
 import check_code  # noqa: E402 — repo test runner imports standalone scripts without package install
 import check_visuals  # noqa: E402 — repo test runner imports standalone scripts without package install
+import code_anchors  # noqa: E402 — repo test runner imports standalone scripts without package install
 import harvest_feedback  # noqa: E402 — repo test runner imports standalone scripts without package install
 
 _REAL_IMPORT = builtins.__import__
@@ -49,7 +51,7 @@ def _write(path: Path, text: str) -> Path:
     return path
 
 
-def _fake_import_no_playwright(name: str, *args: object, **kwargs: object) -> object:
+def _fake_import_no_playwright(name: str, *args: Any, **kwargs: Any) -> Any:
     """Simulate a Python environment lacking the `playwright` package."""
     if name.startswith("playwright"):
         raise ImportError("no playwright")
@@ -351,7 +353,7 @@ def test_check_code_tuple_import_and_assert_gates(tmp_path: Path) -> None:
 
 
 def test_check_book_skill_budgets_and_calibration_logs(tmp_path: Path) -> None:
-    """Verify validate_skills rejects missing SKILL.md, bad frontmatter, >120 lines, and missing logs."""
+    """Verify validate_skills enforces docs/calibration/ relocation, zero skill leaks, and GEMINI bullets."""
     (tmp_path / ".agents" / "skills" / "empty-skill").mkdir(parents=True)
     _write(tmp_path / ".agents" / "skills" / "bad-fm" / "SKILL.md", "# No frontmatter\n")
     _write(tmp_path / ".agents" / "skills" / "missing-fields" / "SKILL.md", "---\ntitle: x\n---\nbody\n")
@@ -359,6 +361,10 @@ def test_check_book_skill_budgets_and_calibration_logs(tmp_path: Path) -> None:
         f"- rule {i}" for i in range(122)
     )
     _write(tmp_path / ".agents" / "skills" / "apex-couch-mentor" / "SKILL.md", long_skill)
+    _write(
+        tmp_path / ".agents" / "skills" / "apex-couch-mentor" / "references" / "calibration_log.md",
+        "# Leaked log\n",
+    )
 
     errs, count = check_book.validate_skills(tmp_path)
     joined = "\n".join(errs)
@@ -367,21 +373,24 @@ def test_check_book_skill_budgets_and_calibration_logs(tmp_path: Path) -> None:
     assert "Missing valid YAML frontmatter" in joined
     assert "requires non-empty 'name' and 'description'" in joined
     assert "Exceeds 120-line prompt budget" in joined
-    assert "Missing non-empty references/calibration_log.md" in joined
+    assert "Calibration logs must live in docs/calibration/" in joined
+    assert "Missing non-empty docs/calibration/apex-couch-mentor.md" in joined
 
-    # Clean skill passes validation
+    # Clean skill passes validation and GEMINI bullet check enforces 50-word cap
     clean_root = tmp_path / "clean"
     _write(
         clean_root / ".agents" / "skills" / "apex-couch-mentor" / "SKILL.md",
         "---\nname: apex-couch-mentor\ndescription: clean demo\n---\n# Clean\n",
     )
-    _write(
-        clean_root / ".agents" / "skills" / "apex-couch-mentor" / "references" / "calibration_log.md",
-        "# Log\n\nEntry 1.\n",
-    )
+    _write(clean_root / "docs" / "calibration" / "apex-couch-mentor.md", "# Log\n\nEntry 1.\n")
     errs_ok, count_ok = check_book.validate_skills(clean_root)
     assert count_ok == 1
     assert errs_ok == []
+
+    _write(clean_root / "GEMINI.md", "- " + " ".join(f"w{i}" for i in range(55)) + "\n")
+    assert "split monolithic rules into atomic bullets" in "\n".join(check_book.validate_gemini_rules(clean_root))
+    _write(clean_root / "GEMINI.md", "- Short clean invariant.\n")
+    assert check_book.validate_gemini_rules(clean_root) == []
 
 
 def test_check_visuals_routes_server_and_error_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -460,8 +469,10 @@ def test_check_visuals_chromium_clean_and_defect_detection(tmp_path: Path) -> No
     )
     assert check_visuals.main(["--dist", str(dist), "--base", "/apex/", "--screenshot-dir", str(shots), "clean"]) == 0
     assert (shots / "clean" / "mermaid_0.png").is_file()
+    assert (shots / "clean" / "mermaid_0_dark.png").is_file()
     assert (shots / "clean" / "mermaid_0_mobile.png").is_file()
     assert (shots / "clean" / "widget_0.png").is_file()
+    assert (shots / "clean" / "widget_0_dark.png").is_file()
     assert (shots / "clean" / "widget_0_mobile.png").is_file()
 
     # Broken HTML hitting overflow, shrunken SVG, clipped foreignObject, dark contrast, and post-click error
@@ -512,7 +523,7 @@ def test_check_visuals_chromium_clean_and_defect_detection(tmp_path: Path) -> No
 
 
 def test_check_visuals_math_layout_detection(tmp_path: Path) -> None:
-    """Verify MATH_AUDIT_JS and prose_math_desktop.png catch inline scrollbars and desktop equation overflow."""
+    """Verify MATH_AUDIT_JS, prose_math_desktop.png, and display_math_desktop.png catch math issues."""
     dist = tmp_path / "dist"
     shots = tmp_path / "shots"
     _write(
@@ -526,6 +537,7 @@ def test_check_visuals_math_layout_detection(tmp_path: Path) -> None:
     )
     assert check_visuals.main(["--dist", str(dist), "--base", "/apex/", "--screenshot-dir", str(shots), "clean-math"]) == 0
     assert (shots / "clean-math" / "prose_math_desktop.png").is_file()
+    assert (shots / "clean-math" / "display_math_desktop.png").is_file()
 
     _write(
         dist / "bad-math.html",
@@ -672,7 +684,7 @@ def test_harvest_feedback_thread_filtering_and_pagination(monkeypatch: pytest.Mo
     all_items = harvest_feedback.normalize_pr_feedback("Ethanex8/apex", 7, include_resolved=True)
     assert len(all_items) == 2
     assert all_items[1]["is_resolved"] is True
-    assert "(resolved)" in harvest_feedback.format_feedback_markdown(7, all_items)
+    assert "(resolved; outdated)" in harvest_feedback.format_feedback_markdown(7, all_items)
 
     monkeypatch.setattr(
         harvest_feedback.subprocess,
@@ -682,9 +694,90 @@ def test_harvest_feedback_thread_filtering_and_pagination(monkeypatch: pytest.Mo
     with pytest.raises(RuntimeError, match="Unexpected GraphQL payload"):
         harvest_feedback.fetch_review_thread_states("Ethanex8/apex", 7)
 
+    monkeypatch.setattr(
+        harvest_feedback.subprocess,
+        "run",
+        lambda cmd, **_kw: subprocess.CompletedProcess(cmd, 0, json.dumps({"errors": [{"message": "bad"}]}), ""),
+    )
+    with pytest.raises(RuntimeError, match="graphql returned errors"):
+        harvest_feedback.fetch_review_thread_states("Ethanex8/apex", 7)
+
+
+def test_harvest_feedback_thread_grouping_and_since_filters(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Verify inline thread reply grouping, outdated flags, and --since / --after-review-id filtering."""
+    monkeypatch.setattr(harvest_feedback.shutil, "which", lambda _n: "/bin/gh")
+    gql = json.dumps({
+        "data": {
+            "repository": {
+                "pullRequest": {
+                    "reviewThreads": {
+                        "pageInfo": {"hasNextPage": False, "endCursor": None},
+                        "nodes": [
+                            {
+                                "id": "T_GRP",
+                                "isResolved": False,
+                                "isOutdated": True,
+                                "comments": {"nodes": [{"databaseId": 100}, {"databaseId": 101}]},
+                            }
+                        ],
+                    }
+                }
+            }
+        }
+    })
+    inline = json.dumps([
+        {
+            "id": 101,
+            "in_reply_to_id": 100,
+            "path": "ch1.md",
+            "line": 12,
+            "created_at": "2026-11-24T02:00:00Z",
+            "body": "Fixed in commit abc",
+            "user": {"login": "Ethanex8", "type": "User"},
+        },
+        {
+            "id": 100,
+            "path": "ch1.md",
+            "line": 12,
+            "created_at": "2026-11-24T01:00:00Z",
+            "body": "Original human critique",
+            "user": {"login": "reviewer", "type": "User"},
+        },
+    ])
+    reviews = json.dumps([
+        {"id": 50, "submitted_at": "2026-11-24T00:30:00Z", "body": "Old review", "user": {"login": "reviewer", "type": "User"}},
+        {"id": 55, "submitted_at": "2026-11-24T02:30:00Z", "body": "New review", "user": {"login": "reviewer", "type": "User"}},
+    ])
+
+    def _run_stub(cmd: list[str], **_kw: object) -> subprocess.CompletedProcess[str]:
+        """Serve GraphQL thread state, inline replies, and timestamped review summaries."""
+        if "graphql" in cmd:
+            return subprocess.CompletedProcess(cmd, 0, gql, "")
+        if cmd[-1].endswith("pulls/9/comments"):
+            return subprocess.CompletedProcess(cmd, 0, inline, "")
+        if cmd[-1].endswith("pulls/9/reviews"):
+            return subprocess.CompletedProcess(cmd, 0, reviews, "")
+        return subprocess.CompletedProcess(cmd, 0, "[]", "")
+
+    monkeypatch.setattr(harvest_feedback.subprocess, "run", _run_stub)
+    items = harvest_feedback.normalize_pr_feedback(
+        "Ethanex8/apex", 9, since="2026-11-24T01:30:00Z", after_review_id=50
+    )
+    assert len(items) == 2
+    assert items[0]["id"] == 100
+    assert items[0]["reply_count"] == 1
+    assert items[0]["last_author"] == "Ethanex8"
+    assert items[0]["is_outdated"] is True
+    assert items[1]["id"] == 55
+    md = harvest_feedback.format_feedback_markdown(9, items)
+    assert "outdated; 1 reply, last: @Ethanex8" in md
+    assert "[thread=T_GRP root=100]" in md
+    with pytest.raises(ValueError):
+        harvest_feedback.parse_iso_timestamp("   ")
+
 
 def test_review_process_doc_and_repo_skills() -> None:
-    """Verify docs/REVIEW_PROCESS.md Mermaid flowchart and all repo SKILL.md files pass validation."""
+    """Verify docs/REVIEW_PROCESS.md Mermaid flowchart, repo SKILL.md files, and GEMINI.md pass."""
     repo_root = Path(__file__).resolve().parents[2]
     doc = repo_root / "docs" / "REVIEW_PROCESS.md"
     assert doc.exists()
@@ -699,6 +792,7 @@ def test_review_process_doc_and_repo_skills() -> None:
     errs, count = check_book.validate_skills(repo_root)
     assert count == 4
     assert errs == []
+    assert check_book.validate_gemini_rules(repo_root) == []
 
 
 def test_build_review_plan_sharding_ledgers_and_seams(tmp_path: Path) -> None:
@@ -707,7 +801,7 @@ def test_build_review_plan_sharding_ledgers_and_seams(tmp_path: Path) -> None:
     _write(tmp_path / "systems" / "demo" / "sim" / "core.py", "def add(x: int) -> int:\n    return x + 1\n")
     chap = _write(
         tmp_path / "systems" / "demo" / "chapters" / "01_intro.md",
-        "# Intro Chapter\n\nOpening **Alpha Term** with `op_a`.\n"
+        "# Intro Chapter\n\nOpening **Alpha Term** with `op_a` and $U_N(x) = \\lfloor x \\rfloor$.\n"
         "```markdown\n## Fake Heading Inside Fence\n<IgnoredWidget />\n```\n"
         "## 1. Base Concepts\n### First Topic\n"
         "Introduce **Beta Term** and `op_b`.\n"
@@ -732,9 +826,12 @@ def test_build_review_plan_sharding_ledgers_and_seams(tmp_path: Path) -> None:
     assert "WidgetA.vue" in plan.shards[1].widgets[0]
     assert "systems/demo/sim/core.py#L1-L2" in plan.shards[1].transclusions[0]
     assert any("Alpha Term" in t.prompt and "`op_a`" in t.prompt for t in plan.tasks if "Shard 2" in t.role)
+    assert any("U_N" in t.prompt and "\\lfloor" in t.prompt for t in plan.tasks if "Shard 2" in t.role)
     assert any("Exercise 1.1" in t.prompt for t in plan.tasks if "Shard 3" in t.role)
     assert any("<unresolved:MissingWidget.vue>" in w for w in plan.shards[-1].widgets)
-    assert any("Diff & Flow Regression Guardian" == t.role for t in plan.tasks)
+    vis_task = next(t for t in plan.tasks if t.role == "Visual Pedagogy Critic")
+    assert "WidgetA.vue" in vis_task.prompt
+    assert "book/.vitepress/theme/components/WidgetA.vue" in vis_task.allowed_files
     diff_task = next(t for t in plan.tasks if t.role == "Diff & Flow Regression Guardian")
     assert diff_task.type_name == "research"
     assert ".cache/review-diff/01_intro.patch" in diff_task.allowed_files
@@ -742,46 +839,142 @@ def test_build_review_plan_sharding_ledgers_and_seams(tmp_path: Path) -> None:
 
 
 def test_build_review_plan_diff_patch_generation(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Verify git-backed pre-generated unified diff patch creation and invalid base-ref failure."""
+    """Verify git-backed pre-generated unified diff patch creation, untracked files, and PNG freshness."""
     chap = _write(tmp_path / "systems" / "demo" / "chapters" / "01_git.md", "# Git\n\nBaseline prose.\n")
+    untracked_vue = _write(
+        tmp_path / "book" / ".vitepress" / "theme" / "components" / "NewWidget.vue",
+        "<template><svg /></template>\n",
+    )
     (tmp_path / ".git").mkdir()
 
     def _fake_git_diff(cmd: list[str], **_kw: object) -> subprocess.CompletedProcess[str]:
-        """Simulate git diff success for HEAD~1 and error for bad refs."""
+        """Simulate git diff, untracked ls-files, and bad-ref errors."""
         if "bad-ref" in cmd:
             return subprocess.CompletedProcess(cmd, 128, "", "fatal: bad revision")
+        if "ls-files" in cmd:
+            return subprocess.CompletedProcess(cmd, 0, "book/.vitepress/theme/components/NewWidget.vue\n", "")
         return subprocess.CompletedProcess(cmd, 0, "+Updated prose.\n", "")
 
     monkeypatch.setattr(build_review_plan.subprocess, "run", _fake_git_diff)
     plan = build_review_plan.build_review_plan(chap, root_dir=tmp_path, base_ref="HEAD~1")
-    patch_file = tmp_path / ".cache" / "review-diff" / "01_git.patch"
-    assert "+Updated prose." in patch_file.read_text(encoding="utf-8")
+    patch_txt = (tmp_path / ".cache" / "review-diff" / "01_git.patch").read_text(encoding="utf-8")
+    assert "+Updated prose." in patch_txt
+    assert "+++ b/book/.vitepress/theme/components/NewWidget.vue" in patch_txt
     macro_task = next(t for t in plan.tasks if t.role == "Global Macro & Dependency Critic")
     assert "opening theory" not in macro_task.prompt.lower()
     vis_task = next(t for t in plan.tasks if t.role == "Visual Pedagogy Critic")
-    assert ".cache/visual-audit/demo__01_git/" in vis_task.prompt
     assert "MISSING" in vis_task.prompt
     shot_dir = _write(tmp_path / ".cache" / "visual-audit" / "demo__01_git" / "widget_0.png", "png").parent
+    _write(shot_dir / "widget_0_dark.png", "png_dark")
     _write(tmp_path / "book" / ".vitepress" / "theme" / "custom.css", "body{}")
     old_t = shot_dir.joinpath("widget_0.png").stat().st_mtime - 50
-    os.utime(tmp_path / "book" / ".vitepress" / "theme" / "custom.css", (old_t, old_t))
-    os.utime(chap, (old_t, old_t))
+    for item in (tmp_path / "book" / ".vitepress" / "theme" / "custom.css", untracked_vue, chap):
+        os.utime(item, (old_t, old_t))
     fresh_plan = build_review_plan.build_review_plan(chap, root_dir=tmp_path)
-    assert "FRESH (1 PNGs)" in next(t for t in fresh_plan.tasks if t.role == "Visual Pedagogy Critic").prompt
+    assert "FRESH (2 PNGs, 1 dark)" in next(t for t in fresh_plan.tasks if t.role == "Visual Pedagogy Critic").prompt
     os.utime(chap, (old_t + 100, old_t + 100))
     stale_plan = build_review_plan.build_review_plan(chap, root_dir=tmp_path)
     assert "STALE" in next(t for t in stale_plan.tasks if t.role == "Visual Pedagogy Critic").prompt
     assert build_review_plan.main(["--chapter", str(chap), "--base-ref", "bad-ref"]) == 1
 
 
+def test_build_review_plan_code_sharding_and_freshness(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Verify --code AST/SV/C/Vue sharding, CHAPTER_INDEX staleness guard, and ledger overflow markers."""
+    _write(tmp_path / "systems" / "demo" / "README.md", "# Demo Spec\n")
+    big_py = _write(
+        tmp_path / "systems" / "demo" / "sim" / "engine.py",
+        '"""Engine."""\nCONST = 1\n\ndef f1() -> int:\n    return 1\n\n'
+        "def f2() -> int:\n    x = 1\n    y = 2\n    return x + y\n",
+    )
+    _write(tmp_path / "systems" / "demo" / "tb" / "test_engine.py", "def test_ok() -> None:\n    assert True\n")
+    sv_file = _write(tmp_path / "systems" / "demo" / "rtl" / "alu.sv", "module a; endmodule\nmodule b; endmodule\n")
+    vue_file = _write(tmp_path / "book" / "W.vue", "<script setup>\nconst x = 1\n</script>\n<template><div /></template>\n")
+
+    code_plan = build_review_plan.build_review_plan(
+        code_paths=[big_py, sv_file, vue_file], root_dir=tmp_path, target_lines=5
+    )
+    assert code_plan.chapter is None
+    assert code_plan.slug == "code_engine"
+    assert any("Architecture & Spec-Correctness Auditor" in t.role for t in code_plan.tasks)
+    assert any("systems/demo/README.md" in t.allowed_files for t in code_plan.tasks)
+    assert any("systems/demo/tb/test_engine.py" in t.allowed_files for t in code_plan.tasks)
+
+    # Stale CHAPTER_INDEX.md raises unless --allow-stale-index is supplied
+    chap = _write(tmp_path / "systems" / "demo" / "chapters" / "01_c.md", "# Demo\n\n" + "\n".join(f"**T{i}** `c{i}`" for i in range(12)))
+    _write(tmp_path / "docs" / "CHAPTER_INDEX.md", "# Stale\n")
+    with pytest.raises(RuntimeError, match="CHAPTER_INDEX.md is missing or stale"):
+        build_review_plan.build_review_plan(chap, root_dir=tmp_path)
+
+    monkeypatch.setattr(build_review_plan, "MAX_LEDGER_ITEMS", 3)
+    chap.write_text(
+        "# Demo\n\n## First\n" + "\n".join(f"**T{i}** `c{i}`" for i in range(6)) + "\n## Next\nBody.\n",
+        encoding="utf-8",
+    )
+    ov_plan = build_review_plan.build_review_plan(chap, root_dir=tmp_path, target_lines=5, allow_stale_index=True)
+    assert any("(+3 more)" in t.prompt for t in ov_plan.tasks if "Shard 2" in t.role)
+    assert build_review_plan.main(["--code", str(big_py), "--json"]) == 0
+    assert json.loads(capsys.readouterr().out)["slug"] == "code_engine"
+    assert build_review_plan.main([]) == 1
+
+
+def test_build_review_plan_scoped_round_r_plus_1(tmp_path: Path) -> None:
+    """Verify --changed-since narrows local prose fixes while cascading structural/visual changes."""
+    chap = _write(
+        tmp_path / "systems" / "demo" / "chapters" / "01_scope.md",
+        "# Scope\n\nIntro **RootTerm**.\n\n"
+        "## 1. One\nLine A.\nLine B.\nLine C.\n\n"
+        "## 2. Two\nLine D.\nLine E.\nLine F.\n\n"
+        "## 3. Three\nLine G.\nLine H.\n",
+    )
+    py_mod = _write(tmp_path / "systems" / "demo" / "sim" / "m.py", "def a() -> int:\n    return 1\n\ndef b() -> int:\n    return 2\n")
+    for cmd in (
+        ["git", "init"],
+        ["git", "config", "user.name", "Apex"],
+        ["git", "config", "user.email", "apex@example.com"],
+        ["git", "add", "."],
+        ["git", "commit", "-m", "base"],
+    ):
+        subprocess.run(cmd, cwd=tmp_path, check=True, capture_output=True)
+    base_sha = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=tmp_path, text=True).strip()
+
+    # 1. Local prose-only edit in Section 2 selects Shard 2 + Diff Guardian (no Macro/Visual)
+    chap.write_text(chap.read_text(encoding="utf-8").replace("Line E.", "Line E polished."), encoding="utf-8")
+    p_local = build_review_plan.build_review_plan(
+        chap, code_paths=[py_mod, py_mod], root_dir=tmp_path, target_lines=5, overlap_lines=0, base_ref=base_sha, changed_since=base_sha
+    )
+    assert p_local.shards[1].overlap_prev is None
+    assert p_local.shards[1].overlap_next is None
+    assert len(p_local.code_files) == 1
+    roles_local = [t.role for t in p_local.tasks]
+    assert "Cold-Reader (Shard 2/3)" in roles_local
+    assert "Cold-Reader (Shard 1/3)" not in roles_local
+    assert "Global Macro & Dependency Critic" not in roles_local
+    assert "Diff & Flow Regression Guardian" in roles_local
+
+    # 2. Structural bold/heading change in Section 1 cascades to Shards 1..3 + Macro Critic
+    chap.write_text(chap.read_text(encoding="utf-8").replace("Line A.", "Define **NewTerm**."), encoding="utf-8")
+    p_struct = build_review_plan.build_review_plan(
+        chap, root_dir=tmp_path, target_lines=5, overlap_lines=0, base_ref=base_sha, changed_since=base_sha
+    )
+    roles_struct = [t.role for t in p_struct.tasks]
+    assert "Cold-Reader (Shard 3/3)" in roles_struct
+    assert "Global Macro & Dependency Critic" in roles_struct
+    with pytest.raises(ValueError, match="--target-lines"):
+        build_review_plan.build_review_plan(chap, root_dir=tmp_path, target_lines=0)
+    with pytest.raises(ValueError, match="--overlap-lines"):
+        build_review_plan.build_review_plan(chap, root_dir=tmp_path, overlap_lines=-1)
+
+
 def test_build_review_plan_edge_cases_and_cli(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    """Verify no-H2 chapters, oversized H2 without H3, ledger caps, JSON/Markdown CLI, and missing files."""
+    """Verify no-H2 chapters, oversized H2 without H3, JSON/Markdown CLI, and missing files."""
     chap = _write(
         tmp_path / "chap.md",
         "Intro without headings.\n"
         "## Giant Unsplit\n"
         "```python\n### ignored fence\n**Ignored** `ignored`\n```\n"
-        + "\n".join(f"**Term{i}** and `tok_{i}`" for i in range(90))
+        + "\n".join(f"**Term{i}** and `tok_{i}`" for i in range(20))
         + "\n## Tail\nDone.\n",
     )
     no_h2 = _write(tmp_path / "plain.md", "Just lines.\nZero H2.\n")
@@ -792,11 +985,74 @@ def test_build_review_plan_edge_cases_and_cli(tmp_path: Path, capsys: pytest.Cap
     giant_plan = build_review_plan.build_review_plan(chap, root_dir=tmp_path, target_lines=10)
     assert len(giant_plan.shards) == 2
     assert build_review_plan.main(["--chapter", str(chap), "--json"]) == 0
-    payload = json.loads(capsys.readouterr().out)
-    assert payload["slug"] == "chap"
+    assert json.loads(capsys.readouterr().out)["slug"] == "chap"
     assert build_review_plan.main(["--chapter", str(chap)]) == 0
     assert "## Frozen Subagent Prompts" in capsys.readouterr().out
     assert build_review_plan.main(["--chapter", str(tmp_path / "missing.md")]) == 1
+
+
+def test_check_code_mypy_rtl_c_and_tautology(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Verify mypy runner, tautological asserts, multi-module Verilator flags, C/H/ASM gates, and multiline C anchors."""
+    taut_test = _write(
+        tmp_path / "scripts" / "test_taut.py",
+        '"""Taut."""\n\ndef test_bad() -> None:\n    """Check."""\n    assert True\n    assert 1 == 1\n'
+        "    # code-gate: allow-tautology (fixture)\n    assert True\n",
+    )
+    py_errs = "\n".join(check_code.check_python_file(taut_test, tmp_path))
+    assert py_errs.count("Tautological constant assert") == 2
+
+    with monkeypatch.context() as mp:
+        mp.setattr(check_code.shutil, "which", lambda _n: None)
+        assert "Missing required type-checker 'mypy'" in "\n".join(check_code._run_mypy([taut_test], tmp_path))
+        mp.setattr(check_code.shutil, "which", lambda n: "/bin/mypy" if n == "mypy" else None)
+        mp.setattr(check_code.subprocess, "run", lambda *a, **kw: subprocess.CompletedProcess([], 1, "bad type", ""))
+        assert "mypy type check failed" in "\n".join(check_code._run_mypy([taut_test], tmp_path))
+
+    # Multi-module SV + long always block + missing Ports contract + .svh skip
+    long_sv = "\n".join("      q <= q + 1;" for _ in range(82))
+    bad_sv = _write(
+        tmp_path / "systems" / "demo" / "rtl" / "sub" / "top.sv",
+        f"// Purpose: top\nmodule top(input logic clk);\n  always_ff @(posedge clk) begin\n{long_sv}\n  end\nendmodule\n",
+    )
+    _write(tmp_path / "systems" / "demo" / "rtl" / "defs.svh", "// Purpose: defs\n`define W 32\n")
+    seen_cmds: list[list[str]] = []
+
+    def _fake_tool_run(cmd: list[str], **_kw: object) -> subprocess.CompletedProcess[str]:
+        """Record invoked tool CLI arguments and succeed."""
+        seen_cmds.append(cmd)
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    with monkeypatch.context() as mp:
+        mp.setattr(check_code.shutil, "which", lambda n: f"/bin/{n}" if n in {"verilator", "gcc"} else None)
+        mp.setattr(check_code.subprocess, "run", _fake_tool_run)
+        sv_errs = "\n".join(check_code.check_rtl_or_c_file(bad_sv, tmp_path))
+        assert "missing 'Ports:' or 'Clock Domain'" in sv_errs
+        assert "SystemVerilog 'always_ff' block is" in sv_errs
+        assert any("-y" in c and any("rtl" in arg for arg in c) for c in seen_cmds)
+        assert check_code.check_rtl_or_c_file(tmp_path / "systems" / "demo" / "rtl" / "defs.svh", tmp_path) == []
+
+    # C header guard, multiline C anchor, >80-line C func, target-compiler exemption, and .S contract
+    bad_h = _write(tmp_path / "systems" / "demo" / "fw" / "bad.h", "// Purpose: hdr\ntypedef int word_t;\n")
+    assert "missing include guard" in "\n".join(check_code.check_rtl_or_c_file(bad_h, tmp_path))
+    long_c = "\n".join("  x += 1;" for _ in range(82))
+    c_file = _write(
+        tmp_path / "systems" / "demo" / "fw" / "isr.c",
+        "// Purpose: ISR\n// code-gate: allow-target-compiler (RISC-V CSR intrinsics)\n"
+        f"static inline int\nhandle_irq(int a,\n           int b) {{\n  int c = '{{';\n  int x = a + b + c;\n{long_c}\n  return x;\n}}\n",
+    )
+    c_errs = check_code.check_rtl_or_c_file(c_file, tmp_path)
+    assert len(c_errs) == 1
+    assert "C function 'handle_irq' is" in c_errs[0]
+    assert code_anchors.resolve_anchor(c_file, "handle_irq")[0] == 3
+    bad_exempt_c = _write(
+        tmp_path / "systems" / "demo" / "fw" / "bad_ex.c",
+        "// Purpose: bad\n// code-gate: allow-target-compiler ()\nint ok(void) { return '{'; }\n",
+    )
+    with monkeypatch.context() as mp:
+        mp.setattr(check_code.shutil, "which", lambda _n: None)
+        assert "Missing required C compiler" in "\n".join(check_code.check_rtl_or_c_file(bad_exempt_c, tmp_path))
+    asm_file = _write(tmp_path / "systems" / "demo" / "fw" / "boot.S", "reset:\n  nop\n")
+    assert "Missing top contract header" in "\n".join(check_code.check_rtl_or_c_file(asm_file, tmp_path))
 
 
 def test_check_book_skill_bullet_and_leak_gates(tmp_path: Path) -> None:

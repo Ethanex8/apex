@@ -166,9 +166,10 @@ def _validate_single_step(
         errors.append(f"[{step_id}] Phase '{pid}' belongs to '{phase_to_sys[pid]}', not '{sid}'")
 
     if m := re.match(r"^([a-z][a-z0-9_-]*)-(\d{2})$", str(step_id)):
-        if m.group(1) != sid:
-            errors.append(f"[{step_id}] Step prefix '{m.group(1)}' does not match system '{sid}'")
-        sys_step_nums[sid].append(int(m.group(2)))
+        if isinstance(sid, str):
+            if m.group(1) != sid:
+                errors.append(f"[{step_id}] Step prefix '{m.group(1)}' does not match system '{sid}'")
+            sys_step_nums[sid].append(int(m.group(2)))
     else:
         errors.append(f"[{step_id}] Step id must follow '<system>-NN' format")
 

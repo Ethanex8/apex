@@ -29,10 +29,9 @@ We write a **publication-grade systems engineering textbook** (*Harris & Harris*
 ### Pass 1: Pedagogical Blueprint & Strict Layering
 1. Inventory every constant, helper, public state field, normal path, and error path across the step's source and test files.
 2. **Layering, Intrinsic Properties & Abstraction Boundaries**:
-   - Group related elementary operators coherently in foundational theory before downstream sections scatter them, establish intrinsic representation properties early, complete core architectures before custom extensions, defer operation-specific derivations to consumers, and keep project constants or unbuilt tools out of general principles.
-   - Keep higher-layer descriptions strictly at their observable contract—never leak unintroduced lower-layer ports, control pins, or unmotivated microarchitectural circuit topologies/cycle counts.
-   - Open comparative sections with a direct plain-English takeaway and justify choices honestly without unmotivated claims about avoiding standard constructs (`if`/`else`).
-   - Keep `###` subsections aligned to headings, unbraid distinct mechanisms into separate items/subsections, order simplest direct consequences before implementation tricks, and open new operations with plain-English intuition before corner cases.
+   - Group elementary operators coherently in foundational theory, establish intrinsic representation properties early, complete base architectures before custom extensions, defer operation-specific derivations to consumers, and exclude project constants or unbuilt tools from general concepts.
+   - Keep higher-layer descriptions strictly at their observable contract—never leak unintroduced lower-layer ports, pins, datapath topologies, or cycle counts.
+   - Open comparative sections with a direct plain-English takeaway, keep `###` subsections aligned to headings, unbraid distinct mechanisms, order simplest direct properties before implementation tricks, and open new operations with plain intuition before corner cases.
 3. **Concise Headings & Calm Bridges**:
    - Keep H1 (`<= 6` words) and `##`/`###` (`<= 8` words) crisp without `:`, `&`, parentheticals, or backticks, opening each section with a calm 2–4 sentence conceptual bridge.
 4. **SVG-First Visuals, Exact Insertion Audits & Focused Transclusions**:
@@ -42,7 +41,7 @@ We write a **publication-grade systems engineering textbook** (*Harris & Harris*
 ### Pass 2: Uncompressed Multi-Chunk Drafting
 1. Draft sequentially with **one sentence per Markdown line** (no `<br>`), starting a fresh paragraph before pivoting from intuition/examples into formal proofs.
 2. **Mechanism First & Code-Only Backticks**:
-   - State what each new term does before placing `(**expanded name / acronym**)` immediately adjacent (never after an em-dash clause, and never stacking `3+` acronyms); tabulate `3+` structured coordinates, opcodes, or maps, balancing lead-in prose proportionally across all table groups.
+   - State what each new term does before placing `(**expanded name / acronym**)` immediately adjacent (never after an em-dash or `3+` stacked acronyms); tabulate `3+` structured items with proportional lead-in prose across every table category.
    - Reserve backticks strictly for literal code, tokens, constants, CLI flags, and paths—never acronyms, proper nouns, prose numbers/units, or raw TeX; keep boldface `<= 6` words.
 3. **Step-by-Step Math, Proof Economy & Scannable Examples**:
    - Refresh prerequisite identities with examples before use, prove rounding directions cleanly, keep motivating sentences single-purpose, and state shared bridges once before parallel lists without prose-math walls, `"Next we prove..."` boilerplate, or forward catalogs.
@@ -52,12 +51,12 @@ We write a **publication-grade systems engineering textbook** (*Harris & Harris*
 4. **Responsive Widgets & Math Hygiene**: Isolate `.hw-widget` from `.book-serif-mode`, keep inline MathJax `display: inline; overflow: visible`, label `Bits hi..lo`, escape `\$`, and avoid prose `~` or bare line numbers.
 
 ### Pass 3: Deterministic Sharded Clean-Room Audit & Convergence
-Generate the exact non-biased sharded review manifest before spawning any `research` subagent (`Model: 'inherit'`, `Workspace: 'inherit'`):
+Run `python3 scripts/build.py` so `docs/CHAPTER_INDEX.md` is fresh, then generate the non-biased sharded review manifest before spawning any `research` subagent (`Model: 'inherit'`, `Workspace: 'inherit'`):
 ```bash
-python3 scripts/build_review_plan.py --chapter <chapter_path> [--base-ref <pre_fix_sha>]
+python3 scripts/build_review_plan.py --chapter <chapter_path> [--base-ref <pre_fix_sha>] [--changed-since <round_r_sha>]
 ```
-- **Execute Every Emitted Task Verbatim**: Never write ad-hoc custom steering prompts. Launch each shard's `Cold-Reader` (`rubric_cold_reader.md`) and `Math & Logic Editor` (`rubric_math_editor.md`), the chapter's `Global Macro & Dependency Critic` (`rubric_macro_critic.md`) and `Visual Pedagogy Critic` (`rubric_visual_critic.md`), plus the `Diff & Flow Regression Guardian` (`rubric_diff_guardian.md`) using `build_review_plan.py`'s exact prompts.
-- **Mandatory Convergence Loop**: After any edit resolving Round $r$ tickets, rebuild screenshots, re-run `build_review_plan.py --base-ref <pre_fix_sha>`, and iterate fresh clean-room rounds until all shards, global checks, and the Diff Guardian report **zero P0/P1/P2 defects**.
+- **Execute Every Emitted Task Verbatim**: Never write ad-hoc custom steering prompts. Launch every emitted shard's `Cold-Reader`, `Math & Logic Editor`, `Global Macro & Dependency Critic`, `Visual Pedagogy Critic`, and `Diff & Flow Regression Guardian` using `build_review_plan.py`'s exact prompts.
+- **Mandatory Convergence Loop**: Run a full sweep on Round 1 (`--base-ref <pre_fix_sha>`). After resolving Round $r$ tickets, rebuild book + light/dark PNGs and converge fresh clean-room reviewers (`--base-ref <pre_fix_sha> --changed-since <round_r_sha>`) until **zero P0/P1/P2 defects** remain.
 
 ### Pass 4: Synthesis Problems & Final Verification Gate
 Close with `4–6` synthesis **Problems** (`## <N>. Problems`, `### Problem <K>: <Title>`, `<details><summary>Worked Solution</summary>`), then pass every gate:
@@ -67,4 +66,4 @@ python3 scripts/check_book.py && uv run --with pyyaml python3 scripts/build.py -
 BOOK_BASE=/apex/ npm --prefix book run build
 uv run --with playwright python3 scripts/check_visuals.py --screenshot-dir .cache/visual-audit
 ```
-Keep `SKILL.md <= 120` lines, record retrospective patterns in `references/calibration_log.md`, and sync skills via `save_skill`.
+Keep `SKILL.md <= 120` lines, record substantive lessons in `docs/calibration/apex-textbook-author.md`, and sync `.agents/skills/*` via `save_skill` whenever any skill or rubric file changes.

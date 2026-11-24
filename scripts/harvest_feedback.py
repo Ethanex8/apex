@@ -2,14 +2,14 @@
 """Fetch and normalize GitHub PR review comments into structured calibration records.
 
 Purpose:
-  Pull inline diff comments, review summaries, and conversation comments from a
+  Pull inline diff threads, review summaries, and conversation comments from a
   GitHub pull request via `gh api` so `apex-skill-healer` can score blind
   subagent recall against every unresolved human critique item.
 
 Usage:
   python3 scripts/harvest_feedback.py --pr 3
   python3 scripts/harvest_feedback.py --pr 3 --out /tmp/apex-feedback/pr-3.json
-  python3 scripts/harvest_feedback.py --pr 3 --include-resolved
+  python3 scripts/harvest_feedback.py --pr 3 --since 2026-11-24T00:00:00Z --after-review-id 100
 
 Outputs:
   Prints a readable Markdown feedback checklist to stdout and optionally writes
@@ -25,10 +25,13 @@ import shutil
 import subprocess
 import sys
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
+from typing import NamedTuple
 
 REPO_SLUG_RE = re.compile(r"^[^/\s]+/[^/\s]+$")
 PREVIEW_COMMENT_MARKER = "<!-- apex-book-preview -->"
+UNKNOWN_AUTHOR = "unknown"
 REVIEW_THREADS_QUERY = """
 query($owner: String!, $name: String!, $pr: Int!, $after: String) {
   repository(owner: $owner, name: $name) {
@@ -64,6 +67,37 @@ class ReviewThreadState:
     is_outdated: bool
 
 
+def parse_iso_timestamp(raw: str) -> datetime:
+    """Parse an ISO-8601 timestamp string into an aware UTC `datetime`."""
+    cleaned = raw.strip()
+    if not cleaned:
+        raise ValueError("Timestamp cannot be empty")
+    normalized = cleaned[:-1] + "+00:00" if cleaned.endswith(("Z", "z")) else cleaned
+    parsed = datetime.fromisoformat(normalized)
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
+def _require_gh_bin() -> str:
+    """Return resolved `gh` binary path on PATH or raise `RuntimeError`."""
+    gh_bin = shutil.which("gh")
+    if not gh_bin:
+        raise RuntimeError("Missing required 'gh' CLI on PATH")
+    return gh_bin
+
+
+def _extract_user(entry: dict[str, object]) -> dict[str, object]:
+    """Return the normalized `user` mapping from a GitHub comment or review payload."""
+    user_raw = entry.get("user")
+    return user_raw if isinstance(user_raw, dict) else {}
+
+
+def _author_login(user: dict[str, object]) -> str:
+    """Extract author login from `user`, falling back to `UNKNOWN_AUTHOR`."""
+    return str(user.get("login") or UNKNOWN_AUTHOR)
+
+
 def resolve_repo_slug(explicit_repo: str | None = None) -> str:
     """Return `owner/repo` from `--repo` or active `gh repo view`, failing fast if unavailable."""
     if explicit_repo:
@@ -71,9 +105,7 @@ def resolve_repo_slug(explicit_repo: str | None = None) -> str:
         if not REPO_SLUG_RE.match(cleaned):
             raise ValueError(f"Invalid --repo '{explicit_repo}' (expected owner/repo)")
         return cleaned
-    gh_bin = shutil.which("gh")
-    if not gh_bin:
-        raise RuntimeError("Missing required 'gh' CLI on PATH")
+    gh_bin = _require_gh_bin()
     proc = subprocess.run(
         [gh_bin, "repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"],
         capture_output=True,
@@ -87,9 +119,7 @@ def resolve_repo_slug(explicit_repo: str | None = None) -> str:
 
 def fetch_gh_json(endpoint: str) -> list[dict[str, object]]:
     """Invoke `gh api --paginate` for `endpoint` and decode single or multi-page JSON arrays."""
-    gh_bin = shutil.which("gh")
-    if not gh_bin:
-        raise RuntimeError("Missing required 'gh' CLI on PATH")
+    gh_bin = _require_gh_bin()
     proc = subprocess.run(
         [gh_bin, "api", "--paginate", endpoint],
         capture_output=True,
@@ -121,35 +151,36 @@ def fetch_gh_json(endpoint: str) -> list[dict[str, object]]:
 
 def fetch_review_thread_states(repo: str, pr_number: int) -> dict[int, ReviewThreadState]:
     """Query GraphQL `reviewThreads` and map inline comment `databaseId` to `ReviewThreadState`."""
-    gh_bin = shutil.which("gh")
-    if not gh_bin:
-        raise RuntimeError("Missing required 'gh' CLI on PATH")
+    gh_bin = _require_gh_bin()
     owner, name = repo.split("/", 1)
     comment_map: dict[int, ReviewThreadState] = {}
     cursor: str | None = None
 
     while True:
+        # Use raw `-f` for string variables so numeric/boolean-looking logins never coerce types.
         cmd = [
             gh_bin,
             "api",
             "graphql",
             "-f",
             f"query={REVIEW_THREADS_QUERY}",
-            "-F",
+            "-f",
             f"owner={owner}",
-            "-F",
+            "-f",
             f"name={name}",
             "-F",
             f"pr={pr_number}",
         ]
         if cursor is not None:
-            cmd.extend(["-F", f"after={cursor}"])
+            cmd.extend(["-f", f"after={cursor}"])
         proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
         if proc.returncode != 0:
             raise RuntimeError(f"gh api graphql failed: {proc.stderr.strip() or proc.stdout.strip()}")
         payload = json.loads(proc.stdout)
         if not isinstance(payload, dict):
             raise RuntimeError(f"Unexpected GraphQL payload type: {type(payload).__name__}")
+        if g_errors := payload.get("errors"):
+            raise RuntimeError(f"gh api graphql returned errors: {g_errors}")
         pr_node = ((payload.get("data") or {}).get("repository") or {}).get("pullRequest") or {}
         conn = pr_node.get("reviewThreads") or {}
         for node in conn.get("nodes") or []:
@@ -168,8 +199,137 @@ def fetch_review_thread_states(repo: str, pr_number: int) -> dict[int, ReviewThr
             break
         cursor = str(page_info.get("endCursor") or "")
         if not cursor:
-            break
+            raise RuntimeError("GraphQL reviewThreads pagination returned hasNextPage=True with empty endCursor")
     return comment_map
+
+
+def _is_skipped_bot(user: dict[str, object], body: str, include_bots: bool) -> bool:
+    """Return True when automated bot or preview banner noise should be skipped."""
+    if include_bots:
+        return False
+    user_type = str(user.get("type") or "")
+    return user_type.lower() == "bot" or PREVIEW_COMMENT_MARKER in body
+
+
+def _entry_timestamp(entry: dict[str, object]) -> str:
+    """Extract ISO timestamp string (`created_at` or `submitted_at`) if present."""
+    raw = entry.get("created_at") or entry.get("submitted_at") or ""
+    return str(raw).strip()
+
+
+def _passes_since(ts_str: str, since_dt: datetime | None) -> bool:
+    """Return True when `since_dt` is unset, timestamp is absent, or timestamp >= `since_dt`."""
+    # Fail open when an item lacks a timestamp so undated records are never dropped silently.
+    if since_dt is None or not ts_str:
+        return True
+    return parse_iso_timestamp(ts_str) >= since_dt
+
+
+def _visible_entry_body_and_user(
+    entry: dict[str, object], include_bots: bool
+) -> tuple[str, dict[str, object]] | None:
+    """Return `(body, user)` for non-empty visible comments, or None if blank or skipped bot noise."""
+    body = str(entry.get("body") or "").strip()
+    if not body:
+        return None
+    user = _extract_user(entry)
+    if _is_skipped_bot(user, body, include_bots):
+        return None
+    return body, user
+
+
+def _base_feedback_item(
+    entry: dict[str, object], source: str, body: str, user: dict[str, object]
+) -> dict[str, object]:
+    """Construct the shared normalized feedback schema from a GitHub comment or review payload."""
+    return {
+        "id": entry.get("id"),
+        "source": source,
+        "author": _author_login(user),
+        "path": entry.get("path"),
+        "line": entry.get("line") or entry.get("original_line"),
+        "diff_hunk": entry.get("diff_hunk"),
+        "url": entry.get("html_url"),
+        "created_at": _entry_timestamp(entry),
+        "body": body,
+    }
+
+
+class _ThreadSortKey(NamedTuple):
+    """Chronological sort key placing root inline comments ahead of replies."""
+
+    is_reply: int
+    created_at: datetime
+    comment_id: int
+
+
+def _thread_sort_key(pair: tuple[dict[str, object], ReviewThreadState | None]) -> _ThreadSortKey:
+    """Sort root comments ahead of replies and order replies chronologically in UTC."""
+    entry = pair[0]
+    is_reply = 0 if entry.get("in_reply_to_id") is None else 1
+    ts_str = _entry_timestamp(entry)
+    dt = parse_iso_timestamp(ts_str) if ts_str else datetime.max.replace(tzinfo=UTC)
+    cid = raw_id if isinstance(raw_id := entry.get("id"), int) else 0
+    return _ThreadSortKey(is_reply=is_reply, created_at=dt, comment_id=cid)
+
+
+def _build_grouped_inline_items(
+    entries: list[dict[str, object]],
+    thread_states: dict[int, ReviewThreadState],
+    *,
+    include_bots: bool,
+    include_resolved: bool,
+    since_dt: datetime | None,
+) -> list[dict[str, object]]:
+    """Group inline comments by GraphQL thread ID (or root reply ID) into single items."""
+    groups: dict[str, list[tuple[dict[str, object], ReviewThreadState | None]]] = {}
+    for entry in entries:
+        visible = _visible_entry_body_and_user(entry, include_bots)
+        if visible is None:
+            continue
+        comment_id = entry.get("id")
+        t_state = thread_states.get(comment_id) if isinstance(comment_id, int) else None
+        if not include_resolved and t_state is not None and t_state.is_resolved:
+            continue
+        reply_parent = entry.get("in_reply_to_id")
+        if t_state is not None:
+            key = f"thread:{t_state.thread_id}"
+        elif isinstance(reply_parent, int):
+            key = f"root:{reply_parent}"
+        else:
+            key = f"root:{comment_id}"
+        groups.setdefault(key, []).append((entry, t_state))
+
+    items: list[dict[str, object]] = []
+    for bucket in groups.values():
+        bucket.sort(key=_thread_sort_key)
+        root_entry, root_state = bucket[0]
+        last_ts = _entry_timestamp(bucket[-1][0])
+        # Filter on the thread's latest activity after grouping so older open threads surface new replies.
+        if not _passes_since(last_ts, since_dt):
+            continue
+        root_body = str(root_entry.get("body") or "").strip()
+        root_user = _extract_user(root_entry)
+        replies = [
+            {
+                "id": rep_entry.get("id"),
+                "author": _author_login(_extract_user(rep_entry)),
+                "created_at": _entry_timestamp(rep_entry),
+                "body": str(rep_entry.get("body") or "").strip(),
+            }
+            for rep_entry, _ in bucket[1:]
+        ]
+        item = _base_feedback_item(root_entry, "inline", root_body, root_user)
+        item["last_activity_at"] = last_ts
+        item["replies"] = replies
+        item["reply_count"] = len(replies)
+        item["last_author"] = str(replies[-1]["author"]) if replies else str(item["author"])
+        if root_state is not None:
+            item["thread_id"] = root_state.thread_id
+            item["is_resolved"] = root_state.is_resolved
+            item["is_outdated"] = root_state.is_outdated
+        items.append(item)
+    return items
 
 
 def normalize_pr_feedback(
@@ -178,43 +338,41 @@ def normalize_pr_feedback(
     *,
     include_bots: bool = False,
     include_resolved: bool = False,
+    since: str | None = None,
+    after_review_id: int | None = None,
 ) -> list[dict[str, object]]:
-    """Collect and normalize inline comments, review bodies, and PR issue comments."""
+    """Collect and normalize grouped inline threads, review bodies, and PR issue comments."""
+    since_dt = parse_iso_timestamp(since) if since is not None else None
     thread_states = fetch_review_thread_states(repo, pr_number)
-    endpoints = (
-        ("inline", f"repos/{repo}/pulls/{pr_number}/comments"),
+    inline_entries = fetch_gh_json(f"repos/{repo}/pulls/{pr_number}/comments")
+    items = _build_grouped_inline_items(
+        inline_entries,
+        thread_states,
+        include_bots=include_bots,
+        include_resolved=include_resolved,
+        since_dt=since_dt,
+    )
+
+    for source, endpoint in (
         ("review", f"repos/{repo}/pulls/{pr_number}/reviews"),
         ("issue", f"repos/{repo}/issues/{pr_number}/comments"),
-    )
-    items: list[dict[str, object]] = []
-    for source, endpoint in endpoints:
+    ):
         for entry in fetch_gh_json(endpoint):
-            body = str(entry.get("body") or "").strip()
-            if not body:
+            visible = _visible_entry_body_and_user(entry, include_bots)
+            if visible is None:
                 continue
-            user = entry.get("user") if isinstance(entry.get("user"), dict) else {}
-            user_type = str(user.get("type") or "")
-            # Automated CI/Vercel/preview bots add noise unless explicitly requested.
-            if not include_bots and (user_type.lower() == "bot" or PREVIEW_COMMENT_MARKER in body):
-                continue
+            body, user = visible
             comment_id = entry.get("id")
-            t_state = thread_states.get(comment_id) if source == "inline" and isinstance(comment_id, int) else None
-            if source == "inline" and not include_resolved and t_state is not None and t_state.is_resolved:
+            if (
+                source == "review"
+                and after_review_id is not None
+                and isinstance(comment_id, int)
+                and comment_id <= after_review_id
+            ):
                 continue
-            item: dict[str, object] = {
-                "id": comment_id,
-                "source": source,
-                "author": str(user.get("login") or "unknown"),
-                "path": entry.get("path"),
-                "line": entry.get("line") or entry.get("original_line"),
-                "diff_hunk": entry.get("diff_hunk"),
-                "url": entry.get("html_url"),
-                "body": body,
-            }
-            if t_state is not None:
-                item["thread_id"] = t_state.thread_id
-                item["is_resolved"] = t_state.is_resolved
-            items.append(item)
+            if not _passes_since(_entry_timestamp(entry), since_dt):
+                continue
+            items.append(_base_feedback_item(entry, source, body, user))
     return items
 
 
@@ -224,10 +382,24 @@ def format_feedback_markdown(pr_number: int, items: list[dict[str, object]]) -> 
         return f"No human feedback items found on PR #{pr_number}."
     lines = [f"# Harvested Feedback for PR #{pr_number} ({len(items)} item(s))", ""]
     for idx, item in enumerate(items, start=1):
-        loc = f"{item['path']}:{item['line']}" if item.get("path") else str(item["source"])
-        status = " (resolved)" if item.get("is_resolved") else ""
+        if item.get("path") and item.get("line") is not None:
+            loc = f"{item['path']}:{item['line']}"
+        elif item.get("path"):
+            loc = str(item["path"])
+        else:
+            loc = str(item["source"])
+        flags: list[str] = []
+        if item.get("is_resolved"):
+            flags.append("resolved")
+        if item.get("is_outdated"):
+            flags.append("outdated")
+        raw_rc = item.get("reply_count")
+        if isinstance(raw_rc, int) and raw_rc > 0:
+            flags.append(f"{raw_rc} repl{'y' if raw_rc == 1 else 'ies'}, last: @{item.get('last_author')}")
+        status = f" ({'; '.join(flags)})" if flags else ""
+        ids = f" [thread={item['thread_id']} root={item['id']}]" if item.get("thread_id") else f" [id={item.get('id')}]"
         snippet = str(item["body"]).replace("\r\n", "\n").strip()
-        lines.append(f"{idx}. **[{item['source']}] `{loc}`{status}** (@{item['author']}): {snippet}")
+        lines.append(f"{idx}. **[{item['source']}] `{loc}`{status}{ids}** (@{item['author']}): {snippet}")
     return "\n".join(lines)
 
 
@@ -239,6 +411,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out", type=Path, default=None, help="Optional JSON output file path.")
     parser.add_argument("--include-bots", action="store_true", help="Include bot-authored comments.")
     parser.add_argument("--include-resolved", action="store_true", help="Include resolved inline threads.")
+    parser.add_argument("--since", default=None, help="Only keep items/threads active at or after ISO-8601 timestamp.")
+    parser.add_argument(
+        "--after-review-id",
+        type=int,
+        default=None,
+        help="Skip review summary entries with numeric ID <= this value.",
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -248,6 +427,8 @@ def main(argv: list[str] | None = None) -> int:
             args.pr,
             include_bots=args.include_bots,
             include_resolved=args.include_resolved,
+            since=args.since,
+            after_review_id=args.after_review_id,
         )
     except (RuntimeError, ValueError, json.JSONDecodeError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
