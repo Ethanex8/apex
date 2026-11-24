@@ -31,6 +31,7 @@ import shutil
 import sys
 import threading
 from pathlib import Path
+from typing import Any
 from urllib.parse import unquote
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -271,14 +272,14 @@ def resolve_chromium_executable(pw_executable: str | None = None) -> str | None:
     return str(sys_chromium) if sys_chromium.is_file() else None
 
 
-def _check_button_contrast(btn: object, idx: int, label: str, route: str, errors: list[str]) -> None:
+def _check_button_contrast(btn: Any, idx: int, label: str, route: str, errors: list[str]) -> None:
     """Evaluate `BUTTON_CONTRAST_JS` on `btn` and record finite non-compliant contrast ratios."""
     ratio = float(btn.evaluate(BUTTON_CONTRAST_JS))
     if not math.isfinite(ratio) or ratio < MIN_BTN_CONTRAST:
         errors.append(f"[{route}:desktop] Low {label} contrast ({ratio:.2f}:1) on button[{idx}]")
 
 
-def _audit_widget_buttons(page: object, route: str, errors: list[str]) -> None:
+def _audit_widget_buttons(page: Any, route: str, errors: list[str]) -> None:
     """Audit widget buttons before clicking (light & dark idle) and after click/hover across themes."""
     # Capture concrete ElementHandles up front so dynamic enable/disable state changes never shift indices.
     handles = page.locator(".hw-widget .hw-btn").element_handles()
@@ -319,8 +320,22 @@ def _audit_widget_buttons(page: object, route: str, errors: list[str]) -> None:
         page.evaluate("document.documentElement.classList.remove('dark')")
 
 
-def _capture_route_screenshots(page: object, route: str, shot_root: Path, vp_name: str = "desktop") -> None:
-    """Save visible Mermaid SVG and Vue widget PNG snapshots without sticky-navbar occlusion."""
+def _capture_container_shots(page: Any, out_dir: Path, suffix: str) -> None:
+    """Capture visible Mermaid SVG and Vue widget PNGs into `out_dir` with filename `suffix`."""
+    mermaids = page.locator(".mermaid-book-figure")
+    for idx in range(mermaids.count()):
+        item = mermaids.nth(idx)
+        if item.is_visible():
+            item.screenshot(path=str(out_dir / f"mermaid_{idx}{suffix}.png"))
+    widgets = page.locator(".hw-widget")
+    for idx in range(widgets.count()):
+        item = widgets.nth(idx)
+        if item.is_visible():
+            item.screenshot(path=str(out_dir / f"widget_{idx}{suffix}.png"))
+
+
+def _capture_route_screenshots(page: Any, route: str, shot_root: Path, vp_name: str = "desktop") -> None:
+    """Save visible Mermaid/widget (light + dark on desktop) and MathJax PNG snapshots."""
     slug = route.strip("/").replace("/", "__") or "index"
     out_dir = shot_root / slug
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -329,23 +344,27 @@ def _capture_route_screenshots(page: object, route: str, shot_root: Path, vp_nam
         "document.querySelectorAll('.VPNav, .VPLocalNav, .book-progress-track').forEach((el) => (el.style.visibility = 'hidden'))"
     )
     try:
-        mermaids = page.locator(".mermaid-book-figure")
-        for idx in range(mermaids.count()):
-            item = mermaids.nth(idx)
-            if item.is_visible():
-                item.screenshot(path=str(out_dir / f"mermaid_{idx}{suffix}.png"))
-        widgets = page.locator(".hw-widget")
-        for idx in range(widgets.count()):
-            item = widgets.nth(idx)
-            if item.is_visible():
-                item.screenshot(path=str(out_dir / f"widget_{idx}{suffix}.png"))
-        if vp_name == "desktop" and page.locator(".vp-doc mjx-container").count() > 0:
-            inline_p = page.locator(".vp-doc p:has(mjx-container:not([display='true']))")
-            math_target = inline_p.first if inline_p.count() > 0 else page.locator(".vp-doc mjx-container").first
-            if math_target.count() > 0 and math_target.is_visible():
-                math_target.scroll_into_view_if_needed()
+        _capture_container_shots(page, out_dir, suffix)
+        if vp_name == "desktop":
+            page.evaluate("document.documentElement.classList.add('dark')")
+            page.wait_for_timeout(160)
+            try:
+                _capture_container_shots(page, out_dir, "_dark")
+            finally:
+                page.evaluate("document.documentElement.classList.remove('dark')")
                 page.wait_for_timeout(120)
-                page.screenshot(path=str(out_dir / "prose_math_desktop.png"))
+            if page.locator(".vp-doc mjx-container").count() > 0:
+                inline_p = page.locator(".vp-doc p:has(mjx-container:not([display='true']))")
+                math_target = inline_p.first if inline_p.count() > 0 else page.locator(".vp-doc mjx-container").first
+                if math_target.count() > 0 and math_target.is_visible():
+                    math_target.scroll_into_view_if_needed()
+                    page.wait_for_timeout(120)
+                    page.screenshot(path=str(out_dir / "prose_math_desktop.png"))
+                disp_math = page.locator(".vp-doc mjx-container[display='true']")
+                if disp_math.count() > 0 and disp_math.first.is_visible():
+                    disp_math.first.scroll_into_view_if_needed()
+                    page.wait_for_timeout(120)
+                    page.screenshot(path=str(out_dir / "display_math_desktop.png"))
     finally:
         page.evaluate(
             "document.querySelectorAll('.VPNav, .VPLocalNav, .book-progress-track').forEach((el) => (el.style.visibility = ''))"
@@ -360,7 +379,7 @@ def _drain_page_errors(page_errs: list[str], route: str, vp_name: str, errors: l
 
 
 def _run_browser_audit(
-    pw: object,
+    pw: Any,
     port: int,
     base_prefix: str,
     routes: list[str],

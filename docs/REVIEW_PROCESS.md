@@ -14,70 +14,125 @@ U_{\text{tier2}} \subseteq \text{PanelFindings} \cup \text{GateFindings}
 $$
 
 Here $U_{\text{tier2}}$ denotes the approved systemic human review comments, `PanelFindings` denotes defects found independently by frozen-prompt isolated clean-room review subagents (`research`), and `GateFindings` denotes failures reported by deterministic static and visual checks (`check_code.py`, `check_book.py`, `check_visuals.py`).
-Because `scripts/build_review_plan.py` emits frozen, content-agnostic prompts with overlapping section shards, compiled Prior-Section Ledgers, and explicit rubric files (`references/rubric_*.md`), neither orchestrator hint-steering nor stale calibration ledgers can bias Step 2 recall or Step 3 convergence.
+Because `scripts/build_review_plan.py` emits frozen, content-agnostic prompts with overlapping section/code shards, fresh `docs/CHAPTER_INDEX.md` verification, compiled Prior-Section Ledgers, and explicit rubric files (`references/rubric_*.md`)—while historical calibration logs live strictly outside `.agents/skills/` in `docs/calibration/`—neither orchestrator hint-steering nor stale calibration ledgers can bias Step 2 recall or Step 3 convergence.
 
 ## End-to-End Review Lifecycle
 
 ```mermaid
 flowchart TD
-    PR["Open step/step-id PR with Pre-Staged Approval -> Apex CI + /apex/pr-N/ Preview"] --> HUMAN{"Human Reviews PR Diff & Preview"}
-    HUMAN -->|"1-Tap Merge on GitHub"| MERGED["Merged to main -> Auto-Delete Branch, Deploy Root /apex/, Clean pr-N/"]
-    HUMAN -->|"Leaves Inline or Review Comments"| HARVEST["Harvest Unresolved Feedback Outside Repo & Classify Tier"]
+    subgraph S1["1. Open Pull Request and Human Review"]
+        direction TB
+        OPEN["Open Ready-for-Review PR (live preview built)"]
+        REVIEW{"Human reviews diff and live preview"}
+        MERGE["Human clicks Merge (1 tap) -> Live site updates and preview cleans up"]
+        OPEN --> REVIEW
+        REVIEW -->|"Looks good"| MERGE
+    end
 
-    HARVEST -->|"Tier 0: Pure Typo"| S3_FAST["Fix Directly -> Rebuild & Push PR Branch -> Reply & Resolve"]
-    HARVEST -->|"Tier 1: Local Polish"| GATE1_T1["Step 1 Triage (Gate 1) -> Step 3 Fix & Clean-Room Converge"]
-    HARVEST -->|"Tier 2: Systemic Gap"| S1["Step 1: Triage & Propose General Rules (Gate 1)"]
+    subgraph S2["2. Sort Unresolved Comments"]
+        direction TB
+        COLLECT["Collect only unresolved comments outside the repo"]
+        CLASSIFY{"What kind of feedback is it?"}
+        TYPO["Tiny typo or broken link -> Fix directly"]
+        LOCAL["Local wording tweak only (no new rules or disagreements)"]
+        SYSTEMIC["Reusable lesson, pushback, or open question"]
+        COLLECT --> CLASSIFY
+        CLASSIFY -->|"Typo only"| TYPO
+        CLASSIFY -->|"Local tweak only"| LOCAL
+        CLASSIFY -->|"Reusable or needs discussion"| SYSTEMIC
+    end
 
-    S1 -->|"Approved (Purge /tmp JSON)"| S2_APPLY["Step 2: Apply Persona, Rubric & Gate Updates (Deliverables Untouched)"]
-    S2_APPLY --> S2_RUN["Run Full-Chapter Frozen-Prompt Panel (build_review_plan.py) + Gates"]
-    S2_RUN --> SUBSET{"Is U_tier2 a Subset of Panel + Gate Findings?"}
+    subgraph S3["3. Upgrade General Rules and Test Blind Catch Rate"]
+        direction TB
+        GATE1{"Human Approval #1: Approve triage, new general rule, and conflict check"}
+        UPDATE_RULES["Update general rubric or check (chapter and code untouched)"]
+        BLIND_CHECK["Run blind reviewers and automated checks on untouched files"]
+        VERIFY_RECALL{"Caught cleanly with low false-alarm noise?"}
+        REFINE["Adjust general rule (never add chapter-specific hints)"]
+        GATE2{"Did rules change after Approval #1?"}
+        VETO{"Human Approval #2: Verify extra rule tweaks stay general"}
 
-    SUBSET -->|"No (Items Missed)"| S2_REFINE["Refine General Rubric or Gate Rule (Zero Hints)"]
-    S2_REFINE --> S2_RUN
+        GATE1 -->|"Approved (new rule)"| UPDATE_RULES
+        UPDATE_RULES --> BLIND_CHECK
+        BLIND_CHECK --> VERIFY_RECALL
+        VERIFY_RECALL -->|"Missed or too noisy"| REFINE
+        REFINE --> BLIND_CHECK
+        VERIFY_RECALL -->|"Caught cleanly"| GATE2
+        GATE2 -->|"Yes"| VETO
+        VETO -->|"Too specific"| REFINE
+    end
 
-    SUBSET -->|"Yes (Subset Match Proven)"| CHANGED{"Did Step 2 Modify Rules Beyond Step 1?"}
-    CHANGED -->|"Yes"| GATE2{"Human Gate 2: Vet Extra Rule Edits Against Cheating"}
-    GATE2 -->|"Rejected as Too Specific"| S2_REFINE
-    GATE2 -->|"Approved"| S3_FIX
-    CHANGED -->|"No (Matched on Step 1 Rules)"| S3_FIX
-    GATE1_T1 --> S3_FIX
+    subgraph S4["4. Fix, Re-Verify, and Reply"]
+        direction TB
+        APPLY_FIX["Fix all findings, rebuild tests, book, index, and light/dark images"]
+        FULL_PASS["Round 1: Full clean-room re-check and before/after diff guard"]
+        CLEAN{"Zero remaining defects or flow regressions?"}
+        FOLLOWUP["Fix remaining items and rebuild"]
+        SCOPED_PASS["Round 2+: Scoped re-check of touched areas and diff guard"]
+        PUSH_REPLY["Push update to PR, reply inline, and resolve threads"]
+        NEXT_CYCLE["Ready for next human review -> Repeat from Stage 1 or 1-tap Merge"]
 
-    S3_FIX["Step 3: Fix All Findings, Refresh approved_date & Log calibration_log.md"] --> S3_BUILD["Run Tests, Sync Anchors, Rebuild Book & Screenshots"]
-    S3_BUILD --> S3_PANEL["Run Full-Chapter Panel + Diff Regression Guardian (--base-ref)"]
-    S3_PANEL --> CLEAN{"Zero P0/P1/P2 & Zero Flow Regressions?"}
-    CLEAN -->|"No"| S3_FIX
+        APPLY_FIX --> FULL_PASS
+        FULL_PASS --> CLEAN
+        CLEAN -->|"No"| FOLLOWUP
+        FOLLOWUP --> SCOPED_PASS
+        SCOPED_PASS --> CLEAN
+        CLEAN -->|"Yes"| PUSH_REPLY
+        PUSH_REPLY --> NEXT_CYCLE
+    end
 
-    CLEAN -->|"Yes"| S4["Step 4: Push Fast-Forward PR Update, Reply Inline & Resolve Threads"]
-    S3_FAST --> HUMAN
-    S4 --> HUMAN
+    REVIEW -->|"Leaves comments"| COLLECT
+    SYSTEMIC --> GATE1
+    GATE1 -->|"Approved (local fix only)"| APPLY_FIX
+    LOCAL --> APPLY_FIX
+    TYPO --> PUSH_REPLY
+    GATE2 -->|"No"| APPLY_FIX
+    VETO -->|"Approved"| APPLY_FIX
+
+    classDef human fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px
+    classDef gate fill:#fef3c7,stroke:#d97706,color:#78350f,stroke-width:2px
+    classDef blind fill:#f3e8ff,stroke:#7c3aed,color:#4c1d95,stroke-width:2px
+    classDef auto fill:#dcfce7,stroke:#16a34a,color:#14532d,stroke-width:2px
+
+    class REVIEW,GATE1,VETO,MERGE,NEXT_CYCLE human
+    class CLASSIFY,VERIFY_RECALL,GATE2,CLEAN gate
+    class BLIND_CHECK,FULL_PASS,SCOPED_PASS blind
+    class OPEN,COLLECT,TYPO,LOCAL,SYSTEMIC,UPDATE_RULES,REFINE,APPLY_FIX,FOLLOWUP,PUSH_REPLY auto
 ```
+
+| Visual Color | Who Acts | Meaning |
+| :--- | :--- | :--- |
+| **Blue** | Human Reviewer | Reviews diff/preview, approves general rule changes, or taps **Merge** |
+| **Amber** | Decision Point | Routes feedback by scope or checks whether a loop has converged |
+| **Purple** | Blind Reviewers | Isolated subagents reading frozen prompts with zero access to PR comments |
+| **Green** | Agent & Automated Checks | Edits files, runs tests/linters/builds, pushes updates, and resolves threads |
 
 ## Detailed Step Reference
 
 ### Step 1: Unresolved Comment Triage and 3-Tier Classification (Gate 1)
-1. Harvest **unresolved** inline diff comments, review summaries, and issue comments **outside** the repository workspace using `python3 scripts/harvest_feedback.py --pr <N> --out /tmp/apex-feedback/pr-<N>.json` (already-resolved threads and preview bot banners are skipped by default; pass `--include-resolved` only when auditing full history), and freeze the untouched pre-fix `HEAD` commit hash.
+1. Harvest **unresolved** grouped inline threads, review summaries, and issue comments **outside** the repository workspace using `python3 scripts/harvest_feedback.py --pr <N> [--since <ISO_TS>] --out /tmp/apex-feedback/pr-<N>.json` (already-resolved threads and preview bot banners are skipped by default; pass `--include-resolved` only when auditing full history), and freeze the untouched pre-fix `HEAD` commit hash.
 2. Evaluate every comment (`U1..Uk`) against the exact deliverable lines (`AGREE`, `CLARIFY`, or respectful `PUSHBACK`), then classify each item:
-   - **Tier 0**: Pure mechanical typos or broken links—fix directly, push to the PR branch, reply inline, and resolve.
-   - **Tier 1**: Local editorial phrasing, naming, or single-chapter clarification—skips rubric/skill edits and Step 2 blind recall (escalate to Tier 2 only if recurring across `2+` subsystem chapters).
-   - **Tier 2**: Systemic pedagogical, mathematical, visual, or engineering gap transferable across unrelated chapters.
-3. For **Tier 2** items, draft edits to `.agents/skills/*/SKILL.md`, `.agents/skills/*/references/rubric_*.md`, `GEMINI.md`, or `scripts/check_*.py` strictly as **universal domain-agnostic principles**, never referencing chapter symbols, hex constants, widget names, or line hints.
-4. Publish the triage table, Tier 1/Tier 2 split, and proposed diffs in `pr_<N>_step1_triage.md` and pause at **Human Gate 1** until $U_{\text{agreed}}$ and any Tier-2 rules are approved. Immediately delete `/tmp/apex-feedback/pr-<N>.json` once Gate 1 signs off.
+   - **Tier 0**: Pure mechanical typos or broken links—purge `/tmp` feedback JSON, fix directly, push to the PR branch, reply inline, and resolve.
+   - **Tier 1**: Local editorial phrasing, naming, or single-chapter clarification without rubric edits—if **every** item is unambiguous Tier 1 (`AGREE`, zero `PUSHBACK`/`CLARIFY`), purge `/tmp` feedback JSON and proceed directly to **Step 3**.
+   - **Tier 2**: Systemic pedagogical, mathematical, visual, or engineering gap transferable across unrelated chapters or codebases (or recurring across `2+` chapters).
+3. Whenever **any** item is **Tier 2**, `PUSHBACK`, or `CLARIFY`: draft edits strictly to the single canonical `.agents/skills/*/references/rubric_*.md`, `SKILL.md`, `GEMINI.md`, or `scripts/check_*.py` file as **universal domain-agnostic principles** (never referencing chapter symbols, hex constants, widget names, or line hints) alongside a **Rule Conflict & Counterbalance Check** identifying any existing rule narrowed or replaced to prevent pendulum swings.
+4. Publish the triage table, Tier 1/Tier 2 split, conflict check, and proposed diffs in `pr_<N>_step1_triage.md` and pause at **Human Gate 1** until $U_{\text{agreed}}$ and any Tier-2 rules are approved. Immediately delete `/tmp/apex-feedback/pr-<N>.json` once Gate 1 signs off.
 
-### Step 2: Tier-2 Rule Update and Full-Chapter Frozen-Prompt Recall (Conditional Gate 2)
-1. If every agreed item is Tier 1, proceed directly to **Step 3**. Otherwise, apply only Gate-1-approved skill, rubric, `GEMINI.md`, and static-gate updates, then sync `.agents/skills/*` into `~/.gemini` via `save_skill(overwrite=True)`. Leave deliverables and `references/calibration_log.md` **untouched**.
-2. Execute `check_code.py`, `check_book.py`, `check_visuals.py`, and generate the deterministic sharded review manifest via `python3 scripts/build_review_plan.py --chapter <path>`. Invoke **every** emitted shard (`1..K`), `Global Macro & Dependency Critic`, and `Visual Pedagogy Critic` with `build_review_plan.py`'s **exact frozen prompt**—never hand-write custom prompts highlighting active PR comments, and forbid subagent reads of `calibration_log.md`, `/tmp/`, triage artifacts, `gh`, or session logs.
-3. Map every item in $U_{\text{tier2}}$ semantically to `CAUGHT_BY_GATE`, `CAUGHT_BY_BLIND_SUBAGENT`, or `MISSED`.
-4. If any Tier-2 item is `MISSED`, generalize the governing rubric, skill, or gate rule cleanly, re-sync skills, and run **fresh** frozen-prompt subagents on the affected shard(s) until $U_{\text{tier2}} \subseteq \text{PanelFindings} \cup \text{GateFindings}$.
-5. If Step 2 altered any rule prompt beyond Step 1's approved diff, pause at **Human Gate 2** for anti-cheating sign-off; otherwise proceed directly to Step 3.
+### Step 2: Tier-2 Rule Update and Frozen-Prompt Recall + Precision Check (Conditional Gate 2)
+1. Apply only Gate-1-approved skill, rubric, `GEMINI.md`, and static-gate updates, then sync `.agents/skills/*` into `~/.gemini` via `save_skill(overwrite=True)`. Leave deliverables and `docs/calibration/*` **untouched**.
+2. Execute `check_code.py`, `check_book.py`, `check_visuals.py`, verify `docs/CHAPTER_INDEX.md` freshness via `python3 scripts/build.py`, and generate the deterministic sharded review manifest via `python3 scripts/build_review_plan.py [--chapter <path>] [--code <files...>]`. Invoke **every** emitted task with `build_review_plan.py`'s **exact frozen prompt**—never hand-write custom prompts highlighting active PR comments, and forbid subagent reads of `docs/calibration/*`, `/tmp/`, triage artifacts, `gh`, or session logs.
+3. Map every item in $U_{\text{tier2}}$ semantically to `CAUGHT_BY_GATE`, `CAUGHT_BY_BLIND_SUBAGENT`, or `MISSED`, **and** verify **Precision** (confirming new rules do not trigger noisy or boilerplate false positives on clean passages).
+4. If any Tier-2 item is `MISSED` or noisy, generalize or counterbalance the governing rubric, skill, or gate rule cleanly, re-sync skills, and run **fresh** frozen-prompt subagents on affected shards until $U_{\text{tier2}} \subseteq \text{PanelFindings} \cup \text{GateFindings}$ with clean precision.
+5. **Conditional Gate 2**: If Step 2 altered any rule prompt beyond Step 1's approved diff, pause at **Human Gate 2** for anti-cheating and precision sign-off; otherwise proceed directly to Step 3.
 
 ### Step 3: Deliverable Healing, Diff Guard, and Clean-Room Convergence
 1. Fix the **entire** union of panel, static/visual gate, and $U_{\text{agreed}}$ findings across source code, tests, Vue widgets, CSS, and chapter prose, and refresh `approved_date` on the PR branch via `python3 scripts/step.py approve <step-id>` if the date advanced.
-2. Append the retrospective root-cause entry (for Tier-2/substantive cycles) to `.agents/skills/<skill>/references/calibration_log.md` and sync via `save_skill`.
-3. Re-run `check_code.py`, `pytest --cov-fail-under=95`, `sync_book.py --check`, `check_book.py`, `build.py --check`, `BOOK_BASE=/apex/ npm --prefix book run build`, and `check_visuals.py --screenshot-dir .cache/visual-audit`.
-4. Generate the regression-guarded manifest (`python3 scripts/build_review_plan.py --chapter <path> --base-ref <untouched_head_sha>`) and run fresh isolated clean-room `research` subagents across **every shard (`1..K`)**, `Global Macro & Dependency Critic`, `Visual Pedagogy Critic`, and the `Diff & Flow Regression Guardian` (`rubric_diff_guardian.md`) until all checks return **zero P0/P1/P2 defects**.
+2. Append the retrospective root-cause entry (for Tier-2/substantive cycles) to `docs/calibration/<skill>.md` (kept strictly outside `.agents/skills/`).
+3. Run `python3 scripts/build.py`, `check_code.py` (AST, Ruff, `mypy`, ShellCheck, C/SV gates), `pytest --cov-fail-under=95`, `sync_book.py --check`, `check_book.py`, `build.py --check`, `BOOK_BASE=/apex/ npm --prefix book run build`, and `check_visuals.py --screenshot-dir .cache/visual-audit` (capturing both light and dark PNGs).
+4. Run fresh isolated clean-room `research` subagents with `--base-ref <untouched_head_sha>`: run a **full sweep** on Round 1 (`python3 scripts/build_review_plan.py [--chapter <path>] [--code <files...>] --base-ref <untouched_head_sha>`), and use deterministic **scoped** sweeps (`--changed-since <round_r_sha>`) for localized Round $r+1$ fixes until all emitted reviewers and the `Diff & Flow Regression Guardian` return **zero P0/P1/P2 defects**.
 
 ### Step 4: Fast-Forward PR Update, Thread Resolution, and 1-Tap Merge Close-Out
 1. Commit and push fast-forward updates strictly to the open `step/<step-id>` PR branch (never directly to `main`, and never force-push reviewed commits).
 2. Post concise inline replies on every addressed PR comment (`gh api -X POST repos/<owner>/<repo>/pulls/<N>/comments/<id>/replies`) noting both the deliverable fix and any upstream rule/gate update.
-3. Resolve every addressed GitHub review thread via GraphQL `resolveReviewThread` (required by the `Protect main` ruleset), leaving a thread unresolved **only** when a genuine open question remains for the reviewer.
+3. Resolve every addressed GitHub review thread via GraphQL `resolveReviewThread`, leaving a thread unresolved **only** when a genuine open question remains for the reviewer.
 4. Confirm `Apex CI` and the `/apex/pr-<N>/` preview deployment succeed, then return to human review. Because `step.py approve <step-id> --pr <URL>` is already staged on the PR branch, tapping **Merge pull request** on GitHub completes the step in **one tap**—atomically updating `main`, auto-deleting `step/<step-id>`, deploying root `https://ethanex8.github.io/apex/`, and removing `/apex/pr-<N>/`.

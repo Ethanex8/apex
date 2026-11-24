@@ -1,21 +1,24 @@
 #!/usr/bin/env python3
-"""Static AST, Ruff, ShellCheck, and RTL/C quality gate for all Apex artifacts.
+"""Static AST, Ruff, mypy, ShellCheck, C/H, and multi-module RTL quality gate.
 
 Purpose:
   Enforce the Pass-2 and Pass-4 standards from `apex-artifact-author` across all
-  Python, Shell, SystemVerilog, and C/Header files under `scripts/` and `systems/`:
-    - Python: module + 100% class/function/test docstrings, `<= 80`-line functions
-      (unless justified by `# code-gate: allow-long-dispatch (<reason>)`),
-      explained `# noqa` / `# ruff: noqa` / `# type: ignore` pragmas, and `ruff check`.
+  Python, Shell, SystemVerilog, C/Header, and Assembly files under `scripts/`
+  and `systems/`:
+    - Python: module + 100% class/function/test docstrings, `<= 80`-line functions,
+      `> 2`-item tuple bans, top-level imports, single-invariant non-tautological
+      test asserts, explained pragmas, `ruff check`, and `mypy`.
     - Shell: `bash -n`, `shellcheck -x`, `set -euo pipefail`, `Purpose:`/`Usage:`
       header, function doc comments, explained `# shellcheck` directives, and
       CWD-safe sourcing/paths.
-    - SystemVerilog / C: contract headers, explained `verilator lint_off`, and
-      `verilator --lint-only -Wall` (fail-fast if a required linter is missing).
+    - SystemVerilog / C / Header / Assembly: contract headers (`Purpose:`, plus
+      `Ports:`/`Clock Domain` on RTL modules with ports), `.h` include guards,
+      `<= 80`-line C functions and SV `always` blocks, `gcc -fsyntax-only`, and
+      multi-module `verilator --lint-only -Wall` with `-y`/`-I` RTL search paths.
 
 Usage:
   python3 scripts/check_code.py
-  python3 scripts/check_code.py path/to/file1.py path/to/file2.sh
+  python3 scripts/check_code.py path/to/file1.py path/to/file2.sv
 
 Outputs:
   Prints validated file counts and exits 0 cleanly, or prints every violation and exits 1.
@@ -35,12 +38,15 @@ from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 IGNORED_PARTS = {".git", ".tools", ".venv", "__pycache__", "node_modules", "dist"}
-SUPPORTED_EXTS = {".py", ".sh", ".sv", ".v", ".c", ".h"}
+SUPPORTED_EXTS = {".py", ".sh", ".sv", ".v", ".svh", ".c", ".h", ".s"}
 MAX_PY_FUNC_LINES = 80
+MAX_HDL_BLOCK_LINES = 80
 MAX_RETURN_TUPLE_ITEMS = 2
 
 CODE_GATE_RE = re.compile(
-    r"#\s*code-gate:\s*(allow-long-dispatch|allow-tuple-return|allow-local-import|allow-compound-assert)"
+    r"(?:#|//)\s*code-gate:\s*"
+    r"(allow-long-dispatch|allow-long-block|allow-tuple-return|allow-local-import|"
+    r"allow-compound-assert|allow-target-compiler|allow-tautology)"
     r"\s*\(([^)]+)\)"
 )
 PRAGMA_RE = re.compile(r"#\s*(?:ruff:\s*noqa|noqa|type:\s*ignore)\b")
@@ -48,6 +54,8 @@ NOQA_EXPLAINED_RE = re.compile(r"#\s*(?:ruff:\s*noqa|noqa|type:\s*ignore)\b[^\n]
 SH_FUNC_RE = re.compile(r"^\s*(?:function\s+)?([A-Za-z_]\w*)\s*\(\s*\)\s*\{")
 SHELLCHECK_RE = re.compile(r"#\s*shellcheck\s+([^\n]+)")
 CWD_SOURCE_RE = re.compile(r"(?:(?:^|[;&|])\s*)(?:source|\.)\s+\.(?!\.)")
+SV_PORT_DECL_RE = re.compile(r"\b(?:input|output|inout)\b")
+SV_ALWAYS_RE = re.compile(r"^\s*(always(?:_ff|_comb|_latch)?)\b")
 
 
 def collect_target_files(
@@ -84,7 +92,7 @@ def collect_target_files(
 def _has_code_gate_exemption(
     lines: list[str], start_lineno: int, gate_name: str, allow_inline: bool = False
 ) -> bool:
-    """Return True if a `# code-gate: <gate_name> (<reason>)` precedes (or sits on) `start_lineno`."""
+    """Return True if a `#`/`// code-gate: <gate_name> (<reason>)` precedes `start_lineno`."""
     if (
         allow_inline
         and 1 <= start_lineno <= len(lines)
@@ -96,7 +104,7 @@ def _has_code_gate_exemption(
     idx = start_lineno - 2
     while idx >= 0 and not lines[idx].strip():
         idx -= 1
-    while idx >= 0 and lines[idx].lstrip().startswith("#"):
+    while idx >= 0 and lines[idx].lstrip().startswith(("#", "//")):
         if (m := CODE_GATE_RE.search(lines[idx])) and m.group(1) == gate_name and m.group(2).strip():
             return True
         idx -= 1
@@ -154,6 +162,15 @@ def _large_return_tuple_arity(ret_node: ast.expr | None) -> int | None:
     return None
 
 
+def _is_tautological_assert(test_node: ast.expr) -> bool:
+    """Return True when a test assertion checks only constant literals (`assert True`, `assert 1 == 1`)."""
+    if isinstance(test_node, ast.Constant):
+        return True
+    if isinstance(test_node, ast.Compare) and isinstance(test_node.left, ast.Constant):
+        return all(isinstance(comp, ast.Constant) for comp in test_node.comparators)
+    return False
+
+
 def _check_python_function(
     node: ast.FunctionDef | ast.AsyncFunctionDef, lines: list[str], rel: Path, errors: list[str]
 ) -> None:
@@ -178,7 +195,7 @@ def _check_python_function(
 
 
 def check_python_file(path: Path, root_dir: Path) -> list[str]:
-    """Validate AST docstrings, function lengths, tuple returns, top imports, and test asserts on one `.py` file."""
+    """Validate AST docstrings, function lengths, tuple returns, imports, and test asserts."""
     rel = path.relative_to(root_dir) if path.is_relative_to(root_dir) else path
     text = path.read_text(encoding="utf-8")
     lines = text.splitlines()
@@ -210,17 +227,22 @@ def check_python_file(path: Path, root_dir: Path) -> list[str]:
                             f"[{rel}:{sub.lineno}] Local import inside function; move to module top "
                             "or add '# code-gate: allow-local-import (<reason>)'"
                         )
-        elif (
-            is_test_file
-            and isinstance(node, ast.Assert)
-            and isinstance(node.test, ast.BoolOp)
-            and isinstance(node.test.op, ast.And)
-            and not _has_code_gate_exemption(lines, node.lineno, "allow-compound-assert", allow_inline=True)
-        ):
-            errors.append(
-                f"[{rel}:{node.lineno}] Compound 'assert ... and ...' in test file; "
-                "split into one invariant per assert"
-            )
+        elif is_test_file and isinstance(node, ast.Assert):
+            if (
+                isinstance(node.test, ast.BoolOp)
+                and isinstance(node.test.op, ast.And)
+                and not _has_code_gate_exemption(lines, node.lineno, "allow-compound-assert", allow_inline=True)
+            ):
+                errors.append(
+                    f"[{rel}:{node.lineno}] Compound 'assert ... and ...' in test file; "
+                    "split into one invariant per assert"
+                )
+            elif _is_tautological_assert(node.test) and not _has_code_gate_exemption(
+                lines, node.lineno, "allow-tautology", allow_inline=True
+            ):
+                errors.append(
+                    f"[{rel}:{node.lineno}] Tautological constant assert in test file; assert a real computed invariant"
+                )
 
     errors.extend(_check_python_pragmas(text, lines, rel))
     return errors
@@ -263,8 +285,142 @@ def check_shell_file(path: Path, root_dir: Path) -> list[str]:
     return errors
 
 
+def _rtl_search_dirs(path: Path) -> list[Path]:
+    """Return unique RTL search directories (`-y`/`-I`) covering sibling hardware modules."""
+    rtl_root = path.parent
+    for parent in path.parents:
+        if parent.name == "rtl":
+            rtl_root = parent
+            break
+    dirs = [path.parent]
+    for candidate in sorted(rtl_root.rglob("*")):
+        if candidate.is_dir() and candidate not in dirs:
+            dirs.append(candidate)
+    if rtl_root not in dirs:
+        dirs.insert(0, rtl_root)
+    return dirs
+
+
+def _check_sv_always_blocks(lines: list[str], rel: Path, errors: list[str]) -> None:
+    """Enforce `<= MAX_HDL_BLOCK_LINES` cap on SystemVerilog `always*` blocks."""
+    idx = 0
+    while idx < len(lines):
+        if m := SV_ALWAYS_RE.match(lines[idx]):
+            start = idx + 1
+            depth = 0
+            paren_depth = 0
+            saw_begin = False
+            end = start
+            for j in range(idx, len(lines)):
+                code_part = re.sub(r'/\*.*?\*/|//.*$|"(?:\\.|[^"\\])*"', "", lines[j])
+                paren_depth += code_part.count("(") - code_part.count(")")
+                begins = len(re.findall(r"\bbegin\b", code_part))
+                ends = len(re.findall(r"\bend\b", code_part))
+                if begins:
+                    saw_begin = True
+                depth += begins - ends
+                end = j + 1
+                if saw_begin and depth <= 0:
+                    break
+                if not saw_begin and paren_depth <= 0 and ";" in code_part:
+                    break
+            length = end - start + 1
+            if length > MAX_HDL_BLOCK_LINES and not (
+                _has_code_gate_exemption(lines, start, "allow-long-block")
+                or _has_code_gate_exemption(lines, start, "allow-long-dispatch")
+            ):
+                errors.append(
+                    f"[{rel}:{start}] SystemVerilog '{m.group(1)}' block is {length} lines "
+                    f"(limit {MAX_HDL_BLOCK_LINES}; split or add '// code-gate: allow-long-block (<reason>)')"
+                )
+            idx = end
+            continue
+        idx += 1
+
+
+def _match_c_func_sig(lines: list[str], start_idx: int) -> tuple[str, int] | None:
+    """Return `(func_name, open_brace_idx)` if `lines[start_idx:]` starts a C function body."""
+    first = lines[start_idx].strip()
+    if not first or first.startswith(("#", "//", "/*", "*", "}", "if", "for", "while", "switch", "else")):
+        return None
+    if ";" in first or "=" in first:
+        return None
+    next_ln = lines[start_idx + 1].strip() if start_idx + 1 < len(lines) else ""
+    if "(" not in first and "(" not in next_ln:
+        return None
+    sig_buf = ""
+    for j in range(start_idx, min(len(lines), start_idx + 8)):
+        part = re.sub(r"//.*$|/\*.*?\*/", "", lines[j]).strip()
+        if ";" in part and "{" not in part:
+            return None
+        sig_buf = f"{sig_buf} {part}".strip()
+        if "{" in sig_buf:
+            sig = sig_buf.split("{", 1)[0].strip()
+            m = re.match(r"^(?:[A-Za-z_][\w\s\*]*?[\s\*])([A-Za-z_]\w*)\s*\([^;]*\)\s*$", sig)
+            if m and m.group(1) not in {"if", "for", "while", "switch"}:
+                return m.group(1), j
+            return None
+    return None
+
+
+def _check_c_functions_and_headers(path: Path, lines: list[str], rel: Path, errors: list[str]) -> None:
+    """Check `.h` include guards, `<= 80`-line C functions, and `gcc`/`clang` syntax on `.c`."""
+    head = "\n".join(lines[:50])
+    if path.suffix.lower() == ".h":
+        has_guard = "#pragma once" in head or bool(re.search(r"#ifndef\s+\w+.*?#define\s+\w+", head, re.DOTALL))
+        if not has_guard:
+            errors.append(f"[{rel}:1] C header missing include guard ('#pragma once' or '#ifndef ... #define ...')")
+        return
+
+    idx = 0
+    while idx < len(lines):
+        hit = _match_c_func_sig(lines, idx)
+        if hit is None:
+            idx += 1
+            continue
+        fn_name, brace_idx = hit
+        depth = 0
+        saw = False
+        end = idx + 1
+        for j in range(brace_idx, len(lines)):
+            clean = re.sub(r"/\*.*?\*/|//.*$|\"(?:\\.|[^\"\\])*\"|'(?:\\.|[^'\\])*'", "", lines[j])
+            depth += clean.count("{") - clean.count("}")
+            if "{" in clean:
+                saw = True
+            end = j + 1
+            if saw and depth <= 0:
+                break
+        if end - idx > MAX_PY_FUNC_LINES and not _has_code_gate_exemption(lines, idx + 1, "allow-long-dispatch"):
+            errors.append(
+                f"[{rel}:{idx + 1}] C function '{fn_name}' is {end - idx} lines "
+                f"(limit {MAX_PY_FUNC_LINES}; split or add '// code-gate: allow-long-dispatch (<reason>)')"
+            )
+        idx = end
+
+    has_target_exempt = any(
+        (m := CODE_GATE_RE.search(ln)) is not None
+        and m.group(1) == "allow-target-compiler"
+        and bool(m.group(2).strip())
+        for ln in lines[:45]
+    )
+    if has_target_exempt:
+        return
+    c_bin = shutil.which("gcc") or shutil.which("clang")
+    if not c_bin:
+        errors.append(f"[{rel}] Missing required C compiler ('gcc' or 'clang') on PATH")
+    else:
+        proc = subprocess.run(
+            [c_bin, "-fsyntax-only", "-Wall", "-Wextra", f"-I{path.parent}", str(path)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if proc.returncode != 0:
+            errors.append(f"[{rel}] {Path(c_bin).name} -fsyntax-only failed:\n{proc.stderr.strip()}")
+
+
 def check_rtl_or_c_file(path: Path, root_dir: Path) -> list[str]:
-    """Validate contract headers and explained lint suppressions on `.sv`/`.v`/`.c`/`.h` files."""
+    """Validate contracts, guards, block lengths, and linters on `.sv`/`.v`/`.svh`/`.c`/`.h`/`.S`."""
     rel = path.relative_to(root_dir) if path.is_relative_to(root_dir) else path
     lines = path.read_text(encoding="utf-8").splitlines()
     errors: list[str] = []
@@ -276,23 +432,41 @@ def check_rtl_or_c_file(path: Path, root_dir: Path) -> list[str]:
         if "verilator lint_off" in line and not _has_preceding_comment(lines, idx - 1):
             errors.append(f"[{rel}:{idx}] Unexplained 'verilator lint_off'; add comment explaining why")
 
-    if path.suffix.lower() in {".sv", ".v"}:
-        verilator_bin = shutil.which("verilator") or (
-            str(p)
-            if (p := root_dir / ".tools" / "oss-cad-suite" / "bin" / "verilator").is_file()
-            else None
+    suf = path.suffix.lower()
+    if suf in {".c", ".h"}:
+        _check_c_functions_and_headers(path, lines, rel, errors)
+        return errors
+    if suf not in {".sv", ".v", ".svh"}:
+        return errors
+
+    if (
+        suf in {".sv", ".v"}
+        and SV_PORT_DECL_RE.search("\n".join(lines))
+        and "Ports:" not in head
+        and "Clock Domain" not in head
+    ):
+        errors.append(f"[{rel}:1] SystemVerilog module with ports missing 'Ports:' or 'Clock Domain' contract")
+    _check_sv_always_blocks(lines, rel, errors)
+    if suf == ".svh":
+        return errors
+
+    verilator_bin = shutil.which("verilator") or (
+        str(p) if (p := root_dir / ".tools" / "oss-cad-suite" / "bin" / "verilator").is_file() else None
+    )
+    if not verilator_bin:
+        errors.append(f"[{rel}] Missing required RTL linter 'verilator' on PATH or .tools/oss-cad-suite/bin")
+    else:
+        inc_flags: list[str] = []
+        for sdir in _rtl_search_dirs(path):
+            inc_flags.extend(["-y", str(sdir), f"-I{sdir}"])
+        proc = subprocess.run(
+            [verilator_bin, "--lint-only", "-Wall", *inc_flags, str(path)],
+            capture_output=True,
+            text=True,
+            check=False,
         )
-        if not verilator_bin:
-            errors.append(f"[{rel}] Missing required RTL linter 'verilator' on PATH or .tools/oss-cad-suite/bin")
-        else:
-            proc = subprocess.run(
-                [verilator_bin, "--lint-only", "-Wall", str(path)],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            if proc.returncode != 0:
-                errors.append(f"[{rel}] verilator --lint-only failed:\n{proc.stderr.strip()}")
+        if proc.returncode != 0:
+            errors.append(f"[{rel}] verilator --lint-only failed:\n{proc.stderr.strip()}")
     return errors
 
 
@@ -316,7 +490,30 @@ def _run_ruff(py_files: list[Path], root_dir: Path) -> list[str]:
     return []
 
 
-def run_checks(root_dir: Path | None = None, explicit: list[str] | None = None) -> tuple[list[str], int]:
+def _run_mypy(py_files: list[Path], root_dir: Path) -> list[str]:
+    """Run `mypy` static type checks across `py_files`, using direct binary or `uv`."""
+    if not py_files:
+        return []
+    targets = [str(p) for p in py_files]
+    mypy_flags = ["--ignore-missing-imports", "--no-error-summary"]
+    mypy_bin = shutil.which("mypy")
+    if mypy_bin:
+        cmd = [mypy_bin, *mypy_flags, *targets]
+    elif uv_bin := shutil.which("uv"):
+        cmd = [uv_bin, "run", "--with", "mypy", "--with", "types-PyYAML", "--with", "pytest", "mypy", *mypy_flags, *targets]
+    else:
+        return ["Missing required type-checker 'mypy' (or 'uv') on PATH"]
+
+    proc = subprocess.run(cmd, cwd=root_dir, capture_output=True, text=True, check=False)
+    if proc.returncode != 0:
+        msg = (proc.stdout + "\n" + proc.stderr).strip()
+        return [f"mypy type check failed:\n{msg}"]
+    return []
+
+
+def run_checks(
+    root_dir: Path | None = None, explicit: list[str] | None = None, *, run_mypy: bool = True
+) -> tuple[list[str], int]:
     """Run all language quality checks and return `(errors, file_count)`."""
     resolved_root = (root_dir or ROOT_DIR).resolve()
     files, errors = collect_target_files(resolved_root, explicit)
@@ -329,10 +526,12 @@ def run_checks(root_dir: Path | None = None, explicit: list[str] | None = None) 
             errors.extend(check_python_file(path, resolved_root))
         elif suf == ".sh":
             errors.extend(check_shell_file(path, resolved_root))
-        elif suf in {".sv", ".v", ".c", ".h"}:
+        elif suf in {".sv", ".v", ".svh", ".c", ".h", ".s"}:
             errors.extend(check_rtl_or_c_file(path, resolved_root))
 
     errors.extend(_run_ruff(py_files, resolved_root))
+    if run_mypy:
+        errors.extend(_run_mypy(py_files, resolved_root))
     return errors, len(files)
 
 
@@ -340,14 +539,15 @@ def main(argv: list[str] | None = None) -> int:
     """CLI entry point for repo-wide static code quality verification."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("files", nargs="*", help="Optional explicit source files to check.")
+    parser.add_argument("--no-mypy", action="store_true", help="Skip mypy type-checking pass.")
     args = parser.parse_args(argv if argv is not None else [])
-    errors, count = run_checks(ROOT_DIR, args.files or None)
+    errors, count = run_checks(ROOT_DIR, args.files or None, run_mypy=not args.no_mypy)
     if errors:
         print("Code quality gate FAILED:", file=sys.stderr)
         for err in errors:
             print(f"  - {err}", file=sys.stderr)
         return 1
-    print(f"OK: Verified {count} code/script file(s) with 100% docstring, modularity, and lint compliance.")
+    print(f"OK: Verified {count} code/script file(s) with 100% docstring, modularity, type, and lint compliance.")
     return 0
 
 

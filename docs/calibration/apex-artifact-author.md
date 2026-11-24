@@ -1,6 +1,6 @@
 # Apex Technical Artifact Authoring Calibration Log
 
-Persistent ledger of code/testbench review lessons and audit blind spots graduated into [SKILL.md](../SKILL.md) and [scripts/check_code.py](../../../../scripts/check_code.py).
+Persistent ledger of code/testbench review lessons and audit blind spots graduated into [SKILL.md](../../.agents/skills/apex-artifact-author/SKILL.md) and [scripts/check_code.py](../../scripts/check_code.py).
 
 ## Entry 001 — `brain-01` Oracle & Testbench Audit (2026-11-16)
 

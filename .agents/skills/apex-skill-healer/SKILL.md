@@ -1,52 +1,53 @@
 ---
 name: apex-skill-healer
-description: Closed-loop 4-step subset-recall PR review and skill self-healing protocol. Sanity-checks PR comments with optional pushback and anti-cheating persona proposals first, establishes frozen-prompt isolated blind subset recall before editing deliverables, converges clean-room fixes with diff-regression guarding, resolves answered PR threads, and merges cleanly on LGTM.
+description: Closed-loop 4-step subset-recall PR review and skill self-healing protocol. Sanity-checks PR comments with optional pushback and anti-pendulum rule checks first, establishes frozen-prompt isolated blind subset recall and precision checks before editing deliverables, converges clean-room fixes with diff-regression guarding, resolves answered PR threads, and prepares 1-tap human merge on GitHub.
 ---
 # Apex 4-Step Subset-Recall Review & Self-Healing Protocol
 
-Execute this skill whenever user feedback arrives on an open PR or in chat (`docs/REVIEW_PROCESS.md`). Pure mechanical typos (`Tier 0`) fix directly; local editorial polish (`Tier 1`) skips rubric edits and Step 2 recall; only cross-discipline gaps (`Tier 2`) run full Steps 1–4.
+Execute this skill whenever user feedback arrives on an open PR or in chat (`docs/REVIEW_PROCESS.md`). Unambiguous `Tier 0` typos and unambiguous `Tier 1` local polish (zero rule edits, zero pushback/clarify) skip Gate 1 and Step 2; `Tier 2` rules, pushback, or open questions run full Steps 1–4.
 
-## Step 1: Comment Sanity Check, Pushback & Persona Proposal (Human Gate 1)
+## Step 1: Comment Sanity Check, 3-Tier Split & Conflict Audit (Gate 1)
 
 1. Harvest **unresolved** feedback **outside** the repository workspace and record the untouched `HEAD` SHA:
    ```bash
-   python3 scripts/harvest_feedback.py --pr <N> --out /tmp/apex-feedback/pr-<N>.json
+   python3 scripts/harvest_feedback.py --pr <N> [--since <ISO_TS>] --out /tmp/apex-feedback/pr-<N>.json
    ```
-2. Audit each comment (`U1..Uk`) against text/code: mark `AGREE`, `CLARIFY`, or respectful `PUSHBACK`, then classify as **Tier 1** (local phrasing/naming fix; zero per-chapter rule files, escalate only if recurring across `2+` subsystem chapters) or **Tier 2** (systemic cross-discipline gap transferable across unrelated chapters).
-3. Draft proposed edits to `.agents/skills/*/SKILL.md`, `references/rubric_*.md`, `GEMINI.md`, or `scripts/check_*.py` strictly for **Tier 2** items as **universal, domain-agnostic rules**—never referencing chapter symbols, formulas, hex values, widget names, or line numbers; avoid rigid quotas and replace conflicting wording cleanly.
-4. Publish triage, Tier 1/Tier 2 split, and proposed rules in `pr_<N>_step1_triage.md` (`UserFacing: true`, `RequestFeedback: true`) and **STOP** until Gate 1 approves `U_agreed`. Immediately delete `/tmp/apex-feedback/pr-<N>.json` once Gate 1 signs off so no feedback JSON remains on disk during Step 2.
+2. Audit each item (`U1..Uk`) against text/code (`AGREE`, `CLARIFY`, or respectful `PUSHBACK`) and classify:
+   - **Tier 0**: Mechanical typos or broken links—purge `/tmp` JSON, fix directly, push, reply, and resolve.
+   - **Tier 1**: Local wording, naming, or single-chapter clarity without new rules—if **every** item is unambiguous Tier 1 (`AGREE`, zero `PUSHBACK`/`CLARIFY`), purge `/tmp` JSON and go directly to **Step 3**.
+   - **Tier 2**: Systemic gap transferable across unrelated chapters or codebases (or recurring across `2+` chapters).
+3. Whenever **any** item is **Tier 2**, `PUSHBACK`, or `CLARIFY`: draft domain-agnostic edits in the canonical rubric/gate/skill file (never copy-pasting across files or citing chapter tokens), run a **Rule Conflict & Counterbalance Check**, publish `pr_<N>_step1_triage.md`, and **STOP at Gate 1**. Purge `/tmp/apex-feedback/pr-<N>.json` immediately upon sign-off.
 
 ---
 
-## Step 2: Persona Update & Frozen-Prompt Subset-Recall Loop (Conditional Gate 2)
+## Step 2: Rule Update & Frozen-Prompt Recall + Precision Loop (Conditional Gate 2)
 
-1. Apply only the approved **Tier 2** persona/rubric/gate updates and sync `.agents/skills/*` into `~/.gemini` via `save_skill(overwrite=True)`. **Do NOT edit deliverable files or `references/calibration_log.md` yet.** (If every agreed item is Tier 1, proceed directly to Step 3.)
-2. Run deterministic checks (`check_code.py`, `check_book.py`, `check_visuals.py`) and generate the frozen review manifest on the **untouched** pre-fix snapshot:
+1. Apply only Gate-1-approved **Tier 2** rule/gate updates and sync `.agents/skills/*` into `~/.gemini` via `save_skill(overwrite=True)`. **Do NOT edit deliverables or `docs/calibration/*` yet.**
+2. Run static/visual gates (`check_code.py`, `check_book.py`, `check_visuals.py`), ensure `docs/CHAPTER_INDEX.md` is fresh (`build.py`), and generate the frozen full-sweep manifest on the **untouched** pre-fix snapshot:
    ```bash
-   python3 scripts/build_review_plan.py --chapter <chapter_path>
+   python3 scripts/build_review_plan.py [--chapter <chapter_path>] [--code <file1> ...]
    ```
-   - **Zero Orchestrator Bias & Full-Chapter Tier 2 Sweep**: Invoke **every** emitted shard (`1..K`), `Global Macro Critic`, and `Visual Pedagogy Critic` using `build_review_plan.py`'s **exact frozen prompt** whenever a Tier 2 rule changes (never cherry-picking only commented shards), forbidding `/tmp/`, triage artifacts, `calibration_log.md`, `gh`, or session logs.
-3. Map every **Tier 2** item in `U_agreed` semantically to `CAUGHT_BY_GATE`, `CAUGHT_BY_BLIND_SUBAGENT`, or `MISSED`.
-4. If any Tier 2 item is `MISSED`, generalize the governing rubric/skill/gate rule cleanly, re-sync via `save_skill`, and re-run **fresh** frozen-prompt subagents on affected shards until $\text{U}_{\text{tier2}} \subseteq \text{Panel} \cup \text{Gates}$.
-5. **Conditional Gate 2**: If Step 2 altered any persona/rubric prompt beyond Step 1's approved diff, **STOP** for human anti-cheating sign-off; otherwise continue directly to Step 3.
+   - Invoke **every** emitted task verbatim (`Cold-Reader`, `Math Editor`, `Macro Critic`, `Visual Critic`, and/or `--code` auditors), forbidding `/tmp/`, triage artifacts, `docs/calibration/*`, `gh`, or session logs.
+3. Score every Tier-2 item (`CAUGHT_BY_GATE`, `CAUGHT_BY_BLIND_SUBAGENT`, or `MISSED`) **and** check **Precision** (did any new rule trigger noisy/boilerplate false positives on clean passages?).
+4. If any Tier-2 item is `MISSED` or noisy, generalize/counterbalance the rule cleanly, re-sync via `save_skill`, and re-run **fresh** frozen-prompt subagents on affected shards until Recall holds with clean Precision.
+5. **Conditional Gate 2**: If Step 2 altered any rubric/skill prompt beyond Step 1's approved diff, **STOP** for human anti-cheating sign-off; otherwise continue to Step 3.
 
 ---
 
 ## Step 3: Deliverable Healing, Diff Guard & Clean-Room Convergence
 
-1. Fix **all** panel, gate, and `U_agreed` findings across code, tests, widgets, CSS, and chapter prose (`apex-artifact-author` + `apex-textbook-author`), refreshing `approved_date` on the PR branch via `step.py approve <step-id>` if needed.
-2. Append the retrospective root-cause entry to the relevant `references/calibration_log.md` and run all verification gates (`pytest --cov-fail-under=95`, `check_code.py`, `sync_book.py --check`, `check_book.py`, `build.py --check`, `BOOK_BASE=/apex/ npm --prefix book run build`, `check_visuals.py --screenshot-dir .cache/visual-audit`).
-3. Generate the Step 3 manifest including the pre-fix diff baseline and converge **fresh** frozen-prompt clean-room reviewers across **every emitted shard (`1..K`), Global Macro Critic, Visual Pedagogy Critic, and Diff & Flow Regression Guardian**:
+1. Fix **all** panel, gate, and `U_agreed` findings (`apex-artifact-author` + `apex-textbook-author`), refreshing `approved_date` on the PR branch via `step.py approve <step-id>` if needed.
+2. For Tier-2/substantive cycles, append the root-cause entry to `docs/calibration/<skill>.md` (never inside `.agents/skills/`), run `python3 scripts/build.py`, all code/book/coverage gates (`check_code.py`, `pytest --cov-fail-under=95`, `sync_book.py --check`, `check_book.py`, `build.py --check`), `BOOK_BASE=/apex/ npm --prefix book run build`, and `check_visuals.py --screenshot-dir .cache/visual-audit`.
+3. Converge **fresh** frozen-prompt clean-room reviewers with `--base-ref <untouched_head_sha>`: run a **full sweep** on Round 1, then deterministic **scoped** sweeps (`--changed-since <round_r_sha>`) on Round $r+1$ until every emitted task returns zero P0/P1/P2 defects:
    ```bash
-   python3 scripts/build_review_plan.py --chapter <chapter_path> --base-ref <untouched_head_sha>
+   python3 scripts/build_review_plan.py [--chapter <chapter_path>] [--code <file1> ...] --base-ref <untouched_head_sha> [--changed-since <round_r_sha>]
    ```
-   Iterate until every shard, global critic, visual critic, and the Diff Guardian return zero P0/P1/P2 defects.
 
 ---
 
 ## Step 4: Fast-Forward PR Update, Thread Resolution & 1-Tap Merge Close-Out
 
 1. Commit and push fast-forward updates strictly to the open `step/<step-id>` PR branch (never directly to `main`, and never force-push reviewed commits).
-2. Post concise inline replies on every addressed PR comment (`gh api -X POST repos/<owner>/<repo>/pulls/<N>/comments/<id>/replies`) noting both the deliverable fix and any upstream persona/rubric/gate change.
-3. Resolve every addressed GitHub review thread via GraphQL `resolveReviewThread`, leaving a thread unresolved **only** if a genuine open question remains.
-4. Confirm `Apex CI` and the `/apex/pr-<N>/` preview deploy pass, update bookmarks if needed, and await the reviewer's **1-tap Merge** on GitHub (or next review cycle). Never call `gh pr merge` unilaterally.
+2. Post concise inline replies (`gh api -X POST repos/<owner>/<repo>/pulls/<N>/comments/<id>/replies`) on every addressed PR comment noting the fix and any upstream rule/gate update.
+3. Resolve every addressed GitHub review thread via GraphQL `resolveReviewThread`, leaving a thread unresolved **only** when an open question remains.
+4. Confirm `Apex CI` and the `/apex/pr-<N>/` preview deploy pass, update bookmarks if needed, and await the reviewer's **1-tap Merge** on GitHub (never call `gh pr merge` unilaterally).

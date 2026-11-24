@@ -792,7 +792,7 @@ def _flush_exercise_reveal_check(
 
 def _validate_exercise_solutions(lines: list[str], rel_chap: Path, errors: list[str]) -> None:
     """Require per-question/per-subpart `<details>` reveals inside every `#### Exercise` block."""
-    active_fence: str | None = None
+    active_fence: tuple[str, int] | None = None
     in_details = False
     cur_ex: tuple[int, str] | None = None
     prompts = 0
@@ -977,7 +977,7 @@ def _validate_skill_rubrics(sdir: Path, rel_dir: Path, errors: list[str]) -> Non
 
 
 def validate_skills(root_dir: Path | None = None) -> tuple[list[str], int]:
-    """Enforce frontmatter, `<= 120`-line prompt budget, bullet caps, and rubrics on `.agents/skills/`."""
+    """Enforce frontmatter, `<= 120`-line prompt budget, bullet caps, and calibration isolation."""
     resolved_root = (root_dir or ROOT_DIR).resolve()
     skills_dir = resolved_root / ".agents" / "skills"
     if not skills_dir.is_dir():
@@ -987,6 +987,12 @@ def validate_skills(root_dir: Path | None = None) -> tuple[list[str], int]:
     skill_dirs = sorted(p for p in skills_dir.iterdir() if p.is_dir())
     for sdir in skill_dirs:
         rel_dir = sdir.relative_to(resolved_root)
+        for leaked in sorted(sdir.rglob("*calibration_log*")):
+            rel_leak = leaked.relative_to(resolved_root)
+            errors.append(
+                f"[{rel_leak}] Calibration logs must live in docs/calibration/<skill>.md, "
+                "never inside .agents/skills/ (prevents registry leakage into clean-room reviewers)"
+            )
         skill_md = sdir / "SKILL.md"
         if not skill_md.is_file():
             errors.append(f"[{rel_dir}] Missing SKILL.md")
@@ -1002,31 +1008,44 @@ def validate_skills(root_dir: Path | None = None) -> tuple[list[str], int]:
                 r"^description:\s*\S+", fm_body, re.MULTILINE
             ):
                 errors.append(f"[{rel_dir}/SKILL.md:1] YAML frontmatter requires non-empty 'name' and 'description'")
-            if "calibration_log.md" in fm_body:
+            if "calibration_log" in fm_body:
                 errors.append(
                     f"[{rel_dir}/SKILL.md:1] YAML frontmatter must not expose calibration_log.md to reviewers"
                 )
         if len(lines) > MAX_SKILL_LINES:
             errors.append(
                 f"[{rel_dir}/SKILL.md] Exceeds {MAX_SKILL_LINES}-line prompt budget ({len(lines)} lines); "
-                "move history into references/calibration_log.md or deterministic scripts"
+                "move history into docs/calibration/ or deterministic scripts"
             )
         _validate_skill_bullets(lines, f"{rel_dir}/SKILL.md", errors)
         _validate_skill_rubrics(sdir, rel_dir, errors)
         if sdir.name in REQUIRED_CALIBRATED_SKILLS:
-            cal_log = sdir / "references" / "calibration_log.md"
+            cal_log = resolved_root / "docs" / "calibration" / f"{sdir.name}.md"
             if not cal_log.is_file() or not cal_log.read_text(encoding="utf-8").strip():
-                errors.append(f"[{rel_dir}] Missing non-empty references/calibration_log.md ledger")
+                errors.append(f"[{rel_dir}] Missing non-empty docs/calibration/{sdir.name}.md ledger")
     return errors, len(skill_dirs)
 
 
+def validate_gemini_rules(root_dir: Path | None = None) -> list[str]:
+    """Enforce `<= MAX_SKILL_BULLET_WORDS` atomic bullets inside `GEMINI.md` when present."""
+    resolved_root = (root_dir or ROOT_DIR).resolve()
+    gemini_path = resolved_root / "GEMINI.md"
+    if not gemini_path.is_file():
+        return []
+    errors: list[str] = []
+    lines = gemini_path.read_text(encoding="utf-8").splitlines()
+    _validate_skill_bullets(lines, "GEMINI.md", errors)
+    return errors
+
+
 def main() -> int:
-    """CLI entry point for textbook, widget, and skill validation."""
+    """CLI entry point for textbook, widget, skill, and GEMINI rule validation."""
     result = validate_chapters(ROOT_DIR)
     errors = list(result.errors)
     errors.extend(validate_widgets(ROOT_DIR))
     skill_errors, skill_count = validate_skills(ROOT_DIR)
     errors.extend(skill_errors)
+    errors.extend(validate_gemini_rules(ROOT_DIR))
     if errors:
         print("Textbook validation FAILED:", file=sys.stderr)
         for err in errors:

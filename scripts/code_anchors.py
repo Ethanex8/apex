@@ -138,12 +138,36 @@ def _extract_sv_symbols(text: str) -> dict[str, tuple[int, int]]:
     return symbols
 
 
+def _match_c_function_header(lines: list[str], start_idx: int) -> tuple[str, int] | None:
+    """Return `(func_name, open_brace_idx)` if `lines[start_idx:]` starts a C function definition."""
+    first = lines[start_idx].strip()
+    if not first or first.startswith(("#", "//", "/*", "*", "}", "if", "for", "while", "switch", "else")):
+        return None
+    if ";" in first or "=" in first:
+        return None
+    next_ln = lines[start_idx + 1].strip() if start_idx + 1 < len(lines) else ""
+    if "(" not in first and "(" not in next_ln:
+        return None
+    buf = ""
+    for j in range(start_idx, min(len(lines), start_idx + 8)):
+        part = re.sub(r"//.*$|/\*.*?\*/", "", lines[j]).strip()
+        if ";" in part and "{" not in part:
+            return None
+        buf = f"{buf} {part}".strip()
+        if "{" in buf:
+            sig = buf.split("{", 1)[0].strip()
+            m = re.match(r"^(?:[A-Za-z_][\w\s\*]*?[\s\*])([A-Za-z_]\w*)\s*\([^;]*\)\s*$", sig)
+            if m and m.group(1) not in {"if", "for", "while", "switch"}:
+                return m.group(1), j
+            return None
+    return None
+
+
 def _extract_c_or_asm_symbols(text: str, label: str = "<source>") -> dict[str, tuple[int, int]]:
-    """Extract C/Header `#define` macros and functions, plus assembly labels."""
+    """Extract C/Header `#define` macros and single/multi-line functions, plus assembly labels."""
     lines = text.splitlines()
     symbols: dict[str, tuple[int, int]] = {}
     def_re = re.compile(r"^\s*#define\s+([A-Za-z_]\w*)")
-    fn_re = re.compile(r"^(?:[A-Za-z_][\w\s\*]*?[\s\*])([A-Za-z_]\w*)\s*\([^;]*\)\s*(?:\{|$)")
     asm_re = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*):(?:\s*(?://|#|/\*|$))")
 
     for i, line in enumerate(lines):
@@ -152,10 +176,9 @@ def _extract_c_or_asm_symbols(text: str, label: str = "<source>") -> dict[str, t
             while end < len(lines) and lines[end - 1].rstrip().endswith("\\"):
                 end += 1
             symbols.setdefault(m.group(1), (i + 1, end))
-        elif m := fn_re.match(line):
-            name = m.group(1)
-            if name not in {"if", "for", "while", "switch"} and "{" in "".join(lines[i : i + 3]):
-                symbols[name] = (i + 1, _find_matching_brace_end(lines, i, label))
+        elif fn_hit := _match_c_function_header(lines, i):
+            name, brace_idx = fn_hit
+            symbols[name] = (i + 1, _find_matching_brace_end(lines, brace_idx, label))
         elif m := asm_re.match(line):
             name = m.group(1)
             end = i + 1
