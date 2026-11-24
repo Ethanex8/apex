@@ -29,8 +29,19 @@ export interface CommentTarget {
   blockKind: string
 }
 
+export interface DraftReplyTarget {
+  threadId: string
+  rootCommentId: number
+  source: 'inline' | 'file' | 'issue' | 'review'
+  author: string
+  path: string
+  line: number | null
+}
+
 export interface DraftComment {
   id: string
+  kind?: 'comment' | 'reply'
+  replyTarget?: DraftReplyTarget
   path: string
   startLine: number
   endLine: number

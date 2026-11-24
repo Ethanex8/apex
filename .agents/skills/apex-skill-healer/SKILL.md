@@ -48,6 +48,6 @@ Execute this skill whenever user feedback arrives on an open PR or in chat (`doc
 ## Step 4: Fast-Forward PR Update, Thread Resolution & 1-Tap Merge Close-Out
 
 1. Commit and push fast-forward updates strictly to the open `step/<step-id>` PR branch (never directly to `main`, and never force-push reviewed commits).
-2. Post concise inline replies (`gh api -X POST repos/<owner>/<repo>/pulls/<N>/comments/<id>/replies`) on every addressed PR comment noting the fix and any upstream rule/gate update.
-3. Resolve every addressed GitHub review thread via GraphQL `resolveReviewThread`, leaving a thread unresolved **only** when an open question remains.
+2. Post concise replies on **every** addressed feedback item across all channels (`gh api -X POST repos/<owner>/<repo>/pulls/<N>/comments/<id>/replies` for inline threads; `gh api -X POST repos/<owner>/<repo>/issues/<N>/comments` with `<!-- apex-preview-reply-to: <root_id> -->` for review-summary or conversation items), noting the fix and any upstream rule/gate update.
+3. Resolve **every** addressed item (`resolveReviewThread` GraphQL for inline/file threads; `<!-- apex-preview-resolved: 1 -->` edit or `<!-- apex-preview-state: root=<id> resolved=1 -->` comment for review/issue items) and run `python3 scripts/harvest_feedback.py --pr <N>` to confirm zero open items remain, leaving an item unresolved **only** when a genuine open question remains.
 4. Confirm `Apex CI` and the `/apex/pr-<N>/` preview deploy pass, update bookmarks if needed, and await the reviewer's **1-tap Merge** on GitHub (never call `gh pr merge` unilaterally).

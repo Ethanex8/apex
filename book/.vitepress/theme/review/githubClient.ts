@@ -498,9 +498,11 @@ export async function submitBatchedReview(
   fetcher: FetchLike = fetch,
 ): Promise<SubmitBatchResult> {
   const outcomes: SubmitDraftOutcome[] = []
-  const inlineDrafts = drafts.filter((d) => d.mode === 'inline')
-  const fileDrafts = drafts.filter((d) => d.mode === 'file')
-  const issueDrafts = drafts.filter((d) => d.mode === 'issue')
+  const commentDrafts = drafts.filter((d) => d.kind !== 'reply')
+  const replyDrafts = drafts.filter((d) => d.kind === 'reply' && d.replyTarget)
+  const inlineDrafts = commentDrafts.filter((d) => d.mode === 'inline')
+  const fileDrafts = commentDrafts.filter((d) => d.mode === 'file')
+  const issueDrafts = commentDrafts.filter((d) => d.mode === 'issue')
   const trimmedSummary = summaryBody.trim()
 
   let summaryOk = true
@@ -604,6 +606,33 @@ export async function submitBatchedReview(
         token,
         fetcher,
       )
+      outcomes.push({ draftId: d.id, ok: true })
+    } catch (err) {
+      outcomes.push({
+        draftId: d.id,
+        ok: false,
+        error: err instanceof Error ? err.message : String(err),
+      })
+    }
+  }
+
+  for (const d of replyDrafts) {
+    const target = d.replyTarget!
+    const targetThread: RemoteReviewThread = {
+      id: target.threadId,
+      rootCommentId: target.rootCommentId,
+      path: target.path,
+      line: target.line,
+      startLine: null,
+      isResolved: false,
+      isOutdated: false,
+      canResolve: false,
+      source: target.source,
+      url: '',
+      comments: [],
+    }
+    try {
+      await replyToThread(meta.repo, meta.prNumber, targetThread, d.body, token, fetcher)
       outcomes.push({ draftId: d.id, ok: true })
     } catch (err) {
       outcomes.push({
@@ -762,8 +791,15 @@ export function formatMarkdownBundle(
     byFile.set(d.path, bucket)
   }
   for (const [filePath, items] of byFile.entries()) {
-    lines.push('', `### \`${filePath}\``)
+    lines.push('', `### \`${filePath || `PR #${meta.prNumber}`}\``)
     for (const item of items) {
+      if (item.kind === 'reply' && item.replyTarget) {
+        const loc = item.replyTarget.line ? `L${item.replyTarget.line}, ` : ''
+        lines.push(
+          `- **Reply to @${item.replyTarget.author}** (${loc}#${item.replyTarget.rootCommentId}): ${item.body.trim()}`,
+        )
+        continue
+      }
       const span =
         item.endLine > item.startLine
           ? `L${item.startLine}-L${item.endLine}`

@@ -33,3 +33,9 @@ Persistent ledger of workflow, PR hygiene, and review-loop lessons graduated int
 - **Why Missed Upstream**: Neither `GEMINI.md`, `apex-couch-mentor/SKILL.md`, nor `apex-skill-healer/SKILL.md` explicitly prohibited `--draft` on human review PRs or required posting inline replies directly on resolved PR comment threads (`pulls/<N>/comments/<id>/replies`).
 - **Healed By**: Updated `GEMINI.md`, `apex-couch-mentor/SKILL.md`, and `apex-skill-healer/SKILL.md` to mandate **Ready for Review** state immediately upon opening any review/step PR and direct inline thread replies for every addressed PR comment, synced to `~/.gemini` via `save_skill`.
 
+## Entry 005 — Channel-Complete PR Reply & Resolution Verification (`PR #9`, 2026-11-24)
+
+- **Trigger**: Reviewer feedback on PR #9 (`6048156971` / `6048467931`) noting fixed preview/review threads remained without replies/resolution and requesting draft-staged replies in the preview overlay.
+- **Why Missed Upstream**: Step 4 documented `pulls/<N>/comments/<id>/replies` and GraphQL `resolveReviewThread` for inline code threads, without explicitly covering PR review summaries, conversation comments, or preview-anchored comments, nor requiring a post-fix `harvest_feedback.py --pr <N>` zero-open verification before returning to human review.
+- **Healed By**: Updated [docs/REVIEW_PROCESS.md](../../docs/REVIEW_PROCESS.md) Step 4 and [apex-skill-healer](../../.agents/skills/apex-skill-healer/SKILL.md) Step 4 (synced via `save_skill`) to mandate cross-channel replies, resolution markers (`<!-- apex-preview-reply-to: ... -->`, `<!-- apex-preview-state: ... -->`), and `harvest_feedback.py --pr <N>` zero-open verification; updated the preview review overlay to stage replies alongside new comments as pending drafts until **Submit**.
+

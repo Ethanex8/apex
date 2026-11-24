@@ -383,4 +383,61 @@ test('githubClient handles auth, paginated GraphQL threads, unauthenticated REST
   assert.match(bundle, /Inline Preview Review — PR #42/)
   assert.match(bundle, /\*\*L15-L17\*\*/)
   assert.deepEqual(parsePreviewLocationMarker('plain').line, null)
+
+  const replyDrafts: DraftComment[] = [
+    {
+      id: 'r1',
+      kind: 'reply',
+      replyTarget: {
+        threadId: 'PRRT_1',
+        rootCommentId: 101,
+        source: 'inline',
+        author: 'Ethanex8',
+        path: 'systems/brain/chapters/01_isa.md',
+        line: 14,
+      },
+      path: 'systems/brain/chapters/01_isa.md',
+      startLine: 14,
+      endLine: 14,
+      apiStartLine: 14,
+      apiLine: 14,
+      mode: 'inline',
+      quote: 'Sentence A.',
+      sectionTitle: 'Reply to @Ethanex8',
+      blockKind: 'reply',
+      body: 'Staged inline reply',
+      createdAt: '2026-11-24T00:00:00Z',
+    },
+    {
+      id: 'r2',
+      kind: 'reply',
+      replyTarget: {
+        threadId: 'REV_1',
+        rootCommentId: 501,
+        source: 'review',
+        author: 'Ethanex8',
+        path: '',
+        line: null,
+      },
+      path: '',
+      startLine: 1,
+      endLine: 1,
+      apiStartLine: 1,
+      apiLine: 1,
+      mode: 'issue',
+      quote: 'Review summary.',
+      sectionTitle: 'Reply to @Ethanex8',
+      blockKind: 'reply',
+      body: 'Staged review reply',
+      createdAt: '2026-11-24T00:00:00Z',
+    },
+  ]
+  const replyResult = await submitBatchedReview(meta, replyDrafts, '', 'COMMENT', 'pat_123', mockFetch)
+  assert.equal(replyResult.outcomes.length, 2)
+  assert.equal(replyResult.outcomes.every((o) => o.ok), true)
+  const replyCalls = calls.filter((c) => c.method === 'POST' && c.url.endsWith('/comments/101/replies'))
+  assert.equal(replyCalls.length, 2)
+  const replyMd = formatMarkdownBundle(meta, replyDrafts, '')
+  assert.match(replyMd, /\*\*Reply to @Ethanex8\*\* \(L14, #101\): Staged inline reply/)
+  assert.match(replyMd, /\*\*Reply to @Ethanex8\*\* \(#501\): Staged review reply/)
 })

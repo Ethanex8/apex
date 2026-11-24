@@ -5,7 +5,6 @@ import prReviewMeta from 'virtual:apex-pr-review'
 import {
   fetchPrThreads,
   formatMarkdownBundle,
-  replyToThread,
   setThreadResolved,
   submitBatchedReview,
   verifyGitHubToken,
@@ -642,35 +641,49 @@ async function openThreadCard(thread: RemoteReviewThread) {
     thread.url || (await buildGitHubDiffUrl(meta.repo, meta.prNumber, thread.path, thread.line))
 }
 
-async function sendThreadReply(thread: RemoteReviewThread, text: string, fromDrawer = false) {
-  if (!auth.value.token || !text.trim()) return
-  threadActionBusy.value = true
+function queuedRepliesFor(threadId: string): DraftComment[] {
+  return drafts.value.filter((d) => d.kind === 'reply' && d.replyTarget?.threadId === threadId)
+}
+
+function stageThreadReply(thread: RemoteReviewThread, text: string, fromDrawer = false) {
+  const trimmed = text.trim()
+  if (!trimmed) return
+  const targetAuthor = thread.comments[0]?.author ?? 'reviewer'
+  const firstSnippet = thread.comments[0]?.body.split('\n')[0]?.slice(0, 140) ?? ''
+  const lineNum = thread.line ?? 1
+  drafts.value.push({
+    id: `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+    kind: 'reply',
+    replyTarget: {
+      threadId: thread.id,
+      rootCommentId: thread.rootCommentId,
+      source: thread.source,
+      author: targetAuthor,
+      path: thread.path,
+      line: thread.line,
+    },
+    path: thread.path,
+    startLine: lineNum,
+    endLine: lineNum,
+    apiStartLine: lineNum,
+    apiLine: lineNum,
+    mode: thread.source === 'review' ? 'issue' : thread.source,
+    quote: firstSnippet,
+    sectionTitle: `Reply to @${targetAuthor}`,
+    blockKind: 'reply',
+    body: trimmed,
+    createdAt: new Date().toISOString(),
+  })
+  saveDraftState()
+  submitNotice.value = `Staged reply to @${targetAuthor}. Click Submit in the drawer when ready to send.`
+  submitError.value = ''
   threadActionError.value = ''
   threadsError.value = ''
-  try {
-    await replyToThread(
-      meta.repo,
-      meta.prNumber,
-      thread,
-      text,
-      auth.value.token,
-    )
-    if (fromDrawer) {
-      inlineReplyThreadId.value = null
-      inlineReplyBody.value = ''
-    } else {
-      replyBody.value = ''
-    }
-    await refreshThreads()
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Reply failed'
-    if (fromDrawer) {
-      threadsError.value = msg
-    } else {
-      threadActionError.value = msg
-    }
-  } finally {
-    threadActionBusy.value = false
+  if (fromDrawer) {
+    inlineReplyThreadId.value = null
+    inlineReplyBody.value = ''
+  } else {
+    replyBody.value = ''
   }
 }
 
@@ -1033,52 +1046,70 @@ onUnmounted(() => {
           </div>
         </template>
 
-        <div v-if="threadActionError" class="apex-error-banner">{{ threadActionError }}</div>
-
-        <template v-if="auth.token">
-          <textarea
-            v-model="replyBody"
-            rows="3"
-            class="apex-textarea"
-            placeholder="Write a reply on this PR thread..."
-          />
-          <div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px">
+        <div
+          v-for="qr in queuedRepliesFor(activeThread.id)"
+          :key="qr.id"
+          class="apex-expanded-msg"
+          style="border-style: dashed; border-color: var(--vp-c-brand-1)"
+        >
+          <div class="apex-meta-row">
+            <strong>Staged reply draft</strong>
             <button
-              v-if="activeThread.canResolve"
               type="button"
               class="apex-rev-btn"
-              :disabled="threadActionBusy"
-              @click="toggleThreadResolved(activeThread)"
+              style="padding: 1px 6px; font-size: 11px"
+              @click="removeDraft(qr.id)"
             >
-              {{ activeThread.isResolved ? 'Reopen Thread' : 'Resolve Thread' }}
+              Remove
             </button>
-            <span v-else />
-            <div style="display: flex; gap: 8px">
-              <button type="button" class="apex-rev-btn" @click="activeThread = null">
-                Close
-              </button>
-              <button
-                type="button"
-                class="apex-rev-btn is-primary"
-                :disabled="threadActionBusy || !replyBody.trim()"
-                @click="sendThreadReply(activeThread, replyBody, false)"
-              >
-                {{ threadActionBusy ? 'Sending…' : 'Reply' }}
-              </button>
-            </div>
           </div>
-        </template>
-        <div v-else style="display: flex; justify-content: space-between; gap: 8px">
+          <div style="white-space: pre-wrap; font-size: 13.5px; line-height: 1.5">
+            {{ qr.body }}
+          </div>
+        </div>
+
+        <div v-if="threadActionError" class="apex-error-banner">{{ threadActionError }}</div>
+
+        <textarea
+          v-model="replyBody"
+          rows="3"
+          class="apex-textarea"
+          placeholder="Stage a reply draft on this thread..."
+          @keydown.meta.enter.prevent="stageThreadReply(activeThread, replyBody, false)"
+          @keydown.ctrl.enter.prevent="stageThreadReply(activeThread, replyBody, false)"
+        />
+        <div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px">
           <button
+            v-if="auth.token && activeThread.canResolve"
             type="button"
-            class="apex-rev-btn is-primary"
+            class="apex-rev-btn"
+            :disabled="threadActionBusy"
+            @click="toggleThreadResolved(activeThread)"
+          >
+            {{ activeThread.isResolved ? 'Reopen Thread' : 'Resolve Thread' }}
+          </button>
+          <button
+            v-else-if="activeThread.canResolve"
+            type="button"
+            class="apex-rev-btn"
             @click="activeThread = null; openReviewDrawer('setup')"
           >
-            Connect PAT to Reply / Resolve
+            Connect PAT to Resolve
           </button>
-          <button type="button" class="apex-rev-btn" @click="activeThread = null">
-            Close
-          </button>
+          <span v-else />
+          <div style="display: flex; gap: 8px">
+            <button type="button" class="apex-rev-btn" @click="activeThread = null">
+              Close
+            </button>
+            <button
+              type="button"
+              class="apex-rev-btn is-primary"
+              :disabled="!replyBody.trim()"
+              @click="stageThreadReply(activeThread, replyBody, false)"
+            >
+              Add Reply
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -1140,20 +1171,27 @@ onUnmounted(() => {
             <div v-for="d in drafts" :key="d.id" class="apex-card">
               <div class="apex-meta-row">
                 <button
+                  v-if="d.path"
                   type="button"
                   class="apex-rev-btn"
                   @click="jumpToLocation(d.path, d.startLine)"
                 >
-                  {{ d.path.split('/').pop() }}:{{ formatLineLabel(d.startLine, d.endLine) }}
+                  {{ d.kind === 'reply' && d.replyTarget ? `Reply · ${d.path.split('/').pop()}:L${d.replyTarget.line ?? d.startLine}` : `${d.path.split('/').pop()}:${formatLineLabel(d.startLine, d.endLine)}` }}
                 </button>
+                <span v-else class="apex-mono-path">
+                  {{ d.kind === 'reply' && d.replyTarget ? `Reply to @${d.replyTarget.author}` : `PR #${meta.prNumber}` }}
+                </span>
                 <button type="button" class="apex-rev-btn" @click="removeDraft(d.id)">
                   Delete
                 </button>
               </div>
               <blockquote v-if="d.quote" class="apex-quote-box">{{ d.quote }}</blockquote>
               <textarea v-model="d.body" rows="2" class="apex-textarea" />
-              <span class="apex-mode-badge" :class="{ 'is-warn': d.mode !== 'inline' }">
-                {{ modeBadgeLabel(d.mode) }}
+              <span
+                class="apex-mode-badge"
+                :class="{ 'is-warn': d.kind !== 'reply' && d.mode !== 'inline' }"
+              >
+                {{ d.kind === 'reply' && d.replyTarget ? `Reply to @${d.replyTarget.author}` : modeBadgeLabel(d.mode) }}
               </span>
             </div>
 
@@ -1256,12 +1294,36 @@ onUnmounted(() => {
                 </div>
               </template>
 
+              <div
+                v-for="qr in queuedRepliesFor(t.id)"
+                :key="qr.id"
+                class="apex-expanded-msg"
+                style="border-style: dashed; border-color: var(--vp-c-brand-1)"
+              >
+                <div class="apex-meta-row">
+                  <strong>Staged reply draft</strong>
+                  <button
+                    type="button"
+                    class="apex-rev-btn"
+                    style="padding: 1px 6px; font-size: 11px"
+                    @click="removeDraft(qr.id)"
+                  >
+                    Remove
+                  </button>
+                </div>
+                <div style="white-space: pre-wrap; font-size: 13px; line-height: 1.45">
+                  {{ qr.body }}
+                </div>
+              </div>
+
               <div v-if="inlineReplyThreadId === t.id" style="display: flex; flex-direction: column; gap: 6px">
                 <textarea
                   v-model="inlineReplyBody"
                   rows="2"
                   class="apex-textarea"
-                  placeholder="Write a reply..."
+                  placeholder="Stage a reply draft..."
+                  @keydown.meta.enter.prevent="stageThreadReply(t, inlineReplyBody, true)"
+                  @keydown.ctrl.enter.prevent="stageThreadReply(t, inlineReplyBody, true)"
                 />
                 <div style="display: flex; justify-content: flex-end; gap: 6px">
                   <button
@@ -1274,10 +1336,10 @@ onUnmounted(() => {
                   <button
                     type="button"
                     class="apex-rev-btn is-primary"
-                    :disabled="threadActionBusy || !inlineReplyBody.trim()"
-                    @click="sendThreadReply(t, inlineReplyBody, true)"
+                    :disabled="!inlineReplyBody.trim()"
+                    @click="stageThreadReply(t, inlineReplyBody, true)"
                   >
-                    {{ threadActionBusy ? 'Sending…' : 'Send Reply' }}
+                    Add Reply
                   </button>
                 </div>
               </div>
@@ -1286,7 +1348,7 @@ onUnmounted(() => {
                 <span>{{ t.comments.length }} comment(s)</span>
                 <div style="display: flex; gap: 6px">
                   <button
-                    v-if="auth.token && inlineReplyThreadId !== t.id"
+                    v-if="inlineReplyThreadId !== t.id"
                     type="button"
                     class="apex-rev-btn"
                     @click="inlineReplyThreadId = t.id; inlineReplyBody = ''"
