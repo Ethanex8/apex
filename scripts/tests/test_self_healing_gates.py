@@ -1153,6 +1153,16 @@ def test_harvest_feedback_preview_loc_fallback(monkeypatch: pytest.MonkeyPatch) 
             "body": "Already fixed.\n<!-- apex-preview-resolved: 1 -->",
             "user": {"login": "Ethanex8", "type": "User"},
         },
+        {
+            "id": 304,
+            "body": "Reply to fixed.\n<!-- apex-preview-reply-to: 303 -->",
+            "user": {"login": "Ethanex8", "type": "User"},
+        },
+        {
+            "id": 305,
+            "body": "<!-- apex-preview-state: root=302 resolved=1 -->",
+            "user": {"login": "Ethanex8", "type": "User"},
+        },
     ])
 
     def _run_stub(cmd: list[str], **_kw: object) -> subprocess.CompletedProcess[str]:
@@ -1167,16 +1177,15 @@ def test_harvest_feedback_preview_loc_fallback(monkeypatch: pytest.MonkeyPatch) 
 
     monkeypatch.setattr(harvest_feedback.subprocess, "run", _run_stub)
     items = harvest_feedback.normalize_pr_feedback("Ethanex8/apex", 11)
-    assert len(items) == 2
+    assert len(items) == 1
     assert items[0]["line"] == 42
     assert items[0]["body"] == "Clarify bit range."
-    assert items[1]["path"] == "VISION.md"
-    assert items[1]["line"] == 15
-    assert items[1]["body"] == "Check figure."
     all_items = harvest_feedback.normalize_pr_feedback("Ethanex8/apex", 11, include_resolved=True)
-    assert len(all_items) == 3
+    assert len(all_items) == 4
+    assert all_items[1]["path"] == "VISION.md"
+    assert all_items[1]["is_resolved"] is True
     assert all_items[2]["is_resolved"] is True
-    assert all_items[2]["body"] == "Already fixed."
+    assert all_items[3]["body"] == "Reply to fixed."
     assert harvest_feedback._extract_preview_location("plain text") == (None, None)
 
 

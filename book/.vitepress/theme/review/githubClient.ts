@@ -285,7 +285,7 @@ async function fetchRestPullThreads(
   fetcher: FetchLike,
 ): Promise<RemoteReviewThread[]> {
   const raw = await apiRequest<RestPullComment[]>(
-    `${GITHUB_API}/repos/${repo}/pulls/${prNumber}/comments?per_page=100`,
+    `${GITHUB_API}/repos/${repo}/pulls/${prNumber}/comments?per_page=100&_t=${Date.now()}`,
     { method: 'GET' },
     '',
     fetcher,
@@ -364,15 +364,16 @@ async function fetchConversationAndReviewThreads(
   token: string,
   fetcher: FetchLike,
 ): Promise<RemoteReviewThread[]> {
+  const bust = Date.now()
   const [rawIssues, rawReviews] = await Promise.all([
     apiRequest<RestIssueComment[]>(
-      `${GITHUB_API}/repos/${repo}/issues/${prNumber}/comments?per_page=100`,
+      `${GITHUB_API}/repos/${repo}/issues/${prNumber}/comments?per_page=100&_t=${bust}`,
       { method: 'GET' },
       token,
       fetcher,
     ),
     apiRequest<RestPrReview[]>(
-      `${GITHUB_API}/repos/${repo}/pulls/${prNumber}/reviews?per_page=100`,
+      `${GITHUB_API}/repos/${repo}/pulls/${prNumber}/reviews?per_page=100&_t=${bust}`,
       { method: 'GET' },
       token,
       fetcher,

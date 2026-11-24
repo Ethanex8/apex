@@ -36,6 +36,7 @@ PREVIEW_LOC_RE = re.compile(
 )
 PREVIEW_RESOLVED_RE = re.compile(r"<!--\s*apex-preview-resolved:\s*1\s*-->")
 PREVIEW_REPLY_RE = re.compile(r"<!--\s*apex-preview-reply-to:\s*(\d+)\s*-->")
+PREVIEW_STATE_RE = re.compile(r"<!--\s*apex-preview-state:\s*root=(\d+)\s+resolved=(0|1)\s*-->")
 UNKNOWN_AUTHOR = "unknown"
 REVIEW_THREADS_QUERY = """
 query($owner: String!, $name: String!, $pr: Int!, $after: String) {
@@ -350,6 +351,67 @@ def _build_grouped_inline_items(
     return items
 
 
+def _collect_conv_and_review_items(
+    repo: str,
+    pr_number: int,
+    *,
+    include_bots: bool,
+    include_resolved: bool,
+    since_dt: datetime | None,
+    after_review_id: int | None,
+) -> list[dict[str, object]]:
+    """Collect PR review bodies and issue comments while respecting preview resolution markers."""
+    review_entries = fetch_gh_json(f"repos/{repo}/pulls/{pr_number}/reviews")
+    issue_entries = fetch_gh_json(f"repos/{repo}/issues/{pr_number}/comments")
+    state_overrides: dict[int, bool] = {}
+    for entry in issue_entries:
+        if m := PREVIEW_STATE_RE.search(str(entry.get("body") or "")):
+            state_overrides[int(m.group(1))] = m.group(2) == "1"
+
+    resolved_roots: set[int] = {rid for rid, flag in state_overrides.items() if flag}
+    for entry in (*review_entries, *issue_entries):
+        cid = entry.get("id")
+        if (
+            isinstance(cid, int)
+            and cid not in state_overrides
+            and PREVIEW_RESOLVED_RE.search(str(entry.get("body") or ""))
+        ):
+            resolved_roots.add(cid)
+
+    items: list[dict[str, object]] = []
+    for source, raw_entries in (("review", review_entries), ("issue", issue_entries)):
+        for entry in raw_entries:
+            visible = _visible_entry_body_and_user(entry, include_bots)
+            if visible is None:
+                continue
+            body, user = visible
+            if PREVIEW_STATE_RE.search(body):
+                continue
+            comment_id = entry.get("id")
+            if (
+                source == "review"
+                and after_review_id is not None
+                and isinstance(comment_id, int)
+                and comment_id <= after_review_id
+            ):
+                continue
+            if not _passes_since(_entry_timestamp(entry), since_dt):
+                continue
+            reply_m = PREVIEW_REPLY_RE.search(body)
+            parent_id = int(reply_m.group(1)) if reply_m else None
+            is_marked_resolved = (
+                (isinstance(comment_id, int) and comment_id in resolved_roots)
+                or (parent_id is not None and parent_id in resolved_roots)
+            )
+            if not include_resolved and is_marked_resolved:
+                continue
+            item = _base_feedback_item(entry, source, body, user)
+            if is_marked_resolved:
+                item["is_resolved"] = True
+            items.append(item)
+    return items
+
+
 def normalize_pr_feedback(
     repo: str,
     pr_number: int,
@@ -370,33 +432,16 @@ def normalize_pr_feedback(
         include_resolved=include_resolved,
         since_dt=since_dt,
     )
-
-    for source, endpoint in (
-        ("review", f"repos/{repo}/pulls/{pr_number}/reviews"),
-        ("issue", f"repos/{repo}/issues/{pr_number}/comments"),
-    ):
-        for entry in fetch_gh_json(endpoint):
-            visible = _visible_entry_body_and_user(entry, include_bots)
-            if visible is None:
-                continue
-            body, user = visible
-            comment_id = entry.get("id")
-            if (
-                source == "review"
-                and after_review_id is not None
-                and isinstance(comment_id, int)
-                and comment_id <= after_review_id
-            ):
-                continue
-            if not _passes_since(_entry_timestamp(entry), since_dt):
-                continue
-            is_marked_resolved = PREVIEW_RESOLVED_RE.search(body) is not None
-            if not include_resolved and is_marked_resolved:
-                continue
-            item = _base_feedback_item(entry, source, body, user)
-            if is_marked_resolved:
-                item["is_resolved"] = True
-            items.append(item)
+    items.extend(
+        _collect_conv_and_review_items(
+            repo,
+            pr_number,
+            include_bots=include_bots,
+            include_resolved=include_resolved,
+            since_dt=since_dt,
+            after_review_id=after_review_id,
+        )
+    )
     return items
 
 

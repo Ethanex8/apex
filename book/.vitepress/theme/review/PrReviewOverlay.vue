@@ -680,13 +680,20 @@ async function toggleThreadResolved(thread: RemoteReviewThread) {
   threadActionError.value = ''
   threadsError.value = ''
   try {
-    await setThreadResolved(
+    const nextResolved = await setThreadResolved(
       meta.repo,
       meta.prNumber,
       thread,
       !thread.isResolved,
       auth.value.token,
     )
+    threads.value = threads.value.map((item) =>
+      item.id === thread.id ? { ...item, isResolved: nextResolved } : item,
+    )
+    if (activeThread.value?.id === thread.id) {
+      activeThread.value = { ...activeThread.value, isResolved: nextResolved }
+    }
+    scheduleMeasure()
     await refreshThreads()
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Failed to update thread state'
