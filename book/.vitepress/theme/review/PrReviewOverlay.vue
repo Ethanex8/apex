@@ -42,19 +42,11 @@ interface ThreadMarkerGroup {
   threads: RemoteReviewThread[]
 }
 
-interface AnnotateChip {
+interface BlockAddButton {
   key: string
   top: number
   left: number
-  label: string
-  target: CommentTarget
-}
-
-interface HoverBlockMark {
-  top: number
-  left: number
-  startLine: number
-  endLine: number
+  line: number
   el: HTMLElement
 }
 
@@ -67,7 +59,6 @@ const draftStorageKey = `apex-pr-review-drafts:${meta.repo}#${meta.prNumber}`
 const authStorageKey = `apex-pr-review-auth:${meta.repo}`
 
 const isMobile = ref(false)
-const annotateMode = ref(false)
 const showGutter = ref(true)
 const showResolved = ref(false)
 
@@ -95,7 +86,7 @@ const threadsLoadedOnce = ref(false)
 const threadsError = ref('')
 
 const drawerOpen = ref(false)
-const drawerTab = ref<'drafts' | 'threads' | 'auth'>('drafts')
+const drawerView = ref<'main' | 'setup'>('main')
 const threadScope = ref<'page' | 'all'>('page')
 
 const selectionTarget = ref<CommentTarget | null>(null)
@@ -114,15 +105,16 @@ const threadActionError = ref('')
 
 const gutterMarks = ref<GutterMark[]>([])
 const threadMarkers = ref<ThreadMarkerGroup[]>([])
-const annotateChips = ref<AnnotateChip[]>([])
-const hoverMark = ref<HoverBlockMark | null>(null)
+const blockAddButtons = ref<BlockAddButton[]>([])
 
 const pendingScrollLine = ref<number | null>(null)
 
+const visibleBlocks = new Set<HTMLElement>()
 let selectionTimer: number | null = null
 let layoutRaf: number | null = null
 let docObserver: MutationObserver | null = null
 let docResizeObserver: ResizeObserver | null = null
+let blockIntersectionObserver: IntersectionObserver | null = null
 
 const currentRepoPath = computed(() => {
   const raw = (page.value as { repoSourcePath?: string }).repoSourcePath
@@ -149,6 +141,10 @@ const openPageThreadCount = computed(
     threads.value.filter(
       (t) => t.path === currentRepoPath.value && !t.isResolved,
     ).length,
+)
+
+const totalOpenThreadCount = computed(
+  () => threads.value.filter((t) => !t.isResolved).length,
 )
 
 function mapRepoPathToRoute(repoPath: string): string | null {
@@ -247,7 +243,6 @@ async function restoreAuth() {
       persistLocal: persistLocalToggle.value,
     }
   } catch {
-    // Keep UI non-blocking if stored token expired; clear invalid token.
     saveAuthToken('', true)
   }
 }
@@ -270,6 +265,7 @@ async function connectToken() {
     }
     saveAuthToken(cleaned, persistLocalToggle.value)
     tokenInput.value = ''
+    drawerView.value = 'main'
     await refreshThreads()
   } catch (err) {
     authError.value = err instanceof Error ? err.message : 'Failed to verify GitHub token'
@@ -303,10 +299,10 @@ async function refreshThreads() {
   }
 }
 
-function openThreadsDrawer() {
+function openReviewDrawer(view: 'main' | 'setup' = 'main') {
   drawerOpen.value = true
-  drawerTab.value = 'threads'
-  if (!threadsLoadedOnce.value && !threadsLoading.value) {
+  drawerView.value = view
+  if (view === 'main' && !threadsLoadedOnce.value && !threadsLoading.value) {
     refreshThreads()
   }
 }
@@ -316,29 +312,79 @@ function updateViewportMode() {
   isMobile.value = window.innerWidth < 768
 }
 
+function isAnnotatableBlock(el: HTMLElement): boolean {
+  if (el.closest('.apex-review-ui')) return false
+  if (el.tagName === 'TR') return false
+  if (el.tagName === 'LI' && el.querySelector(':scope > p[data-src-line]')) {
+    return false
+  }
+  return true
+}
+
+function observeDocumentBlocks() {
+  visibleBlocks.clear()
+  blockIntersectionObserver?.disconnect()
+  const docRoot = document.querySelector('.vp-doc')
+  if (!docRoot) return
+
+  const blocks = Array.from(
+    docRoot.querySelectorAll<HTMLElement>('[data-src-line]'),
+  ).filter(isAnnotatableBlock)
+
+  if (typeof IntersectionObserver === 'undefined') {
+    for (const b of blocks) visibleBlocks.add(b)
+    scheduleMeasure()
+    return
+  }
+
+  blockIntersectionObserver = new IntersectionObserver(
+    (entries) => {
+      let changed = false
+      for (const entry of entries) {
+        const el = entry.target as HTMLElement
+        if (entry.isIntersecting) {
+          if (!visibleBlocks.has(el)) {
+            visibleBlocks.add(el)
+            changed = true
+          }
+        } else if (visibleBlocks.delete(el)) {
+          changed = true
+        }
+      }
+      if (changed) scheduleMeasure()
+    },
+    { rootMargin: '250px 0px' },
+  )
+
+  for (const el of blocks) {
+    blockIntersectionObserver.observe(el)
+  }
+}
+
 function recomputeDocAnnotations() {
   if (typeof window === 'undefined') return
   const docRoot = document.querySelector('.vp-doc')
   if (!docRoot || !currentRepoPath.value) {
     gutterMarks.value = []
     threadMarkers.value = []
-    annotateChips.value = []
+    blockAddButtons.value = []
     return
   }
 
   const scrollX = window.scrollX
   const scrollY = window.scrollY
   const docWidth = document.documentElement.clientWidth
+  const compactMode = docWidth < 960
 
   const nextGutters: GutterMark[] = []
-  const nextAnnotate: AnnotateChip[] = []
+  const nextButtons: BlockAddButton[] = []
 
-  const blocks = Array.from(
-    docRoot.querySelectorAll<HTMLElement>('[data-src-line]'),
-  ).filter((el) => !el.closest('.apex-review-ui'))
-
-  for (let i = 0; i < blocks.length; i += 1) {
-    const el = blocks[i]
+  let idx = 0
+  for (const el of visibleBlocks) {
+    if (!docRoot.contains(el)) {
+      visibleBlocks.delete(el)
+      continue
+    }
     const rect = el.getBoundingClientRect()
     if (rect.width <= 0 || rect.height <= 0) continue
 
@@ -348,29 +394,31 @@ function recomputeDocAnnotations() {
 
     if (
       showGutter.value &&
-      el.tagName !== 'TR' &&
       isRangeInAddedDiff(currentRepoPath.value, startLine, endLine, meta.files)
     ) {
       nextGutters.push({
-        key: `g:${i}:${startLine}`,
+        key: `g:${idx}:${startLine}`,
         top: rect.top + scrollY,
-        left: Math.max(4, rect.left + scrollX - 10),
+        left: Math.max(3, rect.left + scrollX - 10),
         height: Math.max(12, rect.height),
       })
     }
 
-    if (annotateMode.value && el.tagName !== 'TR') {
-      const target = resolveBlockTarget(el, docRoot, currentRepoPath.value, meta.files)
-      if (target) {
-        nextAnnotate.push({
-          key: `a:${i}:${startLine}`,
-          top: Math.max(4, rect.top + scrollY - 11),
-          left: Math.min(docWidth - 68, Math.max(8, rect.right + scrollX - 58)),
-          label: `+ L${startLine}`,
-          target,
-        })
-      }
-    }
+    const btnLeft = compactMode
+      ? Math.min(docWidth - 26, Math.max(8, rect.right + scrollX - 22))
+      : Math.max(6, rect.left + scrollX - 30)
+    const btnTop = compactMode
+      ? Math.max(4, rect.top + scrollY - 10)
+      : rect.top + scrollY + 3
+
+    nextButtons.push({
+      key: `b:${idx}:${startLine}`,
+      top: btnTop,
+      left: btnLeft,
+      line: startLine,
+      el,
+    })
+    idx += 1
   }
 
   const anchorGroups = new Map<
@@ -389,27 +437,27 @@ function recomputeDocAnnotations() {
   }
 
   const nextThreadMarkers: ThreadMarkerGroup[] = []
-  let idx = 0
+  let tIdx = 0
   for (const [el, group] of anchorGroups.entries()) {
     const rect = el.getBoundingClientRect()
     if (rect.width <= 0 || rect.height <= 0) continue
     const chipLeft =
-      rect.right + 10 + 96 <= docWidth
+      rect.right + 10 + 92 <= docWidth
         ? rect.right + scrollX + 8
-        : Math.max(8, Math.min(docWidth - 100, rect.right + scrollX - 96))
+        : Math.max(8, Math.min(docWidth - 96, rect.right + scrollX - 92))
     nextThreadMarkers.push({
-      key: `tm:${idx}:${group.items[0].id}`,
-      top: rect.top + scrollY + (chipLeft < rect.right + scrollX ? -10 : 2),
+      key: `tm:${tIdx}:${group.items[0].id}`,
+      top: rect.top + scrollY + (chipLeft < rect.right + scrollX ? -12 : 2),
       left: chipLeft,
       line: group.line,
       allResolved: group.items.every((item) => item.isResolved),
       threads: group.items,
     })
-    idx += 1
+    tIdx += 1
   }
 
   gutterMarks.value = nextGutters
-  annotateChips.value = nextAnnotate
+  blockAddButtons.value = nextButtons
   threadMarkers.value = nextThreadMarkers
 }
 
@@ -422,40 +470,6 @@ function scheduleMeasure() {
     layoutRaf = null
     recomputeDocAnnotations()
   })
-}
-
-function handleDocMouseMove(ev: MouseEvent) {
-  if (isMobile.value || annotateMode.value) {
-    hoverMark.value = null
-    return
-  }
-  const docRoot = document.querySelector('.vp-doc')
-  if (!docRoot || !(ev.target instanceof Element)) {
-    hoverMark.value = null
-    return
-  }
-  if (!docRoot.contains(ev.target) || ev.target.closest('.apex-review-ui')) {
-    return
-  }
-  const block = ev.target.closest<HTMLElement>('[data-src-line]')
-  if (!block || !docRoot.contains(block)) {
-    hoverMark.value = null
-    return
-  }
-  const rect = block.getBoundingClientRect()
-  if (rect.width <= 0 || rect.height <= 0) {
-    hoverMark.value = null
-    return
-  }
-  const startLine = Number.parseInt(block.dataset.srcLine ?? '1', 10)
-  const endLine = Number.parseInt(block.dataset.srcEnd ?? String(startLine), 10)
-  hoverMark.value = {
-    top: rect.top + window.scrollY + 2,
-    left: Math.max(8, rect.left + window.scrollX - 34),
-    startLine,
-    endLine,
-    el: block,
-  }
 }
 
 function updateSelectionAction() {
@@ -501,16 +515,10 @@ function openComposer(target: CommentTarget) {
   selectionRect.value = null
 }
 
-function openComposerFromHover() {
-  if (!hoverMark.value) return
+function openComposerForBlock(el: HTMLElement) {
   const docRoot = document.querySelector('.vp-doc')
   if (!docRoot) return
-  const target = resolveBlockTarget(
-    hoverMark.value.el,
-    docRoot,
-    currentRepoPath.value,
-    meta.files,
-  )
+  const target = resolveBlockTarget(el, docRoot, currentRepoPath.value, meta.files)
   if (target) openComposer(target)
 }
 
@@ -578,7 +586,7 @@ function removeDraft(id: string) {
 
 async function submitQueuedReview() {
   if (!auth.value.token) {
-    drawerTab.value = 'auth'
+    drawerView.value = 'setup'
     return
   }
   if (drafts.value.length === 0 && !summaryBody.value.trim() && submitEvent.value === 'COMMENT') {
@@ -699,7 +707,11 @@ function attachDocObservers() {
   docResizeObserver?.disconnect()
   const docRoot = document.querySelector('.vp-doc')
   if (!docRoot) return
-  docObserver = new MutationObserver(() => scheduleMeasure())
+  observeDocumentBlocks()
+  docObserver = new MutationObserver(() => {
+    observeDocumentBlocks()
+    scheduleMeasure()
+  })
   docObserver.observe(docRoot, { childList: true, subtree: true })
   if (typeof ResizeObserver !== 'undefined') {
     docResizeObserver = new ResizeObserver(() => scheduleMeasure())
@@ -711,7 +723,6 @@ watch(
   () => route.path,
   async () => {
     selectionTarget.value = null
-    hoverMark.value = null
     await nextTick()
     attachDocObservers()
     scheduleMeasure()
@@ -723,7 +734,7 @@ watch(
   },
 )
 
-watch([annotateMode, showGutter, showResolved], () => {
+watch([showGutter, showResolved], () => {
   scheduleMeasure()
 })
 
@@ -745,7 +756,6 @@ onMounted(async () => {
   scheduleMeasure()
   window.addEventListener('resize', updateViewportMode, { passive: true })
   window.addEventListener('resize', scheduleMeasure, { passive: true })
-  window.addEventListener('mousemove', handleDocMouseMove, { passive: true })
   document.addEventListener('selectionchange', scheduleSelectionCheck)
   document.addEventListener('mouseup', scheduleSelectionCheck)
   document.addEventListener('touchend', scheduleSelectionCheck)
@@ -754,12 +764,12 @@ onMounted(async () => {
 onUnmounted(() => {
   docObserver?.disconnect()
   docResizeObserver?.disconnect()
+  blockIntersectionObserver?.disconnect()
   if (selectionTimer !== null) window.clearTimeout(selectionTimer)
   if (layoutRaf !== null) window.cancelAnimationFrame(layoutRaf)
   if (typeof window !== 'undefined') {
     window.removeEventListener('resize', updateViewportMode)
     window.removeEventListener('resize', scheduleMeasure)
-    window.removeEventListener('mousemove', handleDocMouseMove)
     document.removeEventListener('selectionchange', scheduleSelectionCheck)
     document.removeEventListener('mouseup', scheduleSelectionCheck)
     document.removeEventListener('touchend', scheduleSelectionCheck)
@@ -779,26 +789,17 @@ onUnmounted(() => {
       />
 
       <button
-        v-if="hoverMark"
+        v-for="btn in blockAddButtons"
+        :key="btn.key"
         type="button"
-        class="apex-hover-add-btn"
-        :style="{ top: `${hoverMark.top}px`, left: `${hoverMark.left}px` }"
-        :title="`Comment on ${formatLineLabel(hoverMark.startLine, hoverMark.endLine)}`"
-        :aria-label="`Add inline comment on ${formatLineLabel(hoverMark.startLine, hoverMark.endLine)}`"
-        @click="openComposerFromHover"
+        class="apex-block-add-btn"
+        :style="{ top: `${btn.top}px`, left: `${btn.left}px` }"
+        :data-src-btn-line="btn.line"
+        :title="`Add comment at L${btn.line}`"
+        :aria-label="`Add comment at line ${btn.line}`"
+        @click="openComposerForBlock(btn.el)"
       >
         +
-      </button>
-
-      <button
-        v-for="chip in annotateChips"
-        :key="chip.key"
-        type="button"
-        class="apex-annotate-chip"
-        :style="{ top: `${chip.top}px`, left: `${chip.left}px` }"
-        @click="openComposer(chip.target)"
-      >
-        {{ chip.label }}
       </button>
 
       <button
@@ -856,38 +857,20 @@ onUnmounted(() => {
       <button
         type="button"
         class="apex-rev-btn is-pill"
-        :class="{ 'is-active': drawerOpen && drawerTab === 'threads' }"
-        @click="openThreadsDrawer"
+        :class="{ 'is-primary': drafts.length > 0, 'is-active': drawerOpen && drawerView === 'main' && drafts.length === 0 }"
+        @click="openReviewDrawer('main')"
       >
-        <span>PR #{{ meta.prNumber }}</span>
-        <span v-if="openPageThreadCount > 0" class="apex-badge-count">{{ openPageThreadCount }}</span>
-      </button>
-
-      <button
-        type="button"
-        class="apex-rev-btn is-pill"
-        :class="{ 'is-active': annotateMode }"
-        title="Show tap targets on every paragraph, equation, diagram, and widget"
-        @click="annotateMode = !annotateMode"
-      >
-        {{ annotateMode ? 'Done' : '+ Annotate' }}
-      </button>
-
-      <button
-        type="button"
-        class="apex-rev-btn is-pill"
-        :class="{ 'is-primary': drafts.length > 0 }"
-        @click="drawerOpen = true; drawerTab = 'drafts'"
-      >
-        <span>Review</span>
+        <span>Review #{{ meta.prNumber }}</span>
         <span v-if="drafts.length > 0" class="apex-badge-count">{{ drafts.length }}</span>
+        <span v-else-if="openPageThreadCount > 0" class="apex-badge-count is-warn">{{ openPageThreadCount }}</span>
       </button>
 
       <button
         type="button"
         class="apex-rev-btn is-pill"
-        :title="auth.login ? `Connected as @${auth.login}` : 'Connect GitHub PAT'"
-        @click="drawerOpen = true; drawerTab = 'auth'"
+        :class="{ 'is-active': drawerOpen && drawerView === 'setup' }"
+        :title="auth.login ? `Connected as @${auth.login}` : 'Connect GitHub PAT (saved once across all PRs)'"
+        @click="openReviewDrawer('setup')"
       >
         {{ auth.login ? `@${auth.login}` : 'Connect' }}
       </button>
@@ -1035,7 +1018,7 @@ onUnmounted(() => {
           <button
             type="button"
             class="apex-rev-btn is-primary"
-            @click="activeThread = null; drawerOpen = true; drawerTab = 'auth'"
+            @click="activeThread = null; openReviewDrawer('setup')"
           >
             Connect PAT to Reply / Resolve
           </button>
@@ -1060,6 +1043,14 @@ onUnmounted(() => {
             </div>
           </div>
           <div style="display: flex; gap: 6px">
+            <button
+              type="button"
+              class="apex-rev-btn"
+              :class="{ 'is-active': drawerView === 'setup' }"
+              @click="drawerView = drawerView === 'setup' ? 'main' : 'setup'"
+            >
+              {{ drawerView === 'setup' ? '← Review' : (auth.login ? `@${auth.login}` : 'Setup') }}
+            </button>
             <a
               :href="meta.prUrl"
               target="_blank"
@@ -1075,98 +1066,54 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <div class="apex-drawer-tabs">
-          <button
-            type="button"
-            class="apex-rev-btn"
-            :class="{ 'is-active': drawerTab === 'drafts' }"
-            @click="drawerTab = 'drafts'"
-          >
-            Drafts ({{ drafts.length }})
-          </button>
-          <button
-            type="button"
-            class="apex-rev-btn"
-            :class="{ 'is-active': drawerTab === 'threads' }"
-            @click="openThreadsDrawer"
-          >
-            Threads ({{ threads.filter((t) => !t.isResolved).length }})
-          </button>
-          <button
-            type="button"
-            class="apex-rev-btn"
-            :class="{ 'is-active': drawerTab === 'auth' }"
-            @click="drawerTab = 'auth'"
-          >
-            {{ auth.login ? `@${auth.login}` : 'Setup' }}
-          </button>
-        </div>
+        <template v-if="drawerView === 'main'">
+          <div class="apex-drawer-body">
+            <div v-if="submitNotice" class="apex-status-banner">{{ submitNotice }}</div>
+            <div v-if="submitError" class="apex-error-banner">{{ submitError }}</div>
 
-        <div v-if="drawerTab === 'drafts'" class="apex-drawer-body">
-          <div v-if="submitNotice" class="apex-status-banner">{{ submitNotice }}</div>
-          <div v-if="submitError" class="apex-error-banner">{{ submitError }}</div>
-
-          <div v-if="drafts.length === 0" class="apex-card">
-            <div style="font-size: 13px; color: var(--vp-c-text-2)">
-              Highlight any sentence, hover a paragraph <code>+</code> trigger, or tap <strong>+ Annotate</strong> to queue inline comments.
+            <div class="apex-section-heading">
+              <span>Pending Drafts ({{ drafts.length }})</span>
             </div>
-          </div>
 
-          <div v-for="d in drafts" :key="d.id" class="apex-card">
-            <div class="apex-meta-row">
-              <button
-                type="button"
-                class="apex-rev-btn"
-                @click="jumpToLocation(d.path, d.startLine)"
-              >
-                {{ d.path.split('/').pop() }}:{{ formatLineLabel(d.startLine, d.endLine) }}
-              </button>
-              <button type="button" class="apex-rev-btn" @click="removeDraft(d.id)">
-                Delete
-              </button>
+            <div v-if="drafts.length === 0" class="apex-card">
+              <div style="font-size: 13px; color: var(--vp-c-text-2)">
+                Highlight any sentence or click <strong>+</strong> beside any block to queue inline review comments.
+              </div>
             </div>
-            <blockquote v-if="d.quote" class="apex-quote-box">{{ d.quote }}</blockquote>
-            <textarea v-model="d.body" rows="2" class="apex-textarea" />
-            <span class="apex-mode-badge" :class="{ 'is-warn': d.mode !== 'inline' }">
-              {{ modeBadgeLabel(d.mode) }}
-            </span>
-          </div>
-        </div>
 
-        <div v-if="drawerTab === 'drafts'" class="apex-drawer-footer">
-          <textarea
-            v-model="summaryBody"
-            rows="2"
-            class="apex-textarea"
-            placeholder="Optional overall PR review summary..."
-          />
-          <div style="display: flex; gap: 8px; align-items: center">
-            <select v-model="submitEvent" class="apex-select" style="flex: 1">
-              <option value="COMMENT">Comment</option>
-              <option value="REQUEST_CHANGES">Request changes</option>
-              <option value="APPROVE">Approve</option>
-            </select>
-            <button
-              type="button"
-              class="apex-rev-btn"
-              :disabled="drafts.length === 0 && !summaryBody.trim()"
-              @click="copyMarkdownCart"
-            >
-              Copy MD
-            </button>
-            <button
-              type="button"
-              class="apex-rev-btn is-primary"
-              :disabled="submitBusy"
-              @click="submitQueuedReview"
-            >
-              {{ submitBusy ? 'Submitting…' : auth.token ? `Submit (${drafts.length})` : 'Connect & Submit' }}
-            </button>
-          </div>
-        </div>
+            <div v-for="d in drafts" :key="d.id" class="apex-card">
+              <div class="apex-meta-row">
+                <button
+                  type="button"
+                  class="apex-rev-btn"
+                  @click="jumpToLocation(d.path, d.startLine)"
+                >
+                  {{ d.path.split('/').pop() }}:{{ formatLineLabel(d.startLine, d.endLine) }}
+                </button>
+                <button type="button" class="apex-rev-btn" @click="removeDraft(d.id)">
+                  Delete
+                </button>
+              </div>
+              <blockquote v-if="d.quote" class="apex-quote-box">{{ d.quote }}</blockquote>
+              <textarea v-model="d.body" rows="2" class="apex-textarea" />
+              <span class="apex-mode-badge" :class="{ 'is-warn': d.mode !== 'inline' }">
+                {{ modeBadgeLabel(d.mode) }}
+              </span>
+            </div>
 
-        <div v-if="drawerTab === 'threads'" class="apex-drawer-body">
-          <div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: space-between">
+            <div class="apex-section-heading" style="margin-top: 8px">
+              <span>PR Threads ({{ totalOpenThreadCount }} open)</span>
+              <div style="display: flex; gap: 6px; align-items: center; text-transform: none; letter-spacing: 0">
+                <label style="font-size: 12px; font-weight: 500; display: flex; align-items: center; gap: 4px; cursor: pointer">
+                  <input v-model="showResolved" type="checkbox" />
+                  Resolved
+                </label>
+                <button type="button" class="apex-rev-btn" :disabled="threadsLoading" @click="refreshThreads">
+                  {{ threadsLoading ? '…' : 'Refresh' }}
+                </button>
+              </div>
+            </div>
+
             <div style="display: flex; gap: 6px">
               <button
                 type="button"
@@ -1185,57 +1132,81 @@ onUnmounted(() => {
                 All PR files
               </button>
             </div>
-            <div style="display: flex; gap: 6px; align-items: center">
-              <label style="font-size: 12px; display: flex; align-items: center; gap: 4px; cursor: pointer">
-                <input v-model="showResolved" type="checkbox" />
-                Resolved
-              </label>
-              <button type="button" class="apex-rev-btn" :disabled="threadsLoading" @click="refreshThreads">
-                {{ threadsLoading ? '…' : 'Refresh' }}
-              </button>
+
+            <div v-if="threadsError" class="apex-error-banner">{{ threadsError }}</div>
+
+            <div v-if="filteredDrawerThreads.length === 0" class="apex-card">
+              <div style="font-size: 13px; color: var(--vp-c-text-2)">
+                No matching PR threads.
+              </div>
+            </div>
+
+            <div v-for="t in filteredDrawerThreads" :key="t.id" class="apex-card">
+              <div class="apex-meta-row">
+                <button
+                  type="button"
+                  class="apex-rev-btn"
+                  @click="jumpToLocation(t.path, t.line)"
+                >
+                  {{ t.path.split('/').pop() }}<template v-if="t.line">:L{{ t.line }}</template>
+                </button>
+                <span class="apex-mode-badge" :class="t.isResolved ? 'is-ok' : 'is-warn'">
+                  {{ t.isResolved ? 'Resolved' : 'Open' }}
+                </span>
+              </div>
+              <div style="font-size: 13px; line-height: 1.45">
+                <strong>@{{ t.comments[0]?.author }}:</strong>
+                {{ t.comments[0]?.body }}
+              </div>
+              <div class="apex-meta-row">
+                <span>{{ t.comments.length }} message(s)</span>
+                <button type="button" class="apex-rev-btn" @click="openThreadCard(t)">
+                  Open Thread
+                </button>
+              </div>
             </div>
           </div>
 
-          <div v-if="threadsError" class="apex-error-banner">{{ threadsError }}</div>
-
-          <div v-if="filteredDrawerThreads.length === 0" class="apex-card">
-            <div style="font-size: 13px; color: var(--vp-c-text-2)">
-              No matching PR threads.
-            </div>
-          </div>
-
-          <div v-for="t in filteredDrawerThreads" :key="t.id" class="apex-card">
-            <div class="apex-meta-row">
+          <div class="apex-drawer-footer">
+            <textarea
+              v-model="summaryBody"
+              rows="2"
+              class="apex-textarea"
+              placeholder="Optional overall PR review summary..."
+            />
+            <div style="display: flex; gap: 8px; align-items: center">
+              <select v-model="submitEvent" class="apex-select" style="flex: 1">
+                <option value="COMMENT">Comment</option>
+                <option value="REQUEST_CHANGES">Request changes</option>
+                <option value="APPROVE">Approve</option>
+              </select>
               <button
                 type="button"
                 class="apex-rev-btn"
-                @click="jumpToLocation(t.path, t.line)"
+                :disabled="drafts.length === 0 && !summaryBody.trim()"
+                @click="copyMarkdownCart"
               >
-                {{ t.path.split('/').pop() }}<template v-if="t.line">:L{{ t.line }}</template>
+                Copy MD
               </button>
-              <span class="apex-mode-badge" :class="t.isResolved ? 'is-ok' : 'is-warn'">
-                {{ t.isResolved ? 'Resolved' : 'Open' }}
-              </span>
-            </div>
-            <div style="font-size: 13px; line-height: 1.45">
-              <strong>@{{ t.comments[0]?.author }}:</strong>
-              {{ t.comments[0]?.body }}
-            </div>
-            <div class="apex-meta-row">
-              <span>{{ t.comments.length }} message(s)</span>
-              <button type="button" class="apex-rev-btn" @click="openThreadCard(t)">
-                Open Thread
+              <button
+                type="button"
+                class="apex-rev-btn is-primary"
+                :disabled="submitBusy"
+                @click="submitQueuedReview"
+              >
+                {{ submitBusy ? 'Submitting…' : auth.token ? `Submit (${drafts.length})` : 'Connect & Submit' }}
               </button>
             </div>
           </div>
-        </div>
+        </template>
 
-        <div v-if="drawerTab === 'auth'" class="apex-drawer-body">
+        <div v-else class="apex-drawer-body">
           <div class="apex-card">
-            <strong>Direct GitHub PR Posting</strong>
+            <strong>One-Time GitHub Setup per Browser</strong>
             <div style="font-size: 13px; color: var(--vp-c-text-2); line-height: 1.5">
-              Create a <strong>Fine-Grained Personal Access Token</strong> restricted strictly to
+              Save a single <strong>Fine-Grained PAT</strong> restricted strictly to
               <code>{{ meta.repo }}</code> with <strong>Pull requests: Read and write</strong> only.
+              It is reused automatically across all future Apex PR previews until expiration.
             </div>
             <a
               href="https://github.com/settings/personal-access-tokens/new"
@@ -1252,7 +1223,7 @@ onUnmounted(() => {
             <div class="apex-meta-row">
               <span>Connected as <strong>@{{ auth.login }}</strong></span>
               <span class="apex-mode-badge is-ok">
-                {{ auth.persistLocal ? 'Saved in browser' : 'Tab session only' }}
+                {{ auth.persistLocal ? 'Saved across all PRs' : 'This tab only' }}
               </span>
             </div>
             <button type="button" class="apex-rev-btn" @click="forgetToken">
@@ -1270,7 +1241,7 @@ onUnmounted(() => {
             />
             <label style="font-size: 12.5px; display: flex; align-items: center; gap: 6px; cursor: pointer">
               <input v-model="persistLocalToggle" type="checkbox" />
-              Remember token in this browser (uncheck for tab-only)
+              Remember across all PR previews in this browser
             </label>
             <div v-if="authError" class="apex-error-banner">{{ authError }}</div>
             <button
@@ -1288,10 +1259,6 @@ onUnmounted(() => {
             <label style="font-size: 13px; display: flex; align-items: center; gap: 6px; cursor: pointer">
               <input v-model="showGutter" type="checkbox" />
               Highlight added PR lines in left gutter
-            </label>
-            <label style="font-size: 13px; display: flex; align-items: center; gap: 6px; cursor: pointer">
-              <input v-model="annotateMode" type="checkbox" />
-              Show tap-to-comment badges on all blocks
             </label>
           </div>
         </div>

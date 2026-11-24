@@ -14,6 +14,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 import export_pr_review_meta  # noqa: E402 — repo test runner imports standalone scripts without package install
+import watch_pr_feedback  # noqa: E402 — repo test runner imports standalone scripts without package install
 
 
 def _git(repo: Path, *args: str) -> str:
@@ -131,3 +132,77 @@ def test_export_pr_review_meta_real_git_repo_and_cli(tmp_path: Path, capsys: pyt
         ["--pr", "1", "--repo", "Ethanex8/apex", "--base-sha", "deadbeef", "--head-sha", head_sha, "--repo-root", str(repo)],
     ):
         assert export_pr_review_meta.main(bad_args) == 1
+
+
+def test_watch_pr_feedback_detection_and_timeout(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Verify watch_pr_feedback detects new comments/replies/reviews, respects max-polls, and handles errors."""
+    monkeypatch.setattr(watch_pr_feedback.time, "sleep", lambda _sec: None)
+
+    poll_state = {"step": 0}
+
+    def _fake_normalize(_repo: str, _pr: int, *, include_resolved: bool = False) -> list[dict[str, object]]:
+        """Simulate initial baseline followed by a new reply and inline item on poll 2."""
+        if poll_state["step"] < 2:
+            return [
+                {
+                    "id": 10,
+                    "source": "inline",
+                    "author": "Ethanex8",
+                    "path": "a.md",
+                    "line": 5,
+                    "body": "Initial",
+                    "replies": [{"id": 11, "author": "agent", "body": "Done"}],
+                }
+            ]
+        return [
+            {
+                "id": 10,
+                "source": "inline",
+                "author": "Ethanex8",
+                "path": "a.md",
+                "line": 5,
+                "body": "Initial",
+                "replies": [
+                    {"id": 11, "author": "agent", "body": "Done"},
+                    {"id": 12, "author": "Ethanex8", "body": "Thanks"},
+                ],
+            }
+        ]
+
+    def _fake_gh_json(_endpoint: str) -> list[dict[str, object]]:
+        """Simulate bot, PENDING, and new submitted human reviews."""
+        poll_state["step"] += 1
+        if poll_state["step"] < 3:
+            return [
+                {"id": 1, "state": "COMMENTED", "user": {"type": "Bot"}},
+                {"id": 2, "state": "PENDING", "user": {"type": "User"}},
+            ]
+        return [
+            {"id": 1, "state": "COMMENTED", "user": {"type": "Bot"}},
+            {"id": 3, "state": "APPROVED", "user": {"type": "User"}},
+        ]
+
+    monkeypatch.setattr(watch_pr_feedback.harvest_feedback, "normalize_pr_feedback", _fake_normalize)
+    monkeypatch.setattr(watch_pr_feedback.harvest_feedback, "fetch_gh_json", _fake_gh_json)
+    monkeypatch.setattr(watch_pr_feedback.harvest_feedback, "resolve_repo_slug", lambda r: r or "Ethanex8/apex")
+
+    rc_detect = watch_pr_feedback.main(["--pr", "9", "--repo", "Ethanex8/apex", "--interval", "0.01", "--max-polls", "3"])
+    assert rc_detect == 0
+    assert "Detected new activity on PR #9: 1 comment(s), 1 review(s)." in capsys.readouterr().out
+
+    # Test timeout with zero changes
+    poll_state["step"] = 0
+    monkeypatch.setattr(watch_pr_feedback.harvest_feedback, "fetch_gh_json", lambda _e: [])
+    rc_timeout = watch_pr_feedback.main(["--pr", "9", "--interval", "0.01", "--max-polls", "1"])
+    assert rc_timeout == 2
+
+    assert watch_pr_feedback.main(["--pr", "0"]) == 1
+    monkeypatch.setattr(
+        watch_pr_feedback.harvest_feedback,
+        "resolve_repo_slug",
+        lambda _r: (_ for _ in ()).throw(RuntimeError("no gh")),
+    )
+    assert watch_pr_feedback.main(["--pr", "9"]) == 1
+

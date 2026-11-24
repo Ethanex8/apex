@@ -57,7 +57,7 @@ jobs:
           pytest -v --cov=code_anchors --cov=sync_book --cov=check_book --cov=check_code
           --cov=check_visuals --cov=harvest_feedback --cov=build --cov=step
           --cov=build_review_plan --cov=chapter_index --cov=export_pr_review_meta
-          --cov-report=term-missing --cov-fail-under=95 scripts/tests/
+          --cov=watch_pr_feedback --cov-report=term-missing --cov-fail-under=95 scripts/tests/
 
       - name: Run pure-Python subsystem test suites with >=95% line coverage
         run: |
