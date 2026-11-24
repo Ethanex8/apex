@@ -34,6 +34,8 @@ PREVIEW_COMMENT_MARKER = "<!-- apex-book-preview -->"
 PREVIEW_LOC_RE = re.compile(
     r"<!--\s*apex-preview-loc:\s*path=([^\s>]+?)(?:\s+line=(\d+)(?:-\d+)?)?\s*-->"
 )
+PREVIEW_RESOLVED_RE = re.compile(r"<!--\s*apex-preview-resolved:\s*1\s*-->")
+PREVIEW_REPLY_RE = re.compile(r"<!--\s*apex-preview-reply-to:\s*(\d+)\s*-->")
 UNKNOWN_AUTHOR = "unknown"
 REVIEW_THREADS_QUERY = """
 query($owner: String!, $name: String!, $pr: Int!, $after: String) {
@@ -255,7 +257,9 @@ def _base_feedback_item(
 ) -> dict[str, object]:
     """Construct the shared normalized feedback schema from a GitHub comment or review payload."""
     fallback_path, fallback_line = _extract_preview_location(body)
-    cleaned_body = PREVIEW_LOC_RE.sub("", body).strip() if fallback_path is not None else body
+    cleaned_body = PREVIEW_LOC_RE.sub("", body)
+    cleaned_body = PREVIEW_RESOLVED_RE.sub("", cleaned_body)
+    cleaned_body = PREVIEW_REPLY_RE.sub("", cleaned_body).strip()
     return {
         "id": entry.get("id"),
         "source": source,
@@ -386,7 +390,13 @@ def normalize_pr_feedback(
                 continue
             if not _passes_since(_entry_timestamp(entry), since_dt):
                 continue
-            items.append(_base_feedback_item(entry, source, body, user))
+            is_marked_resolved = PREVIEW_RESOLVED_RE.search(body) is not None
+            if not include_resolved and is_marked_resolved:
+                continue
+            item = _base_feedback_item(entry, source, body, user)
+            if is_marked_resolved:
+                item["is_resolved"] = True
+            items.append(item)
     return items
 
 

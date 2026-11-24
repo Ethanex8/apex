@@ -214,6 +214,21 @@ test('githubClient handles auth, paginated GraphQL threads, unauthenticated REST
         { status: 200 },
       )
     }
+    if (url.includes('/pulls/42/reviews?per_page=100')) {
+      return new Response(
+        JSON.stringify([
+          {
+            id: 400,
+            state: 'COMMENTED',
+            body: 'Overall summary note.',
+            submitted_at: '2026-11-24T01:00:00Z',
+            html_url: 'https://github.com/Ethanex8/apex/pull/42#pullrequestreview-400',
+            user: { login: 'Ethanex8', type: 'User' },
+          },
+        ]),
+        { status: 200 },
+      )
+    }
     if (url.includes('/issues/42/comments')) {
       if (method === 'GET') {
         return new Response(
@@ -228,11 +243,19 @@ test('githubClient handles auth, paginated GraphQL threads, unauthenticated REST
               body: 'Check typo.\n\n<!-- apex-preview-loc: path=VISION.md line=8 -->',
               user: { login: 'Ethanex8', type: 'User' },
             },
+            {
+              id: 303,
+              body: 'Fixed typo.\n\n<!-- apex-preview-reply-to: 301 -->',
+              user: { login: 'Ethanex8', type: 'User' },
+            },
           ]),
           { status: 200 },
         )
       }
       return new Response(JSON.stringify({ id: 302 }), { status: 201 })
+    }
+    if (url.includes('/issues/comments/301') && method === 'PATCH') {
+      return new Response(JSON.stringify({ id: 301 }), { status: 200 })
     }
     return new Response(JSON.stringify({ id: 999 }), { status: 201 })
   }
@@ -241,14 +264,20 @@ test('githubClient handles auth, paginated GraphQL threads, unauthenticated REST
   assert.equal(user.login, 'Ethanex8')
 
   const authThreads = await fetchPrThreads('Ethanex8/apex', 42, 'pat_123', mockFetch)
-  assert.equal(authThreads.length, 2)
+  assert.equal(authThreads.length, 3)
   assert.equal(authThreads[0].line, 14)
-  assert.equal(authThreads[1].path, 'VISION.md')
-  assert.equal(authThreads[1].line, 8)
-  assert.equal(authThreads[1].comments[0].body, 'Check typo.')
+  const issueThread = authThreads.find((t) => t.source === 'issue')
+  const reviewThread = authThreads.find((t) => t.source === 'review')
+  assert.ok(issueThread)
+  assert.ok(reviewThread)
+  assert.equal(issueThread.path, 'VISION.md')
+  assert.equal(issueThread.line, 8)
+  assert.equal(issueThread.comments.length, 2)
+  assert.equal(issueThread.comments[1].body, 'Fixed typo.')
+  assert.equal(reviewThread.path, 'PR Summary')
 
   const anonThreads = await fetchPrThreads('Ethanex8/apex', 42, '', mockFetch)
-  assert.equal(anonThreads.length, 2)
+  assert.equal(anonThreads.length, 3)
   assert.equal(anonThreads[0].source, 'file')
   assert.equal(anonThreads[0].line, 31)
   assert.equal(anonThreads[0].comments.length, 2)
@@ -313,10 +342,13 @@ test('githubClient handles auth, paginated GraphQL threads, unauthenticated REST
     },
   ]
 
-  const outcomes = await submitBatchedReview(meta, drafts, 'Overall solid', 'COMMENT', 'pat_123', mockFetch)
-  assert.equal(outcomes.every((o) => o.ok), true)
+  const result = await submitBatchedReview(meta, drafts, 'Overall solid', 'COMMENT', 'pat_123', mockFetch)
+  assert.equal(result.summaryOk, true)
+  assert.equal(result.outcomes.every((o) => o.ok), true)
 
-  const reviewCall = calls.find((c) => c.url.endsWith('/pulls/42/reviews'))
+  const reviewCall = calls.find(
+    (c) => c.method === 'POST' && c.url.endsWith('/pulls/42/reviews'),
+  )
   assert.ok(reviewCall)
   const reviewPayload = reviewCall.body as {
     comments: Array<Record<string, unknown>>
@@ -325,15 +357,27 @@ test('githubClient handles auth, paginated GraphQL threads, unauthenticated REST
   assert.equal('start_line' in reviewPayload.comments[0], false)
   assert.equal(reviewPayload.comments[1].start_line, 15)
 
+  // Summary-only submission omits commit_id and comments
+  const summaryOnly = await submitBatchedReview(meta, [], 'Only overall note', 'COMMENT', 'pat_123', mockFetch)
+  assert.equal(summaryOnly.summaryOk, true)
+  const summaryCalls = calls.filter(
+    (c) => c.method === 'POST' && c.url.endsWith('/pulls/42/reviews'),
+  )
+  assert.equal(summaryCalls.length, 2)
+  assert.equal('commit_id' in (summaryCalls[1].body as Record<string, unknown>), false)
+
   const fileCall = calls.find(
     (c) => c.method === 'POST' && c.url.endsWith('/pulls/42/comments'),
   )
   assert.ok(fileCall)
   assert.equal((fileCall.body as Record<string, unknown>).subject_type, 'file')
 
-  await replyToThread('Ethanex8/apex', 42, 101, 'Thanks!', 'pat_123', mockFetch)
-  const resolved = await setThreadResolved('T1', true, 'pat_123', mockFetch)
+  await replyToThread('Ethanex8/apex', 42, authThreads[0], 'Thanks!', 'pat_123', mockFetch)
+  await replyToThread('Ethanex8/apex', 42, issueThread, 'Follow-up!', 'pat_123', mockFetch)
+  const resolved = await setThreadResolved('Ethanex8/apex', 42, authThreads[0], true, 'pat_123', mockFetch)
   assert.equal(resolved, true)
+  const issueResolved = await setThreadResolved('Ethanex8/apex', 42, issueThread, true, 'pat_123', mockFetch)
+  assert.equal(issueResolved, true)
 
   const bundle = formatMarkdownBundle(meta, drafts, 'Summary')
   assert.match(bundle, /Inline Preview Review — PR #42/)

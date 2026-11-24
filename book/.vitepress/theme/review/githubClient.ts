@@ -4,6 +4,7 @@ import type {
   RemoteReviewThread,
   RemoteThreadComment,
   ReviewSubmitEvent,
+  SubmitBatchResult,
   SubmitDraftOutcome,
 } from './types.ts'
 
@@ -11,8 +12,13 @@ export type FetchLike = typeof fetch
 
 const GITHUB_API = 'https://api.github.com'
 const PREVIEW_BOT_MARKER = '<!-- apex-book-preview -->'
+const PREVIEW_RESOLVED_MARKER = '<!-- apex-preview-resolved: 1 -->'
 const PREVIEW_LOC_RE =
   /<!--\s*apex-preview-loc:\s*path=([^\s>]+?)(?:\s+line=(\d+)(?:-\d+)?)?\s*-->/
+const PREVIEW_RESOLVED_RE = /<!--\s*apex-preview-resolved:\s*1\s*-->/
+const PREVIEW_REPLY_RE = /<!--\s*apex-preview-reply-to:\s*(\d+)\s*-->/
+const PREVIEW_STATE_RE =
+  /<!--\s*apex-preview-state:\s*root=(\d+)\s+resolved=(0|1)\s*-->/
 
 const REVIEW_THREADS_GQL = `
 query($owner: String!, $name: String!, $pr: Int!, $after: String) {
@@ -69,15 +75,27 @@ mutation($threadId: ID!) {
 export function parsePreviewLocationMarker(body: string): {
   path: string | null
   line: number | null
+  isResolved: boolean
+  replyToId: number | null
   cleanedBody: string
 } {
-  const m = PREVIEW_LOC_RE.exec(body)
-  if (!m) {
-    return { path: null, line: null, cleanedBody: body.trim() }
+  const locMatch = PREVIEW_LOC_RE.exec(body)
+  const replyMatch = PREVIEW_REPLY_RE.exec(body)
+  const isResolved = PREVIEW_RESOLVED_RE.test(body)
+  const line = locMatch?.[2] ? Number.parseInt(locMatch[2], 10) : null
+  const replyToId = replyMatch?.[1] ? Number.parseInt(replyMatch[1], 10) : null
+  const cleanedBody = body
+    .replace(PREVIEW_LOC_RE, '')
+    .replace(PREVIEW_RESOLVED_RE, '')
+    .replace(PREVIEW_REPLY_RE, '')
+    .trim()
+  return {
+    path: locMatch?.[1] ?? null,
+    line,
+    isResolved,
+    replyToId,
+    cleanedBody,
   }
-  const line = m[2] ? Number.parseInt(m[2], 10) : null
-  const cleanedBody = body.replace(PREVIEW_LOC_RE, '').trim()
-  return { path: m[1], line, cleanedBody }
 }
 
 export function formatPreviewLocationBody(
@@ -96,6 +114,11 @@ export function formatPreviewLocationBody(
   }
   const ctx = sectionTitle ? ` (${sectionTitle})` : ''
   return `> **\`${path}:${rangeLabel}\`**${ctx}\n> ${quote}\n\n${trimmed}\n\n${marker}`
+}
+
+function toggleResolvedMarker(rawBody: string, resolved: boolean): string {
+  const stripped = rawBody.replace(PREVIEW_RESOLVED_RE, '').trimEnd()
+  return resolved ? `${stripped}\n\n${PREVIEW_RESOLVED_MARKER}` : stripped
 }
 
 async function apiRequest<T>(
@@ -313,54 +336,138 @@ interface RestIssueComment {
   user?: { login?: string; avatar_url?: string; type?: string } | null
 }
 
-async function fetchIssueAnchoredThreads(
+interface RestPrReview {
+  id: number
+  state?: string
+  body?: string
+  submitted_at?: string
+  html_url?: string
+  user?: { login?: string; avatar_url?: string; type?: string } | null
+}
+
+function collectPreviewStateOverrides(
+  issueComments: RestIssueComment[],
+): Map<number, boolean> {
+  const stateMap = new Map<number, boolean>()
+  for (const item of issueComments) {
+    const m = PREVIEW_STATE_RE.exec(item.body ?? '')
+    if (m) {
+      stateMap.set(Number.parseInt(m[1], 10), m[2] === '1')
+    }
+  }
+  return stateMap
+}
+
+async function fetchConversationAndReviewThreads(
   repo: string,
   prNumber: number,
   token: string,
   fetcher: FetchLike,
 ): Promise<RemoteReviewThread[]> {
-  const raw = await apiRequest<RestIssueComment[]>(
-    `${GITHUB_API}/repos/${repo}/issues/${prNumber}/comments?per_page=100`,
-    { method: 'GET' },
-    token,
-    fetcher,
-  )
-  const out: RemoteReviewThread[] = []
-  for (const item of raw) {
-    const body = item.body ?? ''
-    if (!body || body.includes(PREVIEW_BOT_MARKER)) continue
-    if (item.user?.type?.toLowerCase() === 'bot') continue
-    const parsed = parsePreviewLocationMarker(body)
-    if (!parsed.path) continue
-    out.push({
-      id: `issue:${item.id}`,
-      rootCommentId: item.id,
-      path: parsed.path,
-      line: parsed.line,
+  const [rawIssues, rawReviews] = await Promise.all([
+    apiRequest<RestIssueComment[]>(
+      `${GITHUB_API}/repos/${repo}/issues/${prNumber}/comments?per_page=100`,
+      { method: 'GET' },
+      token,
+      fetcher,
+    ),
+    apiRequest<RestPrReview[]>(
+      `${GITHUB_API}/repos/${repo}/pulls/${prNumber}/reviews?per_page=100`,
+      { method: 'GET' },
+      token,
+      fetcher,
+    ),
+  ])
+
+  const stateOverrides = collectPreviewStateOverrides(rawIssues)
+  const threadByRootId = new Map<number, RemoteReviewThread>()
+  const repliesByRootId = new Map<number, RemoteThreadComment[]>()
+
+  for (const rev of rawReviews) {
+    const rawBody = rev.body ?? ''
+    if (!rawBody.trim() || rev.state?.toUpperCase() === 'PENDING') continue
+    if (rev.user?.type?.toLowerCase() === 'bot') continue
+    const parsed = parsePreviewLocationMarker(rawBody)
+    if (!parsed.cleanedBody) continue
+    const override = stateOverrides.get(rev.id)
+    threadByRootId.set(rev.id, {
+      id: `review:${rev.id}`,
+      rootCommentId: rev.id,
+      path: 'PR Summary',
+      line: null,
       startLine: null,
-      isResolved: false,
+      isResolved: override ?? parsed.isResolved,
       isOutdated: false,
-      canResolve: false,
-      source: 'issue',
-      url: item.html_url ?? '',
+      canResolve: Boolean(token),
+      source: 'review',
+      url: rev.html_url ?? '',
+      rawRootBody: rawBody,
       comments: [
         {
-          id: item.id,
-          author: item.user?.login ?? 'ghost',
-          avatarUrl: item.user?.avatar_url ?? '',
+          id: rev.id,
+          author: rev.user?.login ?? 'ghost',
+          avatarUrl: rev.user?.avatar_url ?? '',
           body: parsed.cleanedBody,
-          createdAt: item.created_at ?? '',
-          url: item.html_url ?? '',
+          createdAt: rev.submitted_at ?? '',
+          url: rev.html_url ?? '',
         },
       ],
     })
   }
-  return out
+
+  for (const item of rawIssues) {
+    const rawBody = item.body ?? ''
+    if (!rawBody || rawBody.includes(PREVIEW_BOT_MARKER)) continue
+    if (PREVIEW_STATE_RE.test(rawBody)) continue
+    if (item.user?.type?.toLowerCase() === 'bot') continue
+    const parsed = parsePreviewLocationMarker(rawBody)
+    if (!parsed.cleanedBody) continue
+
+    const commentObj: RemoteThreadComment = {
+      id: item.id,
+      author: item.user?.login ?? 'ghost',
+      avatarUrl: item.user?.avatar_url ?? '',
+      body: parsed.cleanedBody,
+      createdAt: item.created_at ?? '',
+      url: item.html_url ?? '',
+    }
+
+    if (parsed.replyToId) {
+      const bucket = repliesByRootId.get(parsed.replyToId) ?? []
+      bucket.push(commentObj)
+      repliesByRootId.set(parsed.replyToId, bucket)
+      continue
+    }
+
+    const override = stateOverrides.get(item.id)
+    threadByRootId.set(item.id, {
+      id: `issue:${item.id}`,
+      rootCommentId: item.id,
+      path: parsed.path ?? 'PR Conversation',
+      line: parsed.line,
+      startLine: null,
+      isResolved: override ?? parsed.isResolved,
+      isOutdated: false,
+      canResolve: Boolean(token),
+      source: 'issue',
+      url: item.html_url ?? '',
+      rawRootBody: rawBody,
+      comments: [commentObj],
+    })
+  }
+
+  for (const [rootId, replies] of repliesByRootId.entries()) {
+    const parent = threadByRootId.get(rootId)
+    if (parent) {
+      parent.comments.push(...replies)
+    }
+  }
+
+  return Array.from(threadByRootId.values())
 }
 
 /**
- * Fetches inline, file-level, and location-tagged issue PR threads. Uses GraphQL when a
- * PAT is provided and falls back to public REST read-only access otherwise.
+ * Fetches inline, file-level, location-tagged issue, and PR review summary threads.
  */
 export async function fetchPrThreads(
   repo: string,
@@ -368,54 +475,64 @@ export async function fetchPrThreads(
   token: string,
   fetcher: FetchLike = fetch,
 ): Promise<RemoteReviewThread[]> {
-  const reviewThreads = token
-    ? await fetchGraphQlThreads(repo, prNumber, token, fetcher)
-    : await fetchRestPullThreads(repo, prNumber, fetcher)
-  const issueThreads = await fetchIssueAnchoredThreads(repo, prNumber, token, fetcher)
-  return [...reviewThreads, ...issueThreads]
+  const [reviewThreads, convThreads] = await Promise.all([
+    token
+      ? fetchGraphQlThreads(repo, prNumber, token, fetcher)
+      : fetchRestPullThreads(repo, prNumber, fetcher),
+    fetchConversationAndReviewThreads(repo, prNumber, token, fetcher),
+  ])
+  return [...reviewThreads, ...convThreads]
 }
 
 /**
  * Submits queued drafts as an atomic GitHub PR review (inline hunks) plus file-level
- * and issue-comment fallbacks, returning per-draft success outcomes so failed items stay saved.
+ * and issue-comment fallbacks, returning explicit per-draft and overall summary outcomes.
  */
 export async function submitBatchedReview(
   meta: PrReviewMeta,
   drafts: DraftComment[],
   summaryBody: string,
-  event: ReviewSubmitEvent,
+  event: ReviewSubmitEvent = 'COMMENT',
   token: string,
   fetcher: FetchLike = fetch,
-): Promise<SubmitDraftOutcome[]> {
+): Promise<SubmitBatchResult> {
   const outcomes: SubmitDraftOutcome[] = []
   const inlineDrafts = drafts.filter((d) => d.mode === 'inline')
   const fileDrafts = drafts.filter((d) => d.mode === 'file')
   const issueDrafts = drafts.filter((d) => d.mode === 'issue')
+  const trimmedSummary = summaryBody.trim()
 
-  if (inlineDrafts.length > 0 || summaryBody.trim().length > 0 || event !== 'COMMENT') {
+  let summaryOk = true
+  let summaryError: string | undefined
+
+  if (inlineDrafts.length > 0 || trimmedSummary.length > 0 || event !== 'COMMENT') {
+    const payload: Record<string, unknown> = {
+      event,
+      body: trimmedSummary,
+    }
+    if (inlineDrafts.length > 0) {
+      payload.commit_id = meta.headSha
+      payload.comments = inlineDrafts.map((d) => {
+        const entry: Record<string, unknown> = {
+          path: d.path,
+          line: d.apiLine,
+          side: 'RIGHT',
+          body: d.body.trim(),
+        }
+        if (d.apiStartLine < d.apiLine) {
+          entry.start_line = d.apiStartLine
+          entry.start_side = 'RIGHT'
+        }
+        return entry
+      })
+    }
+
     try {
       await apiRequest(
         `${GITHUB_API}/repos/${meta.repo}/pulls/${meta.prNumber}/reviews`,
         {
           method: 'POST',
-          body: JSON.stringify({
-            commit_id: meta.headSha,
-            event,
-            body: summaryBody.trim(),
-            comments: inlineDrafts.map((d) => {
-              const entry: Record<string, unknown> = {
-                path: d.path,
-                line: d.apiLine,
-                side: 'RIGHT',
-                body: d.body.trim(),
-              }
-              if (d.apiStartLine < d.apiLine) {
-                entry.start_line = d.apiStartLine
-                entry.start_side = 'RIGHT'
-              }
-              return entry
-            }),
-          }),
+          body: JSON.stringify(payload),
         },
         token,
         fetcher,
@@ -425,6 +542,8 @@ export async function submitBatchedReview(
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
+      summaryOk = false
+      summaryError = msg
       for (const d of inlineDrafts) {
         outcomes.push({ draftId: d.id, ok: false, error: msg })
       }
@@ -494,22 +613,42 @@ export async function submitBatchedReview(
     }
   }
 
-  return outcomes
+  return { outcomes, summaryOk, summaryError }
 }
 
 export async function replyToThread(
   repo: string,
   prNumber: number,
-  rootCommentId: number,
+  thread: RemoteReviewThread,
   body: string,
   token: string,
   fetcher: FetchLike = fetch,
 ): Promise<void> {
+  const trimmed = body.trim()
+  if (thread.source === 'inline' || thread.source === 'file') {
+    await apiRequest(
+      `${GITHUB_API}/repos/${repo}/pulls/${prNumber}/comments/${thread.rootCommentId}/replies`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ body: trimmed }),
+      },
+      token,
+      fetcher,
+    )
+    return
+  }
+
+  const locMarker =
+    thread.path && thread.line
+      ? `\n<!-- apex-preview-loc: path=${thread.path} line=${thread.line} -->`
+      : ''
   await apiRequest(
-    `${GITHUB_API}/repos/${repo}/pulls/${prNumber}/comments/${rootCommentId}/replies`,
+    `${GITHUB_API}/repos/${repo}/issues/${prNumber}/comments`,
     {
       method: 'POST',
-      body: JSON.stringify({ body: body.trim() }),
+      body: JSON.stringify({
+        body: `${trimmed}\n\n<!-- apex-preview-reply-to: ${thread.rootCommentId} -->${locMarker}`,
+      }),
     },
     token,
     fetcher,
@@ -517,35 +656,90 @@ export async function replyToThread(
 }
 
 export async function setThreadResolved(
-  threadId: string,
+  repo: string,
+  prNumber: number,
+  thread: RemoteReviewThread,
   resolved: boolean,
   token: string,
   fetcher: FetchLike = fetch,
 ): Promise<boolean> {
-  const query = resolved ? RESOLVE_THREAD_GQL : UNRESOLVE_THREAD_GQL
-  const payload = await apiRequest<{
-    data?: {
-      resolveReviewThread?: { thread?: { isResolved?: boolean } }
-      unresolveReviewThread?: { thread?: { isResolved?: boolean } }
+  if (thread.source === 'inline' || thread.source === 'file') {
+    const query = resolved ? RESOLVE_THREAD_GQL : UNRESOLVE_THREAD_GQL
+    const payload = await apiRequest<{
+      data?: {
+        resolveReviewThread?: { thread?: { isResolved?: boolean } }
+        unresolveReviewThread?: { thread?: { isResolved?: boolean } }
+      }
+      errors?: Array<{ message?: string }>
+    }>(
+      `${GITHUB_API}/graphql`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ query, variables: { threadId: thread.id } }),
+      },
+      token,
+      fetcher,
+    )
+    if (payload.errors?.length) {
+      throw new Error(payload.errors.map((e) => e.message).join('; '))
     }
-    errors?: Array<{ message?: string }>
-  }>(
-    `${GITHUB_API}/graphql`,
+    return Boolean(
+      resolved
+        ? payload.data?.resolveReviewThread?.thread?.isResolved
+        : payload.data?.unresolveReviewThread?.thread?.isResolved,
+    )
+  }
+
+  if (thread.source === 'issue' && thread.rawRootBody !== undefined) {
+    try {
+      await apiRequest(
+        `${GITHUB_API}/repos/${repo}/issues/comments/${thread.rootCommentId}`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({
+            body: toggleResolvedMarker(thread.rawRootBody, resolved),
+          }),
+        },
+        token,
+        fetcher,
+      )
+      return resolved
+    } catch {
+      // Fall through to state marker comment when editing another author's comment fails.
+    }
+  }
+
+  if (thread.source === 'review' && thread.rawRootBody !== undefined) {
+    try {
+      await apiRequest(
+        `${GITHUB_API}/repos/${repo}/pulls/${prNumber}/reviews/${thread.rootCommentId}`,
+        {
+          method: 'PUT',
+          body: JSON.stringify({
+            body: toggleResolvedMarker(thread.rawRootBody, resolved),
+          }),
+        },
+        token,
+        fetcher,
+      )
+      return resolved
+    } catch {
+      // Fall through to state marker comment when updating another author's review fails.
+    }
+  }
+
+  await apiRequest(
+    `${GITHUB_API}/repos/${repo}/issues/${prNumber}/comments`,
     {
       method: 'POST',
-      body: JSON.stringify({ query, variables: { threadId } }),
+      body: JSON.stringify({
+        body: `<!-- apex-preview-state: root=${thread.rootCommentId} resolved=${resolved ? 1 : 0} -->`,
+      }),
     },
     token,
     fetcher,
   )
-  if (payload.errors?.length) {
-    throw new Error(payload.errors.map((e) => e.message).join('; '))
-  }
-  return Boolean(
-    resolved
-      ? payload.data?.resolveReviewThread?.thread?.isResolved
-      : payload.data?.unresolveReviewThread?.thread?.isResolved,
-  )
+  return resolved
 }
 
 /**

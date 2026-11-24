@@ -62,8 +62,9 @@ export interface RemoteReviewThread {
   isResolved: boolean
   isOutdated: boolean
   canResolve: boolean
-  source: 'inline' | 'file' | 'issue'
+  source: 'inline' | 'file' | 'issue' | 'review'
   url: string
+  rawRootBody?: string
   comments: RemoteThreadComment[]
 }
 
@@ -80,4 +81,10 @@ export interface SubmitDraftOutcome {
   draftId: string
   ok: boolean
   error?: string
+}
+
+export interface SubmitBatchResult {
+  outcomes: SubmitDraftOutcome[]
+  summaryOk: boolean
+  summaryError?: string
 }

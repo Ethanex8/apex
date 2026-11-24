@@ -22,7 +22,7 @@ import type {
   CommentTarget,
   DraftComment,
   RemoteReviewThread,
-  ReviewSubmitEvent,
+  RemoteThreadComment,
 } from './types'
 import './review.css'
 
@@ -75,7 +75,6 @@ const authError = ref('')
 
 const drafts = ref<DraftComment[]>([])
 const summaryBody = ref('')
-const submitEvent = ref<ReviewSubmitEvent>('COMMENT')
 const submitBusy = ref(false)
 const submitNotice = ref('')
 const submitError = ref('')
@@ -99,6 +98,9 @@ const composerError = ref('')
 const activeThread = ref<RemoteReviewThread | null>(null)
 const activeThreadDiffUrl = ref('')
 const replyBody = ref('')
+const inlineReplyThreadId = ref<string | null>(null)
+const inlineReplyBody = ref('')
+const expandedCommentKeys = ref<Set<string>>(new Set())
 const threadActionBusy = ref(false)
 const threadActionError = ref('')
 
@@ -130,7 +132,12 @@ const pageThreads = computed(() =>
 const filteredDrawerThreads = computed(() => {
   const base =
     threadScope.value === 'page'
-      ? threads.value.filter((t) => t.path === currentRepoPath.value)
+      ? threads.value.filter(
+          (t) =>
+            t.path === currentRepoPath.value ||
+            t.path === 'PR Summary' ||
+            t.path === 'PR Conversation',
+        )
       : threads.value
   return showResolved.value ? base : base.filter((t) => !t.isResolved)
 })
@@ -164,6 +171,32 @@ function modeBadgeLabel(mode: CommentTarget['mode']): string {
   if (mode === 'inline') return 'Native inline PR thread'
   if (mode === 'file') return 'File-level PR thread (outside hunk)'
   return 'PR conversation comment (unchanged file)'
+}
+
+function isCommentExpanded(
+  threadId: string,
+  commentId: number,
+  idx: number,
+  total: number,
+): boolean {
+  if (idx >= total - 1) return true
+  return expandedCommentKeys.value.has(`${threadId}:${commentId}`)
+}
+
+function toggleCommentExpanded(threadId: string, commentId: number) {
+  const key = `${threadId}:${commentId}`
+  const next = new Set(expandedCommentKeys.value)
+  if (next.has(key)) {
+    next.delete(key)
+  } else {
+    next.add(key)
+  }
+  expandedCommentKeys.value = next
+}
+
+function summarizeComment(msg: RemoteThreadComment): string {
+  const firstLine = msg.body.replace(/\s+/g, ' ').trim()
+  return firstLine.length > 64 ? `${firstLine.slice(0, 63)}…` : firstLine
 }
 
 function saveDraftState() {
@@ -551,30 +584,35 @@ async function submitQueuedReview() {
     drawerView.value = 'setup'
     return
   }
-  if (drafts.value.length === 0 && !summaryBody.value.trim() && submitEvent.value === 'COMMENT') {
-    submitError.value = 'Add at least one draft comment or review summary.'
+  if (drafts.value.length === 0 && !summaryBody.value.trim()) {
+    submitError.value = 'Add at least one draft comment or an overall comment.'
     return
   }
   submitBusy.value = true
   submitError.value = ''
   submitNotice.value = ''
   try {
-    const outcomes = await submitBatchedReview(
+    const result = await submitBatchedReview(
       meta,
       drafts.value,
       summaryBody.value,
-      submitEvent.value,
+      'COMMENT',
       auth.value.token,
     )
-    const failedIds = new Set(outcomes.filter((o) => !o.ok).map((o) => o.draftId))
-    const succeededCount = outcomes.filter((o) => o.ok).length
+    const failedIds = new Set(result.outcomes.filter((o) => !o.ok).map((o) => o.draftId))
+    const succeededCount = result.outcomes.filter((o) => o.ok).length + (result.summaryOk && summaryBody.value.trim() ? 1 : 0)
     drafts.value = drafts.value.filter((d) => failedIds.has(d.id))
-    if (failedIds.size === 0) {
+    if (result.summaryOk) {
       summaryBody.value = ''
-      submitNotice.value = `Submitted ${succeededCount || 1} review item(s) to PR #${meta.prNumber}.`
+    }
+    if (failedIds.size === 0 && result.summaryOk) {
+      submitNotice.value = `Submitted ${succeededCount} item(s) to PR #${meta.prNumber}.`
     } else {
-      const firstErr = outcomes.find((o) => !o.ok)?.error ?? 'Some comments failed'
-      submitError.value = `${failedIds.size} draft(s) kept in cart: ${firstErr}`
+      const firstErr =
+        result.summaryError ??
+        result.outcomes.find((o) => !o.ok)?.error ??
+        'Submission failed'
+      submitError.value = firstErr
     }
     saveDraftState()
     await refreshThreads()
@@ -604,22 +642,33 @@ async function openThreadCard(thread: RemoteReviewThread) {
     thread.url || (await buildGitHubDiffUrl(meta.repo, meta.prNumber, thread.path, thread.line))
 }
 
-async function sendThreadReply() {
-  if (!activeThread.value || !auth.value.token || !replyBody.value.trim()) return
+async function sendThreadReply(thread: RemoteReviewThread, text: string, fromDrawer = false) {
+  if (!auth.value.token || !text.trim()) return
   threadActionBusy.value = true
   threadActionError.value = ''
+  threadsError.value = ''
   try {
     await replyToThread(
       meta.repo,
       meta.prNumber,
-      activeThread.value.rootCommentId,
-      replyBody.value,
+      thread,
+      text,
       auth.value.token,
     )
-    replyBody.value = ''
+    if (fromDrawer) {
+      inlineReplyThreadId.value = null
+      inlineReplyBody.value = ''
+    } else {
+      replyBody.value = ''
+    }
     await refreshThreads()
   } catch (err) {
-    threadActionError.value = err instanceof Error ? err.message : 'Reply failed'
+    const msg = err instanceof Error ? err.message : 'Reply failed'
+    if (fromDrawer) {
+      threadsError.value = msg
+    } else {
+      threadActionError.value = msg
+    }
   } finally {
     threadActionBusy.value = false
   }
@@ -629,11 +678,20 @@ async function toggleThreadResolved(thread: RemoteReviewThread) {
   if (!auth.value.token || !thread.canResolve) return
   threadActionBusy.value = true
   threadActionError.value = ''
+  threadsError.value = ''
   try {
-    await setThreadResolved(thread.id, !thread.isResolved, auth.value.token)
+    await setThreadResolved(
+      meta.repo,
+      meta.prNumber,
+      thread,
+      !thread.isResolved,
+      auth.value.token,
+    )
     await refreshThreads()
   } catch (err) {
-    threadActionError.value = err instanceof Error ? err.message : 'Failed to update thread state'
+    const msg = err instanceof Error ? err.message : 'Failed to update thread state'
+    threadActionError.value = msg
+    threadsError.value = msg
   } finally {
     threadActionBusy.value = false
   }
@@ -935,25 +993,43 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <div
-          v-for="msg in activeThread.comments"
-          :key="msg.id"
-          class="apex-card"
-        >
-          <div class="apex-meta-row">
+        <template v-for="(msg, mIdx) in activeThread.comments" :key="msg.id">
+          <button
+            v-if="!isCommentExpanded(activeThread.id, msg.id, mIdx, activeThread.comments.length)"
+            type="button"
+            class="apex-collapsed-msg"
+            @click="toggleCommentExpanded(activeThread.id, msg.id)"
+          >
+            <span>▸</span>
             <strong>@{{ msg.author }}</strong>
-            <span>{{ msg.createdAt ? msg.createdAt.slice(0, 10) : '' }}</span>
+            <span class="apex-collapsed-snippet">{{ summarizeComment(msg) }}</span>
+          </button>
+          <div v-else class="apex-expanded-msg">
+            <div class="apex-meta-row">
+              <strong>@{{ msg.author }}</strong>
+              <div style="display: flex; gap: 8px; align-items: center">
+                <span>{{ msg.createdAt ? msg.createdAt.slice(0, 10) : '' }}</span>
+                <button
+                  v-if="mIdx < activeThread.comments.length - 1"
+                  type="button"
+                  class="apex-rev-btn"
+                  style="padding: 1px 6px; font-size: 11px"
+                  @click="toggleCommentExpanded(activeThread.id, msg.id)"
+                >
+                  Collapse
+                </button>
+              </div>
+            </div>
+            <div style="white-space: pre-wrap; font-size: 13.5px; line-height: 1.5">
+              {{ msg.body }}
+            </div>
           </div>
-          <div style="white-space: pre-wrap; font-size: 13.5px; line-height: 1.5">
-            {{ msg.body }}
-          </div>
-        </div>
+        </template>
 
         <div v-if="threadActionError" class="apex-error-banner">{{ threadActionError }}</div>
 
         <template v-if="auth.token">
           <textarea
-            v-if="activeThread.source !== 'issue'"
             v-model="replyBody"
             rows="3"
             class="apex-textarea"
@@ -975,11 +1051,10 @@ onUnmounted(() => {
                 Close
               </button>
               <button
-                v-if="activeThread.source !== 'issue'"
                 type="button"
                 class="apex-rev-btn is-primary"
                 :disabled="threadActionBusy || !replyBody.trim()"
-                @click="sendThreadReply"
+                @click="sendThreadReply(activeThread, replyBody, false)"
               >
                 {{ threadActionBusy ? 'Sending…' : 'Reply' }}
               </button>
@@ -1124,19 +1199,97 @@ onUnmounted(() => {
                 >
                   {{ t.path.split('/').pop() }}<template v-if="t.line">:L{{ t.line }}</template>
                 </button>
-                <span class="apex-mode-badge" :class="t.isResolved ? 'is-ok' : 'is-warn'">
-                  {{ t.isResolved ? 'Resolved' : 'Open' }}
-                </span>
+                <div style="display: flex; gap: 6px; align-items: center">
+                  <span class="apex-mode-badge" :class="t.isResolved ? 'is-ok' : 'is-warn'">
+                    {{ t.isResolved ? 'Resolved' : 'Open' }}
+                  </span>
+                  <button
+                    v-if="t.canResolve && auth.token"
+                    type="button"
+                    class="apex-rev-btn"
+                    style="padding: 2px 8px; font-size: 11.5px"
+                    :disabled="threadActionBusy"
+                    @click="toggleThreadResolved(t)"
+                  >
+                    {{ t.isResolved ? 'Reopen' : 'Resolve' }}
+                  </button>
+                </div>
               </div>
-              <div style="font-size: 13px; line-height: 1.45">
-                <strong>@{{ t.comments[0]?.author }}:</strong>
-                {{ t.comments[0]?.body }}
-              </div>
-              <div class="apex-meta-row">
-                <span>{{ t.comments.length }} message(s)</span>
-                <button type="button" class="apex-rev-btn" @click="openThreadCard(t)">
-                  Open Thread
+
+              <template v-for="(msg, mIdx) in t.comments" :key="msg.id">
+                <button
+                  v-if="!isCommentExpanded(t.id, msg.id, mIdx, t.comments.length)"
+                  type="button"
+                  class="apex-collapsed-msg"
+                  @click="toggleCommentExpanded(t.id, msg.id)"
+                >
+                  <span>▸</span>
+                  <strong>@{{ msg.author }}</strong>
+                  <span class="apex-collapsed-snippet">{{ summarizeComment(msg) }}</span>
                 </button>
+                <div v-else class="apex-expanded-msg">
+                  <div class="apex-meta-row">
+                    <strong>@{{ msg.author }}</strong>
+                    <div style="display: flex; gap: 6px; align-items: center">
+                      <span>{{ msg.createdAt ? msg.createdAt.slice(0, 10) : '' }}</span>
+                      <button
+                        v-if="mIdx < t.comments.length - 1"
+                        type="button"
+                        class="apex-rev-btn"
+                        style="padding: 1px 6px; font-size: 11px"
+                        @click="toggleCommentExpanded(t.id, msg.id)"
+                      >
+                        Collapse
+                      </button>
+                    </div>
+                  </div>
+                  <div style="white-space: pre-wrap; font-size: 13px; line-height: 1.45">
+                    {{ msg.body }}
+                  </div>
+                </div>
+              </template>
+
+              <div v-if="inlineReplyThreadId === t.id" style="display: flex; flex-direction: column; gap: 6px">
+                <textarea
+                  v-model="inlineReplyBody"
+                  rows="2"
+                  class="apex-textarea"
+                  placeholder="Write a reply..."
+                />
+                <div style="display: flex; justify-content: flex-end; gap: 6px">
+                  <button
+                    type="button"
+                    class="apex-rev-btn"
+                    @click="inlineReplyThreadId = null; inlineReplyBody = ''"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    class="apex-rev-btn is-primary"
+                    :disabled="threadActionBusy || !inlineReplyBody.trim()"
+                    @click="sendThreadReply(t, inlineReplyBody, true)"
+                  >
+                    {{ threadActionBusy ? 'Sending…' : 'Send Reply' }}
+                  </button>
+                </div>
+              </div>
+
+              <div class="apex-meta-row">
+                <span>{{ t.comments.length }} comment(s)</span>
+                <div style="display: flex; gap: 6px">
+                  <button
+                    v-if="auth.token && inlineReplyThreadId !== t.id"
+                    type="button"
+                    class="apex-rev-btn"
+                    @click="inlineReplyThreadId = t.id; inlineReplyBody = ''"
+                  >
+                    Reply
+                  </button>
+                  <button type="button" class="apex-rev-btn" @click="openThreadCard(t)">
+                    Open
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -1146,14 +1299,9 @@ onUnmounted(() => {
               v-model="summaryBody"
               rows="2"
               class="apex-textarea"
-              placeholder="Optional overall PR review summary..."
+              placeholder="Optional overall PR comment..."
             />
-            <div style="display: flex; gap: 8px; align-items: center">
-              <select v-model="submitEvent" class="apex-select" style="flex: 1">
-                <option value="COMMENT">Comment</option>
-                <option value="REQUEST_CHANGES">Request changes</option>
-                <option value="APPROVE">Approve</option>
-              </select>
+            <div style="display: flex; gap: 8px; justify-content: flex-end">
               <button
                 type="button"
                 class="apex-rev-btn"
@@ -1165,10 +1313,10 @@ onUnmounted(() => {
               <button
                 type="button"
                 class="apex-rev-btn is-primary"
-                :disabled="submitBusy"
+                :disabled="submitBusy || (Boolean(auth.token) && drafts.length === 0 && !summaryBody.trim())"
                 @click="submitQueuedReview"
               >
-                {{ submitBusy ? 'Submitting…' : auth.token ? `Submit (${drafts.length})` : 'Connect & Submit' }}
+                {{ submitBusy ? 'Submitting…' : auth.token ? (drafts.length > 0 ? `Submit (${drafts.length})` : 'Submit') : 'Connect & Submit' }}
               </button>
             </div>
           </div>

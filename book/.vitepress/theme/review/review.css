@@ -334,6 +334,44 @@
   border-radius: 0 6px 6px 0;
 }
 
+.apex-collapsed-msg {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  text-align: left;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--vp-c-divider);
+  background: var(--vp-c-bg);
+  color: var(--vp-c-text-2);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.apex-collapsed-msg:hover {
+  border-color: var(--vp-c-brand-1);
+  color: var(--vp-c-text-1);
+}
+
+.apex-collapsed-snippet {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.apex-expanded-msg {
+  padding: 6px 9px;
+  border-radius: 6px;
+  border: 1px solid var(--vp-c-divider);
+  background: var(--vp-c-bg);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .apex-textarea,
 .apex-input,
 .apex-select {

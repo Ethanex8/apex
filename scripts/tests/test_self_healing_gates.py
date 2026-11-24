@@ -1147,7 +1147,12 @@ def test_harvest_feedback_preview_loc_fallback(monkeypatch: pytest.MonkeyPatch) 
             "id": 302,
             "body": "Check figure.\n<!-- apex-preview-loc: path=VISION.md line=15 -->",
             "user": {"login": "Ethanex8", "type": "User"},
-        }
+        },
+        {
+            "id": 303,
+            "body": "Already fixed.\n<!-- apex-preview-resolved: 1 -->",
+            "user": {"login": "Ethanex8", "type": "User"},
+        },
     ])
 
     def _run_stub(cmd: list[str], **_kw: object) -> subprocess.CompletedProcess[str]:
@@ -1168,6 +1173,11 @@ def test_harvest_feedback_preview_loc_fallback(monkeypatch: pytest.MonkeyPatch) 
     assert items[1]["path"] == "VISION.md"
     assert items[1]["line"] == 15
     assert items[1]["body"] == "Check figure."
+    all_items = harvest_feedback.normalize_pr_feedback("Ethanex8/apex", 11, include_resolved=True)
+    assert len(all_items) == 3
+    assert all_items[2]["is_resolved"] is True
+    assert all_items[2]["body"] == "Already fixed."
     assert harvest_feedback._extract_preview_location("plain text") == (None, None)
+
 
 
