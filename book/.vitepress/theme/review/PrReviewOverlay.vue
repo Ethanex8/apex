@@ -1,3 +1,8 @@
+<!--
+  Purpose: Client-side GitHub PR review overlay adding block diff gutters, text-selection comments, and threaded review drawer onto preview builds.
+  Usage: Mounted globally via the custom VitePress theme (`book/.vitepress/theme/index.ts`) when `PR_REVIEW_META.enabled` is true.
+  Invariants: Preserves staged localStorage drafts across navigations, throttles background refreshes even on fetch errors, and clears all timers/observers on unmount.
+-->
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useData, useRoute, useRouter, withBase } from 'vitepress'
@@ -9,42 +14,92 @@ import {
   verifyGitHubToken,
 } from './githubClient'
 import {
+  computeBlockAnnotationLayout,
+  computeThreadChipPosition,
+} from './annotationLayout'
+import {
+  buildTopLevelTarget,
+  canAutoRefreshThreads,
+  clampSelectionPopover,
+  COMPACT_DOC_MAX_WIDTH,
+  createDraftComment,
+  createReplyDraft,
+  createResolveDraft,
+  effectiveThreadResolved as resolveEffectiveThreadState,
+  findQueuedResolve,
+  formatLineLabel,
+  isAnnotatableBlock,
+  mapRepoPathToRoute,
+  MOBILE_VIEWPORT_MAX_WIDTH,
+  modeBadgeLabel,
+  parseStoredDrafts,
+  summarizeComment,
+  summarizeSubmitBatch,
+  threadStatusLabel as computeThreadStatusLabel,
+} from './overlayHelpers'
+import {
   buildGitHubDiffUrl,
   findAnchorElementForLine,
+  isJumpableThreadPath,
   isRangeInAddedDiff,
   resolveBlockTarget,
   resolveSelectionTarget,
+  shouldTriggerJumpOnClick,
 } from './sourceMapper'
 import type {
   AuthState,
   CommentTarget,
   DraftComment,
   RemoteReviewThread,
-  RemoteThreadComment,
 } from './types'
 import './review.css'
 
+const SELECTION_DEBOUNCE_MS = 110
+const JUMP_HIGHLIGHT_MS = 2200
+const ROUTE_SCROLL_DELAY_MS = 120
+const BLOCK_OBSERVER_ROOT_MARGIN = '250px 0px'
+const PR_SUMMARY_PATH = 'PR Summary'
+const PR_CONVERSATION_PATH = 'PR Conversation'
+
+/** Document-relative CSS pixel span for one added-diff margin gutter bar. */
 interface GutterMark {
+  /** Stable Vue key for the rendered bar. */
   key: string
+  /** Document-relative top coordinate in CSS pixels. */
   top: number
+  /** Document-relative left coordinate in CSS pixels. */
   left: number
+  /** Rendered height in CSS pixels. */
   height: number
 }
 
+/** Document-relative floating thread badge anchoring one or more PR review threads to a block. */
 interface ThreadMarkerGroup {
+  /** Stable Vue key for the thread marker badge. */
   key: string
+  /** Document-relative top coordinate in CSS pixels. */
   top: number
+  /** Document-relative left coordinate in CSS pixels. */
   left: number
+  /** Anchored 1-indexed source line number, or `null` for page/file notes. */
   line: number | null
+  /** True when every thread in the group is resolved or staged for resolution. */
   allResolved: boolean
+  /** Remote threads attached to this DOM anchor. */
   threads: RemoteReviewThread[]
 }
 
+/** Document-relative hover/margin `+` trigger attached to an annotatable block. */
 interface BlockAddButton {
+  /** Stable Vue key for the block trigger. */
   key: string
+  /** Document-relative top coordinate in CSS pixels. */
   top: number
+  /** Document-relative left coordinate in CSS pixels. */
   left: number
+  /** Starting 1-indexed source line number of the block. */
   line: number
+  /** Underlying `.vp-doc [data-src-line]` DOM element. */
   el: HTMLElement
 }
 
@@ -84,7 +139,6 @@ const remoteHeadSha = ref('')
 const isPreviewStale = computed(() =>
   Boolean(remoteHeadSha.value && remoteHeadSha.value !== meta.headSha),
 )
-let lastRefreshAt = 0
 
 const drawerOpen = ref(false)
 const drawerView = ref<'main' | 'setup'>('main')
@@ -113,13 +167,21 @@ const blockAddButtons = ref<BlockAddButton[]>([])
 const pendingScrollLine = ref<number | null>(null)
 
 const visibleBlocks = new Set<HTMLElement>()
+let lastRefreshAt = 0
+let authSeq = 0
+let refreshSeq = 0
+let isComponentUnmounted = false
 let selectionTimer: number | null = null
 let layoutRaf: number | null = null
+let jumpHighlightTimer: number | null = null
+let routeScrollTimer: number | null = null
+let highlightedEl: HTMLElement | null = null
 let docObserver: MutationObserver | null = null
 let docResizeObserver: ResizeObserver | null = null
 let blockIntersectionObserver: IntersectionObserver | null = null
 
 const currentRepoPath = computed(() => {
+  // VitePress injects `repoSourcePath` via `transformPageData` in `config.mts`, outside default PageData types.
   const raw = (page.value as { repoSourcePath?: string }).repoSourcePath
   return typeof raw === 'string' ? raw : ''
 })
@@ -137,8 +199,8 @@ const filteredDrawerThreads = computed(() => {
       ? threads.value.filter(
           (t) =>
             t.path === currentRepoPath.value ||
-            t.path === 'PR Summary' ||
-            t.path === 'PR Conversation',
+            t.path === PR_SUMMARY_PATH ||
+            t.path === PR_CONVERSATION_PATH,
         )
       : threads.value
   return showResolved.value ? base : base.filter((t) => !t.isResolved)
@@ -155,26 +217,16 @@ const totalOpenThreadCount = computed(
   () => threads.value.filter((t) => !t.isResolved).length,
 )
 
-function mapRepoPathToRoute(repoPath: string): string | null {
-  if (repoPath === 'book/index.md') return '/'
-  if (repoPath === 'VISION.md') return '/vision'
-  const readme = repoPath.match(/^systems\/([a-z0-9_-]+)\/README\.md$/)
-  if (readme) return `/${readme[1]}/`
-  const chapter = repoPath.match(/^systems\/([a-z0-9_-]+)\/chapters\/([^/]+)\.md$/)
-  if (chapter) return `/${chapter[1]}/${chapter[2]}`
-  return null
+const submitBatchSummary = computed(() => summarizeSubmitBatch(drafts.value))
+
+/** Clear stale submission and thread action banners across sibling draft mutations. */
+function clearActionErrors() {
+  submitError.value = ''
+  threadActionError.value = ''
+  threadsError.value = ''
 }
 
-function formatLineLabel(start: number, end: number): string {
-  return end > start ? `L${start}–L${end}` : `L${start}`
-}
-
-function modeBadgeLabel(mode: CommentTarget['mode']): string {
-  if (mode === 'inline') return 'Native inline PR thread'
-  if (mode === 'file') return 'File-level PR thread (outside hunk)'
-  return 'PR conversation comment (unchanged file)'
-}
-
+/** Return true when `commentId` inside `threadId` (either newest message or toggled open) is expanded. */
 function isCommentExpanded(
   threadId: string,
   commentId: number,
@@ -185,6 +237,7 @@ function isCommentExpanded(
   return expandedCommentKeys.value.has(`${threadId}:${commentId}`)
 }
 
+/** Toggle expanded/collapsed state for a single older thread message. */
 function toggleCommentExpanded(threadId: string, commentId: number) {
   const key = `${threadId}:${commentId}`
   const next = new Set(expandedCommentKeys.value)
@@ -196,11 +249,7 @@ function toggleCommentExpanded(threadId: string, commentId: number) {
   expandedCommentKeys.value = next
 }
 
-function summarizeComment(msg: RemoteThreadComment): string {
-  const firstLine = msg.body.replace(/\s+/g, ' ').trim()
-  return firstLine.length > 64 ? `${firstLine.slice(0, 63)}…` : firstLine
-}
-
+/** Persist the queued draft list into browser `localStorage`, ignoring quota/privacy exceptions. */
 function saveDraftState() {
   if (typeof window === 'undefined') return
   try {
@@ -210,41 +259,22 @@ function saveDraftState() {
   }
 }
 
+/** Restore queued drafts from `localStorage` and re-save when legacy `summaryBody` entries migrate. */
 function loadDraftState() {
   if (typeof window === 'undefined') return
   try {
     const raw = localStorage.getItem(draftStorageKey)
-    if (!raw) return
-    const parsed = JSON.parse(raw) as {
-      drafts?: DraftComment[]
-      summaryBody?: string
-    }
-    if (Array.isArray(parsed.drafts)) {
-      drafts.value = parsed.drafts
-    }
-    if (typeof parsed.summaryBody === 'string' && parsed.summaryBody.trim()) {
-      drafts.value.push({
-        id: `${Date.now()}-migrated`,
-        kind: 'comment',
-        path: '',
-        startLine: 1,
-        endLine: 1,
-        apiStartLine: 1,
-        apiLine: 1,
-        mode: 'issue',
-        quote: '',
-        sectionTitle: `PR #${meta.prNumber}`,
-        blockKind: 'PR Comment',
-        body: parsed.summaryBody.trim(),
-        createdAt: new Date().toISOString(),
-      })
+    const { drafts: restored, migrated } = parseStoredDrafts(raw, meta.prNumber)
+    drafts.value = restored
+    if (migrated) {
       saveDraftState()
     }
   } catch {
-    // ignore corrupted local drafts
+    // ignore storage access errors
   }
 }
 
+/** Store or clear the user's GitHub Personal Access Token across `localStorage` or `sessionStorage`. */
 function saveAuthToken(token: string, persistLocal: boolean) {
   if (typeof window === 'undefined') return
   try {
@@ -262,8 +292,10 @@ function saveAuthToken(token: string, persistLocal: boolean) {
   }
 }
 
+/** Load and validate any saved GitHub PAT at mount time, evicting revoked 401/403 credentials. */
 async function restoreAuth() {
   if (typeof window === 'undefined') return
+  const seq = ++authSeq
   let savedRaw: string | null = null
   let savedLocal = true
   try {
@@ -276,33 +308,50 @@ async function restoreAuth() {
     return
   }
   if (!savedRaw) return
+  let token = ''
   try {
     const parsed = JSON.parse(savedRaw) as { token?: string; persistLocal?: boolean }
-    const token = (parsed.token ?? '').trim()
-    if (!token) return
+    token = (parsed.token ?? '').trim()
     persistLocalToggle.value = parsed.persistLocal ?? savedLocal
+  } catch {
+    saveAuthToken('', true)
+    return
+  }
+  if (!token) return
+  try {
     const user = await verifyGitHubToken(token)
+    if (seq !== authSeq || isComponentUnmounted) return
     auth.value = {
       token,
       login: user.login,
       avatarUrl: user.avatarUrl,
       persistLocal: persistLocalToggle.value,
     }
-  } catch {
-    saveAuthToken('', true)
+  } catch (err) {
+    if (seq !== authSeq || isComponentUnmounted) return
+    const msg = err instanceof Error ? err.message : String(err)
+    if (/\b(401|403)\b|bad credentials/i.test(msg)) {
+      saveAuthToken('', true)
+    } else {
+      auth.value = { token, login: '', avatarUrl: '', persistLocal: persistLocalToggle.value }
+      authError.value = `Could not verify saved GitHub token yet: ${msg}`
+    }
   }
 }
 
+/** Verify an entered GitHub PAT, persist storage preference, and refresh PR threads. */
 async function connectToken() {
   const cleaned = tokenInput.value.trim()
   if (!cleaned) {
     authError.value = 'Paste a fine-grained GitHub PAT first.'
     return
   }
+  const seq = ++authSeq
   authBusy.value = true
   authError.value = ''
   try {
     const user = await verifyGitHubToken(cleaned)
+    if (seq !== authSeq || isComponentUnmounted) return
     auth.value = {
       token: cleaned,
       login: user.login,
@@ -312,55 +361,77 @@ async function connectToken() {
     saveAuthToken(cleaned, persistLocalToggle.value)
     tokenInput.value = ''
     drawerView.value = 'main'
+    // Token verification/persistence succeeded; release authBusy before thread fetching (tracked by threadsLoading).
+    authBusy.value = false
     await refreshThreads()
   } catch (err) {
+    if (seq !== authSeq || isComponentUnmounted) return
     authError.value = err instanceof Error ? err.message : 'Failed to verify GitHub token'
   } finally {
-    authBusy.value = false
+    if (seq === authSeq && !isComponentUnmounted) {
+      authBusy.value = false
+    }
   }
 }
 
+/** Sign out of the saved GitHub PAT and fall back to public anonymous thread reads. */
 function forgetToken() {
+  authSeq += 1
+  authBusy.value = false
   auth.value = { token: '', login: '', avatarUrl: '', persistLocal: true }
   saveAuthToken('', true)
   refreshThreads()
 }
 
+/** Fetch PR threads and head SHA with monotonic request sequencing to discard stale responses. */
 async function refreshThreads() {
+  const seq = ++refreshSeq
   threadsLoading.value = true
   threadsError.value = ''
   try {
     const [fetchedThreads, headInfo] = await Promise.all([
       fetchPrThreads(meta.repo, meta.prNumber, auth.value.token),
-      fetchPrHeadInfo(meta.repo, meta.prNumber, auth.value.token).catch(() => null),
+      fetchPrHeadInfo(meta.repo, meta.prNumber, auth.value.token),
     ])
+    if (seq !== refreshSeq || isComponentUnmounted) return
     threads.value = fetchedThreads
     if (headInfo?.headSha) {
       remoteHeadSha.value = headInfo.headSha
     }
     threadsLoadedOnce.value = true
-    lastRefreshAt = Date.now()
     if (activeThread.value) {
       const updated = threads.value.find((t) => t.id === activeThread.value?.id)
       activeThread.value = updated ?? null
     }
   } catch (err) {
+    if (seq !== refreshSeq || isComponentUnmounted) return
     threadsError.value =
       err instanceof Error ? err.message : 'Failed to load PR threads'
   } finally {
-    threadsLoading.value = false
-    scheduleMeasure()
+    if (seq === refreshSeq && !isComponentUnmounted) {
+      lastRefreshAt = Date.now()
+      threadsLoading.value = false
+      scheduleMeasure()
+    }
   }
 }
 
+/** Trigger a background thread refresh only when cooldown bounds permit. */
 function maybeAutoRefreshThreads() {
-  if (threadsLoading.value) return
-  const minCooldownMs = auth.value.token ? 15_000 : 60_000
-  if (!threadsLoadedOnce.value || Date.now() - lastRefreshAt > minCooldownMs) {
+  if (
+    canAutoRefreshThreads(
+      threadsLoading.value,
+      threadsLoadedOnce.value,
+      lastRefreshAt,
+      Date.now(),
+      Boolean(auth.value.token),
+    )
+  ) {
     refreshThreads()
   }
 }
 
+/** Open the review drawer onto `'main'` or `'setup'` and auto-refresh threads when due. */
 function openReviewDrawer(view: 'main' | 'setup' = 'main') {
   drawerOpen.value = true
   drawerView.value = view
@@ -369,25 +440,29 @@ function openReviewDrawer(view: 'main' | 'setup' = 'main') {
   }
 }
 
+/** Sync `isMobile` reactive state with the current viewport width. */
 function updateViewportMode() {
   if (typeof window === 'undefined') return
-  isMobile.value = window.innerWidth < 768
+  isMobile.value = window.innerWidth < MOBILE_VIEWPORT_MAX_WIDTH
 }
 
-function isAnnotatableBlock(el: HTMLElement): boolean {
-  if (el.closest('.apex-review-ui')) return false
-  if (el.tagName === 'TR') return false
-  if (el.tagName === 'LI' && el.querySelector(':scope > p[data-src-line]')) {
-    return false
-  }
-  return true
-}
-
+/** Track currently near-viewport `[data-src-line]` elements inside `.vp-doc` using IntersectionObserver. */
 function observeDocumentBlocks() {
-  visibleBlocks.clear()
   blockIntersectionObserver?.disconnect()
+  if (typeof document === 'undefined') {
+    visibleBlocks.clear()
+    return
+  }
   const docRoot = document.querySelector('.vp-doc')
-  if (!docRoot) return
+  if (!docRoot) {
+    visibleBlocks.clear()
+    return
+  }
+  for (const existing of visibleBlocks) {
+    if (!docRoot.contains(existing)) {
+      visibleBlocks.delete(existing)
+    }
+  }
 
   const blocks = Array.from(
     docRoot.querySelectorAll<HTMLElement>('[data-src-line]'),
@@ -415,7 +490,7 @@ function observeDocumentBlocks() {
       }
       if (changed) scheduleMeasure()
     },
-    { rootMargin: '250px 0px' },
+    { rootMargin: BLOCK_OBSERVER_ROOT_MARGIN },
   )
 
   for (const el of blocks) {
@@ -423,6 +498,107 @@ function observeDocumentBlocks() {
   }
 }
 
+/** Collect document-relative gutter bars and `+` trigger coordinates for visible diff blocks. */
+function collectBlockAnnotations(
+  docRoot: Element,
+  docLeft: number,
+  scrollX: number,
+  scrollY: number,
+  docWidth: number,
+  compactMode: boolean,
+): { gutters: GutterMark[]; buttons: BlockAddButton[] } {
+  const gutters: GutterMark[] = []
+  const buttons: BlockAddButton[] = []
+  const repoPath = currentRepoPath.value
+  let idx = 0
+
+  for (const el of visibleBlocks) {
+    // Prune nodes detached by VitePress client-side navigation before measuring geometry.
+    if (!docRoot.contains(el)) {
+      visibleBlocks.delete(el)
+      continue
+    }
+    const rect = el.getBoundingClientRect()
+    if (rect.width <= 0 || rect.height <= 0) continue
+
+    const startLine = Number.parseInt(el.dataset.srcLine ?? '', 10)
+    if (!Number.isInteger(startLine) || startLine <= 0) continue
+    const parsedEnd = Number.parseInt(el.dataset.srcEnd ?? String(startLine), 10)
+    const endLine = Number.isInteger(parsedEnd) && parsedEnd >= startLine ? parsedEnd : startLine
+
+    const coords = computeBlockAnnotationLayout(
+      rect,
+      docLeft,
+      scrollX,
+      scrollY,
+      docWidth,
+      compactMode,
+    )
+
+    if (showGutter.value && isRangeInAddedDiff(repoPath, startLine, endLine, meta.files)) {
+      gutters.push({
+        key: `g:${idx}:${startLine}`,
+        top: coords.gutterTop,
+        left: coords.gutterLeft,
+        height: coords.gutterHeight,
+      })
+    }
+
+    buttons.push({
+      key: `b:${idx}:${startLine}`,
+      top: coords.buttonTop,
+      left: coords.buttonLeft,
+      line: startLine,
+      el,
+    })
+    idx += 1
+  }
+
+  return { gutters, buttons }
+}
+
+/** Group remote PR review threads by anchored block element and compute floating chip coordinates. */
+function collectThreadMarkers(
+  docRoot: Element,
+  scrollX: number,
+  scrollY: number,
+  docWidth: number,
+): ThreadMarkerGroup[] {
+  const anchorGroups = new Map<
+    HTMLElement,
+    { line: number | null; items: RemoteReviewThread[] }
+  >()
+  for (const thread of pageThreads.value) {
+    const anchor = findAnchorElementForLine(docRoot, thread.line)
+    if (!anchor) continue
+    const existing = anchorGroups.get(anchor)
+    if (existing) {
+      existing.items.push(thread)
+    } else {
+      anchorGroups.set(anchor, { line: thread.line, items: [thread] })
+    }
+  }
+
+  const markers: ThreadMarkerGroup[] = []
+  let tIdx = 0
+  for (const [el, group] of anchorGroups.entries()) {
+    const rect = el.getBoundingClientRect()
+    if (rect.width <= 0 || rect.height <= 0) continue
+    const pos = computeThreadChipPosition(rect, scrollX, scrollY, docWidth)
+    markers.push({
+      key: `tm:${tIdx}:${group.items[0].id}`,
+      top: pos.top,
+      left: pos.left,
+      line: group.line,
+      allResolved: group.items.every((item) => effectiveThreadResolved(item)),
+      threads: group.items,
+    })
+    tIdx += 1
+  }
+  return markers
+}
+
+/** Recompute all PR margin gutter bars, block comment buttons, and floating thread chips. */
 function recomputeDocAnnotations() {
   if (typeof window === 'undefined') return
   const docRoot = document.querySelector('.vp-doc')
@@ -436,93 +612,23 @@ function recomputeDocAnnotations() {
   const scrollX = window.scrollX
   const scrollY = window.scrollY
   const docWidth = document.documentElement.clientWidth
-  const compactMode = docWidth < 960
+  const docLeft = docRoot.getBoundingClientRect().left
+  const compactMode = docWidth < COMPACT_DOC_MAX_WIDTH
 
-  const nextGutters: GutterMark[] = []
-  const nextButtons: BlockAddButton[] = []
-
-  let idx = 0
-  for (const el of visibleBlocks) {
-    if (!docRoot.contains(el)) {
-      visibleBlocks.delete(el)
-      continue
-    }
-    const rect = el.getBoundingClientRect()
-    if (rect.width <= 0 || rect.height <= 0) continue
-
-    const startLine = Number.parseInt(el.dataset.srcLine ?? '0', 10)
-    const endLine = Number.parseInt(el.dataset.srcEnd ?? String(startLine), 10)
-    if (startLine <= 0) continue
-
-    if (
-      showGutter.value &&
-      isRangeInAddedDiff(currentRepoPath.value, startLine, endLine, meta.files)
-    ) {
-      nextGutters.push({
-        key: `g:${idx}:${startLine}`,
-        top: rect.top + scrollY,
-        left: Math.max(3, rect.left + scrollX - 10),
-        height: Math.max(12, rect.height),
-      })
-    }
-
-    const btnLeft = compactMode
-      ? Math.min(docWidth - 26, Math.max(8, rect.right + scrollX - 22))
-      : Math.max(6, rect.left + scrollX - 30)
-    const btnTop = compactMode
-      ? Math.max(4, rect.top + scrollY - 10)
-      : rect.top + scrollY + 3
-
-    nextButtons.push({
-      key: `b:${idx}:${startLine}`,
-      top: btnTop,
-      left: btnLeft,
-      line: startLine,
-      el,
-    })
-    idx += 1
-  }
-
-  const anchorGroups = new Map<
-    HTMLElement,
-    { line: number | null; items: RemoteReviewThread[] }
-  >()
-  for (const t of pageThreads.value) {
-    const anchor = findAnchorElementForLine(docRoot, t.line)
-    if (!anchor) continue
-    const existing = anchorGroups.get(anchor)
-    if (existing) {
-      existing.items.push(t)
-    } else {
-      anchorGroups.set(anchor, { line: t.line, items: [t] })
-    }
-  }
-
-  const nextThreadMarkers: ThreadMarkerGroup[] = []
-  let tIdx = 0
-  for (const [el, group] of anchorGroups.entries()) {
-    const rect = el.getBoundingClientRect()
-    if (rect.width <= 0 || rect.height <= 0) continue
-    const chipLeft =
-      rect.right + 10 + 92 <= docWidth
-        ? rect.right + scrollX + 8
-        : Math.max(8, Math.min(docWidth - 96, rect.right + scrollX - 92))
-    nextThreadMarkers.push({
-      key: `tm:${tIdx}:${group.items[0].id}`,
-      top: rect.top + scrollY + (chipLeft < rect.right + scrollX ? -12 : 2),
-      left: chipLeft,
-      line: group.line,
-      allResolved: group.items.every((item) => effectiveThreadResolved(item)),
-      threads: group.items,
-    })
-    tIdx += 1
-  }
-
-  gutterMarks.value = nextGutters
-  blockAddButtons.value = nextButtons
-  threadMarkers.value = nextThreadMarkers
+  const { gutters, buttons } = collectBlockAnnotations(
+    docRoot,
+    docLeft,
+    scrollX,
+    scrollY,
+    docWidth,
+    compactMode,
+  )
+  gutterMarks.value = gutters
+  blockAddButtons.value = buttons
+  threadMarkers.value = collectThreadMarkers(docRoot, scrollX, scrollY, docWidth)
 }
 
+/** Coalesce layout annotation re-measurement into the next browser animation frame. */
 function scheduleMeasure() {
   if (typeof window === 'undefined') return
   if (layoutRaf !== null) {
@@ -534,6 +640,7 @@ function scheduleMeasure() {
   })
 }
 
+/** Resolve the current prose text selection inside `.vp-doc` and place the floating comment pill. */
 function updateSelectionAction() {
   if (typeof window === 'undefined') return
   const docRoot = document.querySelector('.vp-doc')
@@ -550,25 +657,26 @@ function updateSelectionAction() {
     return
   }
   const rect = sel.getRangeAt(0).getBoundingClientRect()
+  // Selection ranges on wrapped spans can have positive height or width alone; only discard completely empty rects.
   if (rect.width <= 0 && rect.height <= 0) {
     selectionTarget.value = null
     selectionRect.value = null
     return
   }
   selectionTarget.value = target
-  const x = Math.min(window.innerWidth - 90, Math.max(90, rect.left + rect.width / 2))
-  const y = rect.top > 72 ? rect.top - 8 : rect.bottom + 36
-  selectionRect.value = { x, y }
+  selectionRect.value = clampSelectionPopover(rect, window.innerWidth)
 }
 
+/** Debounce `selectionchange`/`mouseup` checks so touch selection handles stabilize before showing the pill. */
 function scheduleSelectionCheck() {
   if (typeof window === 'undefined') return
   if (selectionTimer !== null) {
     window.clearTimeout(selectionTimer)
   }
-  selectionTimer = window.setTimeout(updateSelectionAction, 110)
+  selectionTimer = window.setTimeout(updateSelectionAction, SELECTION_DEBOUNCE_MS)
 }
 
+/** Open the comment composer modal pre-populated with `target`. */
 function openComposer(target: CommentTarget) {
   composerTarget.value = target
   composerBody.value = ''
@@ -577,28 +685,22 @@ function openComposer(target: CommentTarget) {
   selectionRect.value = null
 }
 
+/** Open the comment composer for a block element's `+` trigger. */
 function openComposerForBlock(el: HTMLElement) {
+  if (typeof document === 'undefined') return
   const docRoot = document.querySelector('.vp-doc')
   if (!docRoot) return
   const target = resolveBlockTarget(el, docRoot, currentRepoPath.value, meta.files)
   if (target) openComposer(target)
 }
 
+/** Open the comment composer for a general top-level PR conversation note. */
 function openTopLevelComposer() {
-  openComposer({
-    path: '',
-    startLine: 1,
-    endLine: 1,
-    apiStartLine: 1,
-    apiLine: 1,
-    mode: 'issue',
-    quote: '',
-    sectionTitle: `PR #${meta.prNumber}`,
-    blockKind: 'PR Comment',
-  })
+  openComposer(buildTopLevelTarget(meta.prNumber))
 }
 
-function addDraftToCart() {
+/** Validate composer input and queue a new review comment draft locally. */
+function queueComposerDraft() {
   if (!composerTarget.value) return
   const text = composerBody.value.trim()
   if (!text) {
@@ -606,14 +708,9 @@ function addDraftToCart() {
     return
   }
   const target = composerTarget.value
-  drafts.value.push({
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-    kind: 'comment',
-    ...target,
-    body: text,
-    createdAt: new Date().toISOString(),
-  })
+  drafts.value.push(createDraftComment(target, text))
   saveDraftState()
+  clearActionErrors()
   composerTarget.value = null
   composerBody.value = ''
   submitNotice.value = target.path
@@ -621,12 +718,17 @@ function addDraftToCart() {
     : 'Queued top-level PR comment draft.'
 }
 
+/** Remove one staged draft comment/reply/resolve entry by ID. */
 function removeDraft(id: string) {
   drafts.value = drafts.value.filter((d) => d.id !== id)
   saveDraftState()
+  clearActionErrors()
+  scheduleMeasure()
 }
 
+/** Submit all staged drafts to GitHub as one review batch, keeping failed items queued for retry. */
 async function submitQueuedReview() {
+  if (submitBusy.value) return
   if (!auth.value.token) {
     drawerView.value = 'setup'
     return
@@ -647,10 +749,10 @@ async function submitQueuedReview() {
       auth.value.token,
     )
     const failedIds = new Set(result.outcomes.filter((o) => !o.ok).map((o) => o.draftId))
-    const succeededCount = result.outcomes.filter((o) => o.ok).length
-    drafts.value = drafts.value.filter((d) => failedIds.has(d.id))
+    const succeededIds = new Set(result.outcomes.filter((o) => o.ok).map((o) => o.draftId))
+    drafts.value = drafts.value.filter((d) => !succeededIds.has(d.id))
     if (failedIds.size === 0 && result.summaryOk) {
-      submitNotice.value = `Submitted ${succeededCount} item(s) to PR #${meta.prNumber}.`
+      submitNotice.value = `Submitted ${succeededIds.size} item(s) to PR #${meta.prNumber}.`
     } else {
       const firstErr =
         result.summaryError ??
@@ -667,71 +769,56 @@ async function submitQueuedReview() {
   }
 }
 
+/** Open the floating thread reader card for `thread` and compute a GitHub diff fallback URL when absent. */
 async function openThreadCard(thread: RemoteReviewThread) {
   activeThread.value = thread
   replyBody.value = ''
   threadActionError.value = ''
-  activeThreadDiffUrl.value =
-    thread.url || (await buildGitHubDiffUrl(meta.repo, meta.prNumber, thread.path, thread.line))
+  activeThreadDiffUrl.value = thread.url || ''
+  if (!thread.url) {
+    try {
+      const url = await buildGitHubDiffUrl(meta.repo, meta.prNumber, thread.path, thread.line)
+      if (activeThread.value?.id === thread.id) {
+        activeThreadDiffUrl.value = url
+      }
+    } catch (err) {
+      if (activeThread.value?.id === thread.id) {
+        threadActionError.value =
+          err instanceof Error ? err.message : 'Failed to build GitHub PR diff link'
+      }
+    }
+  }
 }
 
+/** Return queued reply drafts targeting `threadId`. */
 function queuedRepliesFor(threadId: string): DraftComment[] {
   return drafts.value.filter((d) => d.kind === 'reply' && d.replyTarget?.threadId === threadId)
 }
 
+/** Return the queued resolve or reopen draft targeting `threadId`, if any. */
 function queuedResolveFor(threadId: string): DraftComment | undefined {
-  return drafts.value.find((d) => d.kind === 'resolve' && d.resolveTarget?.threadId === threadId)
+  return findQueuedResolve(threadId, drafts.value)
 }
 
+/** Return whether `thread` is resolved either remotely or via a staged draft. */
 function effectiveThreadResolved(thread: RemoteReviewThread): boolean {
-  const queued = queuedResolveFor(thread.id)
-  return queued?.resolveTarget ? queued.resolveTarget.resolved : thread.isResolved
+  return resolveEffectiveThreadState(thread, drafts.value)
 }
 
+/** Return the compact badge status string for `thread`. */
 function threadStatusLabel(thread: RemoteReviewThread, showOutdated = false): string {
-  const queued = queuedResolveFor(thread.id)
-  if (queued?.resolveTarget) {
-    return queued.resolveTarget.resolved ? 'Pending Resolve' : 'Pending Reopen'
-  }
-  if (thread.isResolved) return 'Resolved'
-  if (showOutdated && thread.isOutdated) return 'Outdated'
-  return 'Open'
+  return computeThreadStatusLabel(thread, drafts.value, showOutdated)
 }
 
+/** Queue a reply draft for `thread` from either the drawer inline box or floating thread card. */
 function stageThreadReply(thread: RemoteReviewThread, text: string, fromDrawer = false) {
   const trimmed = text.trim()
   if (!trimmed) return
-  const targetAuthor = thread.comments[0]?.author ?? 'reviewer'
-  const firstSnippet = thread.comments[0]?.body.split('\n')[0]?.slice(0, 140) ?? ''
-  const lineNum = thread.line ?? 1
-  drafts.value.push({
-    id: `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
-    kind: 'reply',
-    replyTarget: {
-      threadId: thread.id,
-      rootCommentId: thread.rootCommentId,
-      source: thread.source,
-      author: targetAuthor,
-      path: thread.path,
-      line: thread.line,
-    },
-    path: thread.path,
-    startLine: lineNum,
-    endLine: lineNum,
-    apiStartLine: lineNum,
-    apiLine: lineNum,
-    mode: thread.source === 'review' ? 'issue' : thread.source,
-    quote: firstSnippet,
-    sectionTitle: `Reply to @${targetAuthor}`,
-    blockKind: 'reply',
-    body: trimmed,
-    createdAt: new Date().toISOString(),
-  })
+  const draft = createReplyDraft(thread, trimmed)
+  drafts.value.push(draft)
   saveDraftState()
-  submitNotice.value = `Staged reply to @${targetAuthor}. Click Submit in the drawer when ready to send.`
-  submitError.value = ''
-  threadActionError.value = ''
-  threadsError.value = ''
+  clearActionErrors()
+  submitNotice.value = `Staged reply to @${draft.replyTarget?.author ?? 'reviewer'}. Click Submit in the drawer when ready to send.`
   if (fromDrawer) {
     inlineReplyThreadId.value = null
     inlineReplyBody.value = ''
@@ -740,11 +827,11 @@ function stageThreadReply(thread: RemoteReviewThread, text: string, fromDrawer =
   }
 }
 
+/** Stage or cancel a resolve/reopen action for `thread`. */
 function toggleThreadResolved(thread: RemoteReviewThread) {
   if (!thread.canResolve) return
-  threadActionError.value = ''
-  threadsError.value = ''
-  const existing = queuedResolveFor(thread.id)
+  clearActionErrors()
+  const existing = findQueuedResolve(thread.id, drafts.value)
   if (existing) {
     drafts.value = drafts.value.filter((d) => d.id !== existing.id)
     saveDraftState()
@@ -752,46 +839,54 @@ function toggleThreadResolved(thread: RemoteReviewThread) {
     scheduleMeasure()
     return
   }
-  const nextResolved = !thread.isResolved
-  const firstSnippet = thread.comments[0]?.body.split('\n')[0]?.slice(0, 140) ?? ''
-  const lineNum = thread.line ?? 1
-  drafts.value.push({
-    id: `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
-    kind: 'resolve',
-    resolveTarget: {
-      threadId: thread.id,
-      rootCommentId: thread.rootCommentId,
-      source: thread.source,
-      path: thread.path,
-      line: thread.line,
-      resolved: nextResolved,
-      rawRootBody: thread.rawRootBody,
-    },
-    path: thread.path,
-    startLine: lineNum,
-    endLine: lineNum,
-    apiStartLine: lineNum,
-    apiLine: lineNum,
-    mode: thread.source === 'review' ? 'issue' : thread.source,
-    quote: firstSnippet,
-    sectionTitle: nextResolved ? 'Resolve thread' : 'Reopen thread',
-    blockKind: nextResolved ? 'Resolve' : 'Reopen',
-    body: nextResolved ? 'Resolve thread' : 'Reopen thread',
-    createdAt: new Date().toISOString(),
-  })
+  const draft = createResolveDraft(thread)
+  drafts.value.push(draft)
   saveDraftState()
-  submitNotice.value = `Staged ${nextResolved ? 'resolve' : 'reopen'}. Click Submit in the drawer when ready.`
+  submitNotice.value = `Staged ${draft.resolveTarget?.resolved ? 'resolve' : 'reopen'}. Click Submit in the drawer when ready.`
   scheduleMeasure()
 }
 
+/** Jump to the referenced source line when clicking a comment card outside nested controls/selections. */
+function onCommentCardClick(
+  event: MouseEvent,
+  repoPath: string,
+  line: number | null,
+) {
+  if (!isJumpableThreadPath(repoPath)) return
+  const selText =
+    typeof window !== 'undefined' ? (window.getSelection()?.toString() ?? '') : ''
+  if (!shouldTriggerJumpOnClick(event.target as Element | null, selText)) return
+  jumpToLocation(repoPath, line)
+}
+
+/** Navigate to the book route for `repoPath` and scroll to `line`, or open the GitHub PR diff tab. */
 async function jumpToLocation(repoPath: string, line: number | null) {
+  if (typeof window === 'undefined') return
   const bookRoute = mapRepoPathToRoute(repoPath)
   if (!bookRoute) {
-    const url = await buildGitHubDiffUrl(meta.repo, meta.prNumber, repoPath, line)
-    window.open(url, '_blank', 'noreferrer')
+    // Open popup synchronously during user click so mobile/Safari browsers do not block it after await.
+    const popup = window.open('about:blank', '_blank')
+    try {
+      const url = await buildGitHubDiffUrl(meta.repo, meta.prNumber, repoPath, line)
+      if (popup) {
+        popup.opener = null
+        popup.location.href = url
+      } else {
+        window.open(url, '_blank', 'noreferrer')
+      }
+    } catch (err) {
+      popup?.close()
+      threadActionError.value =
+        err instanceof Error ? err.message : 'Failed to open GitHub PR diff link'
+    }
     return
   }
+  // Clear both overlays and body overflow lock before scrolling so mobile/desktop browsers honor scrollIntoView.
+  activeThread.value = null
   drawerOpen.value = false
+  syncBodyScrollLock(false)
+  await nextTick()
+  if (isComponentUnmounted) return
   if (repoPath === currentRepoPath.value) {
     scrollToSourceLine(line)
   } else {
@@ -800,21 +895,42 @@ async function jumpToLocation(repoPath: string, line: number | null) {
   }
 }
 
+/** Scroll `.vp-doc` to the element covering `line`, expanding `<details>` and pulsing a brief highlight. */
 function scrollToSourceLine(line: number | null) {
+  if (isComponentUnmounted || typeof document === 'undefined') return
   const docRoot = document.querySelector('.vp-doc')
   if (!docRoot) return
   const el = findAnchorElementForLine(docRoot, line)
-  if (el) {
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  if (!el) return
+  let cur: HTMLElement | null = el
+  while (cur) {
+    if (cur instanceof HTMLDetailsElement) cur.open = true
+    cur = cur.parentElement
   }
+  if (highlightedEl) {
+    highlightedEl.classList.remove('apex-jump-highlight')
+  }
+  if (jumpHighlightTimer !== null) {
+    window.clearTimeout(jumpHighlightTimer)
+  }
+  highlightedEl = el
+  el.classList.add('apex-jump-highlight')
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  jumpHighlightTimer = window.setTimeout(() => {
+    highlightedEl?.classList.remove('apex-jump-highlight')
+    highlightedEl = null
+    jumpHighlightTimer = null
+  }, JUMP_HIGHLIGHT_MS)
 }
 
+/** Reset DOM observers and re-bind intersection/mutation/resize watchers onto the active `.vp-doc` container. */
 function attachDocObservers() {
   docObserver?.disconnect()
   docResizeObserver?.disconnect()
+  observeDocumentBlocks()
+  if (typeof document === 'undefined') return
   const docRoot = document.querySelector('.vp-doc')
   if (!docRoot) return
-  observeDocumentBlocks()
   docObserver = new MutationObserver(() => {
     observeDocumentBlocks()
     scheduleMeasure()
@@ -830,13 +946,24 @@ watch(
   () => route.path,
   async () => {
     selectionTarget.value = null
+    selectionRect.value = null
+    if (routeScrollTimer !== null) {
+      window.clearTimeout(routeScrollTimer)
+      routeScrollTimer = null
+    }
     await nextTick()
+    if (isComponentUnmounted) return
     attachDocObservers()
     scheduleMeasure()
     if (pendingScrollLine.value !== null) {
       const targetLine = pendingScrollLine.value
       pendingScrollLine.value = null
-      window.setTimeout(() => scrollToSourceLine(targetLine), 120)
+      syncBodyScrollLock(false)
+      // Wait briefly for VitePress client transition layout measurement before scrolling.
+      routeScrollTimer = window.setTimeout(() => {
+        routeScrollTimer = null
+        scrollToSourceLine(targetLine)
+      }, ROUTE_SCROLL_DELAY_MS)
     }
   },
 )
@@ -851,6 +978,7 @@ watch(
   { deep: true },
 )
 
+/** Synchronize document scroll lock while a modal/drawer overlay is open. */
 function syncBodyScrollLock(locked: boolean) {
   if (typeof document === 'undefined') return
   const val = locked ? 'hidden' : ''
@@ -865,11 +993,13 @@ watch(
   },
 )
 
+/** Refresh remote PR threads when the preview browser tab becomes visible or regains focus. */
 function handleWindowFocus() {
   if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
   maybeAutoRefreshThreads()
 }
 
+/** Reload the current browser page so readers pick up newly deployed PR preview assets. */
 function reloadPreviewPage() {
   if (typeof window !== 'undefined') {
     window.location.reload()
@@ -877,13 +1007,12 @@ function reloadPreviewPage() {
 }
 
 onMounted(async () => {
+  if (typeof window === 'undefined') return
   updateViewportMode()
   loadDraftState()
-  await restoreAuth()
-  if (auth.value.token) {
-    await refreshThreads()
-  }
+  // Attach local diff gutters, block `+` triggers, and selection listeners immediately without waiting on remote GitHub APIs.
   await nextTick()
+  if (isComponentUnmounted) return
   attachDocObservers()
   scheduleMeasure()
   window.addEventListener('resize', updateViewportMode, { passive: true })
@@ -893,15 +1022,25 @@ onMounted(async () => {
   document.addEventListener('selectionchange', scheduleSelectionCheck)
   document.addEventListener('mouseup', scheduleSelectionCheck)
   document.addEventListener('touchend', scheduleSelectionCheck)
+  await restoreAuth()
+  if (isComponentUnmounted) return
+  if (auth.value.token) {
+    await refreshThreads()
+  }
 })
 
 onUnmounted(() => {
+  isComponentUnmounted = true
   syncBodyScrollLock(false)
   docObserver?.disconnect()
   docResizeObserver?.disconnect()
   blockIntersectionObserver?.disconnect()
   if (selectionTimer !== null) window.clearTimeout(selectionTimer)
   if (layoutRaf !== null) window.cancelAnimationFrame(layoutRaf)
+  if (jumpHighlightTimer !== null) window.clearTimeout(jumpHighlightTimer)
+  if (routeScrollTimer !== null) window.clearTimeout(routeScrollTimer)
+  highlightedEl?.classList.remove('apex-jump-highlight')
+  highlightedEl = null
   if (typeof window !== 'undefined') {
     window.removeEventListener('resize', updateViewportMode)
     window.removeEventListener('resize', scheduleMeasure)
@@ -1033,8 +1172,8 @@ onUnmounted(() => {
           rows="4"
           class="apex-textarea"
           :placeholder="composerTarget.path ? 'Write your inline review comment...' : 'Write a top-level PR comment...'"
-          @keydown.meta.enter.prevent="addDraftToCart"
-          @keydown.ctrl.enter.prevent="addDraftToCart"
+          @keydown.meta.enter.prevent="queueComposerDraft"
+          @keydown.ctrl.enter.prevent="queueComposerDraft"
         />
 
         <div v-if="composerError" class="apex-error-banner">{{ composerError }}</div>
@@ -1046,7 +1185,7 @@ onUnmounted(() => {
           <button
             type="button"
             class="apex-rev-btn is-primary"
-            @click="addDraftToCart"
+            @click="queueComposerDraft"
           >
             Add
           </button>
@@ -1063,7 +1202,16 @@ onUnmounted(() => {
     >
       <div class="apex-modal-card" role="dialog" aria-label="PR Review Thread">
         <div class="apex-meta-row">
-          <span class="apex-mono-path">
+          <button
+            v-if="isJumpableThreadPath(activeThread.path)"
+            type="button"
+            class="apex-rev-btn"
+            :title="`Jump to ${activeThread.path}${activeThread.line ? `:L${activeThread.line}` : ''}`"
+            @click="jumpToLocation(activeThread.path, activeThread.line)"
+          >
+            Go to {{ activeThread.path.split('/').pop() }}<template v-if="activeThread.line">:L{{ activeThread.line }}</template>
+          </button>
+          <span v-else class="apex-mono-path">
             {{ activeThread.path }}<template v-if="activeThread.line">:L{{ activeThread.line }}</template>
           </span>
           <div style="display: flex; gap: 6px; align-items: center">
@@ -1094,12 +1242,20 @@ onUnmounted(() => {
             @click="toggleCommentExpanded(activeThread.id, msg.id)"
           >
             <span>▸</span>
-            <strong>@{{ msg.author }}</strong>
+            <span v-if="msg.isAgent" class="apex-agent-badge" :title="`Posted via @${msg.author}`">🤖 Antigravity</span>
+            <strong v-else>@{{ msg.author }}</strong>
             <span class="apex-collapsed-snippet">{{ summarizeComment(msg) }}</span>
           </button>
-          <div v-else class="apex-expanded-msg">
+          <div
+            v-else
+            class="apex-expanded-msg"
+            :class="{ 'is-jumpable': isJumpableThreadPath(activeThread.path) }"
+            :title="isJumpableThreadPath(activeThread.path) ? `Click to go to ${activeThread.path}${activeThread.line ? `:L${activeThread.line}` : ''}` : undefined"
+            @click="onCommentCardClick($event, activeThread.path, activeThread.line)"
+          >
             <div class="apex-meta-row">
-              <strong>@{{ msg.author }}</strong>
+              <span v-if="msg.isAgent" class="apex-agent-badge" :title="`Posted via @${msg.author}`">🤖 Antigravity</span>
+              <strong v-else>@{{ msg.author }}</strong>
               <div style="display: flex; gap: 8px; align-items: center">
                 <span>{{ msg.createdAt ? msg.createdAt.slice(0, 10) : '' }}</span>
                 <button
@@ -1234,7 +1390,17 @@ onUnmounted(() => {
               </button>
             </div>
             <div v-if="submitNotice" class="apex-status-banner">{{ submitNotice }}</div>
-            <div v-if="submitError" class="apex-error-banner">{{ submitError }}</div>
+            <div v-if="submitError" class="apex-error-banner" style="display: flex; flex-direction: column; gap: 6px; align-items: flex-start">
+              <span>{{ submitError }}</span>
+              <button
+                v-if="/personal access token|403|401/i.test(submitError)"
+                type="button"
+                class="apex-rev-btn"
+                @click="drawerView = 'setup'"
+              >
+                Open Token Settings
+              </button>
+            </div>
 
             <div class="apex-section-heading">
               <span>Pending Drafts ({{ drafts.length }})</span>
@@ -1283,7 +1449,15 @@ onUnmounted(() => {
                   Delete
                 </button>
               </div>
-              <blockquote v-if="d.quote" class="apex-quote-box">{{ d.quote }}</blockquote>
+              <blockquote
+                v-if="d.quote"
+                class="apex-quote-box"
+                :class="{ 'is-jumpable': isJumpableThreadPath(d.path) }"
+                :title="isJumpableThreadPath(d.path) ? `Click to go to ${d.path}:L${d.startLine}` : undefined"
+                @click="onCommentCardClick($event, d.path, d.startLine)"
+              >
+                {{ d.quote }}
+              </blockquote>
               <textarea v-if="d.kind !== 'resolve'" v-model="d.body" rows="2" class="apex-textarea" />
               <span
                 class="apex-mode-badge"
@@ -1370,12 +1544,20 @@ onUnmounted(() => {
                   @click="toggleCommentExpanded(t.id, msg.id)"
                 >
                   <span>▸</span>
-                  <strong>@{{ msg.author }}</strong>
+                  <span v-if="msg.isAgent" class="apex-agent-badge" :title="`Posted via @${msg.author}`">🤖 Antigravity</span>
+                  <strong v-else>@{{ msg.author }}</strong>
                   <span class="apex-collapsed-snippet">{{ summarizeComment(msg) }}</span>
                 </button>
-                <div v-else class="apex-expanded-msg">
+                <div
+                  v-else
+                  class="apex-expanded-msg"
+                  :class="{ 'is-jumpable': isJumpableThreadPath(t.path) }"
+                  :title="isJumpableThreadPath(t.path) ? `Click to go to ${t.path}${t.line ? `:L${t.line}` : ''}` : undefined"
+                  @click="onCommentCardClick($event, t.path, t.line)"
+                >
                   <div class="apex-meta-row">
-                    <strong>@{{ msg.author }}</strong>
+                    <span v-if="msg.isAgent" class="apex-agent-badge" :title="`Posted via @${msg.author}`">🤖 Antigravity</span>
+                    <strong v-else>@{{ msg.author }}</strong>
                     <div style="display: flex; gap: 6px; align-items: center">
                       <span>{{ msg.createdAt ? msg.createdAt.slice(0, 10) : '' }}</span>
                       <button
@@ -1470,6 +1652,7 @@ onUnmounted(() => {
           </div>
 
           <div class="apex-drawer-footer">
+            <div v-if="submitBatchSummary" class="apex-batch-summary">{{ submitBatchSummary }}</div>
             <div style="display: flex; gap: 8px; justify-content: flex-end">
               <button
                 type="button"
@@ -1487,19 +1670,32 @@ onUnmounted(() => {
           <div class="apex-card">
             <strong>One-Time GitHub Setup per Browser</strong>
             <div style="font-size: 13px; color: var(--vp-c-text-2); line-height: 1.5">
-              Save a single <strong>Fine-Grained PAT</strong> restricted strictly to
-              <code>{{ meta.repo }}</code> with <strong>Pull requests: Read and write</strong> only.
+              Save a <strong>Fine-Grained PAT</strong> scoped strictly to <code>{{ meta.repo }}</code> with:
+              <strong>Pull requests: Read and write</strong>,
+              <strong>Contents: Read and write</strong> (required by GitHub to resolve/reopen inline threads via GraphQL),
+              and <strong>Issues: Read and write</strong>.
               It is reused automatically across all future Apex PR previews until expiration.
             </div>
-            <a
-              href="https://github.com/settings/personal-access-tokens/new"
-              target="_blank"
-              rel="noreferrer"
-              class="apex-rev-btn"
-              style="text-decoration: none; align-self: flex-start"
-            >
-              Create Scoped Token on GitHub ↗
-            </a>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px">
+              <a
+                href="https://github.com/settings/personal-access-tokens/new"
+                target="_blank"
+                rel="noreferrer"
+                class="apex-rev-btn"
+                style="text-decoration: none"
+              >
+                Create Scoped Token ↗
+              </a>
+              <a
+                href="https://github.com/settings/personal-access-tokens"
+                target="_blank"
+                rel="noreferrer"
+                class="apex-rev-btn"
+                style="text-decoration: none"
+              >
+                Manage Existing Tokens ↗
+              </a>
+            </div>
           </div>
 
           <div v-if="auth.token" class="apex-card">

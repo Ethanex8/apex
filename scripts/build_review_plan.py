@@ -43,7 +43,7 @@ MAX_LEDGER_ITEMS = 250
 
 H2_RE = re.compile(r"^##\s+(.+)$")
 H3_RE = re.compile(r"^###\s+(.+)$")
-H4_EX_RE = re.compile(r"^####\s+(Exercise\b.+)$", re.IGNORECASE)
+H4_EX_RE = re.compile(r"^####\s+(Example\b.+)$", re.IGNORECASE)
 FENCE_TOGGLE_RE = re.compile(r"^(`{3,}|~{3,})")
 VUE_COMPONENT_RE = re.compile(r"^<([A-Z][A-Za-z0-9]*)(?:\s*/>|\s|>).*$")
 TRANSCLUDE_SLICE_RE = re.compile(r"^<<<\s+(@/[^\s{#\[]+|\.\.?/[^\s{#\[]+)(?:#L(\d+)(?:-L?(\d+))?)?")
@@ -370,7 +370,7 @@ def _format_ledger_summary(ledger: PriorLedger) -> str:
         tail = f" (+{ledger.math_overflow} more)" if ledger.math_overflow else ""
         parts.append("  - Math symbols/macros: " + ", ".join(f"`{m}`" for m in ledger.math_symbols) + tail)
     if ledger.exercises:
-        parts.append("  - Earlier exercises: " + "; ".join(ledger.exercises))
+        parts.append("  - Earlier examples: " + "; ".join(ledger.exercises))
     return "\n".join(parts)
 
 
@@ -439,8 +439,8 @@ def _render_macro_task(chapter_rel: str, total_lines: int) -> SubagentTask:
             "or first motivating subsystem rather than floating detached."
         ),
         (
-            "3. Audit base-before-custom layering, end-to-end rigor balance, `#### Exercise` scoping, "
-            "`## <N>. Problems` completeness, and concise headings."
+            "3. Audit base-before-custom layering, end-to-end rigor balance, selective `#### Example` scoping, "
+            "absence of problem sets or `<details>` drills, and concise headings."
         ),
         "4. Report P0/P1/P2 defects with exact line numbers, or output `ZERO P0/P1/P2 DEFECTS FOUND`.",
     ])

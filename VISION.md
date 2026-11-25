@@ -4,8 +4,6 @@
 Across six integrated subsystems, we design a custom 32-bit processor on programmable logic, a 6-layer circuit board, a C compiler, a real-time kernel, force-controlled brushless actuators, a solid-state battery protection spine, and a synchronized stereo-vision head.
 Each mathematical derivation, circuit layout, compiler pass, and control loop is developed directly alongside the subsystem that requires it, unifying software, electronics, and rigid-body dynamics around one physical machine.
 
----
-
 ## 1. Six Integrated Subsystems
 
 Every subsystem of Apex functions first as a verifiable standalone desktop build and then bolts directly into the final quadruped without circuit-board redesigns or throwaway prototypes.
@@ -61,8 +59,6 @@ Each subsystem graduates from its own desktop verification rig before integratin
 | **5** | **`walker`** | Lightweight (about 2.5 kg) torso frame and wire harnesses, floating-base state estimator, predictive balance solver, and quantized walking policy on `brain` | Stands autonomously, recovers from lateral pushes, and trots untethered across indoor flooring | Complete 12-joint dynamic quadruped |
 | **6** | **`sight`** | Two synchronized global-shutter cameras and compact vision computer phase-locked to `brain`'s shutter pulse for 3D mapping and path planning | Maps a room while carried by hand, then bolts onto `walker` for autonomous obstacle avoidance | High-level perception and navigation head |
 
----
-
 ## 2. Two-Compute Partition and Interface Contracts
 
 Autonomous legged robots run two workloads with fundamentally different timing requirements: joint torque and balance loops must meet strict millisecond deadlines on every tick, whereas stereo depth mapping and path planning process megabytes of image frames at variable latency.
@@ -90,8 +86,6 @@ All six subsystems share four locked hardware contracts:
 | **Visual Cortex Link** (`sight` with `brain`) | Dedicated 3.3 V, 2 Mbps full-duplex **Universal Asynchronous Receiver-Transmitter** (UART) serial link (UART1, separate from the UART0 USB debug console) plus a dedicated 3.3 V hardware camera-shutter sync wire | Sub-microsecond hardware timestamp latching (`frame_seq`, `t_us`) and a 1,000 Hz ICM-42688-P IMU stream align camera exposures to inertial ticks; `[vx, vy, wz]` velocity commands protected by an error-detecting 16-bit checksum (**Cyclic Redundancy Check**, or CRC-16) zero out after 150 ms of silence |
 | **Carrier Mechanics** (`brain` Spine Board) | $100 \times 80\text{ mm}$ 6-layer copper-and-fiberglass circuit board (JLC06161H-3313 layer stackup) with 50 Ω controlled-impedance traces, a 204-pin **Small Outline Dual In-Line Memory Module** (SODIMM-204) edge socket for the plug-in Tang Primer 20K FPGA **System-on-Module** (SOM), and four 3 mm metric M3 mounting holes | Unbolts cleanly from the desktop bring-up stand and mounts directly into the `walker` torso bay with zero rewiring |
 
----
-
 ## 3. Home-Bench Safety and Phased Budget
 
 Apex is sized to the 2.5 kg desktop quadruped class (about 35 cm body length) so assembly, bring-up, and dynamic testing stay safe inside an ordinary home workspace.
@@ -102,8 +96,6 @@ Four engineering guardrails govern every physical build step:
 - **Zero-Fume Turnkey Fabrication**: External circuit-board factories perform automated component placement and solder-paste melting (**Turnkey Printed Circuit Board Assembly**, or turnkey PCBA) so no solder fumes are generated indoors.
   Industrial parts suppliers likewise fabricate powder-fused nylon (**Multi-Jet Fusion**, or MJF) and precision-milled aluminum (**Computer Numerical Control**, or CNC) structures ready to bolt together.
 - **Phased Hardware Budget**: Parts average about \$115 to \$145 per month—roughly \$290 for `brain` across Months 1 to 3 and about \$1,495 total across all six systems over twelve months, plus a one-time \$310 to \$540 bench-instrument kit in Month 4 if not already on hand.
-
----
 
 ## 4. Verification and Hardware Bring-Up
 

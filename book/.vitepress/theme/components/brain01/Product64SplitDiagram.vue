@@ -32,10 +32,10 @@
 
       <!-- Column header + Shared Low-32 Highlight Column -->
       <rect x="406" y="54" width="264" height="164" rx="8" fill="rgba(5, 150, 105, 0.08)" stroke="var(--hw-green)" stroke-width="1.5" stroke-dasharray="5 3" />
-      <text x="266" y="68" text-anchor="middle" font-size="10.5" font-weight="700" fill="var(--vp-c-text-1)">
-        Upper Half (Bits 63..32) — 3 Distinct Sign Modes
+      <text x="266" y="68" text-anchor="middle" font-size="10" font-weight="700" fill="var(--vp-c-text-1)">
+        Upper Half (Bits 63..32) — 3 Sign Modes
       </text>
-      <text x="538" y="68" text-anchor="middle" font-size="10.5" font-weight="700" fill="var(--hw-green)">
+      <text x="538" y="68" text-anchor="middle" font-size="10" font-weight="700" fill="var(--hw-green)">
         Lower Half (Bits 31..0) — Single Shared mul
       </text>
 

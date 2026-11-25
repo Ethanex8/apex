@@ -8,7 +8,7 @@ Purpose:
 
 Usage:
   python3 scripts/harvest_feedback.py --pr 3
-  python3 scripts/harvest_feedback.py --pr 3 --out /tmp/apex-feedback/pr-3.json
+  python3 scripts/harvest_feedback.py --pr 3 --ack-eyes --out /tmp/apex-feedback/pr-3.json
   python3 scripts/harvest_feedback.py --pr 3 --since 2026-11-24T00:00:00Z --after-review-id 100
 
 Outputs:
@@ -37,6 +37,7 @@ PREVIEW_LOC_RE = re.compile(
 PREVIEW_RESOLVED_RE = re.compile(r"<!--\s*apex-preview-resolved:\s*1\s*-->")
 PREVIEW_REPLY_RE = re.compile(r"<!--\s*apex-preview-reply-to:\s*(\d+)\s*-->")
 PREVIEW_STATE_RE = re.compile(r"<!--\s*apex-preview-state:\s*root=(\d+)\s+resolved=(0|1)\s*-->")
+AGENT_ATTR_PREFIX_RE = re.compile(r"^\s*(?:🤖\s*)?(?:\*\*\s*)?\[Antigravity\]\s*(?:\*\*)?(?:[:\-—]\s*)?", re.IGNORECASE)
 UNKNOWN_AUTHOR = "unknown"
 REVIEW_THREADS_QUERY = """
 query($owner: String!, $name: String!, $pr: Int!, $after: String) {
@@ -372,6 +373,43 @@ def _collect_resolved_roots(
     return resolved_roots
 
 
+def _attach_grouped_replies(
+    roots: list[dict[str, object]],
+    roots_by_id: dict[int, dict[str, object]],
+    replies_by_parent: dict[int, list[dict[str, object]]],
+    skipped_reviews: set[int],
+    since_dt: datetime | None,
+) -> None:
+    """Group preview replies onto parent roots and initialize schema keys on promoted orphan replies."""
+    for parent_id, rep_items in replies_by_parent.items():
+        if parent_id in skipped_reviews:
+            continue
+        parent = roots_by_id.get(parent_id)
+        if parent is None:
+            for rep in rep_items:
+                rep["replies"] = []
+                rep["reply_count"] = 0
+                rep["last_author"] = str(rep.get("author") or UNKNOWN_AUTHOR)
+                rep["last_activity_at"] = str(rep.get("created_at") or "")
+                if _passes_since(str(rep["created_at"] or ""), since_dt):
+                    roots.append(rep)
+            continue
+        existing = parent["replies"]
+        assert isinstance(existing, list)
+        for rep in rep_items:
+            existing.append({
+                "id": rep.get("id"),
+                "source": rep.get("source"),
+                "author": rep.get("author"),
+                "created_at": rep.get("created_at"),
+                "body": rep.get("body"),
+            })
+            if ts := str(rep.get("created_at") or ""):
+                parent["last_activity_at"] = ts
+        parent["reply_count"] = len(existing)
+        parent["last_author"] = str(existing[-1]["author"])
+
+
 def _collect_conv_and_review_items(
     repo: str,
     pr_number: int,
@@ -425,29 +463,7 @@ def _collect_conv_and_review_items(
                 if isinstance(comment_id, int):
                     roots_by_id[comment_id] = item
 
-    for parent_id, rep_items in replies_by_parent.items():
-        if parent_id in skipped_reviews:
-            continue
-        parent = roots_by_id.get(parent_id)
-        if parent is None:
-            for rep in rep_items:
-                if _passes_since(str(rep.get("created_at") or ""), since_dt):
-                    roots.append(rep)
-            continue
-        existing = parent["replies"]
-        assert isinstance(existing, list)
-        for rep in rep_items:
-            existing.append({
-                "id": rep.get("id"),
-                "author": rep.get("author"),
-                "created_at": rep.get("created_at"),
-                "body": rep.get("body"),
-            })
-            if ts := str(rep.get("created_at") or ""):
-                parent["last_activity_at"] = ts
-        parent["reply_count"] = len(existing)
-        parent["last_author"] = str(existing[-1]["author"])
-
+    _attach_grouped_replies(roots, roots_by_id, replies_by_parent, skipped_reviews, since_dt)
     return [item for item in roots if _passes_since(str(item.get("last_activity_at") or item.get("created_at") or ""), since_dt)]
 
 
@@ -482,6 +498,59 @@ def normalize_pr_feedback(
         )
     )
     return items
+
+
+def is_agent_authored_comment(body: str) -> bool:
+    """Return True when `body` carries the leading Antigravity agent attribution tag."""
+    cleaned = PREVIEW_REPLY_RE.sub("", PREVIEW_LOC_RE.sub("", PREVIEW_RESOLVED_RE.sub("", body)))
+    return bool(AGENT_ATTR_PREFIX_RE.match(cleaned))
+
+
+def _reaction_target_endpoint(repo: str, item: dict[str, object]) -> str | None:
+    """Return the GitHub Reactions API endpoint for the latest human message in `item`, or None."""
+    target_source = str(item.get("source") or "")
+    target_id: object = item.get("id")
+
+    replies = item.get("replies")
+    if isinstance(replies, list) and replies:
+        latest = replies[-1]
+        if not isinstance(latest, dict):
+            return None
+        if is_agent_authored_comment(str(latest.get("body") or "")):
+            return None
+        target_id = latest.get("id")
+        if latest_source := latest.get("source"):
+            target_source = str(latest_source)
+    elif is_agent_authored_comment(str(item.get("body") or "")):
+        return None
+
+    if not isinstance(target_id, int):
+        return None
+    if target_source == "inline":
+        return f"repos/{repo}/pulls/comments/{target_id}/reactions"
+    if target_source == "issue":
+        return f"repos/{repo}/issues/comments/{target_id}/reactions"
+    return None
+
+
+def ack_feedback_eyes(repo: str, items: list[dict[str, object]]) -> int:
+    """Post idempotent GitHub `eyes` pickup reactions onto newly harvested human comments."""
+    gh_bin = _require_gh_bin()
+    acked = 0
+    for item in items:
+        endpoint = _reaction_target_endpoint(repo, item)
+        if endpoint is None:
+            continue
+        proc = subprocess.run(
+            [gh_bin, "api", "-X", "POST", endpoint, "-f", "content=eyes"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if proc.returncode != 0:
+            raise RuntimeError(f"gh api '{endpoint}' reaction failed: {proc.stderr.strip() or proc.stdout.strip()}")
+        acked += 1
+    return acked
 
 
 def format_feedback_markdown(pr_number: int, items: list[dict[str, object]]) -> str:
@@ -519,6 +588,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out", type=Path, default=None, help="Optional JSON output file path.")
     parser.add_argument("--include-bots", action="store_true", help="Include bot-authored comments.")
     parser.add_argument("--include-resolved", action="store_true", help="Include resolved inline threads.")
+    parser.add_argument("--ack-eyes", action="store_true", help="Post GitHub 'eyes' reactions on picked-up items.")
     parser.add_argument("--since", default=None, help="Only keep items/threads active at or after ISO-8601 timestamp.")
     parser.add_argument(
         "--after-review-id",
@@ -538,13 +608,15 @@ def main(argv: list[str] | None = None) -> int:
             since=args.since,
             after_review_id=args.after_review_id,
         )
-    except (RuntimeError, ValueError, json.JSONDecodeError) as exc:
+        if args.out is not None:
+            args.out.parent.mkdir(parents=True, exist_ok=True)
+            args.out.write_text(json.dumps({"pr": args.pr, "repo": repo, "items": items}, indent=2) + "\n", encoding="utf-8")
+        if args.ack_eyes and items:
+            ack_feedback_eyes(repo, items)
+    except (RuntimeError, ValueError, json.JSONDecodeError, OSError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
 
-    if args.out is not None:
-        args.out.parent.mkdir(parents=True, exist_ok=True)
-        args.out.write_text(json.dumps({"pr": args.pr, "repo": repo, "items": items}, indent=2) + "\n", encoding="utf-8")
     print(format_feedback_markdown(args.pr, items))
     return 0
 

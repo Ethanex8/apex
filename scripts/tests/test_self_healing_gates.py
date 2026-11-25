@@ -164,8 +164,11 @@ def test_check_book_pedagogy_gates_and_widget_shorthand(tmp_path: Path) -> None:
         "## Graded Engineering Exercises\n"
         "### Problem 1: Warmup\n"
         "- Step 1.\n\n"
-        "#### Exercise 2.1: Quick Substitution\n"
-        "- Step 1.\n",
+        "#### Example 2.1: Quick Substitution\n"
+        "Substitute congruent terms.\n"
+        "- Step 1.\n\n"
+        "#### Exercise 2.2: Disallowed Mid-Chapter Drill\n"
+        "Solve this.\n",
     )
     _write(
         tmp_path / "book" / ".vitepress" / "theme" / "components" / "bad.vue",
@@ -182,11 +185,12 @@ def test_check_book_pedagogy_gates_and_widget_shorthand(tmp_path: Path) -> None:
         "Conversational crutch 'Wait: why'",
         "Cryptic bit-slice shorthand 'imm[12|10:5]'",
         "Cryptic bit-slice shorthand '[30..25|10..5]'",
-        "Problem/exercise closing heading 'Graded Engineering Exercises' should simply be 'Problems'",
+        "Problem/exercise section heading 'Graded Engineering Exercises' is banned",
+        "Quiz/problem drill 'Problem 1: Warmup' is banned",
+        "Quiz/problem drill 'Exercise 2.2: Disallowed Mid-Chapter Drill' is banned",
     ):
         assert expected in chap_errs
-    assert "Problem 1" not in chap_errs
-    assert "Exercise 2.1" not in chap_errs
+    assert "Example 2.1" not in chap_errs
     widget_errs = "\n".join(check_book.validate_widgets(tmp_path))
     assert "Cryptic bit-slice shorthand 'imm[12|10:5]'" in widget_errs
 
@@ -279,39 +283,37 @@ def test_check_book_coordinate_prose_wall_and_table_exemption(tmp_path: Path) ->
     assert check_book.validate_chapters(tmp_path).errors == []
 
 
-def test_check_book_per_question_exercise_reveals(tmp_path: Path) -> None:
-    """Verify check_book rejects monolithic bottom solution dumps and requires per-question/subpart reveals."""
+def test_check_book_midchapter_details_ban_and_inline_examples(tmp_path: Path) -> None:
+    """Verify check_book rejects <details> toggles, Problems headings, and redundant --- dividers before ##."""
     chap = _write(
         tmp_path / "systems" / "demo" / "chapters" / "01.md",
         "# Modular Arithmetic\n\nEvery register wraps cleanly.\n\n"
         "## 1. Core Rings\n\nRings wrap around a fixed modulus.\n\n"
-        "#### Exercise 1.1: Monolithic Dump\n\n"
-        "Practice ring wrapping.\n\n"
-        "1. First prompt.\n"
-        "2. Second prompt.\n"
-        "   - **(a)** Sub-part one.\n"
-        "   - **(b)** Sub-part two.\n\n"
-        "<details><summary>Solution</summary>\n\n1. One.\n2. Two.\n\n</details>\n\n"
+        "#### Example 1.1: Ring Wrap\n\n"
+        "Walk through a wrap example.\n\n"
+        "<details><summary>Solution</summary>\n\n1. One.\n\n</details>\n\n"
         "---\n\n"
-        "## 2. Next Section\n\nNext prose line.\n",
+        "## 2. Problems\n\n"
+        "### Problem 1: Ring Check\n\n"
+        "Check one wrap.\n\n"
+        "<details><summary>Worked Solution</summary>\n\nOne.\n\n</details>\n",
     )
+    _write(tmp_path / "VISION.md", "# Vision\n\nIntro.\n\n---\n\n## 1. Overview\n\nBody.\n")
     errs = "\n".join(check_book.validate_chapters(tmp_path).errors)
-    assert "Exercise 'Exercise 1.1: Monolithic Dump' has 3 question/sub-part(s) but only 1 '<details>' reveal(s)" in errs
+    assert "Collapsible '<details>' quiz toggle is banned" in errs
+    assert "Problem/exercise section heading '2. Problems' is banned" in errs
+    assert "Redundant horizontal rule '---' immediately before '##' heading" in errs
+    assert "[VISION.md:5] Redundant horizontal rule '---'" in errs
 
     chap.write_text(
         "# Modular Arithmetic\n\nEvery register wraps cleanly.\n\n"
         "## 1. Core Rings\n\nRings wrap around a fixed modulus.\n\n"
-        "#### Exercise 1.1: Inline Reveals\n\n"
-        "Practice ring wrapping.\n\n"
-        "1. First prompt.\n"
-        "   <details><summary>Solution</summary>One.</details>\n"
-        "2. Second prompt.\n"
-        "   - **(a)** Sub-part one.\n"
-        "     <details><summary>Solution</summary>Two A.</details>\n"
-        "   - **(b)** Sub-part two.\n"
-        "     <details><summary>Solution</summary>Two B.</details>\n",
+        "#### Example 1.1: Ring Wrap\n\n"
+        "Walk through a wrap example.\n\n"
+        "1. Wrapping $17$ modulo $16$ leaves remainder $1$.\n",
         encoding="utf-8",
     )
+    _write(tmp_path / "VISION.md", "# Vision\n\nIntro.\n\n## 1. Overview\n\nBody.\n")
     assert check_book.validate_chapters(tmp_path).errors == []
 
 
@@ -397,7 +399,7 @@ def test_check_visuals_routes_server_and_error_paths(tmp_path: Path, monkeypatch
     """Verify route discovery, static serving/base checks, Chromium lookup, and missing deps."""
     _write(tmp_path / "systems" / "brain" / "README.md", "# Brain\n")
     _write(tmp_path / "systems" / "brain" / "chapters" / "01_isa.md", "# Ch1\n")
-    assert check_visuals.discover_routes(tmp_path) == ["/", "/vision", "/brain/", "/brain/01_isa"]
+    assert check_visuals.discover_routes(tmp_path) == ["/", "/vision", "/brain/01_isa"]
     assert check_visuals.discover_routes(tmp_path / "no_systems") == ["/", "/vision"]
     assert check_visuals.normalize_base("/apex/") == "/apex"
     assert check_visuals.normalize_base("/") == ""
@@ -406,6 +408,9 @@ def test_check_visuals_routes_server_and_error_paths(tmp_path: Path, monkeypatch
     pw_bin = _write(tmp_path / "pw_chrome", "")
     monkeypatch.setenv("CHROMIUM_PATH", str(fake_bin))
     assert check_visuals.resolve_chromium_executable(str(pw_bin)) == str(fake_bin)
+    monkeypatch.setenv("CHROMIUM_PATH", str(tmp_path / "missing_chrome"))
+    with pytest.raises(FileNotFoundError, match="CHROMIUM_PATH does not exist"):
+        check_visuals.resolve_chromium_executable(str(pw_bin))
     monkeypatch.delenv("CHROMIUM_PATH", raising=False)
     assert check_visuals.resolve_chromium_executable(str(pw_bin)) is None
     monkeypatch.setattr(check_visuals.shutil, "which", lambda name: "/usr/bin/chrome" if name == "chromium" else None)
@@ -805,7 +810,7 @@ def test_build_review_plan_sharding_ledgers_and_seams(tmp_path: Path) -> None:
         "```markdown\n## Fake Heading Inside Fence\n<IgnoredWidget />\n```\n"
         "## 1. Base Concepts\n### First Topic\n"
         "Introduce **Beta Term** and `op_b`.\n"
-        "#### Exercise 1.1: Quick Check\n1. Evaluate `op_a`.\n\n"
+        "#### Example 1.1: Quick Check\n1. Evaluate `op_a`.\n\n"
         "### Second Topic\n"
         "<WidgetA />\n"
         "<<< @/systems/demo/sim/core.py#L1-L2\n"
@@ -827,7 +832,7 @@ def test_build_review_plan_sharding_ledgers_and_seams(tmp_path: Path) -> None:
     assert "systems/demo/sim/core.py#L1-L2" in plan.shards[1].transclusions[0]
     assert any("Alpha Term" in t.prompt and "`op_a`" in t.prompt for t in plan.tasks if "Shard 2" in t.role)
     assert any("U_N" in t.prompt and "\\lfloor" in t.prompt for t in plan.tasks if "Shard 2" in t.role)
-    assert any("Exercise 1.1" in t.prompt for t in plan.tasks if "Shard 3" in t.role)
+    assert any("Example 1.1" in t.prompt for t in plan.tasks if "Shard 3" in t.role)
     assert any("<unresolved:MissingWidget.vue>" in w for w in plan.shards[-1].widgets)
     vis_task = next(t for t in plan.tasks if t.role == "Visual Pedagogy Critic")
     assert "WidgetA.vue" in vis_task.prompt
@@ -1087,9 +1092,8 @@ def test_chapter_index_generation_and_consumers(tmp_path: Path, monkeypatch: pyt
         "```python\n## fake\n```\n"
         "Introduce **First Concept** and [`helper_alpha`](../sim/mod.py#L1-L4).\n"
         "<WidgetAlpha />\n"
-        "#### Exercise 1.1: Core Drill\n1. Part A.\n2. Part B.\n"
-        "<details><summary>Solution</summary>\n1. Ans.\n</details>\n"
-        "#### Exercise 1.2: Follow Drill\n1. Part C.\n"
+        "#### Example 1.1: Core Walkthrough\n1. Part A.\n2. Part B.\n"
+        "#### Example 1.2: Follow Walkthrough\n1. Part C.\n"
         "### Second Layer\n"
         "Pure prose sentence with `val` only.\n"
         "## 2. Standalone Hardware\n"
@@ -1097,7 +1101,7 @@ def test_chapter_index_generation_and_consumers(tmp_path: Path, monkeypatch: pyt
     )
     rendered = chapter_index.render_chapter_index_md(tmp_path)
     assert "**Sec 1: 1. Core Foundations**" in rendered
-    assert "Exercise 1.1 (2 pts), Exercise 1.2 (1 pts)" in rendered
+    assert "Example 1.1 (2 pts), Example 1.2 (1 pts)" in rendered
     assert "<WidgetAlpha />" in rendered
     assert "`helper_alpha`" in rendered
     assert "`novel_beta`" in rendered
@@ -1191,4 +1195,63 @@ def test_harvest_feedback_preview_loc_fallback(monkeypatch: pytest.MonkeyPatch) 
     assert harvest_feedback._extract_preview_location("plain text") == (None, None)
 
 
+def test_harvest_feedback_ack_eyes(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Verify ack_feedback_eyes targets human comments/replies, skips agent replies/reviews, and handles CLI."""
+    monkeypatch.setattr(harvest_feedback.shutil, "which", lambda _n: "/bin/gh")
+    posted: list[list[str]] = []
+
+    def _run_ack_stub(cmd: list[str], **_kw: object) -> subprocess.CompletedProcess[str]:
+        """Record POST reaction commands or fail on injected error repo."""
+        if "reactions" in cmd[-3] or any(arg.endswith("/reactions") for arg in cmd):
+            if "fail-repo" in " ".join(cmd):
+                return subprocess.CompletedProcess(cmd, 1, "", "Forbidden")
+            posted.append(cmd)
+            return subprocess.CompletedProcess(cmd, 0, "{}", "")
+        return subprocess.CompletedProcess(cmd, 0, "[]", "")
+
+    monkeypatch.setattr(harvest_feedback.subprocess, "run", _run_ack_stub)
+    items: list[dict[str, object]] = [
+        {"id": 10, "source": "inline", "author": "Ethanex8", "body": "Fix wording", "replies": []},
+        {
+            "id": 20,
+            "source": "issue",
+            "author": "Ethanex8",
+            "body": "Root issue",
+            "replies": [
+                {"id": 21, "body": "🤖 **[Antigravity]** Done"},
+                {"id": 22, "body": "Human follow-up"},
+            ],
+        },
+        {
+            "id": 30,
+            "source": "issue",
+            "author": "Ethanex8",
+            "body": "Already answered",
+            "replies": [{"id": 31, "body": "<!-- apex-preview-reply-to: 30 -->\n🤖 [Antigravity]: Fixed."}],
+        },
+        {"id": 40, "source": "review", "author": "Ethanex8", "body": "Summary note", "replies": []},
+        {
+            "id": 45,
+            "source": "review",
+            "author": "Ethanex8",
+            "body": "Review summary",
+            "replies": [{"id": 46, "source": "issue", "body": "Issue follow-up under review"}],
+        },
+        {"id": 50, "source": "inline", "author": "Ethanex8", "body": "[Antigravity] Bot root", "replies": []},
+        {"id": 60, "source": "issue", "author": "Ethanex8", "body": "Malformed reply", "replies": ["bad"]},
+    ]
+    assert harvest_feedback.ack_feedback_eyes("Ethanex8/apex", items) == 3
+    assert posted[0][4] == "repos/Ethanex8/apex/pulls/comments/10/reactions"
+    assert posted[1][4] == "repos/Ethanex8/apex/issues/comments/22/reactions"
+    assert posted[2][4] == "repos/Ethanex8/apex/issues/comments/46/reactions"
+    with pytest.raises(RuntimeError, match="reaction failed"):
+        harvest_feedback.ack_feedback_eyes("Ethanex8/fail-repo", items[:1])
+
+    monkeypatch.setattr(harvest_feedback, "normalize_pr_feedback", lambda *_a, **_kw: items[:1])
+    assert harvest_feedback.main(["--repo", "Ethanex8/apex", "--pr", "10", "--ack-eyes"]) == 0
+    assert len(posted) == 4
+
+    bad_dir = Path("/proc/invalid_dir_not_writable") if Path("/proc").exists() else Path("\0bad")
+    assert harvest_feedback.main(["--repo", "Ethanex8/apex", "--pr", "10", "--ack-eyes", "--out", str(bad_dir / "out.json")]) == 1
+    assert len(posted) == 4
 
