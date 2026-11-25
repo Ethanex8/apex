@@ -406,3 +406,65 @@ mjx-container:not([display='true']) {
     min-width: 640px;
   }
 }
+
+/* Automatic "In This Chapter" Section Navigation inside Left Sidebar (< 1280px) */
+.sidebar-in-chapter {
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--vp-c-divider);
+}
+
+.sidebar-in-chapter-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--vp-c-text-1);
+  line-height: 24px;
+  margin-bottom: 6px;
+}
+
+.sidebar-in-chapter-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sidebar-in-chapter-item.is-sub {
+  padding-left: 12px;
+}
+
+.sidebar-in-chapter-link {
+  display: block;
+  padding: 3px 0;
+  font-size: 13px;
+  line-height: 1.45;
+  font-weight: 500;
+  color: var(--vp-c-text-2);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.sidebar-in-chapter-link:hover,
+.sidebar-in-chapter-item.is-active .sidebar-in-chapter-link {
+  color: var(--vp-c-brand-1);
+}
+
+.sidebar-in-chapter-item.is-active .sidebar-in-chapter-link {
+  font-weight: 600;
+}
+
+@media (min-width: 960px) {
+  /* Hide the separate sticky "In This Chapter >" dropdown bar when the left sidebar is already docked. */
+  .VPLocalNav.has-sidebar {
+    display: none !important;
+  }
+}
+
+@media (min-width: 1280px) {
+  /* Wide viewports show the dedicated right-margin outline panel automatically. */
+  .sidebar-in-chapter {
+    display: none;
+  }
+}
