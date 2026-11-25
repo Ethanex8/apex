@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useData } from 'vitepress'
 
 const props = defineProps<{
@@ -7,8 +7,11 @@ const props = defineProps<{
 }>()
 
 const { isDark } = useData()
+const isHtmlDark = ref(false)
+const effectiveDark = computed(() => isDark.value || isHtmlDark.value)
 const svgHtml = ref<string>('')
 const errorMsg = ref<string>('')
+let classObserver: MutationObserver | null = null
 
 async function renderChart() {
   if (typeof window === 'undefined') return
@@ -17,7 +20,7 @@ async function renderChart() {
     const mermaid = mermaidMod.default
     mermaid.initialize({
       startOnLoad: false,
-      theme: isDark.value ? 'dark' : 'neutral',
+      theme: effectiveDark.value ? 'dark' : 'neutral',
       securityLevel: 'strict',
       fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
       themeVariables: {
@@ -53,10 +56,20 @@ async function renderChart() {
 }
 
 onMounted(() => {
+  isHtmlDark.value = document.documentElement.classList.contains('dark')
+  classObserver = new MutationObserver(() => {
+    isHtmlDark.value = document.documentElement.classList.contains('dark')
+  })
+  classObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
   renderChart()
 })
 
-watch(isDark, () => {
+onBeforeUnmount(() => {
+  classObserver?.disconnect()
+  classObserver = null
+})
+
+watch(effectiveDark, () => {
   renderChart()
 })
 </script>

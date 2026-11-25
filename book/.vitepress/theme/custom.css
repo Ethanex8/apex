@@ -406,3 +406,101 @@ mjx-container:not([display='true']) {
     min-width: 640px;
   }
 }
+
+/* Automatic "In This Chapter" Section Navigation nested inside Left Sidebar */
+.sidebar-in-chapter {
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--vp-c-divider);
+}
+
+.sidebar-in-chapter.is-nested {
+  margin: 4px 0 8px 10px;
+  padding: 2px 0 2px 12px;
+  border-bottom: none;
+  border-left: 1px solid var(--vp-c-divider);
+}
+
+.sidebar-in-chapter-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--vp-c-text-1);
+  line-height: 24px;
+  margin-bottom: 6px;
+}
+
+.sidebar-in-chapter-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sidebar-in-chapter-item.is-sub {
+  padding-left: 12px;
+}
+
+.sidebar-in-chapter-link {
+  display: block;
+  padding: 3px 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  font-weight: 500;
+  color: var(--vp-c-text-2);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.sidebar-in-chapter-link:hover,
+.sidebar-in-chapter-item.is-active .sidebar-in-chapter-link {
+  color: var(--vp-c-brand-1);
+}
+
+.sidebar-in-chapter-item.is-active .sidebar-in-chapter-link {
+  font-weight: 600;
+}
+
+/* Remove the separate floating "In This Chapter >" dropdown button across all viewports. */
+.VPLocalNavOutlineDropdown {
+  display: none !important;
+}
+
+/* Keep heading permalink anchors inline after heading text so hover + buttons stay clear in the left gutter. */
+.vp-doc .header-anchor {
+  position: static;
+  top: auto;
+  left: auto;
+  float: none;
+  margin-left: 0.35em;
+}
+
+.vp-doc h2 .header-anchor {
+  top: auto;
+}
+
+@media (min-width: 960px) {
+  :root {
+    --vp-sidebar-width: 312px;
+  }
+
+  .VPLocalNav.has-sidebar {
+    display: none !important;
+  }
+}
+
+@media (min-width: 1280px) {
+  /* Reclaim horizontal width previously reserved for the right-hand aside panel. */
+  .VPDoc.has-sidebar:not(.has-aside) .container {
+    max-width: 980px;
+  }
+
+  .VPDoc.has-sidebar:not(.has-aside) .content {
+    flex-grow: 1;
+  }
+
+  .VPDoc.has-sidebar:not(.has-aside) .content-container {
+    max-width: 860px;
+  }
+}

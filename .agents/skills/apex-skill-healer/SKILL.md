@@ -8,9 +8,9 @@ Execute this skill whenever user feedback arrives on an open PR or in chat (`doc
 
 ## Step 1: Comment Sanity Check, 3-Tier Split & Conflict Audit (Gate 1)
 
-1. Harvest **unresolved** feedback **outside** the repository workspace and record the untouched `HEAD` SHA:
+1. Harvest **unresolved** feedback **outside** the repository workspace, react with `eyes` (`--ack-eyes`) on picked-up comments, and record untouched `HEAD`:
    ```bash
-   python3 scripts/harvest_feedback.py --pr <N> [--since <ISO_TS>] --out /tmp/apex-feedback/pr-<N>.json
+   python3 scripts/harvest_feedback.py --pr <N> --ack-eyes [--since <ISO_TS>] --out /tmp/apex-feedback/pr-<N>.json
    ```
 2. Audit each item (`U1..Uk`) against text/code (`AGREE`, `CLARIFY`, or respectful `PUSHBACK`) and classify:
    - **Tier 0**: Mechanical typos or broken links—purge `/tmp` JSON, fix directly, push, and reply (leaving resolution to the reviewer).
@@ -48,6 +48,7 @@ Execute this skill whenever user feedback arrives on an open PR or in chat (`doc
 ## Step 4: Fast-Forward PR Update, Cross-Channel Replies & 1-Tap Merge Close-Out
 
 1. Commit and push fast-forward updates strictly to the open `step/<step-id>` PR branch (never directly to `main`, and never force-push reviewed commits).
-2. Post concise replies on **every** addressed feedback item across all channels (`gh api -X POST repos/<owner>/<repo>/pulls/<N>/comments/<id>/replies` for inline threads; `gh api -X POST repos/<owner>/<repo>/issues/<N>/comments` with `<!-- apex-preview-reply-to: <root_id> -->` for review-summary or conversation items), noting the fix and any upstream rule/gate update.
+2. Prefix every agent reply with `🤖 [Antigravity]` and post across all channels (`pulls/<N>/comments/<id>/replies` for inline threads; `issues/<N>/comments` with `<!-- apex-preview-reply-to: <root_id> -->` for review/issue items), noting fixes and rule updates.
 3. **Do not auto-resolve threads**: leave addressed threads open so the reviewer can pull up the preview widget or PR view, read each response directly without toggling resolved filters, and click **Resolve** after verifying (run `python3 scripts/harvest_feedback.py --pr <N>` to verify replies cover open items).
-4. Confirm `Apex CI` and the `/apex/pr-<N>/` preview deploy pass, update bookmarks if needed, and await the reviewer's **1-tap Merge** on GitHub (never call `gh pr merge` unilaterally).
+4. Confirm `Apex CI` and the `/apex/pr-<N>/` preview deploy pass before handing back for review.
+5. Launch `python3 scripts/watch_pr_feedback.py --pr <N>` as an async non-daemon background task (`IsDaemon=false`) before ending any open-PR turn so human feedback or 1-tap Merge wakes the session automatically (never call `gh pr merge` unilaterally).
