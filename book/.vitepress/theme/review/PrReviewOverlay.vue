@@ -5,7 +5,6 @@ import prReviewMeta from 'virtual:apex-pr-review'
 import {
   fetchPrHeadInfo,
   fetchPrThreads,
-  formatMarkdownBundle,
   submitBatchedReview,
   verifyGitHubToken,
 } from './githubClient'
@@ -665,17 +664,6 @@ async function submitQueuedReview() {
     submitError.value = err instanceof Error ? err.message : 'Review submission failed'
   } finally {
     submitBusy.value = false
-  }
-}
-
-async function copyMarkdownCart() {
-  const md = formatMarkdownBundle(meta, drafts.value, '')
-  try {
-    await navigator.clipboard.writeText(md)
-    submitNotice.value = 'Copied formatted Markdown review bundle to clipboard.'
-    submitError.value = ''
-  } catch {
-    submitError.value = 'Clipboard access denied; copy manually from browser.'
   }
 }
 
@@ -1483,14 +1471,6 @@ onUnmounted(() => {
 
           <div class="apex-drawer-footer">
             <div style="display: flex; gap: 8px; justify-content: flex-end">
-              <button
-                type="button"
-                class="apex-rev-btn"
-                :disabled="drafts.length === 0"
-                @click="copyMarkdownCart"
-              >
-                Copy MD
-              </button>
               <button
                 type="button"
                 class="apex-rev-btn is-primary"
