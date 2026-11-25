@@ -397,12 +397,12 @@ def enc_mac(rd: int, rs1: int = 0, rs2: int = 0, funct3: int = MAC_F3_ACC) -> in
     return enc_r(F7_BASE, rs2, rs1, funct3, rd, OPCODE_CUSTOM0)
 
 
-def _decode_imm_s(insn: int) -> int:
+def _dec_imm_s(insn: int) -> int:
     """Reassemble signed 12-bit store offset from instruction Bits 31..25 and Bits 11..7."""
     return sign_extend(((insn >> 25) << 5) | ((insn >> 7) & 0x1F), 12)
 
 
-def _decode_imm_b(insn: int) -> int:
+def _dec_imm_b(insn: int) -> int:
     """Reassemble signed 13-bit even branch offset from scrambled B-type bit slices."""
     return sign_extend(
         (((insn >> 31) & 1) << 12)
@@ -413,7 +413,7 @@ def _decode_imm_b(insn: int) -> int:
     )
 
 
-def _decode_imm_j(insn: int) -> int:
+def _dec_imm_j(insn: int) -> int:
     """Reassemble signed 21-bit even jump offset from scrambled J-type bit slices."""
     return sign_extend(
         (((insn >> 31) & 1) << 20)
@@ -928,7 +928,7 @@ class RV32Oracle:
 
     def _exec_jal(self, insn: int, cur_pc: int, rd: int, link_pc: int) -> ExecOutcome | StepTrace:
         """Execute `jal`, returning `ExecOutcome` or a misaligned-target trap."""
-        target = u32(cur_pc + _decode_imm_j(insn))
+        target = u32(cur_pc + _dec_imm_j(insn))
         # Validate 4-byte target alignment before retiring return link (cur_pc + 4) into rd
         if target & WORD_ALIGN_LOW_BITS:
             return self._trap_trace(cur_pc, insn, CAUSE_INSN_MISALIGNED, target)
@@ -965,7 +965,7 @@ class RV32Oracle:
         # An untaken branch ignores target alignment and advances cleanly to default_next_pc
         if not comparisons[funct3]:
             return ExecOutcome()
-        target = u32(cur_pc + _decode_imm_b(insn))
+        target = u32(cur_pc + _dec_imm_b(insn))
         if target & WORD_ALIGN_LOW_BITS:
             return self._trap_trace(cur_pc, insn, CAUSE_INSN_MISALIGNED, target)
         return ExecOutcome(next_pc=target)
@@ -1008,7 +1008,7 @@ class RV32Oracle:
         if width is None:
             return self._trap_trace(cur_pc, insn, CAUSE_ILLEGAL_INSN, insn)
 
-        addr = u32(rs1_u + _decode_imm_s(insn))
+        addr = u32(rs1_u + _dec_imm_s(insn))
         if (addr & (width - 1)) != 0:
             return self._trap_trace(cur_pc, insn, CAUSE_STORE_MISALIGNED, addr)
 
