@@ -1,13 +1,13 @@
 # Editorial Pacing, Logic & Math Editor Rubric
 
-Audit every heading, subsection bridge, equation intro, aligned proof block, numeric example, and Example/Problem solution inside your primary shard (cross-checking the **Prior-Section Ledger** and **overlap windows**):
+Audit every heading, subsection bridge, equation intro, aligned proof block, and worked numeric `#### Example` inside your primary shard (cross-checking the **Prior-Section Ledger** and **overlap windows**):
 
 ## 1. Mathematical & Logical Soundness
 1. **Strict Lemma Dependency Order**: Flag any step citing an unproved property, forward corollary, or identity derived later in the shard (checking Prior-Section Ledger boundaries explicitly).
 2. **Prerequisite Refreshers & Operational Intuition**: Flag non-trivial discrete, modular, bit-slice, or physics rules used without an intuitive refresher, usage boundaries (what substitutions hold vs. break), and a concrete example.
 3. **Simple-to-Derived Theorem Ordering**: Flag lists or derivations that place circuit-implementation tricks ahead of simpler direct consequences they rely upon.
 4. **Strict Causal Entailment**: Test every causal connective (*because*, *consequently*, *therefore*, *thus*, *so*); flag any link where premise $P$ leaves conclusion $Q$'s mechanism unproved.
-5. **Exact Arithmetic & Boundary Proofs**: Verify every signed/unsigned bound, congruence, power-of-two identity, rounding direction (floor vs. truncating), empty-sum or $N = 1$ corner case, and Example/Problem calculation.
+5. **Exact Arithmetic & Boundary Proofs**: Verify every signed/unsigned bound, congruence, power-of-two identity, rounding direction (floor vs. truncating), empty-sum or $N = 1$ corner case, and worked calculation.
 
 ## 2. Equations & Dual-Interpretation Derivations
 6. **Prose-to-Equation Action Alignment**: Flag intro sentences before `$$` that describe operations absent from the displayed symbols below, or dense >40-word prose walls preceding an equation.
@@ -18,4 +18,4 @@ Audit every heading, subsection bridge, equation intro, aligned proof block, num
 
 ## 3. Editorial Discipline & Worked Example Conciseness
 11. **Pacing, Style & Proportional Lead-Ins**: Verify calm 2–4 sentence bridges matching `<= 8`-word headings, proportional lead-ins across all groups in multi-category tables, Markdown tables over `3+` item prose catalogs, one-sentence-per-line formatting, and zero stiff `"Next we prove..."` announcements.
-12. **Scannable Worked Examples & Clean Notation**: Verify inline `#### Example` blocks and `## <N>. Problems` solutions are terse, scannable, free of mid-chapter `#### Exercise` quiz blocks or `<details>` toggles, and use strictly symbols and notation already defined in the chapter (never undefined symbols in a worked solution).
+12. **Scannable Worked Examples & Clean Notation**: Verify inline `#### Example` blocks are terse, scannable, free of exercises, problem sets, or `<details>` toggles, and use strictly symbols and notation already defined in the chapter.

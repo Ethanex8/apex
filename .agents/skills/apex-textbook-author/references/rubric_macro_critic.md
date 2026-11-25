@@ -9,5 +9,5 @@ Audit whole-chapter macro architecture, section line-share balance, and consumer
 
 ## 2. Rigor Balance & Assessment Coverage
 4. **End-to-End Quantitative Balance**: Check `docs/CHAPTER_INDEX.md` to confirm later system, peripheral, trap, and verification sections derive explicit bounds or invariants rather than flattening into API narration.
-5. **`#### Example` vs. `## <N>. Problems` Scoping**: Flag mid-section homework drills (`#### Exercise`) interrupting flow, verify inline `#### Example` blocks focus on genuinely non-trivial algebra, boundary traps, or counterexamples rather than trivial prose duplicates, and confirm `## <N>. Problems` covers every promised system section.
-6. **Heading Conciseness & Alignment**: Check every H1 (`<= 6` words) and `##`/`###` (`<= 8` words, no colons/`&`/backticks outside `Example`/`Problem` labels) aligns strictly with its subsection contents.
+5. **Selective Inline `#### Example` Scoping (No Problem Sets)**: Flag any homework drill (`#### Exercise`), closing `Problems` section, or `<details>` toggle, and verify inline `#### Example` blocks focus strictly on genuinely non-trivial algebra, boundary traps, or counterexamples rather than duplicating derivations or verification tables.
+6. **Heading Conciseness & Alignment**: Check every H1 (`<= 6` words) and `##`/`###` (`<= 8` words, no colons/`&`/backticks) aligns strictly with its subsection contents.

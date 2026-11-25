@@ -467,7 +467,24 @@ mjx-container:not([display='true']) {
   display: none !important;
 }
 
+/* Keep heading permalink anchors inline after heading text so hover + buttons stay clear in the left gutter. */
+.vp-doc .header-anchor {
+  position: static;
+  top: auto;
+  left: auto;
+  float: none;
+  margin-left: 0.35em;
+}
+
+.vp-doc h2 .header-anchor {
+  top: auto;
+}
+
 @media (min-width: 960px) {
+  :root {
+    --vp-sidebar-width: 312px;
+  }
+
   .VPLocalNav.has-sidebar {
     display: none !important;
   }

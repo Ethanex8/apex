@@ -52,6 +52,8 @@ MAX_CHAPTER_TITLE_WORDS = 6
 MAX_SECTION_HEADING_WORDS = 8
 MAX_PROSE_BOLD_WORDS = 6
 MAX_PROSE_COORDINATE_REFS = 4
+MAX_MERMAID_LR_EDGES = 4
+BLOCKQUOTE_PREFIX_RE = re.compile(r"^(?:>\s*)+")
 ASCII_FENCE_LANGS = {"", "text", "txt", "ascii", "diagram"}
 REQUIRED_CALIBRATED_SKILLS = ("apex-couch-mentor", "apex-textbook-author", "apex-artifact-author")
 PROSE_NON_CODE_TERMS = frozenset({
@@ -87,8 +89,8 @@ SEQ_MSG_SEMI_RE = re.compile(r"^[^\n:]+(?:->|--?>|->>|-->>|-x|--x|-\)|--\))[^\n:
 H1_HEADING_RE = re.compile(r"^#\s+(.+)$")
 HEADING_RE = re.compile(r"^(#{2,4})\s+(.+)$")
 PRACTICE_HEADING_RE = re.compile(r"\b(?:Exercises?|Problems?)(?:\s+\d+(?:\.\d+)?)?\b", re.IGNORECASE)
-EXERCISE_PREFIX_RE = re.compile(r"^(?:Example|Problem)\s+\d+(?:\.\d+)?:\s*(.+)$", re.IGNORECASE)
-H4_EXERCISE_RE = re.compile(r"^####\s+(Exercise\b.+)$", re.IGNORECASE)
+EXERCISE_PREFIX_RE = re.compile(r"^Example\s+\d+(?:\.\d+)?:\s*(.+)$", re.IGNORECASE)
+DRILL_SUBHEADING_RE = re.compile(r"^(?:Exercises?|Problems?)\b", re.IGNORECASE)
 SECTION_NUM_PREFIX_RE = re.compile(r"^\d+(?:\.\d+)*\.?\s+")
 CHAPTER_PREFIX_RE = re.compile(r"^Chapter\s+\d+:\s*", re.IGNORECASE)
 CHAPTER_BANNER_NOISE_RE = re.compile(
@@ -143,6 +145,13 @@ class ChapterValidationResult(NamedTuple):
     errors: list[str]
     chapter_count: int
     anchor_count: int
+
+
+class SkillValidationResult(NamedTuple):
+    """Summary returned by `validate_skills` across `.agents/skills/*/SKILL.md`."""
+
+    errors: list[str]
+    skill_count: int
 
 
 def _append_unique(errors: list[str], msg: str) -> None:
@@ -404,19 +413,19 @@ def _validate_heading_style(
             f"[{rel_chap}:{idx}] Section heading '{core}' exceeds {MAX_SECTION_HEADING_WORDS} words "
             f"({len(core.split())}); tighten to the primary topic",
         )
-    if hashes == "##" and PRACTICE_HEADING_RE.search(body) and core.lower() != "problems":
+    if hashes == "##" and PRACTICE_HEADING_RE.search(body):
         _append_unique(
             errors,
-            f"[{rel_chap}:{idx}] Problem/exercise closing heading '{body}' should simply be 'Problems' "
-            "(e.g., '## <N>. Problems')",
+            f"[{rel_chap}:{idx}] Problem/exercise section heading '{body}' is banned; "
+            "integrate non-redundant calculations visibly as inline '#### Example <S.K>: <Title>' blocks",
         )
-    if hashes == "####" and H4_EXERCISE_RE.match(stripped):
+    if hashes in ("###", "####") and DRILL_SUBHEADING_RE.match(core):
         _append_unique(
             errors,
-            f"[{rel_chap}:{idx}] Mid-chapter exercise drill '{body}' is banned; "
-            "use a visible inline '#### Example <S.K>: <Title>' block and keep practice in '## <N>. Problems'",
+            f"[{rel_chap}:{idx}] Quiz/problem drill '{body}' is banned; "
+            "use a visible inline '#### Example <S.K>: <Title>' block instead",
         )
-    state.pending_heading = None if PRACTICE_HEADING_RE.search(body) else (idx, body)
+    state.pending_heading = (idx, body)
     return True
 
 
@@ -511,7 +520,7 @@ def _check_semantic_line_breaks(
         return
     unlinked = MD_LINK_RE.sub(lambda m: m.group(1), stripped)
     masked = INLINE_MATH_RE.sub("MATH", INLINE_CODE_RE.sub("CODE", unlinked))
-    masked = re.sub(r"^(?:>\s*)+", "", masked)
+    masked = BLOCKQUOTE_PREFIX_RE.sub("", masked)
     masked = LIST_OPEN_RE.sub("", masked)
     masked = ABBREV_RE.sub("ABBR", masked)
     if MULTI_SENTENCE_RE.search(masked):
@@ -549,7 +558,7 @@ def _validate_mermaid_block(
     if parsed is None:
         return
     arrows = sum(len(MERMAID_ARROW_RE.findall(txt)) for _, txt in parsed.body_lines if not txt.startswith("%%"))
-    if MERMAID_LR_RE.match(parsed.header_text) and arrows >= 4 and not block.allow_wide_mermaid:
+    if MERMAID_LR_RE.match(parsed.header_text) and arrows >= MAX_MERMAID_LR_EDGES and not block.allow_wide_mermaid:
         _append_unique(
             errors,
             f"[{rel_chap}:{parsed.header_line}] Wide horizontal Mermaid diagram ({arrows} edges) shrinks in VitePress; "
@@ -675,7 +684,7 @@ def _check_heading_opening(
             errors,
             f"[{rel_chap}:{h_ln}] Heading '{h_txt}' jumps straight into a code transclusion without an intro sentence",
         )
-    elif stripped.startswith("|") or LIST_OPEN_RE.match(stripped) or stripped == "$$":
+    elif stripped.startswith("|") or LIST_OPEN_RE.match(stripped) or stripped.startswith("$$"):
         _append_unique(
             errors,
             f"[{rel_chap}:{h_ln}] Heading '{h_txt}' jumps straight into a list/table/equation without an intro sentence",
@@ -726,10 +735,18 @@ def _process_chapter_directive(
 ) -> bool:
     """Handle `book-gate`, legacy `expect-symbol`, and `book-sync` HTML directives; return True if consumed."""
     if gate_m := BOOK_GATE_RE.match(stripped):
-        if not gate_m.group(2).strip():
+        gate_kind = gate_m.group(1)
+        reason = gate_m.group(2).strip()
+        if not reason:
             _append_unique(errors, f"[{rel_chap}:{idx}] Empty reason inside book-gate directive")
         else:
-            state.pending_gates[gate_m.group(1)] = (idx, gate_m.group(2).strip())
+            if gate_kind in state.pending_gates:
+                prev_ln, _ = state.pending_gates[gate_kind]
+                _append_unique(
+                    errors,
+                    f"[{rel_chap}:{prev_ln}] Unused '{gate_kind}' directive superseded before taking effect",
+                )
+            state.pending_gates[gate_kind] = (idx, reason)
         return True
     if LEGACY_EXPECT_RE.match(stripped):
         _append_unique(
@@ -776,28 +793,52 @@ def _validate_prose_line(
     _check_semantic_line_breaks(raw_line, idx, rel_chap, allow_multi, errors)
 
 
-def _validate_midchapter_details(lines: list[str], rel_chap: Path, errors: list[str]) -> None:
-    """Ban mid-chapter `<details>` quiz toggles outside the closing `## <N>. Problems` section."""
+def _validate_chapter_details(lines: list[str], rel_chap: Path, errors: list[str]) -> None:
+    """Ban collapsible `<details>` quiz toggles in textbook chapters."""
     active_fence: tuple[str, int] | None = None
-    in_problems = False
 
     for idx, raw_line in enumerate(lines, start=1):
         stripped = raw_line.strip()
         active_fence, toggled = update_fence_state(stripped, active_fence)
         if toggled or active_fence is not None:
             continue
-        if hm := HEADING_RE.match(stripped):
-            hashes, body = hm.group(1), hm.group(2).strip()
-            if hashes == "##":
-                core = SECTION_NUM_PREFIX_RE.sub("", body).strip().lower()
-                in_problems = core == "problems"
-            continue
-        if not in_problems and "<details" in stripped.lower():
+        if "<details" in stripped.lower():
             _append_unique(
                 errors,
-                f"[{rel_chap}:{idx}] Mid-chapter '<details>' toggle is banned outside '## <N>. Problems'; "
+                f"[{rel_chap}:{idx}] Collapsible '<details>' quiz toggle is banned; "
                 "show worked steps visibly inside inline '#### Example' blocks instead",
             )
+
+
+def _validate_no_double_hr(lines: list[str], rel_doc: Path, errors: list[str]) -> None:
+    """Ban bare `---` horizontal rules immediately above `##` headings (duplicate border)."""
+    start_idx = 0
+    if lines and lines[0].strip() == "---":
+        close_idx = next((i for i, ln in enumerate(lines[1:], start=1) if ln.strip() == "---"), None)
+        if close_idx is not None:
+            start_idx = close_idx + 1
+
+    active_fence: tuple[str, int] | None = None
+    pending_rule_idx: int | None = None
+
+    for idx, raw_line in enumerate(lines[start_idx:], start=start_idx + 1):
+        stripped = raw_line.strip()
+        active_fence, toggled = update_fence_state(stripped, active_fence)
+        if toggled or active_fence is not None:
+            pending_rule_idx = None
+            continue
+        if not stripped or HTML_TAG_LINE_RE.match(stripped):
+            continue
+        if stripped == "---":
+            pending_rule_idx = idx
+            continue
+        if pending_rule_idx is not None and stripped.startswith("## "):
+            _append_unique(
+                errors,
+                f"[{rel_doc}:{pending_rule_idx}] Redundant horizontal rule '---' immediately before '##' heading; "
+                "VitePress headings already draw a top border",
+            )
+        pending_rule_idx = None
 
 
 def _validate_single_chapter(
@@ -828,8 +869,13 @@ def _validate_single_chapter(
             state.fence_meta.lines.append((idx, raw_line))
             continue
         if stripped == "$$":
+            _flush_unused_anchor(rel_chap, state.pending_anchor, errors)
+            state.pending_anchor = None
+            _flush_unused_gates(rel_chap, state.pending_gates, keep_slice=False, errors=errors)
             state.pending_heading = _check_heading_opening(rel_chap, state.pending_heading, stripped, False, errors)
             state.in_math = not state.in_math
+            continue
+        if state.in_math:
             continue
         if _process_chapter_directive(rel_chap, idx, stripped, state, errors):
             continue
@@ -859,10 +905,6 @@ def _validate_single_chapter(
         if state.pending_anchor is not None and stripped:
             _flush_unused_anchor(rel_chap, state.pending_anchor, errors)
             state.pending_anchor = None
-        if state.in_math:
-            if stripped:
-                _flush_unused_gates(rel_chap, state.pending_gates, keep_slice=False, errors=errors)
-            continue
         _validate_prose_line(
             raw_line, stripped, idx, rel_chap, resolved_chap, resolved_root, state, file_cache, errors
         )
@@ -873,12 +915,13 @@ def _validate_single_chapter(
         _append_unique(errors, f"[{rel_chap}] Unclosed fenced code block at end of file")
     if state.in_math:
         _append_unique(errors, f"[{rel_chap}] Unclosed '$$' math block at end of file")
-    _validate_midchapter_details(lines, rel_chap, errors)
+    _validate_chapter_details(lines, rel_chap, errors)
+    _validate_no_double_hr(lines, rel_chap, errors)
     return state.anchor_count
 
 
 def validate_chapters(root_dir: Path | None = None) -> ChapterValidationResult:
-    """Return `ChapterValidationResult` across all `systems/*/chapters/*.md`."""
+    """Return `ChapterValidationResult` across all `systems/*/chapters/*.md` and front-matter surfaces."""
     resolved_root = (root_dir or ROOT_DIR).resolve()
     errors: list[str] = []
     file_cache: dict[Path, list[str]] = {}
@@ -887,6 +930,10 @@ def validate_chapters(root_dir: Path | None = None) -> ChapterValidationResult:
         _validate_single_chapter(chap_path, resolved_root, file_cache, errors)
         for chap_path in chapter_paths
     )
+    for rel_surface in (Path("VISION.md"), Path("book/index.md")):
+        surface = resolved_root / rel_surface
+        if surface.is_file():
+            _validate_no_double_hr(surface.read_text(encoding="utf-8").splitlines(), rel_surface, errors)
     return ChapterValidationResult(errors=errors, chapter_count=len(chapter_paths), anchor_count=anchor_count)
 
 
@@ -910,13 +957,11 @@ def validate_widgets(root_dir: Path | None = None) -> list[str]:
 
 def _validate_skill_bullets(lines: list[str], rel_path: str, errors: list[str]) -> None:
     """Enforce `<= MAX_SKILL_BULLET_WORDS` per bullet outside fenced code blocks."""
-    in_fence = False
+    active_fence: tuple[str, int] | None = None
     for idx, line in enumerate(lines, start=1):
         stripped = line.strip()
-        if stripped.startswith(("```", "~~~")):
-            in_fence = not in_fence
-            continue
-        if in_fence:
+        active_fence, toggled = update_fence_state(stripped, active_fence)
+        if toggled or active_fence is not None:
             continue
         if m := SKILL_BULLET_RE.match(line):
             words = len(m.group(1).split())
@@ -942,12 +987,12 @@ def _validate_skill_rubrics(sdir: Path, rel_dir: Path, errors: list[str]) -> Non
         _validate_skill_bullets(r_lines, rel_rubric, errors)
 
 
-def validate_skills(root_dir: Path | None = None) -> tuple[list[str], int]:
+def validate_skills(root_dir: Path | None = None) -> SkillValidationResult:
     """Enforce frontmatter, `<= 120`-line prompt budget, bullet caps, and calibration isolation."""
     resolved_root = (root_dir or ROOT_DIR).resolve()
     skills_dir = resolved_root / ".agents" / "skills"
     if not skills_dir.is_dir():
-        return [], 0
+        return SkillValidationResult(errors=[], skill_count=0)
 
     errors: list[str] = []
     skill_dirs = sorted(p for p in skills_dir.iterdir() if p.is_dir())
@@ -970,8 +1015,8 @@ def validate_skills(root_dir: Path | None = None) -> tuple[list[str], int]:
         else:
             close_idx = next(i for i, ln in enumerate(lines[1:], start=1) if ln.strip() == "---")
             fm_body = "\n".join(lines[1:close_idx])
-            if not re.search(r"^name:\s*\S+", fm_body, re.MULTILINE) or not re.search(
-                r"^description:\s*\S+", fm_body, re.MULTILINE
+            if not re.search(r"^name:[ \t]*\S+", fm_body, re.MULTILINE) or not re.search(
+                r"^description:[ \t]*\S+", fm_body, re.MULTILINE
             ):
                 errors.append(f"[{rel_dir}/SKILL.md:1] YAML frontmatter requires non-empty 'name' and 'description'")
             if "calibration_log" in fm_body:
@@ -989,7 +1034,7 @@ def validate_skills(root_dir: Path | None = None) -> tuple[list[str], int]:
             cal_log = resolved_root / "docs" / "calibration" / f"{sdir.name}.md"
             if not cal_log.is_file() or not cal_log.read_text(encoding="utf-8").strip():
                 errors.append(f"[{rel_dir}] Missing non-empty docs/calibration/{sdir.name}.md ledger")
-    return errors, len(skill_dirs)
+    return SkillValidationResult(errors=errors, skill_count=len(skill_dirs))
 
 
 def validate_gemini_rules(root_dir: Path | None = None) -> list[str]:
@@ -1009,8 +1054,8 @@ def main() -> int:
     result = validate_chapters(ROOT_DIR)
     errors = list(result.errors)
     errors.extend(validate_widgets(ROOT_DIR))
-    skill_errors, skill_count = validate_skills(ROOT_DIR)
-    errors.extend(skill_errors)
+    skill_result = validate_skills(ROOT_DIR)
+    errors.extend(skill_result.errors)
     errors.extend(validate_gemini_rules(ROOT_DIR))
     if errors:
         print("Textbook validation FAILED:", file=sys.stderr)
@@ -1019,7 +1064,7 @@ def main() -> int:
         return 1
     print(
         f"OK: Validated {result.chapter_count} textbook chapter(s), {result.anchor_count} code/file anchor(s), "
-        f"and {skill_count} skill(s) with zero drift."
+        f"and {skill_result.skill_count} skill(s) with zero drift."
     )
     return 0
 

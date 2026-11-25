@@ -439,8 +439,8 @@ def _render_macro_task(chapter_rel: str, total_lines: int) -> SubagentTask:
             "or first motivating subsystem rather than floating detached."
         ),
         (
-            "3. Audit base-before-custom layering, end-to-end rigor balance, `#### Example` scoping, "
-            "`## <N>. Problems` completeness, and concise headings."
+            "3. Audit base-before-custom layering, end-to-end rigor balance, selective `#### Example` scoping, "
+            "absence of problem sets or `<details>` drills, and concise headings."
         ),
         "4. Report P0/P1/P2 defects with exact line numbers, or output `ZERO P0/P1/P2 DEFECTS FOUND`.",
     ])

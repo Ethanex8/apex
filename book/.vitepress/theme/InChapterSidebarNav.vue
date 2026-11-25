@@ -40,7 +40,7 @@ function cleanHeadingText(el: Element): string {
 function updateActiveSection() {
   if (typeof window === 'undefined' || headings.value.length === 0) return
   const docEl = document.documentElement
-  // Keep short trailing sections (for example, Problems) active when scrolled all the way to the bottom.
+  // Keep short trailing sections (for example, closing verification) active when scrolled all the way to the bottom.
   if (
     window.scrollY > 0 &&
     window.innerHeight + window.scrollY >= docEl.scrollHeight - SCROLLSPY_BOTTOM_EPSILON_PX

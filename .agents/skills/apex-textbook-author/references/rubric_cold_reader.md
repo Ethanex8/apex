@@ -18,5 +18,5 @@ Read primary shard lines strictly from top to bottom assuming only general progr
 11. **Mechanism-First Acronyms & Code-Only Backticks**: Flag detached term definitions (`— ... (**Acronym**)`), 3+ stacked new acronyms in one sentence, backticks on English acronyms/proper nouns/prose numbers, and boldface over 6 words.
 
 ## 3. Inline Example Scoping & Hardware Callouts
-12. **Mid-Section Worked Examples (No Inline Quizzes)**: Flag mid-chapter `#### Exercise` quiz blocks or collapsible `<details>` answer toggles interrupting reading flow (reader practice belongs strictly in `## <N>. Problems`), and flag missing or redundant visible inline `#### Example` blocks where non-trivial algebra, boundary traps, or counterexamples need direct step-by-step demonstration.
+12. **Worked Examples Without Exercises or Problems**: Flag any exercise (`#### Exercise`), homework problem (`## <N>. Problems` / `### Problem`), or collapsible `<details>` toggle anywhere in the chapter, and flag missing or redundant visible inline `#### Example` blocks where non-trivial algebra, boundary traps, or counterexamples need direct step-by-step demonstration.
 13. **Hardware Polymorphism Callouts**: Flag dual-interpretation proofs that pass silently over why shared algebra eliminates duplicate hardware, mode bits, or extra multiplexers.

@@ -42,7 +42,7 @@ export function classifyTargetMode(
   const cleanStart = Number.isFinite(startLine) ? startLine : 1
   const cleanEnd = Number.isFinite(endLine) ? endLine : cleanStart
   const safeStart = Math.max(1, Math.min(cleanStart, cleanEnd))
-  const safeEnd = Math.max(safeStart, cleanEnd)
+  const safeEnd = Math.max(safeStart, cleanStart, cleanEnd)
   const fileMeta = files[path]
   if (!fileMeta) {
     return { mode: 'issue', apiStartLine: safeStart, apiLine: safeEnd }
@@ -91,13 +91,18 @@ export function isRangeInAddedDiff(
 ): boolean {
   const fileMeta = files[path]
   if (!fileMeta) return false
+  const cleanStart = Number.isFinite(startLine) ? startLine : 1
+  const cleanEnd = Number.isFinite(endLine) ? endLine : cleanStart
+  const safeStart = Math.max(1, Math.min(cleanStart, cleanEnd))
+  const safeEnd = Math.max(safeStart, cleanStart, cleanEnd)
   for (const [aStart, aEnd] of fileMeta.added) {
-    if (startLine <= aEnd && endLine >= aStart) return true
+    if (safeStart <= aEnd && safeEnd >= aStart) return true
   }
   return false
 }
 
 export function normalizeQuote(raw: string, maxLen = 180): string {
+  if (maxLen <= 0) return ''
   const compact = raw.replace(/\s+/g, ' ').trim()
   if (compact.length <= maxLen) return compact
   return `${compact.slice(0, maxLen - 1).trimEnd()}…`
@@ -119,7 +124,9 @@ function findEnclosingSourceBlock(
 }
 
 function findSectionTitle(blockEl: HTMLElement, docRoot: Element): string {
-  const headings = Array.from(docRoot.querySelectorAll('h1, h2, h3, h4'))
+  const headings = Array.from(docRoot.querySelectorAll('h1, h2, h3, h4')).filter(
+    (h) => !h.closest('.apex-review-ui'),
+  )
   let latest = ''
   for (const h of headings) {
     const pos = h.compareDocumentPosition(blockEl)
@@ -327,8 +334,10 @@ export function findAnchorElementForLine(
   let nearestStart = -1
 
   for (const el of candidates) {
-    const start = Number.parseInt(el.dataset.srcLine ?? '0', 10)
-    const end = Number.parseInt(el.dataset.srcEnd ?? String(start), 10)
+    const start = Number.parseInt(el.dataset.srcLine ?? '', 10)
+    if (!Number.isInteger(start) || start <= 0) continue
+    const parsedEnd = Number.parseInt(el.dataset.srcEnd ?? String(start), 10)
+    const end = Number.isInteger(parsedEnd) && parsedEnd >= start ? parsedEnd : start
     if (line >= start && line <= end) {
       const span = end - start
       if (span <= bestSpan) {

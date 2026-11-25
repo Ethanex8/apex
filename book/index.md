@@ -21,8 +21,6 @@ This companion textbook is written for engineers and aspiring engineers who know
   </div>
 </div>
 
----
-
 ## Preface
 
 **Apex** unifies digital logic, printed-circuit electromagnetics, compiler construction, power electronics, and dynamic control around a single cohesive machine: an indoor-safe (about 2.5 kg, under 22 V) autonomous quadruped built without throwaway prototypes.
@@ -30,8 +28,6 @@ Across eight chronological parts, we design a custom 32-bit processor implementi
 We then route a 6-layer controlled-impedance circuit board, write a C compiler and a deterministic task scheduler (**Real-Time Operating System**, or RTOS), build 20 kHz brushless motor drives and solid-state battery protection, and close whole-body locomotion and stereo navigation loops.
 
 Every chapter develops one primary engineering discipline—combining gentle mathematical derivations, interactive visualizers, verified source code in `systems/`, and closing hardware bench labs—growing section by section as each implementation step lands.
-
----
 
 ## Start Reading
 
@@ -41,8 +37,6 @@ Every chapter combines gentle mathematical derivations, interactive hardware vis
 - **[Prologue — System Architecture and Contracts](/vision)** — How the six physical subsystems bolt directly into the final quadruped without circuit-board redesigns or throwaway bench builds.
 - **[Chapter 1 — Instruction Set Architecture](/brain/01_isa_and_binary_arithmetic)** — Software golden reference modeling, fixed-width modular binary arithmetic and two's complement, 32-bit instruction encoding, memory-mapped device registers, and fault or interrupt redirects (**traps**).
 
----
-
 ## Complete Syllabus
 
 The thirty-four chapters below follow the exact dependency order of `roadmap.yaml`, progressing from digital logic gates and board physics through actuators, power electronics, single-leg dynamics, quadruped walking, and stereo vision.
@@ -51,7 +45,7 @@ Each part builds one major engineering layer and links directly to its subsystem
 ### Part I — Digital Logic and Processor Architecture
 
 Part I constructs the custom 32-bit `brain` processor from fixed-width binary arithmetic up to a 5-stage pipelined hardware design accelerated by a custom two-lane 16-bit **Multiply-Accumulate** (`mac`) instruction.
-Every combinational circuit, register file, arithmetic unit, and trap path is verified instruction-for-instruction against a software reference model and timing-closed on reprogrammable FPGA fabric ([`brain` Reference](/brain/)).
+Every combinational circuit, register file, arithmetic unit, and trap path is verified instruction-for-instruction against a software reference model and timing-closed on reprogrammable FPGA fabric ([`brain` Reference](https://github.com/Ethanex8/apex/blob/main/systems/brain/README.md)).
 
 | Ch. | Title and Scope | Steps | Status |
 | :---: | :--- | :--- | :---: |
@@ -65,7 +59,7 @@ Every combinational circuit, register file, arithmetic unit, and trap path is ve
 ### Part II — Circuit-Board Physics and Memory Interconnects
 
 Part II moves off the bare processor core onto the central 6-layer Spine circuit board connecting the processor, battery, and leg buses, modeling copper traces as electromagnetic waveguides and designing clean switching power rails.
-We then build the on-chip memory crossbar, external flash and dynamic **Random-Access Memory** (RAM) controllers, and real-time sensor and motor-bus peripherals ([`brain` Reference](/brain/)).
+We then build the on-chip memory crossbar, external flash and dynamic **Random-Access Memory** (RAM) controllers, and real-time sensor and motor-bus peripherals ([`brain` Reference](https://github.com/Ethanex8/apex/blob/main/systems/brain/README.md)).
 
 | Ch. | Title and Scope | Steps | Status |
 | :---: | :--- | :--- | :---: |
@@ -77,7 +71,7 @@ We then build the on-chip memory crossbar, external flash and dynamic **Random-A
 ### Part III — Compilers and Real-Time Operating Systems
 
 Part III builds the complete software toolchain and operating kernel that run natively on our custom processor without external black-box libraries.
-We implement a two-pass assembler, linker, optimizing C subset compiler (SysC), preemptive real-time kernel, and custom-board hardware validation suite ([`brain` Reference](/brain/)).
+We implement a two-pass assembler, linker, optimizing C subset compiler (SysC), preemptive real-time kernel, and custom-board hardware validation suite ([`brain` Reference](https://github.com/Ethanex8/apex/blob/main/systems/brain/README.md)).
 
 | Ch. | Title and Scope | Steps | Status |
 | :---: | :--- | :--- | :---: |
@@ -89,7 +83,7 @@ We implement a two-pass assembler, linker, optimizing C subset compiler (SysC), 
 ### Part IV — Brushless Motors and Power Inverters
 
 Part IV develops the `drive` force-controlled joint actuator, deriving permanent-magnet brushless motor physics and rotating-frame current control from electromagnetic first principles.
-We design a 4-layer three-phase power inverter, write 20 kHz bare-metal motor firmware, and machine an 8:1 low-backlash planetary gearbox ([`drive` Reference](/drive/)).
+We design a 4-layer three-phase power inverter, write 20 kHz bare-metal motor firmware, and machine an 8:1 low-backlash planetary gearbox ([`drive` Reference](https://github.com/Ethanex8/apex/blob/main/systems/drive/README.md)).
 
 | Ch. | Title and Scope | Steps | Status |
 | :---: | :--- | :--- | :---: |
@@ -101,7 +95,7 @@ We design a 4-layer three-phase power inverter, write 20 kHz bare-metal motor fi
 ### Part V — Battery Systems and Solid-State Protection
 
 Part V engineers the touch-safe (under 22 V) `power` distribution spine that feeds twelve dynamic actuators without brownouts or hazardous fault currents.
-We model six-cell lithium-iron-phosphate battery dynamics, design microsecond solid-state circuit breakers, and test real short-circuit cutoffs on the bench ([`power` Reference](/power/)).
+We model six-cell lithium-iron-phosphate battery dynamics, design microsecond solid-state circuit breakers, and test real short-circuit cutoffs on the bench ([`power` Reference](https://github.com/Ethanex8/apex/blob/main/systems/power/README.md)).
 
 | Ch. | Title and Scope | Steps | Status |
 | :---: | :--- | :--- | :---: |
@@ -112,7 +106,7 @@ We model six-cell lithium-iron-phosphate battery dynamics, design microsecond so
 ### Part VI — Rigid-Body Kinematics and Compliant Limbs
 
 Part VI combines three `drive` actuators into the 3-joint `limb` assembly that later bolts directly onto the quadruped as Front-Left Leg #1.
-We derive 3D rigid-body kinematics, recursive inverse dynamics, sensorless impact detection, and foot-space spring-damper hopping control ([`limb` Reference](/limb/)).
+We derive 3D rigid-body kinematics, recursive inverse dynamics, sensorless impact detection, and foot-space spring-damper hopping control ([`limb` Reference](https://github.com/Ethanex8/apex/blob/main/systems/limb/README.md)).
 
 | Ch. | Title and Scope | Steps | Status |
 | :---: | :--- | :--- | :---: |
@@ -125,7 +119,7 @@ We derive 3D rigid-body kinematics, recursive inverse dynamics, sensorless impac
 ### Part VII — Optimal Balance and Learned Locomotion
 
 Part VII assembles four legs, the `power` spine, and the `brain` computer into the complete 12-joint `walker` quadruped.
-We implement floating-base state estimation, receding-horizon convex force control, and scaled-integer (**quantized**) reinforcement-learning policies executing directly on our custom `mac` datapath ([`walker` Reference](/walker/)).
+We implement floating-base state estimation, receding-horizon convex force control, and scaled-integer (**quantized**) reinforcement-learning policies executing directly on our custom `mac` datapath ([`walker` Reference](https://github.com/Ethanex8/apex/blob/main/systems/walker/README.md)).
 
 | Ch. | Title and Scope | Steps | Status |
 | :---: | :--- | :--- | :---: |
@@ -137,7 +131,7 @@ We implement floating-base state estimation, receding-horizon convex force contr
 ### Part VIII — Stereo Vision and Autonomous Navigation
 
 Part VIII mounts the `sight` synchronized stereo-camera head onto `walker`, phase-locking global-shutter exposures to `brain`'s hardware timer within microseconds.
-We derive projective camera geometry, visual-inertial odometry, 3D obstacle mapping, and collision-free trajectory planning for untethered indoor autonomy ([`sight` Reference](/sight/)).
+We derive projective camera geometry, visual-inertial odometry, 3D obstacle mapping, and collision-free trajectory planning for untethered indoor autonomy ([`sight` Reference](https://github.com/Ethanex8/apex/blob/main/systems/sight/README.md)).
 
 | Ch. | Title and Scope | Steps | Status |
 | :---: | :--- | :--- | :---: |

@@ -9,5 +9,5 @@ Inspect strictly the pre-generated unified diff patch between pre-fix `base_ref`
 4. **No Stiff Announcements or Section Catalogs**: Flag newly introduced `"Next we prove..."`, `"Below we show..."`, or multi-section forward roadmaps (`Section X, Section Y...`) injected just to satisfy proof-lead-in checks.
 
 ## 2. Boundary & Reordering Side Effects
-5. **Cross-Section Move Verification**: Whenever theorems, lemmas, or definitions move earlier or later, verify all dependent expressions, symbols, `#### Example` blocks, `Problems`, and `.vue` widgets in between remain strictly valid in their new dependency order.
+5. **Cross-Section Move Verification**: Whenever theorems, lemmas, or definitions move earlier or later, verify all dependent expressions, symbols, `#### Example` blocks, and `.vue` widgets in between remain strictly valid in their new dependency order.
 6. **No Silent Content Deletion**: Verify style/flow tightenings preserve all genuine quantitative invariants, corner-case proofs, code/test symbol anchors, and hardware-tradeoff insights.

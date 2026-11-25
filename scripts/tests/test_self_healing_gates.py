@@ -185,11 +185,11 @@ def test_check_book_pedagogy_gates_and_widget_shorthand(tmp_path: Path) -> None:
         "Conversational crutch 'Wait: why'",
         "Cryptic bit-slice shorthand 'imm[12|10:5]'",
         "Cryptic bit-slice shorthand '[30..25|10..5]'",
-        "Problem/exercise closing heading 'Graded Engineering Exercises' should simply be 'Problems'",
-        "Mid-chapter exercise drill 'Exercise 2.2: Disallowed Mid-Chapter Drill' is banned",
+        "Problem/exercise section heading 'Graded Engineering Exercises' is banned",
+        "Quiz/problem drill 'Problem 1: Warmup' is banned",
+        "Quiz/problem drill 'Exercise 2.2: Disallowed Mid-Chapter Drill' is banned",
     ):
         assert expected in chap_errs
-    assert "Problem 1" not in chap_errs
     assert "Example 2.1" not in chap_errs
     widget_errs = "\n".join(check_book.validate_widgets(tmp_path))
     assert "Cryptic bit-slice shorthand 'imm[12|10:5]'" in widget_errs
@@ -284,7 +284,7 @@ def test_check_book_coordinate_prose_wall_and_table_exemption(tmp_path: Path) ->
 
 
 def test_check_book_midchapter_details_ban_and_inline_examples(tmp_path: Path) -> None:
-    """Verify check_book rejects mid-chapter <details> toggles while allowing inline Examples and closing Problems."""
+    """Verify check_book rejects <details> toggles, Problems headings, and redundant --- dividers before ##."""
     chap = _write(
         tmp_path / "systems" / "demo" / "chapters" / "01.md",
         "# Modular Arithmetic\n\nEvery register wraps cleanly.\n\n"
@@ -298,21 +298,22 @@ def test_check_book_midchapter_details_ban_and_inline_examples(tmp_path: Path) -
         "Check one wrap.\n\n"
         "<details><summary>Worked Solution</summary>\n\nOne.\n\n</details>\n",
     )
+    _write(tmp_path / "VISION.md", "# Vision\n\nIntro.\n\n---\n\n## 1. Overview\n\nBody.\n")
     errs = "\n".join(check_book.validate_chapters(tmp_path).errors)
-    assert "Mid-chapter '<details>' toggle is banned outside '## <N>. Problems'" in errs
+    assert "Collapsible '<details>' quiz toggle is banned" in errs
+    assert "Problem/exercise section heading '2. Problems' is banned" in errs
+    assert "Redundant horizontal rule '---' immediately before '##' heading" in errs
+    assert "[VISION.md:5] Redundant horizontal rule '---'" in errs
 
     chap.write_text(
         "# Modular Arithmetic\n\nEvery register wraps cleanly.\n\n"
         "## 1. Core Rings\n\nRings wrap around a fixed modulus.\n\n"
         "#### Example 1.1: Ring Wrap\n\n"
         "Walk through a wrap example.\n\n"
-        "1. Wrapping $17$ modulo $16$ leaves remainder $1$.\n\n"
-        "## 2. Problems\n\n"
-        "### Problem 1: Ring Check\n\n"
-        "Check one wrap.\n\n"
-        "<details><summary>Worked Solution</summary>\n\nOne.\n\n</details>\n",
+        "1. Wrapping $17$ modulo $16$ leaves remainder $1$.\n",
         encoding="utf-8",
     )
+    _write(tmp_path / "VISION.md", "# Vision\n\nIntro.\n\n## 1. Overview\n\nBody.\n")
     assert check_book.validate_chapters(tmp_path).errors == []
 
 
@@ -398,7 +399,7 @@ def test_check_visuals_routes_server_and_error_paths(tmp_path: Path, monkeypatch
     """Verify route discovery, static serving/base checks, Chromium lookup, and missing deps."""
     _write(tmp_path / "systems" / "brain" / "README.md", "# Brain\n")
     _write(tmp_path / "systems" / "brain" / "chapters" / "01_isa.md", "# Ch1\n")
-    assert check_visuals.discover_routes(tmp_path) == ["/", "/vision", "/brain/", "/brain/01_isa"]
+    assert check_visuals.discover_routes(tmp_path) == ["/", "/vision", "/brain/01_isa"]
     assert check_visuals.discover_routes(tmp_path / "no_systems") == ["/", "/vision"]
     assert check_visuals.normalize_base("/apex/") == "/apex"
     assert check_visuals.normalize_base("/") == ""
@@ -407,6 +408,9 @@ def test_check_visuals_routes_server_and_error_paths(tmp_path: Path, monkeypatch
     pw_bin = _write(tmp_path / "pw_chrome", "")
     monkeypatch.setenv("CHROMIUM_PATH", str(fake_bin))
     assert check_visuals.resolve_chromium_executable(str(pw_bin)) == str(fake_bin)
+    monkeypatch.setenv("CHROMIUM_PATH", str(tmp_path / "missing_chrome"))
+    with pytest.raises(FileNotFoundError, match="CHROMIUM_PATH does not exist"):
+        check_visuals.resolve_chromium_executable(str(pw_bin))
     monkeypatch.delenv("CHROMIUM_PATH", raising=False)
     assert check_visuals.resolve_chromium_executable(str(pw_bin)) is None
     monkeypatch.setattr(check_visuals.shutil, "which", lambda name: "/usr/bin/chrome" if name == "chromium" else None)

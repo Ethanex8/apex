@@ -1,47 +1,128 @@
+<!--
+  Purpose: Interactive 4-bit unsigned and two's-complement modular addition clock visualizer.
+  Usage: Embedded in Chapter 1 Section 2.4 to demonstrate shared adder equivalence on a mod-16 ring.
+  Invariants: Operands A and B mask to 4-bit integers [0, 15]; inner circle shows S_4 [-8, +7], outer shows U_4 [0, 15].
+-->
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+
+/** 4-bit register mask (0..15) and modulus constants. */
+const NIBBLE_MASK = 0xf
+const MODULUS_4BIT = 16
+const BIT_WIDTH_4 = 4
+const SIGN_BIT_4 = 0x8
+const UNSIGNED4_MAX = 15
+const SIGNED4_MIN = -8
+const SIGNED4_MAX = 7
+const MIN_BIT_INDEX = 0
+const MAX_BIT_INDEX = 3
+const BIT_INDICES = [3, 2, 1, 0] as const
+
+/** Clock SVG center, viewBox span, and concentric ring radii. */
+const SVG_CENTER = 155
+const SVG_SIZE = SVG_CENTER * 2
+const INNER_RING_RADIUS = 104
+const OUTER_RING_RADIUS = 132
+
+/** Preset pair contrasting signed and unsigned wrap behavior. */
+interface Preset {
+  /** Human-readable preset caption shown on selector button. */
+  label: string
+  /** 4-bit unsigned pattern (`0..15`) for operand A. */
+  a: number
+  /** 4-bit unsigned pattern (`0..15`) for operand B. */
+  b: number
+}
+
+/** Positioned modulo-16 wheel slot on the concentric signed/unsigned SVG rings. */
+interface WheelSlot {
+  /** Unsigned 4-bit residue (`0..15`). */
+  u: number
+  /** Signed two's-complement interpretation (`-8..+7`). */
+  s: number
+  /** Inner signed-ring SVG x-coordinate (pixels). */
+  innerX: number
+  /** Inner signed-ring SVG y-coordinate (pixels). */
+  innerY: number
+  /** Outer unsigned-ring SVG x-coordinate (pixels). */
+  outerX: number
+  /** Outer unsigned-ring SVG y-coordinate (pixels). */
+  outerY: number
+}
+
+/** Descriptor for rendering one interactive 4-bit operand card. */
+interface OperandControl {
+  /** Target operand identifier (`'a'` or `'b'`). */
+  which: 'a' | 'b'
+  /** Card header text with ring color cue. */
+  title: string
+  /** Current 4-bit unsigned operand value (`0..15`). */
+  valU4: number
+  /** Current signed two's-complement interpretation (`-8..+7`). */
+  valS4: number
+}
 
 const aBits = ref<number>(0b1011) // 11 unsigned, -5 signed
 const bBits = ref<number>(0b0011) // 3 unsigned, +3 signed
 
-const presets = [
+const presets: Preset[] = [
   { label: '-5 + (+3) = -2', a: 0b1011, b: 0b0011 },
   { label: '+7 + (+2) wraps to -7', a: 0b0111, b: 0b0010 },
   { label: '-1 + (+1) = 0 (unsigned wrap)', a: 0b1111, b: 0b0001 },
   { label: '-4 + (-4) = -8', a: 0b1100, b: 0b1100 },
 ]
 
-function toggleBit4(which: 'a' | 'b', bit: number) {
+/** Mask any integer down to its low 4 bits (`0..15`). */
+function mask4(u: number): number {
+  return u & NIBBLE_MASK
+}
+
+/** Flip bit `bit` (`0..3`) of operand `'a'` or `'b'`, failing fast on out-of-range bit indices. */
+function toggleBit4(which: 'a' | 'b', bit: number): void {
+  if (!Number.isInteger(bit) || bit < MIN_BIT_INDEX || bit > MAX_BIT_INDEX) {
+    throw new RangeError(`ModularRingAdder bit index must be in 0..3, got ${bit}`)
+  }
   if (which === 'a') {
-    aBits.value = (aBits.value ^ (1 << bit)) & 0xf
+    aBits.value = mask4(aBits.value ^ (1 << bit))
   } else {
-    bBits.value = (bBits.value ^ (1 << bit)) & 0xf
+    bBits.value = mask4(bBits.value ^ (1 << bit))
   }
 }
 
+/** Reinterpret 4-bit pattern `u` (`0..15`) as two's-complement signed integer `-8..+7`. */
 function toSigned4(u: number): number {
-  const v = u & 0xf
-  return v & 0x8 ? v - 16 : v
+  const v = mask4(u)
+  // Bit 3 carries weight -8 in S_4 vs. +8 in U_4, shifting U_4 downward by 16 when set.
+  return v & SIGN_BIT_4 ? v - MODULUS_4BIT : v
 }
 
+/** Format a signed 4-bit integer with an explicit `+` sign when positive. */
 function fmtS4(s: number): string {
   return s > 0 ? `+${s}` : `${s}`
 }
 
+/** Format the low 4 bits of `u` as a zero-padded 4-character binary string. */
 function bin4(u: number): string {
-  return (u & 0xf).toString(2).padStart(4, '0')
+  return mask4(u).toString(2).padStart(BIT_WIDTH_4, '0')
 }
 
-const aU4 = computed(() => aBits.value & 0xf)
-const bU4 = computed(() => bBits.value & 0xf)
+const aU4 = computed(() => mask4(aBits.value))
+const bU4 = computed(() => mask4(bBits.value))
 const aS4 = computed(() => toSigned4(aU4.value))
 const bS4 = computed(() => toSigned4(bU4.value))
 
 const rawSumU = computed(() => aU4.value + bU4.value)
-const sumBits4 = computed(() => rawSumU.value & 0xf)
+const rawSumS = computed(() => aS4.value + bS4.value)
+const sumBits4 = computed(() => mask4(rawSumU.value))
 const sumS4 = computed(() => toSigned4(sumBits4.value))
-const unsignedOverflow = computed(() => rawSumU.value > 15)
-const signedOverflow = computed(() => aS4.value + bS4.value < -8 || aS4.value + bS4.value > 7)
+const unsignedOverflow = computed(() => rawSumU.value > UNSIGNED4_MAX)
+// Signed overflow tests the exact mathematical sum against [-8, +7], independent of unsigned carry-out.
+const signedOverflow = computed(() => rawSumS.value < SIGNED4_MIN || rawSumS.value > SIGNED4_MAX)
+
+const operandControls = computed<OperandControl[]>(() => [
+  { which: 'a', title: 'Input A (Green Ring — Click Bits 3..0)', valU4: aU4.value, valS4: aS4.value },
+  { which: 'b', title: 'Input B (Amber Ring — Click Bits 3..0)', valU4: bU4.value, valS4: bS4.value },
+])
 
 const overlapNote = computed(() => {
   const hits: string[] = []
@@ -55,19 +136,17 @@ const overlapNote = computed(() => {
   return hits.join(' · ')
 })
 
-const wheelSlots = computed(() => {
-  return Array.from({ length: 16 }, (_, u) => {
-    const angle = (u / 16) * Math.PI * 2 - Math.PI / 2
-    const r = 104
-    const rOuter = 132
+const wheelSlots = computed<WheelSlot[]>(() => {
+  return Array.from({ length: MODULUS_4BIT }, (_, u) => {
+    // Rotate by -pi/2 so unsigned 0 (0000) sits at 12 o'clock instead of 3 o'clock.
+    const angle = (u / MODULUS_4BIT) * Math.PI * 2 - Math.PI / 2
     return {
       u,
       s: toSigned4(u),
-      bits: bin4(u),
-      x: 155 + r * Math.cos(angle),
-      y: 155 + r * Math.sin(angle),
-      ux: 155 + rOuter * Math.cos(angle),
-      uy: 155 + rOuter * Math.sin(angle),
+      innerX: SVG_CENTER + INNER_RING_RADIUS * Math.cos(angle),
+      innerY: SVG_CENTER + INNER_RING_RADIUS * Math.sin(angle),
+      outerX: SVG_CENTER + OUTER_RING_RADIUS * Math.cos(angle),
+      outerY: SVG_CENTER + OUTER_RING_RADIUS * Math.sin(angle),
     }
   })
 })
@@ -99,57 +178,30 @@ const wheelSlots = computed(() => {
 
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; align-items: center">
       <div style="display: flex; flex-direction: column; gap: 10px">
-        <div class="hw-card">
-          <div class="hw-label">Input A (Green Ring — Click Bits 3..0)</div>
+        <div v-for="op in operandControls" :key="op.which" class="hw-card">
+          <div class="hw-label">{{ op.title }}</div>
           <div style="display: flex; gap: 6px; margin: 6px 0">
             <button
-              v-for="bit in [3, 2, 1, 0]"
-              :key="`a-${bit}`"
+              v-for="bit in BIT_INDICES"
+              :key="`${op.which}-${bit}`"
               type="button"
               class="hw-btn hw-mono"
-              :class="{ active: ((aU4 >> bit) & 1) === 1 }"
+              :class="{ active: ((op.valU4 >> bit) & 1) === 1 }"
               style="flex: 1; padding: 5px 4px; display: flex; flex-direction: column; justify-content: space-between; align-items: center"
-              @click="toggleBit4('a', bit)"
+              @click="toggleBit4(op.which, bit)"
             >
               <div style="font-size: 10px; opacity: 0.8; min-height: 24px; display: flex; align-items: center">
-                b{{ bit }} ({{ bit === 3 ? '-8/+8' : `+${1 << bit}` }})
+                b{{ bit }} ({{ bit === MAX_BIT_INDEX ? '-8/+8' : `+${1 << bit}` }})
               </div>
-              <div style="font-size: 15px; font-weight: 700">{{ (aU4 >> bit) & 1 }}</div>
+              <div style="font-size: 15px; font-weight: 700">{{ (op.valU4 >> bit) & 1 }}</div>
             </button>
           </div>
           <div
             class="hw-mono"
             style="font-size: 12px; color: var(--vp-c-text-2); display: flex; flex-wrap: wrap; gap: 2px 10px"
           >
-            <span style="white-space: nowrap">Unsigned (0..15) = <strong>{{ aU4 }}</strong></span>
-            <span style="white-space: nowrap">Signed (-8..+7) = <strong>{{ fmtS4(aS4) }}</strong></span>
-          </div>
-        </div>
-
-        <div class="hw-card">
-          <div class="hw-label">Input B (Amber Ring — Click Bits 3..0)</div>
-          <div style="display: flex; gap: 6px; margin: 6px 0">
-            <button
-              v-for="bit in [3, 2, 1, 0]"
-              :key="`b-${bit}`"
-              type="button"
-              class="hw-btn hw-mono"
-              :class="{ active: ((bU4 >> bit) & 1) === 1 }"
-              style="flex: 1; padding: 5px 4px; display: flex; flex-direction: column; justify-content: space-between; align-items: center"
-              @click="toggleBit4('b', bit)"
-            >
-              <div style="font-size: 10px; opacity: 0.8; min-height: 24px; display: flex; align-items: center">
-                b{{ bit }} ({{ bit === 3 ? '-8/+8' : `+${1 << bit}` }})
-              </div>
-              <div style="font-size: 15px; font-weight: 700">{{ (bU4 >> bit) & 1 }}</div>
-            </button>
-          </div>
-          <div
-            class="hw-mono"
-            style="font-size: 12px; color: var(--vp-c-text-2); display: flex; flex-wrap: wrap; gap: 2px 10px"
-          >
-            <span style="white-space: nowrap">Unsigned (0..15) = <strong>{{ bU4 }}</strong></span>
-            <span style="white-space: nowrap">Signed (-8..+7) = <strong>{{ fmtS4(bS4) }}</strong></span>
+            <span style="white-space: nowrap">Unsigned (0..15) = <strong>{{ op.valU4 }}</strong></span>
+            <span style="white-space: nowrap">Signed (-8..+7) = <strong>{{ fmtS4(op.valS4) }}</strong></span>
           </div>
         </div>
 
@@ -171,7 +223,7 @@ const wheelSlots = computed(() => {
               <strong>Signed:</strong> ({{ fmtS4(aS4) }}) + ({{ fmtS4(bS4) }}) →
               <code class="hw-mono">{{ fmtS4(sumS4) }}</code>
               <span v-if="signedOverflow" style="color: var(--hw-red); font-weight: 600">
-                (signed overflow: true sum {{ aS4 + bS4 }} outside -8..+7)
+                (signed overflow: true sum {{ rawSumS }} outside {{ SIGNED4_MIN }}..+{{ SIGNED4_MAX }})
               </span>
               <span v-else style="color: var(--hw-green); font-weight: 600"> (exact)</span>
             </div>
@@ -181,11 +233,11 @@ const wheelSlots = computed(() => {
 
       <!-- SVG Clock Wheel with concentric signed/unsigned rings and role halos -->
       <div style="display: flex; flex-direction: column; align-items: center; gap: 6px">
-        <svg viewBox="0 0 310 310" style="width: 280px; height: 280px; max-width: 100%">
+        <svg :viewBox="`0 0 ${SVG_SIZE} ${SVG_SIZE}`" style="width: 280px; height: 280px; max-width: 100%">
           <circle
-            cx="155"
-            cy="155"
-            r="104"
+            :cx="SVG_CENTER"
+            :cy="SVG_CENTER"
+            :r="INNER_RING_RADIUS"
             fill="none"
             stroke="currentColor"
             stroke-opacity="0.16"
@@ -194,8 +246,8 @@ const wheelSlots = computed(() => {
           <g v-for="slot in wheelSlots" :key="slot.u">
             <!-- Outer Unsigned Label (0..15) -->
             <text
-              :x="slot.ux"
-              :y="slot.uy + 3.5"
+              :x="slot.outerX"
+              :y="slot.outerY + 3.5"
               text-anchor="middle"
               font-size="9.5"
               font-family="var(--vp-font-family-mono)"
@@ -207,8 +259,8 @@ const wheelSlots = computed(() => {
             <!-- Outer Green Halo when A hits this slot -->
             <circle
               v-if="slot.u === aU4"
-              :cx="slot.x"
-              :cy="slot.y"
+              :cx="slot.innerX"
+              :cy="slot.innerY"
               r="18"
               fill="none"
               stroke="var(--hw-green)"
@@ -217,8 +269,8 @@ const wheelSlots = computed(() => {
             <!-- Middle Amber Halo when B hits this slot -->
             <circle
               v-if="slot.u === bU4"
-              :cx="slot.x"
-              :cy="slot.y"
+              :cx="slot.innerX"
+              :cy="slot.innerY"
               r="15"
               fill="none"
               stroke="var(--hw-amber)"
@@ -226,16 +278,16 @@ const wheelSlots = computed(() => {
             />
             <!-- Inner Slot Disc (Blue if Sum) -->
             <circle
-              :cx="slot.x"
-              :cy="slot.y"
+              :cx="slot.innerX"
+              :cy="slot.innerY"
               r="12"
               :fill="slot.u === sumBits4 ? 'var(--vp-c-brand-1)' : 'var(--vp-c-bg)'"
               stroke="currentColor"
               :stroke-opacity="slot.u === sumBits4 ? 0.6 : 0.25"
             />
             <text
-              :x="slot.x"
-              :y="slot.y + 3.5"
+              :x="slot.innerX"
+              :y="slot.innerY + 3.5"
               text-anchor="middle"
               font-size="9.5"
               font-weight="700"
@@ -244,19 +296,22 @@ const wheelSlots = computed(() => {
               {{ fmtS4(slot.s) }}
             </text>
           </g>
-          <text x="155" y="131" text-anchor="middle" font-size="9.5" fill="var(--vp-c-text-2)" font-weight="600">
-            Inner: Signed · Outer: Unsigned
-          </text>
-          <text x="155" y="148" text-anchor="middle" font-size="10.5" fill="var(--hw-green)" font-weight="700">
+          <text :x="SVG_CENTER" y="144" text-anchor="middle" font-size="10.5" fill="var(--hw-green)" font-weight="700">
             Green halo = A ({{ fmtS4(aS4) }} / {{ aU4 }})
           </text>
-          <text x="155" y="164" text-anchor="middle" font-size="10.5" fill="var(--hw-amber)" font-weight="700">
+          <text :x="SVG_CENTER" y="161" text-anchor="middle" font-size="10.5" fill="var(--hw-amber)" font-weight="700">
             Amber halo = B ({{ fmtS4(bS4) }} / {{ bU4 }})
           </text>
-          <text x="155" y="181" text-anchor="middle" font-size="10.5" font-weight="700" fill="var(--vp-c-brand-1)">
+          <text :x="SVG_CENTER" y="178" text-anchor="middle" font-size="10.5" font-weight="700" fill="var(--vp-c-brand-1)">
             Blue fill = {{ fmtS4(sumS4) }} / {{ sumBits4 }} ({{ bin4(sumBits4) }})
           </text>
         </svg>
+        <div
+          class="hw-mono"
+          style="font-size: 11px; color: var(--vp-c-text-2); text-align: center"
+        >
+          Inner ring: Signed · Outer ring: Unsigned
+        </div>
         <div
           v-if="overlapNote"
           class="hw-mono"

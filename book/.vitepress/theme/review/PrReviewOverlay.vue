@@ -1,3 +1,8 @@
+<!--
+  Purpose: Client-side GitHub PR review overlay adding block diff gutters, text-selection comments, and threaded review drawer onto preview builds.
+  Usage: Mounted globally via the custom VitePress theme (`book/.vitepress/theme/index.ts`) when `PR_REVIEW_META.enabled` is true.
+  Invariants: Preserves staged localStorage drafts across navigations, throttles background refreshes even on fetch errors, and clears all timers/observers on unmount.
+-->
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useData, useRoute, useRouter, withBase } from 'vitepress'
@@ -13,6 +18,25 @@ import {
   computeThreadChipPosition,
 } from './annotationLayout'
 import {
+  buildTopLevelTarget,
+  canAutoRefreshThreads,
+  clampSelectionPopover,
+  COMPACT_DOC_MAX_WIDTH,
+  createDraftComment,
+  createReplyDraft,
+  createResolveDraft,
+  effectiveThreadResolved as resolveEffectiveThreadState,
+  findQueuedResolve,
+  formatLineLabel,
+  isAnnotatableBlock,
+  mapRepoPathToRoute,
+  MOBILE_VIEWPORT_MAX_WIDTH,
+  modeBadgeLabel,
+  parseStoredDrafts,
+  summarizeComment,
+  threadStatusLabel as computeThreadStatusLabel,
+} from './overlayHelpers'
+import {
   buildGitHubDiffUrl,
   findAnchorElementForLine,
   isJumpableThreadPath,
@@ -26,31 +50,55 @@ import type {
   CommentTarget,
   DraftComment,
   RemoteReviewThread,
-  RemoteThreadComment,
 } from './types'
 import './review.css'
 
+const SELECTION_DEBOUNCE_MS = 110
+const JUMP_HIGHLIGHT_MS = 2200
+const ROUTE_SCROLL_DELAY_MS = 120
+const BLOCK_OBSERVER_ROOT_MARGIN = '250px 0px'
+const PR_SUMMARY_PATH = 'PR Summary'
+const PR_CONVERSATION_PATH = 'PR Conversation'
+
+/** Document-relative CSS pixel span for one added-diff margin gutter bar. */
 interface GutterMark {
+  /** Stable Vue key for the rendered bar. */
   key: string
+  /** Document-relative top coordinate in CSS pixels. */
   top: number
+  /** Document-relative left coordinate in CSS pixels. */
   left: number
+  /** Rendered height in CSS pixels. */
   height: number
 }
 
+/** Document-relative floating thread badge anchoring one or more PR review threads to a block. */
 interface ThreadMarkerGroup {
+  /** Stable Vue key for the thread marker badge. */
   key: string
+  /** Document-relative top coordinate in CSS pixels. */
   top: number
+  /** Document-relative left coordinate in CSS pixels. */
   left: number
+  /** Anchored 1-indexed source line number, or `null` for page/file notes. */
   line: number | null
+  /** True when every thread in the group is resolved or staged for resolution. */
   allResolved: boolean
+  /** Remote threads attached to this DOM anchor. */
   threads: RemoteReviewThread[]
 }
 
+/** Document-relative hover/margin `+` trigger attached to an annotatable block. */
 interface BlockAddButton {
+  /** Stable Vue key for the block trigger. */
   key: string
+  /** Document-relative top coordinate in CSS pixels. */
   top: number
+  /** Document-relative left coordinate in CSS pixels. */
   left: number
+  /** Starting 1-indexed source line number of the block. */
   line: number
+  /** Underlying `.vp-doc [data-src-line]` DOM element. */
   el: HTMLElement
 }
 
@@ -90,7 +138,6 @@ const remoteHeadSha = ref('')
 const isPreviewStale = computed(() =>
   Boolean(remoteHeadSha.value && remoteHeadSha.value !== meta.headSha),
 )
-let lastRefreshAt = 0
 
 const drawerOpen = ref(false)
 const drawerView = ref<'main' | 'setup'>('main')
@@ -119,15 +166,21 @@ const blockAddButtons = ref<BlockAddButton[]>([])
 const pendingScrollLine = ref<number | null>(null)
 
 const visibleBlocks = new Set<HTMLElement>()
+let lastRefreshAt = 0
+let authSeq = 0
+let refreshSeq = 0
+let isComponentUnmounted = false
 let selectionTimer: number | null = null
 let layoutRaf: number | null = null
 let jumpHighlightTimer: number | null = null
+let routeScrollTimer: number | null = null
 let highlightedEl: HTMLElement | null = null
 let docObserver: MutationObserver | null = null
 let docResizeObserver: ResizeObserver | null = null
 let blockIntersectionObserver: IntersectionObserver | null = null
 
 const currentRepoPath = computed(() => {
+  // VitePress injects `repoSourcePath` via `transformPageData` in `config.mts`, outside default PageData types.
   const raw = (page.value as { repoSourcePath?: string }).repoSourcePath
   return typeof raw === 'string' ? raw : ''
 })
@@ -145,8 +198,8 @@ const filteredDrawerThreads = computed(() => {
       ? threads.value.filter(
           (t) =>
             t.path === currentRepoPath.value ||
-            t.path === 'PR Summary' ||
-            t.path === 'PR Conversation',
+            t.path === PR_SUMMARY_PATH ||
+            t.path === PR_CONVERSATION_PATH,
         )
       : threads.value
   return showResolved.value ? base : base.filter((t) => !t.isResolved)
@@ -163,26 +216,14 @@ const totalOpenThreadCount = computed(
   () => threads.value.filter((t) => !t.isResolved).length,
 )
 
-function mapRepoPathToRoute(repoPath: string): string | null {
-  if (repoPath === 'book/index.md') return '/'
-  if (repoPath === 'VISION.md') return '/vision'
-  const readme = repoPath.match(/^systems\/([a-z0-9_-]+)\/README\.md$/)
-  if (readme) return `/${readme[1]}/`
-  const chapter = repoPath.match(/^systems\/([a-z0-9_-]+)\/chapters\/([^/]+)\.md$/)
-  if (chapter) return `/${chapter[1]}/${chapter[2]}`
-  return null
+/** Clear stale submission and thread action banners across sibling draft mutations. */
+function clearActionErrors() {
+  submitError.value = ''
+  threadActionError.value = ''
+  threadsError.value = ''
 }
 
-function formatLineLabel(start: number, end: number): string {
-  return end > start ? `L${start}–L${end}` : `L${start}`
-}
-
-function modeBadgeLabel(mode: CommentTarget['mode']): string {
-  if (mode === 'inline') return 'Native inline PR thread'
-  if (mode === 'file') return 'File-level PR thread (outside hunk)'
-  return 'PR conversation comment (unchanged file)'
-}
-
+/** Return true when `commentId` inside `threadId` (either newest message or toggled open) is expanded. */
 function isCommentExpanded(
   threadId: string,
   commentId: number,
@@ -193,6 +234,7 @@ function isCommentExpanded(
   return expandedCommentKeys.value.has(`${threadId}:${commentId}`)
 }
 
+/** Toggle expanded/collapsed state for a single older thread message. */
 function toggleCommentExpanded(threadId: string, commentId: number) {
   const key = `${threadId}:${commentId}`
   const next = new Set(expandedCommentKeys.value)
@@ -204,11 +246,7 @@ function toggleCommentExpanded(threadId: string, commentId: number) {
   expandedCommentKeys.value = next
 }
 
-function summarizeComment(msg: RemoteThreadComment): string {
-  const firstLine = msg.body.replace(/\s+/g, ' ').trim()
-  return firstLine.length > 64 ? `${firstLine.slice(0, 63)}…` : firstLine
-}
-
+/** Persist the queued draft list into browser `localStorage`, ignoring quota/privacy exceptions. */
 function saveDraftState() {
   if (typeof window === 'undefined') return
   try {
@@ -218,41 +256,22 @@ function saveDraftState() {
   }
 }
 
+/** Restore queued drafts from `localStorage` and re-save when legacy `summaryBody` entries migrate. */
 function loadDraftState() {
   if (typeof window === 'undefined') return
   try {
     const raw = localStorage.getItem(draftStorageKey)
-    if (!raw) return
-    const parsed = JSON.parse(raw) as {
-      drafts?: DraftComment[]
-      summaryBody?: string
-    }
-    if (Array.isArray(parsed.drafts)) {
-      drafts.value = parsed.drafts
-    }
-    if (typeof parsed.summaryBody === 'string' && parsed.summaryBody.trim()) {
-      drafts.value.push({
-        id: `${Date.now()}-migrated`,
-        kind: 'comment',
-        path: '',
-        startLine: 1,
-        endLine: 1,
-        apiStartLine: 1,
-        apiLine: 1,
-        mode: 'issue',
-        quote: '',
-        sectionTitle: `PR #${meta.prNumber}`,
-        blockKind: 'PR Comment',
-        body: parsed.summaryBody.trim(),
-        createdAt: new Date().toISOString(),
-      })
+    const { drafts: restored, migrated } = parseStoredDrafts(raw, meta.prNumber)
+    drafts.value = restored
+    if (migrated) {
       saveDraftState()
     }
   } catch {
-    // ignore corrupted local drafts
+    // ignore storage access errors
   }
 }
 
+/** Store or clear the user's GitHub Personal Access Token across `localStorage` or `sessionStorage`. */
 function saveAuthToken(token: string, persistLocal: boolean) {
   if (typeof window === 'undefined') return
   try {
@@ -270,8 +289,10 @@ function saveAuthToken(token: string, persistLocal: boolean) {
   }
 }
 
+/** Load and validate any saved GitHub PAT at mount time, evicting revoked 401/403 credentials. */
 async function restoreAuth() {
   if (typeof window === 'undefined') return
+  const seq = ++authSeq
   let savedRaw: string | null = null
   let savedLocal = true
   try {
@@ -296,6 +317,7 @@ async function restoreAuth() {
   if (!token) return
   try {
     const user = await verifyGitHubToken(token)
+    if (seq !== authSeq || isComponentUnmounted) return
     auth.value = {
       token,
       login: user.login,
@@ -303,26 +325,30 @@ async function restoreAuth() {
       persistLocal: persistLocalToggle.value,
     }
   } catch (err) {
+    if (seq !== authSeq || isComponentUnmounted) return
     const msg = err instanceof Error ? err.message : String(err)
     if (/\b(401|403)\b|bad credentials/i.test(msg)) {
       saveAuthToken('', true)
     } else {
       auth.value = { token, login: '', avatarUrl: '', persistLocal: persistLocalToggle.value }
-      threadsError.value = `Could not verify saved GitHub token yet: ${msg}`
+      authError.value = `Could not verify saved GitHub token yet: ${msg}`
     }
   }
 }
 
+/** Verify an entered GitHub PAT, persist storage preference, and refresh PR threads. */
 async function connectToken() {
   const cleaned = tokenInput.value.trim()
   if (!cleaned) {
     authError.value = 'Paste a fine-grained GitHub PAT first.'
     return
   }
+  const seq = ++authSeq
   authBusy.value = true
   authError.value = ''
   try {
     const user = await verifyGitHubToken(cleaned)
+    if (seq !== authSeq || isComponentUnmounted) return
     auth.value = {
       token: cleaned,
       login: user.login,
@@ -334,53 +360,72 @@ async function connectToken() {
     drawerView.value = 'main'
     await refreshThreads()
   } catch (err) {
+    if (seq !== authSeq || isComponentUnmounted) return
     authError.value = err instanceof Error ? err.message : 'Failed to verify GitHub token'
   } finally {
-    authBusy.value = false
+    if (seq === authSeq && !isComponentUnmounted) {
+      authBusy.value = false
+    }
   }
 }
 
+/** Sign out of the saved GitHub PAT and fall back to public anonymous thread reads. */
 function forgetToken() {
+  authSeq += 1
   auth.value = { token: '', login: '', avatarUrl: '', persistLocal: true }
   saveAuthToken('', true)
   refreshThreads()
 }
 
+/** Fetch PR threads and head SHA with monotonic request sequencing to discard stale responses. */
 async function refreshThreads() {
+  const seq = ++refreshSeq
   threadsLoading.value = true
   threadsError.value = ''
   try {
     const [fetchedThreads, headInfo] = await Promise.all([
       fetchPrThreads(meta.repo, meta.prNumber, auth.value.token),
-      fetchPrHeadInfo(meta.repo, meta.prNumber, auth.value.token).catch(() => null),
+      fetchPrHeadInfo(meta.repo, meta.prNumber, auth.value.token),
     ])
+    if (seq !== refreshSeq || isComponentUnmounted) return
     threads.value = fetchedThreads
     if (headInfo?.headSha) {
       remoteHeadSha.value = headInfo.headSha
     }
     threadsLoadedOnce.value = true
-    lastRefreshAt = Date.now()
     if (activeThread.value) {
       const updated = threads.value.find((t) => t.id === activeThread.value?.id)
       activeThread.value = updated ?? null
     }
   } catch (err) {
+    if (seq !== refreshSeq || isComponentUnmounted) return
     threadsError.value =
       err instanceof Error ? err.message : 'Failed to load PR threads'
   } finally {
-    threadsLoading.value = false
-    scheduleMeasure()
+    if (seq === refreshSeq && !isComponentUnmounted) {
+      lastRefreshAt = Date.now()
+      threadsLoading.value = false
+      scheduleMeasure()
+    }
   }
 }
 
+/** Trigger a background thread refresh only when cooldown bounds permit. */
 function maybeAutoRefreshThreads() {
-  if (threadsLoading.value) return
-  const minCooldownMs = auth.value.token ? 15_000 : 60_000
-  if (!threadsLoadedOnce.value || Date.now() - lastRefreshAt > minCooldownMs) {
+  if (
+    canAutoRefreshThreads(
+      threadsLoading.value,
+      threadsLoadedOnce.value,
+      lastRefreshAt,
+      Date.now(),
+      Boolean(auth.value.token),
+    )
+  ) {
     refreshThreads()
   }
 }
 
+/** Open the review drawer onto `'main'` or `'setup'` and auto-refresh threads when due. */
 function openReviewDrawer(view: 'main' | 'setup' = 'main') {
   drawerOpen.value = true
   drawerView.value = view
@@ -389,23 +434,17 @@ function openReviewDrawer(view: 'main' | 'setup' = 'main') {
   }
 }
 
+/** Sync `isMobile` reactive state with the current viewport width. */
 function updateViewportMode() {
   if (typeof window === 'undefined') return
-  isMobile.value = window.innerWidth < 768
+  isMobile.value = window.innerWidth < MOBILE_VIEWPORT_MAX_WIDTH
 }
 
-function isAnnotatableBlock(el: HTMLElement): boolean {
-  if (el.closest('.apex-review-ui')) return false
-  if (el.tagName === 'TR') return false
-  if (el.tagName === 'LI' && el.querySelector(':scope > p[data-src-line]')) {
-    return false
-  }
-  return true
-}
-
+/** Track currently near-viewport `[data-src-line]` elements inside `.vp-doc` using IntersectionObserver. */
 function observeDocumentBlocks() {
   visibleBlocks.clear()
   blockIntersectionObserver?.disconnect()
+  if (typeof document === 'undefined') return
   const docRoot = document.querySelector('.vp-doc')
   if (!docRoot) return
 
@@ -435,7 +474,7 @@ function observeDocumentBlocks() {
       }
       if (changed) scheduleMeasure()
     },
-    { rootMargin: '250px 0px' },
+    { rootMargin: BLOCK_OBSERVER_ROOT_MARGIN },
   )
 
   for (const el of blocks) {
@@ -558,7 +597,7 @@ function recomputeDocAnnotations() {
   const scrollY = window.scrollY
   const docWidth = document.documentElement.clientWidth
   const docLeft = docRoot.getBoundingClientRect().left
-  const compactMode = docWidth < 960
+  const compactMode = docWidth < COMPACT_DOC_MAX_WIDTH
 
   const { gutters, buttons } = collectBlockAnnotations(
     docRoot,
@@ -573,6 +612,7 @@ function recomputeDocAnnotations() {
   threadMarkers.value = collectThreadMarkers(docRoot, scrollX, scrollY, docWidth)
 }
 
+/** Coalesce layout annotation re-measurement into the next browser animation frame. */
 function scheduleMeasure() {
   if (typeof window === 'undefined') return
   if (layoutRaf !== null) {
@@ -584,6 +624,7 @@ function scheduleMeasure() {
   })
 }
 
+/** Resolve the current prose text selection inside `.vp-doc` and place the floating comment pill. */
 function updateSelectionAction() {
   if (typeof window === 'undefined') return
   const docRoot = document.querySelector('.vp-doc')
@@ -600,25 +641,26 @@ function updateSelectionAction() {
     return
   }
   const rect = sel.getRangeAt(0).getBoundingClientRect()
+  // Selection ranges on wrapped spans can have positive height or width alone; only discard completely empty rects.
   if (rect.width <= 0 && rect.height <= 0) {
     selectionTarget.value = null
     selectionRect.value = null
     return
   }
   selectionTarget.value = target
-  const x = Math.min(window.innerWidth - 90, Math.max(90, rect.left + rect.width / 2))
-  const y = rect.top > 72 ? rect.top - 8 : rect.bottom + 36
-  selectionRect.value = { x, y }
+  selectionRect.value = clampSelectionPopover(rect, window.innerWidth)
 }
 
+/** Debounce `selectionchange`/`mouseup` checks so touch selection handles stabilize before showing the pill. */
 function scheduleSelectionCheck() {
   if (typeof window === 'undefined') return
   if (selectionTimer !== null) {
     window.clearTimeout(selectionTimer)
   }
-  selectionTimer = window.setTimeout(updateSelectionAction, 110)
+  selectionTimer = window.setTimeout(updateSelectionAction, SELECTION_DEBOUNCE_MS)
 }
 
+/** Open the comment composer modal pre-populated with `target`. */
 function openComposer(target: CommentTarget) {
   composerTarget.value = target
   composerBody.value = ''
@@ -627,28 +669,22 @@ function openComposer(target: CommentTarget) {
   selectionRect.value = null
 }
 
+/** Open the comment composer for a block element's `+` trigger. */
 function openComposerForBlock(el: HTMLElement) {
+  if (typeof document === 'undefined') return
   const docRoot = document.querySelector('.vp-doc')
   if (!docRoot) return
   const target = resolveBlockTarget(el, docRoot, currentRepoPath.value, meta.files)
   if (target) openComposer(target)
 }
 
+/** Open the comment composer for a general top-level PR conversation note. */
 function openTopLevelComposer() {
-  openComposer({
-    path: '',
-    startLine: 1,
-    endLine: 1,
-    apiStartLine: 1,
-    apiLine: 1,
-    mode: 'issue',
-    quote: '',
-    sectionTitle: `PR #${meta.prNumber}`,
-    blockKind: 'PR Comment',
-  })
+  openComposer(buildTopLevelTarget(meta.prNumber))
 }
 
-function addDraftToCart() {
+/** Validate composer input and queue a new review comment draft locally. */
+function queueComposerDraft() {
   if (!composerTarget.value) return
   const text = composerBody.value.trim()
   if (!text) {
@@ -656,14 +692,9 @@ function addDraftToCart() {
     return
   }
   const target = composerTarget.value
-  drafts.value.push({
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-    kind: 'comment',
-    ...target,
-    body: text,
-    createdAt: new Date().toISOString(),
-  })
+  drafts.value.push(createDraftComment(target, text))
   saveDraftState()
+  clearActionErrors()
   composerTarget.value = null
   composerBody.value = ''
   submitNotice.value = target.path
@@ -671,12 +702,17 @@ function addDraftToCart() {
     : 'Queued top-level PR comment draft.'
 }
 
+/** Remove one staged draft comment/reply/resolve entry by ID. */
 function removeDraft(id: string) {
   drafts.value = drafts.value.filter((d) => d.id !== id)
   saveDraftState()
+  clearActionErrors()
+  scheduleMeasure()
 }
 
+/** Submit all staged drafts to GitHub as one review batch, keeping failed items queued for retry. */
 async function submitQueuedReview() {
+  if (submitBusy.value) return
   if (!auth.value.token) {
     drawerView.value = 'setup'
     return
@@ -717,6 +753,7 @@ async function submitQueuedReview() {
   }
 }
 
+/** Open the floating thread reader card for `thread` and compute a GitHub diff fallback URL when absent. */
 async function openThreadCard(thread: RemoteReviewThread) {
   activeThread.value = thread
   replyBody.value = ''
@@ -728,69 +765,39 @@ async function openThreadCard(thread: RemoteReviewThread) {
       if (activeThread.value?.id === thread.id) {
         activeThreadDiffUrl.value = url
       }
-    } catch {
-      // Leave fallback URL empty if WebCrypto diff hashing is unavailable.
+    } catch (err) {
+      if (activeThread.value?.id === thread.id) {
+        threadActionError.value =
+          err instanceof Error ? err.message : 'Failed to build GitHub PR diff link'
+      }
     }
   }
 }
 
+/** Return queued reply drafts targeting `threadId`. */
 function queuedRepliesFor(threadId: string): DraftComment[] {
   return drafts.value.filter((d) => d.kind === 'reply' && d.replyTarget?.threadId === threadId)
 }
 
-function queuedResolveFor(threadId: string): DraftComment | undefined {
-  return drafts.value.find((d) => d.kind === 'resolve' && d.resolveTarget?.threadId === threadId)
-}
-
+/** Return whether `thread` is resolved either remotely or via a staged draft. */
 function effectiveThreadResolved(thread: RemoteReviewThread): boolean {
-  const queued = queuedResolveFor(thread.id)
-  return queued?.resolveTarget ? queued.resolveTarget.resolved : thread.isResolved
+  return resolveEffectiveThreadState(thread, drafts.value)
 }
 
+/** Return the compact badge status string for `thread`. */
 function threadStatusLabel(thread: RemoteReviewThread, showOutdated = false): string {
-  const queued = queuedResolveFor(thread.id)
-  if (queued?.resolveTarget) {
-    return queued.resolveTarget.resolved ? 'Pending Resolve' : 'Pending Reopen'
-  }
-  if (thread.isResolved) return 'Resolved'
-  if (showOutdated && thread.isOutdated) return 'Outdated'
-  return 'Open'
+  return computeThreadStatusLabel(thread, drafts.value, showOutdated)
 }
 
+/** Queue a reply draft for `thread` from either the drawer inline box or floating thread card. */
 function stageThreadReply(thread: RemoteReviewThread, text: string, fromDrawer = false) {
   const trimmed = text.trim()
   if (!trimmed) return
-  const targetAuthor = thread.comments[0]?.author ?? 'reviewer'
-  const firstSnippet = thread.comments[0]?.body.split('\n')[0]?.slice(0, 140) ?? ''
-  const lineNum = thread.line ?? 1
-  drafts.value.push({
-    id: `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
-    kind: 'reply',
-    replyTarget: {
-      threadId: thread.id,
-      rootCommentId: thread.rootCommentId,
-      source: thread.source,
-      author: targetAuthor,
-      path: thread.path,
-      line: thread.line,
-    },
-    path: thread.path,
-    startLine: lineNum,
-    endLine: lineNum,
-    apiStartLine: lineNum,
-    apiLine: lineNum,
-    mode: thread.source === 'review' ? 'issue' : thread.source,
-    quote: firstSnippet,
-    sectionTitle: `Reply to @${targetAuthor}`,
-    blockKind: 'reply',
-    body: trimmed,
-    createdAt: new Date().toISOString(),
-  })
+  const draft = createReplyDraft(thread, trimmed)
+  drafts.value.push(draft)
   saveDraftState()
-  submitNotice.value = `Staged reply to @${targetAuthor}. Click Submit in the drawer when ready to send.`
-  submitError.value = ''
-  threadActionError.value = ''
-  threadsError.value = ''
+  clearActionErrors()
+  submitNotice.value = `Staged reply to @${draft.replyTarget?.author ?? 'reviewer'}. Click Submit in the drawer when ready to send.`
   if (fromDrawer) {
     inlineReplyThreadId.value = null
     inlineReplyBody.value = ''
@@ -799,11 +806,11 @@ function stageThreadReply(thread: RemoteReviewThread, text: string, fromDrawer =
   }
 }
 
+/** Stage or cancel a resolve/reopen action for `thread`. */
 function toggleThreadResolved(thread: RemoteReviewThread) {
   if (!thread.canResolve) return
-  threadActionError.value = ''
-  threadsError.value = ''
-  const existing = queuedResolveFor(thread.id)
+  clearActionErrors()
+  const existing = findQueuedResolve(thread.id, drafts.value)
   if (existing) {
     drafts.value = drafts.value.filter((d) => d.id !== existing.id)
     saveDraftState()
@@ -811,41 +818,12 @@ function toggleThreadResolved(thread: RemoteReviewThread) {
     scheduleMeasure()
     return
   }
-  const nextResolved = !thread.isResolved
-  const firstSnippet = thread.comments[0]?.body.split('\n')[0]?.slice(0, 140) ?? ''
-  const lineNum = thread.line ?? 1
-  drafts.value.push({
-    id: `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
-    kind: 'resolve',
-    resolveTarget: {
-      threadId: thread.id,
-      rootCommentId: thread.rootCommentId,
-      source: thread.source,
-      path: thread.path,
-      line: thread.line,
-      resolved: nextResolved,
-      rawRootBody: thread.rawRootBody,
-    },
-    path: thread.path,
-    startLine: lineNum,
-    endLine: lineNum,
-    apiStartLine: lineNum,
-    apiLine: lineNum,
-    mode: thread.source === 'review' ? 'issue' : thread.source,
-    quote: firstSnippet,
-    sectionTitle: nextResolved ? 'Resolve thread' : 'Reopen thread',
-    blockKind: nextResolved ? 'Resolve' : 'Reopen',
-    body: nextResolved ? 'Resolve thread' : 'Reopen thread',
-    createdAt: new Date().toISOString(),
-  })
+  const draft = createResolveDraft(thread)
+  drafts.value.push(draft)
   saveDraftState()
-  submitNotice.value = `Staged ${nextResolved ? 'resolve' : 'reopen'}. Click Submit in the drawer when ready.`
+  submitNotice.value = `Staged ${draft.resolveTarget?.resolved ? 'resolve' : 'reopen'}. Click Submit in the drawer when ready.`
   scheduleMeasure()
 }
-
-const JUMP_HIGHLIGHT_MS = 2200
-const ROUTE_SCROLL_DELAY_MS = 120
-let isComponentUnmounted = false
 
 /** Jump to the referenced source line when clicking a comment card outside nested controls/selections. */
 function onCommentCardClick(
@@ -862,6 +840,7 @@ function onCommentCardClick(
 
 /** Navigate to the book route for `repoPath` and scroll to `line`, or open the GitHub PR diff tab. */
 async function jumpToLocation(repoPath: string, line: number | null) {
+  if (typeof window === 'undefined') return
   const bookRoute = mapRepoPathToRoute(repoPath)
   if (!bookRoute) {
     // Open popup synchronously during user click so mobile/Safari browsers do not block it after await.
@@ -874,8 +853,10 @@ async function jumpToLocation(repoPath: string, line: number | null) {
       } else {
         window.open(url, '_blank', 'noreferrer')
       }
-    } catch {
+    } catch (err) {
       popup?.close()
+      threadActionError.value =
+        err instanceof Error ? err.message : 'Failed to open GitHub PR diff link'
     }
     return
   }
@@ -895,6 +876,7 @@ async function jumpToLocation(repoPath: string, line: number | null) {
 
 /** Scroll `.vp-doc` to the element covering `line`, expanding `<details>` and pulsing a brief highlight. */
 function scrollToSourceLine(line: number | null) {
+  if (isComponentUnmounted || typeof document === 'undefined') return
   const docRoot = document.querySelector('.vp-doc')
   if (!docRoot) return
   const el = findAnchorElementForLine(docRoot, line)
@@ -920,12 +902,14 @@ function scrollToSourceLine(line: number | null) {
   }, JUMP_HIGHLIGHT_MS)
 }
 
+/** Reset DOM observers and re-bind intersection/mutation/resize watchers onto the active `.vp-doc` container. */
 function attachDocObservers() {
   docObserver?.disconnect()
   docResizeObserver?.disconnect()
+  observeDocumentBlocks()
+  if (typeof document === 'undefined') return
   const docRoot = document.querySelector('.vp-doc')
   if (!docRoot) return
-  observeDocumentBlocks()
   docObserver = new MutationObserver(() => {
     observeDocumentBlocks()
     scheduleMeasure()
@@ -941,6 +925,7 @@ watch(
   () => route.path,
   async () => {
     selectionTarget.value = null
+    selectionRect.value = null
     await nextTick()
     if (isComponentUnmounted) return
     attachDocObservers()
@@ -949,8 +934,14 @@ watch(
       const targetLine = pendingScrollLine.value
       pendingScrollLine.value = null
       syncBodyScrollLock(false)
+      if (routeScrollTimer !== null) {
+        window.clearTimeout(routeScrollTimer)
+      }
       // Wait briefly for VitePress client transition layout measurement before scrolling.
-      window.setTimeout(() => scrollToSourceLine(targetLine), ROUTE_SCROLL_DELAY_MS)
+      routeScrollTimer = window.setTimeout(() => {
+        routeScrollTimer = null
+        scrollToSourceLine(targetLine)
+      }, ROUTE_SCROLL_DELAY_MS)
     }
   },
 )
@@ -965,6 +956,7 @@ watch(
   { deep: true },
 )
 
+/** Synchronize document scroll lock while a modal/drawer overlay is open. */
 function syncBodyScrollLock(locked: boolean) {
   if (typeof document === 'undefined') return
   const val = locked ? 'hidden' : ''
@@ -979,11 +971,13 @@ watch(
   },
 )
 
+/** Refresh remote PR threads when the preview browser tab becomes visible or regains focus. */
 function handleWindowFocus() {
   if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
   maybeAutoRefreshThreads()
 }
 
+/** Reload the current browser page so readers pick up newly deployed PR preview assets. */
 function reloadPreviewPage() {
   if (typeof window !== 'undefined') {
     window.location.reload()
@@ -991,14 +985,10 @@ function reloadPreviewPage() {
 }
 
 onMounted(async () => {
+  if (typeof window === 'undefined') return
   updateViewportMode()
   loadDraftState()
-  await restoreAuth()
-  if (isComponentUnmounted) return
-  if (auth.value.token) {
-    await refreshThreads()
-  }
-  if (isComponentUnmounted) return
+  // Attach local diff gutters, block `+` triggers, and selection listeners immediately without waiting on remote GitHub APIs.
   await nextTick()
   if (isComponentUnmounted) return
   attachDocObservers()
@@ -1010,6 +1000,11 @@ onMounted(async () => {
   document.addEventListener('selectionchange', scheduleSelectionCheck)
   document.addEventListener('mouseup', scheduleSelectionCheck)
   document.addEventListener('touchend', scheduleSelectionCheck)
+  await restoreAuth()
+  if (isComponentUnmounted) return
+  if (auth.value.token) {
+    await refreshThreads()
+  }
 })
 
 onUnmounted(() => {
@@ -1021,6 +1016,7 @@ onUnmounted(() => {
   if (selectionTimer !== null) window.clearTimeout(selectionTimer)
   if (layoutRaf !== null) window.cancelAnimationFrame(layoutRaf)
   if (jumpHighlightTimer !== null) window.clearTimeout(jumpHighlightTimer)
+  if (routeScrollTimer !== null) window.clearTimeout(routeScrollTimer)
   highlightedEl?.classList.remove('apex-jump-highlight')
   highlightedEl = null
   if (typeof window !== 'undefined') {
@@ -1154,8 +1150,8 @@ onUnmounted(() => {
           rows="4"
           class="apex-textarea"
           :placeholder="composerTarget.path ? 'Write your inline review comment...' : 'Write a top-level PR comment...'"
-          @keydown.meta.enter.prevent="addDraftToCart"
-          @keydown.ctrl.enter.prevent="addDraftToCart"
+          @keydown.meta.enter.prevent="queueComposerDraft"
+          @keydown.ctrl.enter.prevent="queueComposerDraft"
         />
 
         <div v-if="composerError" class="apex-error-banner">{{ composerError }}</div>
@@ -1167,7 +1163,7 @@ onUnmounted(() => {
           <button
             type="button"
             class="apex-rev-btn is-primary"
-            @click="addDraftToCart"
+            @click="queueComposerDraft"
           >
             Add
           </button>

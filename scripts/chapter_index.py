@@ -184,7 +184,7 @@ def _populate_meta_tokens(
         if not stripped.startswith("|"):
             for bm in INLINE_BOLD_RE.finditer(stripped):
                 phrase = bm.group(1).strip().rstrip(":")
-                if phrase and phrase.lower() not in GENERIC_STOPWORDS and not phrase.startswith("Problem "):
+                if phrase and phrase.lower() not in GENERIC_STOPWORDS and not phrase.startswith(("Problem ", "Example ")):
                     terms.append(phrase)
         for cm in INLINE_CODE_RE.finditer(stripped):
             tok = cm.group(1)
