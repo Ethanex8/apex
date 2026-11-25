@@ -9,6 +9,10 @@ import {
   verifyGitHubToken,
 } from './githubClient'
 import {
+  computeBlockAnnotationLayout,
+  computeThreadChipPosition,
+} from './annotationLayout'
+import {
   buildGitHubDiffUrl,
   findAnchorElementForLine,
   isRangeInAddedDiff,
@@ -423,6 +427,107 @@ function observeDocumentBlocks() {
   }
 }
 
+/** Collect document-relative gutter bars and `+` trigger coordinates for visible diff blocks. */
+function collectBlockAnnotations(
+  docRoot: Element,
+  docLeft: number,
+  scrollX: number,
+  scrollY: number,
+  docWidth: number,
+  compactMode: boolean,
+): { gutters: GutterMark[]; buttons: BlockAddButton[] } {
+  const gutters: GutterMark[] = []
+  const buttons: BlockAddButton[] = []
+  const repoPath = currentRepoPath.value
+  let idx = 0
+
+  for (const el of visibleBlocks) {
+    // Prune nodes detached by VitePress client-side navigation before measuring geometry.
+    if (!docRoot.contains(el)) {
+      visibleBlocks.delete(el)
+      continue
+    }
+    const rect = el.getBoundingClientRect()
+    if (rect.width <= 0 || rect.height <= 0) continue
+
+    const startLine = Number.parseInt(el.dataset.srcLine ?? '', 10)
+    if (!Number.isInteger(startLine) || startLine <= 0) continue
+    const parsedEnd = Number.parseInt(el.dataset.srcEnd ?? String(startLine), 10)
+    const endLine = Number.isInteger(parsedEnd) && parsedEnd >= startLine ? parsedEnd : startLine
+
+    const coords = computeBlockAnnotationLayout(
+      rect,
+      docLeft,
+      scrollX,
+      scrollY,
+      docWidth,
+      compactMode,
+    )
+
+    if (showGutter.value && isRangeInAddedDiff(repoPath, startLine, endLine, meta.files)) {
+      gutters.push({
+        key: `g:${idx}:${startLine}`,
+        top: coords.gutterTop,
+        left: coords.gutterLeft,
+        height: coords.gutterHeight,
+      })
+    }
+
+    buttons.push({
+      key: `b:${idx}:${startLine}`,
+      top: coords.buttonTop,
+      left: coords.buttonLeft,
+      line: startLine,
+      el,
+    })
+    idx += 1
+  }
+
+  return { gutters, buttons }
+}
+
+/** Group remote PR review threads by anchored block element and compute floating chip coordinates. */
+function collectThreadMarkers(
+  docRoot: Element,
+  scrollX: number,
+  scrollY: number,
+  docWidth: number,
+): ThreadMarkerGroup[] {
+  const anchorGroups = new Map<
+    HTMLElement,
+    { line: number | null; items: RemoteReviewThread[] }
+  >()
+  for (const thread of pageThreads.value) {
+    const anchor = findAnchorElementForLine(docRoot, thread.line)
+    if (!anchor) continue
+    const existing = anchorGroups.get(anchor)
+    if (existing) {
+      existing.items.push(thread)
+    } else {
+      anchorGroups.set(anchor, { line: thread.line, items: [thread] })
+    }
+  }
+
+  const markers: ThreadMarkerGroup[] = []
+  let tIdx = 0
+  for (const [el, group] of anchorGroups.entries()) {
+    const rect = el.getBoundingClientRect()
+    if (rect.width <= 0 || rect.height <= 0) continue
+    const pos = computeThreadChipPosition(rect, scrollX, scrollY, docWidth)
+    markers.push({
+      key: `tm:${tIdx}:${group.items[0].id}`,
+      top: pos.top,
+      left: pos.left,
+      line: group.line,
+      allResolved: group.items.every((item) => effectiveThreadResolved(item)),
+      threads: group.items,
+    })
+    tIdx += 1
+  }
+  return markers
+}
+
+/** Recompute all PR margin gutter bars, block comment buttons, and floating thread chips. */
 function recomputeDocAnnotations() {
   if (typeof window === 'undefined') return
   const docRoot = document.querySelector('.vp-doc')
@@ -436,91 +541,20 @@ function recomputeDocAnnotations() {
   const scrollX = window.scrollX
   const scrollY = window.scrollY
   const docWidth = document.documentElement.clientWidth
+  const docLeft = docRoot.getBoundingClientRect().left
   const compactMode = docWidth < 960
 
-  const nextGutters: GutterMark[] = []
-  const nextButtons: BlockAddButton[] = []
-
-  let idx = 0
-  for (const el of visibleBlocks) {
-    if (!docRoot.contains(el)) {
-      visibleBlocks.delete(el)
-      continue
-    }
-    const rect = el.getBoundingClientRect()
-    if (rect.width <= 0 || rect.height <= 0) continue
-
-    const startLine = Number.parseInt(el.dataset.srcLine ?? '0', 10)
-    const endLine = Number.parseInt(el.dataset.srcEnd ?? String(startLine), 10)
-    if (startLine <= 0) continue
-
-    if (
-      showGutter.value &&
-      isRangeInAddedDiff(currentRepoPath.value, startLine, endLine, meta.files)
-    ) {
-      nextGutters.push({
-        key: `g:${idx}:${startLine}`,
-        top: rect.top + scrollY,
-        left: Math.max(3, rect.left + scrollX - 10),
-        height: Math.max(12, rect.height),
-      })
-    }
-
-    const btnLeft = compactMode
-      ? Math.min(docWidth - 26, Math.max(8, rect.right + scrollX - 22))
-      : Math.max(6, rect.left + scrollX - 30)
-    const btnTop = compactMode
-      ? Math.max(4, rect.top + scrollY - 10)
-      : rect.top + scrollY + 3
-
-    nextButtons.push({
-      key: `b:${idx}:${startLine}`,
-      top: btnTop,
-      left: btnLeft,
-      line: startLine,
-      el,
-    })
-    idx += 1
-  }
-
-  const anchorGroups = new Map<
-    HTMLElement,
-    { line: number | null; items: RemoteReviewThread[] }
-  >()
-  for (const t of pageThreads.value) {
-    const anchor = findAnchorElementForLine(docRoot, t.line)
-    if (!anchor) continue
-    const existing = anchorGroups.get(anchor)
-    if (existing) {
-      existing.items.push(t)
-    } else {
-      anchorGroups.set(anchor, { line: t.line, items: [t] })
-    }
-  }
-
-  const nextThreadMarkers: ThreadMarkerGroup[] = []
-  let tIdx = 0
-  for (const [el, group] of anchorGroups.entries()) {
-    const rect = el.getBoundingClientRect()
-    if (rect.width <= 0 || rect.height <= 0) continue
-    const chipLeft =
-      rect.right + 10 + 92 <= docWidth
-        ? rect.right + scrollX + 8
-        : Math.max(8, Math.min(docWidth - 96, rect.right + scrollX - 92))
-    nextThreadMarkers.push({
-      key: `tm:${tIdx}:${group.items[0].id}`,
-      top: rect.top + scrollY + (chipLeft < rect.right + scrollX ? -12 : 2),
-      left: chipLeft,
-      line: group.line,
-      allResolved: group.items.every((item) => effectiveThreadResolved(item)),
-      threads: group.items,
-    })
-    tIdx += 1
-  }
-
-  gutterMarks.value = nextGutters
-  blockAddButtons.value = nextButtons
-  threadMarkers.value = nextThreadMarkers
+  const { gutters, buttons } = collectBlockAnnotations(
+    docRoot,
+    docLeft,
+    scrollX,
+    scrollY,
+    docWidth,
+    compactMode,
+  )
+  gutterMarks.value = gutters
+  blockAddButtons.value = buttons
+  threadMarkers.value = collectThreadMarkers(docRoot, scrollX, scrollY, docWidth)
 }
 
 function scheduleMeasure() {

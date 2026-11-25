@@ -3,6 +3,10 @@ import test from 'node:test'
 import { createMarkdownRenderer } from 'vitepress'
 import { sourceLineMapPlugin } from '../../plugins/sourceLineMap.mts'
 import {
+  computeBlockAnnotationLayout,
+  computeThreadChipPosition,
+} from './annotationLayout.ts'
+import {
   buildGitHubDiffUrl,
   classifyTargetMode,
   isRangeInAddedDiff,
@@ -534,3 +538,96 @@ test('githubClient handles auth, paginated GraphQL threads, unauthenticated REST
   assert.equal(resolveCalls.some((c) => c.method === 'PATCH' && c.url.endsWith('/issues/comments/300')), true)
   assert.match(formatMarkdownBundle(meta, resolveDrafts, ''), /\*\*Resolve thread\*\* \(L14, #101\)/)
 })
+
+test('computeBlockAnnotationLayout keeps diff gutter bars clear of indented list-item markers on mobile and desktop', () => {
+  // Mobile (390px): .vp-doc left edge is 24px; <ol> list marker "1." occupies 24..44px ahead of <li> left=44px.
+  const mobilePara = computeBlockAnnotationLayout(
+    { top: 100, left: 24, right: 366, height: 40 },
+    24,
+    0,
+    500,
+    390,
+    true,
+  )
+  assert.equal(mobilePara.gutterLeft, 14)
+
+  const mobileListItem = computeBlockAnnotationLayout(
+    { top: 160, left: 44, right: 366, height: 80 },
+    24,
+    0,
+    500,
+    390,
+    true,
+  )
+  assert.equal(mobileListItem.gutterLeft, 14)
+  assert.equal(mobileListItem.gutterLeft + 3 <= 24, true)
+  assert.equal(mobileListItem.gutterTop, 660)
+  assert.equal(mobileListItem.buttonLeft, 344)
+
+  // Nested list item (left=64px) and full-bleed mobile code block (left=0px) both avoid collisions.
+  const mobileNested = computeBlockAnnotationLayout(
+    { top: 200, left: 64, right: 366, height: 24 },
+    24,
+    0,
+    0,
+    390,
+    true,
+  )
+  assert.equal(mobileNested.gutterLeft, 14)
+
+  const mobileCode = computeBlockAnnotationLayout(
+    { top: 260, left: 0, right: 390, height: 60 },
+    24,
+    0,
+    0,
+    390,
+    true,
+  )
+  assert.equal(mobileCode.gutterLeft, 3)
+
+  // Desktop (1280px): docLeft=320px keeps both gutter bar (310) and + button (286) left of "1." (320..340px).
+  const desktopListItem = computeBlockAnnotationLayout(
+    { top: 120, left: 340, right: 940, height: 90 },
+    320,
+    0,
+    100,
+    1280,
+    false,
+  )
+  assert.equal(desktopListItem.gutterLeft, 310)
+  assert.equal(desktopListItem.buttonLeft, 286)
+  assert.equal(desktopListItem.buttonLeft + 20 < desktopListItem.gutterLeft, true)
+
+  // Thread chips sit in the right margin on desktop and pull cleanly inward on narrow mobile viewports.
+  assert.deepEqual(
+    computeThreadChipPosition({ top: 120, left: 320, right: 940, height: 40 }, 0, 50, 1280),
+    { top: 172, left: 948 },
+  )
+  assert.deepEqual(
+    computeThreadChipPosition({ top: 120, left: 44, right: 366, height: 40 }, 0, 50, 390),
+    { top: 158, left: 274 },
+  )
+
+  // Collapsed viewport (docWidth=0), top-of-page block (top=0), and horizontal scroll preserve non-negative invariants.
+  const collapsed = computeBlockAnnotationLayout(
+    { top: 0, left: 24, right: 20, height: 10 },
+    24,
+    0,
+    0,
+    0,
+    true,
+  )
+  assert.equal(collapsed.buttonLeft, 8)
+  assert.equal(collapsed.buttonTop, 4)
+  assert.equal(collapsed.gutterTop, 0)
+
+  const topScrolledChip = computeThreadChipPosition(
+    { top: 4, left: 24, right: 366, height: 30 },
+    40,
+    0,
+    390,
+  )
+  assert.equal(topScrolledChip.top, 0)
+  assert.equal(topScrolledChip.left >= 8, true)
+})
+
