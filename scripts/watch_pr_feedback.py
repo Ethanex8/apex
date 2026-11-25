@@ -1,28 +1,40 @@
 #!/usr/bin/env python3
-"""Poll a GitHub PR for new human reviews or comments and exit when activity arrives.
+"""Poll a GitHub PR for new human reviews, comments, or merge/close and exit cleanly.
 
 Purpose:
   Run as a lightweight background watcher while the reviewer reads a live PR
   preview so the agent session wakes automatically as soon as a new PR review,
-  inline thread, reply, or conversation comment is submitted.
+  inline thread, reply, conversation comment, or 1-tap Merge/Close occurs.
 
 Usage:
   python3 scripts/watch_pr_feedback.py --pr 9
   python3 scripts/watch_pr_feedback.py --pr 9 --interval 25
 
 Outputs:
-  Prints detected feedback items in Markdown when new PR activity arrives and
-  exits 0; exits 1 on `gh` errors or 2 if `--max-polls` expires with no activity.
+  Prints detected feedback items in Markdown (or PR merge/close status) and
+  exits 0; exits 1 on invalid CLI arguments or persistent `gh` errors; exits 2
+  when `--max-polls` expires with no new activity or state transition.
 """
 
 from __future__ import annotations
 
 import argparse
+import json
+import math
+import shutil
+import subprocess
 import sys
 import time
 from dataclasses import dataclass
 
 import harvest_feedback
+
+DEFAULT_POLL_INTERVAL_S = 25.0
+DEFAULT_MAX_CONSECUTIVE_ERRORS = 5
+DEFAULT_GH_TIMEOUT_S = 30.0
+EXIT_OK = 0
+EXIT_ERROR = 1
+EXIT_TIMEOUT = 2
 
 
 @dataclass(frozen=True)
@@ -33,16 +45,28 @@ class FeedbackSnapshot:
     review_ids: frozenset[int]
 
 
+@dataclass(frozen=True)
+class PrCloseState:
+    """Immutable PR closure state indicating whether the PR closed or merged."""
+
+    closed: bool
+    merged: bool
+
+
 def _extract_comment_keys(items: list[dict[str, object]]) -> frozenset[str]:
-    """Collect unique root and reply keys from normalized `harvest_feedback` items."""
+    """Collect source-namespaced root and reply keys from `harvest_feedback` items."""
     keys: set[str] = set()
     for item in items:
-        keys.add(f"{item.get('source')}:{item.get('id')}")
+        source = str(item.get("source") or "unknown")
+        item_id = item.get("id")
+        if item_id is not None:
+            keys.add(f"{source}:{item_id}")
         replies = item.get("replies")
         if isinstance(replies, list):
             for reply in replies:
                 if isinstance(reply, dict) and reply.get("id") is not None:
-                    keys.add(f"reply:{reply['id']}")
+                    # Prefix reply IDs with `source` because inline/issue comments use separate ID spaces.
+                    keys.add(f"{source}:reply:{reply['id']}")
     return frozenset(keys)
 
 
@@ -56,6 +80,7 @@ def _extract_human_review_ids(repo: str, pr_number: int) -> frozenset[int]:
         if str(user.get("type") or "").lower() == "bot":
             continue
         state = str(rev.get("state") or "").upper()
+        # Skip unsent draft reviews; only submitted human review events should wake the watcher.
         if state == "PENDING":
             continue
         if isinstance(raw_id := rev.get("id"), int):
@@ -63,8 +88,35 @@ def _extract_human_review_ids(repo: str, pr_number: int) -> frozenset[int]:
     return frozenset(ids)
 
 
+def fetch_gh_object(endpoint: str) -> dict[str, object]:
+    """Invoke `gh api <endpoint>` for a single-resource JSON object, failing fast on errors."""
+    gh_bin = shutil.which("gh")
+    if not gh_bin:
+        raise RuntimeError("Missing required 'gh' CLI binary on PATH.")
+    try:
+        proc = subprocess.run(
+            [gh_bin, "api", endpoint],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=DEFAULT_GH_TIMEOUT_S,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(f"gh api '{endpoint}' timed out after {DEFAULT_GH_TIMEOUT_S:g}s.") from exc
+    if proc.returncode != 0:
+        raise RuntimeError(f"gh api '{endpoint}' failed: {proc.stderr.strip() or proc.stdout.strip()}")
+    try:
+        payload = json.loads(proc.stdout)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"Invalid JSON payload from '{endpoint}': {exc}") from exc
+    if not isinstance(payload, dict):
+        raise RuntimeError(f"Unexpected non-object JSON payload from '{endpoint}': {type(payload).__name__}")
+    return payload
+
+
 def capture_snapshot(repo: str, pr_number: int) -> FeedbackSnapshot:
     """Capture current comment/reply keys and submitted human review IDs for `pr_number`."""
+    # Include resolved threads in the delta baseline so resolving an existing thread doesn't get skipped or miscounted.
     items = harvest_feedback.normalize_pr_feedback(repo, pr_number, include_resolved=True)
     return FeedbackSnapshot(
         comment_keys=_extract_comment_keys(items),
@@ -81,55 +133,130 @@ def find_new_activity(
     return new_comments, new_reviews
 
 
+def _fetch_pr_close_state(repo: str, pr_number: int) -> PrCloseState:
+    """Return `PrCloseState(closed, merged)` for `pr_number` from single-PR GitHub metadata."""
+    # Query single-object endpoint directly because `harvest_feedback.fetch_gh_json` rejects non-list payloads.
+    data = fetch_gh_object(f"repos/{repo}/pulls/{pr_number}")
+    return PrCloseState(
+        closed=str(data.get("state") or "").lower() == "closed",
+        merged=bool(data.get("merged") or data.get("merged_at")),
+    )
+
+
+def _validate_watch_params(
+    pr_number: int,
+    interval_s: float,
+    max_polls: int | None,
+    max_consecutive_errors: int,
+) -> None:
+    """Validate watcher loop bounds upfront so invalid parameters fail before API calls."""
+    if pr_number <= 0:
+        raise ValueError(f"--pr must be positive (got {pr_number}).")
+    if not math.isfinite(interval_s) or interval_s <= 0:
+        raise ValueError(f"--interval must be finite and positive (got {interval_s}).")
+    if max_polls is not None and max_polls <= 0:
+        raise ValueError(f"--max-polls must be positive when set (got {max_polls}).")
+    if max_consecutive_errors <= 0:
+        raise ValueError(f"max_consecutive_errors must be positive (got {max_consecutive_errors}).")
+
+
+def _emit_detected_activity(
+    repo: str,
+    pr_number: int,
+    new_comments: list[str],
+    new_reviews: list[int],
+) -> None:
+    """Print newly detected feedback count and unresolved items in Markdown."""
+    # Emit only unresolved items to surface open reviewer actionables cleanly upon wakeup.
+    unresolved = harvest_feedback.normalize_pr_feedback(repo, pr_number)
+    print(
+        f"Detected new activity on PR #{pr_number}: "
+        f"{len(new_comments)} comment(s), {len(new_reviews)} review(s)."
+    )
+    print(harvest_feedback.format_feedback_markdown(pr_number, unresolved))
+
+
+def _emit_close_state(pr_number: int, close_state: PrCloseState) -> None:
+    """Print merged or closed PR lifecycle summary for wakeup consumers."""
+    outcome = "merged" if close_state.merged else "closed"
+    print(f"PR #{pr_number} {outcome} — review cycle complete.")
+
+
 def watch_pr_until_feedback(
     repo: str,
     pr_number: int,
     *,
-    interval_s: float = 25.0,
+    interval_s: float = DEFAULT_POLL_INTERVAL_S,
     max_polls: int | None = None,
-    max_consecutive_errors: int = 5,
+    max_consecutive_errors: int = DEFAULT_MAX_CONSECUTIVE_ERRORS,
 ) -> int:
-    """Poll `repo` PR `#pr_number` until new feedback appears, then print summary and exit 0."""
+    """Poll `repo` PR `#pr_number`; return `0` on feedback or merge/close, or `2` on timeout."""
+    _validate_watch_params(pr_number, interval_s, max_polls, max_consecutive_errors)
+
+    # Check PR state before sleeping so an already-merged or closed PR exits immediately.
+    close_state = _fetch_pr_close_state(repo, pr_number)
+    if close_state.closed:
+        _emit_close_state(pr_number, close_state)
+        return EXIT_OK
+
     baseline = capture_snapshot(repo, pr_number)
     polls = 0
     consecutive_errors = 0
+    last_error: RuntimeError | None = None
     while max_polls is None or polls < max_polls:
         time.sleep(interval_s)
         polls += 1
         try:
             current = capture_snapshot(repo, pr_number)
+            new_comments, new_reviews = find_new_activity(baseline, current)
+            if new_comments or new_reviews:
+                _emit_detected_activity(repo, pr_number, new_comments, new_reviews)
+                return EXIT_OK
+            close_state = _fetch_pr_close_state(repo, pr_number)
             consecutive_errors = 0
+            last_error = None
         except RuntimeError as exc:
             consecutive_errors += 1
-            print(f"WARN: transient poll error ({consecutive_errors}/{max_consecutive_errors}): {exc}", file=sys.stderr)
+            last_error = exc
+            print(
+                f"WARN: transient poll error ({consecutive_errors}/{max_consecutive_errors}): {exc}",
+                file=sys.stderr,
+            )
             if consecutive_errors >= max_consecutive_errors:
                 raise
             continue
-        new_comments, new_reviews = find_new_activity(baseline, current)
-        if new_comments or new_reviews:
-            unresolved = harvest_feedback.normalize_pr_feedback(repo, pr_number)
-            print(
-                f"Detected new activity on PR #{pr_number}: "
-                f"{len(new_comments)} comment(s), {len(new_reviews)} review(s)."
-            )
-            print(harvest_feedback.format_feedback_markdown(pr_number, unresolved))
-            return 0
-    return 2
+        if close_state.closed:
+            _emit_close_state(pr_number, close_state)
+            return EXIT_OK
+    # Surface unresolved trailing gh errors even when max_polls < max_consecutive_errors.
+    if last_error is not None:
+        raise last_error
+    return EXIT_TIMEOUT
 
 
 def main(argv: list[str] | None = None) -> int:
-    """CLI entry point for polling a GitHub PR until new human feedback arrives."""
-    parser = argparse.ArgumentParser(description=__doc__)
+    """CLI entry point for polling a GitHub PR until new human activity or close arrives."""
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("--pr", type=int, required=True, help="Pull request number.")
     parser.add_argument("--repo", default=None, help="Optional owner/repo (defaults to active gh repo).")
-    parser.add_argument("--interval", type=float, default=25.0, help="Poll interval in seconds.")
+    parser.add_argument(
+        "--interval",
+        type=float,
+        default=DEFAULT_POLL_INTERVAL_S,
+        help="Poll interval in seconds.",
+    )
     parser.add_argument("--max-polls", type=int, default=None, help="Optional max poll iterations.")
-    args = parser.parse_args(argv)
-
-    if args.pr <= 0 or args.interval <= 0:
-        print("ERROR: --pr and --interval must be positive.", file=sys.stderr)
-        return 1
     try:
+        args = parser.parse_args(argv)
+    except SystemExit as exc:
+        # Map argparse's default exit code 2 to EXIT_ERROR (1) so EXIT_TIMEOUT (2) stays unambiguous.
+        return EXIT_OK if exc.code in (0, None) else EXIT_ERROR
+
+    try:
+        _validate_watch_params(args.pr, args.interval, args.max_polls, DEFAULT_MAX_CONSECUTIVE_ERRORS)
         repo = harvest_feedback.resolve_repo_slug(args.repo)
         return watch_pr_until_feedback(
             repo,
@@ -139,7 +266,7 @@ def main(argv: list[str] | None = None) -> int:
         )
     except (RuntimeError, ValueError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
-        return 1
+        return EXIT_ERROR
 
 
 if __name__ == "__main__":
