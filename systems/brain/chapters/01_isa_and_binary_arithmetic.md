@@ -13,15 +13,15 @@ Between consecutive ticks of a periodic clock signal (one **clock cycle**), logi
 
 Testing a concurrent circuit design solely with hand-written test scripts mixes circuit timing with expected instruction behavior and leaves complex multi-instruction or external-signal corner cases unchecked.
 Processor teams separate those concerns before writing any circuit code by building an unambiguous sequential software specification called a **golden reference model**, or **oracle**, which is verified independently in software and then supplies automatic instruction-by-instruction expected states for arbitrary compiled programs.
-[`oracle.py`](../sim/oracle.py) implements that golden 32-bit reference specification for the `brain` CPU in the Python class `RV32Oracle`, named for the open-source fifth-generation processor standard built around a small, uniform set of simple 32-bit operations (**Reduced Instruction Set Computer, Fifth Generation**, or RISC-V).
+[`oracle.py`](../sim/oracle.py) implements that golden 32-bit reference specification for the `brain` CPU in the Python class `Oracle`, modeling the open-source fifth-generation processor standard built around a small, uniform set of simple 32-bit operations (**Reduced Instruction Set Computer, Fifth Generation**, or RISC-V).
 Before any hardware exists, unit tests in [`test_oracle.py`](../tb/test_oracle.py) verify the Python oracle's arithmetic bounds, memory-access rules, and timer alarms directly.
 Later, when our SystemVerilog CPU runs inside an open-source simulator that compiles circuit descriptions into fast C++ executables (**Verilator**), our verification harness feeds the exact same machine-code program to both engines in lockstep.
-After every completed (**retired**) instruction, hardware fault, or external interruption, [`RV32Oracle.step()`](../sim/oracle.py#L1194-L1273) returns a structured step receipt recording updated internal CPU storage, next-instruction address, and memory state, so the harness can compare each receipt against the simulated hardware state and halt on the exact step where they diverge.
+After every completed (**retired**) instruction, hardware fault, or external interruption, [`Oracle.step()`](../sim/oracle.py#L1194-L1273) returns a structured step receipt recording updated internal CPU storage, next-instruction address, and memory state, so the harness can compare each receipt against the simulated hardware state and halt on the exact step where they diverge.
 
 ```mermaid
 flowchart TD
     PROG["Compiled Program<br/>32-Bit Instructions"]
-    PROG --> ORACLE["Python Oracle<br/>RV32Oracle.step()"]
+    PROG --> ORACLE["Python Oracle<br/>Oracle.step()"]
     PROG --> HW["SystemVerilog CPU<br/>Verilator Sim"]
     ORACLE -->|"Expected Receipt"| CMP{"Lockstep Match?"}
     HW -->|"Hardware State"| CMP
@@ -368,7 +368,7 @@ Two boundary cases illustrate exact signed scaling during left shifts and why On
 
 ## 3. Core Registers and Instruction Encoding
 
-With fixed-width binary arithmetic established, we can define the core processor storage initialized in [`RV32Oracle.reset()`](../sim/oracle.py#L563-L593) and organize how a 32-bit machine word encodes operations, registers, and embedded constants.
+With fixed-width binary arithmetic established, we can define the core processor storage initialized in [`Oracle.reset()`](../sim/oracle.py#L563-L593) and organize how a 32-bit machine word encodes operations, registers, and embedded constants.
 Separating core registers and instruction bit layouts from external memory and hardware timers keeps instruction decoding self-contained before adding attached devices.
 
 ### Program Counter and Hardwired Zero Register
@@ -383,9 +383,9 @@ Choosing 32 registers rather than 8 or 256 balances fast circuit access against 
 Naming one of 32 registers takes $\log_2(32) = 5$ bits, so specifying one destination register (`rd`) and two source registers consumes $3 \times 5 = 15$ bits of a 32-bit instruction word and leaves 17 bits for operation selectors and embedded constants.
 
 In hardware, register `x0` (`rd == 0`) is not a writable storage cell initialized to zero at reset.
-Instead, `x0` omits flip-flops altogether: its read wires tie permanently to zero, and any write targeting `rd == 0` is silently discarded rather than updating storage, modeled in [`RV32Oracle._set_reg`](../sim/oracle.py#L893-L899):
+Instead, `x0` omits flip-flops altogether: its read wires tie permanently to zero, and any write targeting `rd == 0` is silently discarded rather than updating storage, modeled in [`Oracle._set_reg`](../sim/oracle.py#L893-L899):
 
-<!-- book-sync: RV32Oracle._set_reg -->
+<!-- book-sync: Oracle._set_reg -->
 <<< @/systems/brain/sim/oracle.py#L893-L899
 
 Dedicating one register index permanently to zero keeps the instruction set compact without losing expressiveness.
@@ -441,10 +441,10 @@ Notice two quantitative properties embedded directly in the bitfield layout tabl
 
 Because register columns (`rd` at 11..7, `rs1` at 19..15, `rs2` at 24..20) and selector columns (`opcode` at 6..0, `funct3` at 14..12, `funct7` at 31..25) stay pinned across formats, software can slice all six fields upfront before dispatching on `opcode` (formats omitting a field simply ignore its pre-sliced bits).
 To pull an upper bitfield down to Bit 0, an unsigned right shift (`insn >> lo`) moves every bit right by `lo` positions, discarding the lowest `lo` bits and zero-filling the vacated upper slots on non-negative words like `insn` (signed right shifts arrive with arithmetic instructions in Section 4).
-Inside [`RV32Oracle.step()`](../sim/oracle.py#L1194-L1273), combining that right shift with a $w$-bit mask $2^w - 1$ (holding `1` in Bits $w - 1..0$ and `0` above) clears every higher bit in parallel.
+Inside [`Oracle.step()`](../sim/oracle.py#L1194-L1273), combining that right shift with a $w$-bit mask $2^w - 1$ (holding `1` in Bits $w - 1..0$ and `0` above) clears every higher bit in parallel.
 Grouping those masks by field width—7-bit `OPCODE_MASK = 0x7F` and `FUNCT7_MASK = 0x7F`, 5-bit `REG_MASK = 0x1F`, and 3-bit `FUNCT3_MASK = 0x7`—extracts all six fields in six lines:
 
-<!-- book-sync: RV32Oracle.step['opcode = insn & OPCODE_MASK'..'funct7 = (insn >> 25) & FUNCT7_MASK'] -->
+<!-- book-sync: Oracle.step['opcode = insn & OPCODE_MASK'..'funct7 = (insn >> 25) & FUNCT7_MASK'] -->
 <<< @/systems/brain/sim/oracle.py#L1210-L1215
 
 In [`oracle.py`](../sim/oracle.py), [`enc_r`](../sim/oracle.py#L322-L331), [`enc_i`](../sim/oracle.py#L334-L342), [`enc_s`](../sim/oracle.py#L345-L356), [`enc_b`](../sim/oracle.py#L359-L372), [`enc_u`](../sim/oracle.py#L375-L378), and [`enc_j`](../sim/oracle.py#L381-L392) assemble bit-exact test instructions across all six formats.
@@ -531,7 +531,7 @@ In [`oracle.py`](../sim/oracle.py), [`sign_extend`](../sim/oracle.py#L272-L279) 
 ## 4. Integer Arithmetic, Multiplication, and Division
 
 Once the decoder slices an instruction word, integer operations flow into an arithmetic and bitwise execution circuit (**Arithmetic Logic Unit**, or ALU) built from memoryless logic gates whose output wires settle purely as a function of current inputs (**combinational logic**).
-Before dispatching to the ALU, [`RV32Oracle.step()`](../sim/oracle.py#L1194-L1273) reads and holds both prior source register values (`rs1_u, rs2_u = self.regs[rs1], self.regs[rs2]`) and derives signed views via [`s32`](../sim/oracle.py#L282-L284) (`rs1_s`, `rs2_s`).
+Before dispatching to the ALU, [`Oracle.step()`](../sim/oracle.py#L1194-L1273) reads and holds both prior source register values (`rs1_u, rs2_u = self.regs[rs1], self.regs[rs2]`) and derives signed views via [`s32`](../sim/oracle.py#L282-L284) (`rs1_s`, `rs2_s`).
 Because source values are captured before writing the result to `rd`, an in-place addition such as `add x3, x3, x3` (adding `x3` to itself) reads the prior `x3` on both inputs and writes double that value back to `x3`.
 
 ### Base Integer Operations and Zero Idioms
@@ -809,12 +809,12 @@ When dividing by zero (`rs2_u == 0`), `div` returns `-1` (`0xFFFF_FFFF`) and `di
 On signed overflow (`INT32_MIN` divided by $-1$), `div` wraps $+2^{31}$ to `INT32_MIN` and `rem` returns $0$ because $-1$ divides $-2^{31}$ evenly, satisfying $-2^{31} \equiv (-2^{31})(-1) + 0 \pmod{2^{32}}$.
 
 Inside [`oracle.py`](../sim/oracle.py), [`trunc_div_s32`](../sim/oracle.py#L301-L309) evaluates `abs(dividend) // abs(divisor)` first and uses Python's boolean XOR (`(dividend < 0) ^ (divisor < 0)`) to negate `q` whenever exactly one operand is negative (producing `-0 == 0` whenever `q == 0`, including `dividend == 0` with `divisor < 0`).
-[`RV32Oracle._exec_muldiv`](../sim/oracle.py#L1057-L1081) then dispatches `div`, `divu`, `rem`, and `remu` via selector constants `F3_DIV` through `F3_REMU` (`funct3` 4 through 7):
+[`Oracle._exec_muldiv`](../sim/oracle.py#L1057-L1081) then dispatches `div`, `divu`, `rem`, and `remu` via selector constants `F3_DIV` through `F3_REMU` (`funct3` 4 through 7):
 
 <!-- book-sync: trunc_div_s32 -->
 <<< @/systems/brain/sim/oracle.py#L301-L309
 
-<!-- book-sync: RV32Oracle._exec_muldiv['elif funct3 == F3_DIV:'..'res = rs1_u if rs2_u == 0'] -->
+<!-- book-sync: Oracle._exec_muldiv['elif funct3 == F3_DIV:'..'res = rs1_u if rs2_u == 0'] -->
 <<< @/systems/brain/sim/oracle.py#L1068-L1080
 
 | Instruction | `funct3` | Operand Interpretation | Divide by Zero (`rs2_u == 0`) | Signed Overflow (`INT32_MIN` by $-1$) | Standard Rule |
@@ -888,7 +888,7 @@ The third equivalence follows directly from the definition of floor for integer 
 Whenever $\lfloor a / 2^K \rfloor = m$, Euclidean division gives $a = m \cdot 2^K + (a \bmod 2^K) = B + (a \bmod 2^K)$, so the window offset $a - B = a \bmod 2^K$ is simply the low $K$ bits of `addr` with zero subtraction.
 Because $B$ is an exact multiple of $2^K$, a full range test $B \le a < B + 2^K$—which would otherwise require two 32-bit magnitude comparators (or a 32-bit subtractor and comparator)—collapses into comparing only the upper $32 - K$ wires (Bits $31..K$) via `(addr >> K) == (B >> K)`.
 
-To inspect and drive memory from Python tests, [`RV32Oracle`](../sim/oracle.py#L528-L1291) provides [`load_bytes`](../sim/oracle.py#L605-L612) and [`load_words`](../sim/oracle.py#L614-L621) (internally passing `bypass_ro=True` to populate read-only code regions while rejecting MMIO windows).
+To inspect and drive memory from Python tests, [`Oracle`](../sim/oracle.py#L528-L1291) provides [`load_bytes`](../sim/oracle.py#L605-L612) and [`load_words`](../sim/oracle.py#L614-L621) (internally passing `bypass_ro=True` to populate read-only code regions while rejecting MMIO windows).
 Calling [`reset`](../sim/oracle.py#L563-L593) clears CPU registers while keeping loaded program bytes intact, whereas any invalid CPU access triggers [`MemoryAccessFault`](../sim/oracle.py#L430-L431) inside [`bus_read`](../sim/oracle.py#L713-L726) or [`bus_write`](../sim/oracle.py#L728-L745) to raise a load or store access-fault trap.
 
 ### Natural Alignment and Little-Endian Storage
@@ -900,7 +900,7 @@ For any access width $w = 2^k$ ($k \in \{0, 1, 2\}$), Euclidean division writes 
 
 $$\texttt{addr} \equiv 0 \pmod{2^k} \iff \texttt{addr} \mathbin{\&} (w - 1) = 0$$
 
-Inside [`RV32Oracle._exec_load`](../sim/oracle.py#L973-L1000) and [`RV32Oracle._exec_store`](../sim/oracle.py#L1002-L1021), hardware checks `(addr & (width - 1)) != 0` before calling [`bus_read`](../sim/oracle.py#L713-L726) or [`bus_write`](../sim/oracle.py#L728-L745).
+Inside [`Oracle._exec_load`](../sim/oracle.py#L973-L1000) and [`Oracle._exec_store`](../sim/oracle.py#L1002-L1021), hardware checks `(addr & (width - 1)) != 0` before calling [`bus_read`](../sim/oracle.py#L713-L726) or [`bus_write`](../sim/oracle.py#L728-L745).
 That ordering guarantees an unaligned pointer into unmapped memory deterministically reports a load- or store-misaligned trap ahead of a load- or store-access fault.
 
 #### Example 5.1: Alignment Trap Priority Over Peripheral Faults
@@ -996,7 +996,7 @@ Execution departs from sequential `pc + 4` flow in two ways: explicit control-fl
 
 Every non-trivial robot controller needs conditional `if`/`else` choices, counting loops, direct subroutine calls, and jump tables through function pointers.
 RISC-V splits explicit control-flow transfers cleanly into two groups: six conditional B-type branches compare two registers and jump when the relation holds, while two unconditional jump instructions save return **link address** `cur_pc + 4` in `rd` (conventionally `x1`, the subroutine return-link register) so subroutines can return cleanly.
-In [`oracle.py`](../sim/oracle.py), [`RV32Oracle._exec_branch`](../sim/oracle.py#L950-L971) handles conditional branches (`opcode` `0x63` with decoded 13-bit B-type signed offset `imm13`), [`_exec_jal`](../sim/oracle.py#L929-L935) (`opcode` `0x6F` with decoded 21-bit J-type signed offset `imm21`) handles direct jumps, and [`_exec_jalr`](../sim/oracle.py#L937-L948) (`opcode` `0x67` with decoded 12-bit I-type signed offset `imm12`) handles indirect jumps:
+In [`oracle.py`](../sim/oracle.py), [`Oracle._exec_branch`](../sim/oracle.py#L950-L971) handles conditional branches (`opcode` `0x63` with decoded 13-bit B-type signed offset `imm13`), [`_exec_jal`](../sim/oracle.py#L929-L935) (`opcode` `0x6F` with decoded 21-bit J-type signed offset `imm21`) handles direct jumps, and [`_exec_jalr`](../sim/oracle.py#L937-L948) (`opcode` `0x67` with decoded 12-bit I-type signed offset `imm12`) handles indirect jumps:
 
 | Mnemonic | Format / `funct3` | Branch / Jump Condition and Target | Link Writeback and Alignment Rule |
 | :--- | :--- | :--- | :--- |
@@ -1069,7 +1069,7 @@ Notice how `mie` and **Machine Interrupt Pending** (`mip`) align every interrupt
 | **Timer** | Bit 7 | **Machine Timer Interrupt Enable** (MTIE) | **Machine Timer Interrupt Pending** (MTIP) | Live wire `mtime >= mtimecmp` |
 | **External** | Bit 11 | **Machine External Interrupt Enable** (MEIE) | **Machine External Interrupt Pending** (MEIP) | External peripheral interrupt line |
 
-Inside [`RV32Oracle._exec_zicsr`](../sim/oracle.py#L1117-L1144), six Zicsr instructions (`opcode` `0x73`) perform indivisible (**atomic**) CSR **Read and Write** (`csrrw`), **Read and Set** (`csrrs`), and **Read and Clear** (`csrrc`) updates on `csr_addr` (Bits 31..20).
+Inside [`Oracle._exec_zicsr`](../sim/oracle.py#L1117-L1144), six Zicsr instructions (`opcode` `0x73`) perform indivisible (**atomic**) CSR **Read and Write** (`csrrw`), **Read and Set** (`csrrs`), and **Read and Clear** (`csrrc`) updates on `csr_addr` (Bits 31..20).
 Their immediate counterparts (`csrrwi`, `csrrsi`, `csrrci`) replace register operand `rs1_u` with a zero-extended **5-bit unsigned immediate** (`uimm`, stored in Bits 19..15), where `src` denotes whichever source value (`rs1_u` or `uimm`) supplies the update:
 
 | Mnemonic | `funct3` | Atomic Operation (Reads `old`, Writes New Value) | Write Suppression Rule |
@@ -1083,10 +1083,10 @@ Because `uimm` occupies the exact same Bits 19..15 slice as `rs1`, the method re
 For bit-clear (`rc`), XORing `src_val` with all-ones `MASK32` flips Bits 31..0 as an unsigned 32-bit NOT without producing Python's negative `~src_val`.
 Finally, `wrote_minstret` suppresses the normal retirement increment whenever an explicit CSR write targets `minstret` or `minstreth`:
 
-<!-- book-sync: RV32Oracle._exec_zicsr['src_val = rs1'..'csr_addr in (CSR_MINSTRET'] -->
+<!-- book-sync: Oracle._exec_zicsr['src_val = rs1'..'csr_addr in (CSR_MINSTRET'] -->
 <<< @/systems/brain/sim/oracle.py#L1127-L1142
 
-Under `opcode` `0x73` (`funct3` equal to 0) in [`RV32Oracle._exec_system`](../sim/oracle.py#L1146-L1169) and `opcode` `0x0F` in [`step()`](../sim/oracle.py#L1194-L1273), six fixed system and ordering instructions handle system traps, debugging, trap return, and bus barriers:
+Under `opcode` `0x73` (`funct3` equal to 0) in [`Oracle._exec_system`](../sim/oracle.py#L1146-L1169) and `opcode` `0x0F` in [`step()`](../sim/oracle.py#L1194-L1273), six fixed system and ordering instructions handle system traps, debugging, trap return, and bus barriers:
 
 | Instruction | Opcode / Encoding | Architectural Effect |
 | :--- | :--- | :--- |
@@ -1103,8 +1103,8 @@ Whenever an enabled asynchronous interrupt or synchronous exception fires, hardw
 In one step, the processor saves the word-aligned resume address into `mepc` (alongside `mcause` and `mtval`), copies global MIE into MPIE while clearing MIE to 0 to shield the handler from nested preemption, and jumps `pc` to the handler address encoded in `mtvec`.
 After the handler services the interrupt source (or advances `mepc` past a synchronous trap such as `ecall`), executing `mret` restores MIE from MPIE and resumes normal execution at `mepc`.
 
-In [`oracle.py`](../sim/oracle.py), [`RV32Oracle._check_pending_interrupt`](../sim/oracle.py#L904-L918) runs before every instruction fetch to check whether global MIE equals 1 and any enabled request in `self._live_mip() & self.mie` is active, arbitrating external ahead of software ahead of timer.
-Whether triggered by a pre-fetch interrupt or a synchronous exception, [`RV32Oracle._take_trap`](../sim/oracle.py#L860-L878) executes that atomic transition—clearing the low two address bits with `WORD_ALIGN_MASK` (`0xFFFF_FFFC`) and extracting the lower 31-bit trap number from `mcause` with `MCAUSE_CODE_MASK` (`0x7FFF_FFFF`).
+In [`oracle.py`](../sim/oracle.py), [`Oracle._check_pending_interrupt`](../sim/oracle.py#L904-L918) runs before every instruction fetch to check whether global MIE equals 1 and any enabled request in `self._live_mip() & self.mie` is active, arbitrating external ahead of software ahead of timer.
+Whether triggered by a pre-fetch interrupt or a synchronous exception, [`Oracle._take_trap`](../sim/oracle.py#L860-L878) executes that atomic transition—clearing the low two address bits with `WORD_ALIGN_MASK` (`0xFFFF_FFFC`) and extracting the lower 31-bit trap number from `mcause` with `MCAUSE_CODE_MASK` (`0x7FFF_FFFF`).
 When `mtvec` selects Direct dispatch (`mode == 0`), every trap jumps to `base`; when `mtvec` selects Vectored dispatch (`mode == 1`), synchronous exceptions still enter at `base` whereas asynchronous interrupts index into a contiguous jump table of 4-byte instruction slots starting at `base`, entering at `u32(base + 4 * code)`:
 
 ```mermaid
@@ -1118,7 +1118,7 @@ flowchart TD
     TRIG --> SAVE --> MASK --> VEC --> RUN --> RET
 ```
 
-<!-- book-sync: RV32Oracle._take_trap -->
+<!-- book-sync: Oracle._take_trap -->
 <<< @/systems/brain/sim/oracle.py#L860-L878
 
 Every trap source in [`oracle.py`](../sim/oracle.py) obeys one strict single-step priority order and `(mcause, mepc, mtval)` contract:
@@ -1186,7 +1186,7 @@ Control datapaths prevent violent sign inversions using **saturating arithmetic*
 
 Two physical limits on the target FPGA chip shape our custom instruction encoding (`opcode` `0x0B`):
 1. **Register-File Port Limit**: Programmable logic blocks inside our FPGA implement a two-read, one-write (2R1W) general-purpose register file efficiently, whereas feeding a running accumulator alongside two source operand registers (`rs1`, `rs2`) would demand three simultaneous register reads (3R1W).
-   Keeping a dedicated 32-bit signed architectural accumulator (`self.mac_acc`) alongside `x0`–`x31` supplies the third operand internally inside [`RV32Oracle`](../sim/oracle.py#L528-L1291) with zero extra register-file ports.
+   Keeping a dedicated 32-bit signed architectural accumulator (`self.mac_acc`) alongside `x0`–`x31` supplies the third operand internally inside [`Oracle`](../sim/oracle.py#L528-L1291) with zero extra register-file ports.
 2. **Hardwired 18-Bit Multiplier Blocks**: Embedded FPGA dedicated arithmetic blocks (**Digital Signal Processing** slices, or DSP slices) contain hardwired $18 \times 18$-bit signed multipliers, making two parallel 16-bit signed lanes packed inside one 32-bit register nearly free alongside existing 32-bit multiplier hardware.
    Packing lower halfword Bits 15..0 (`a0`, `b0`) and upper halfword Bits 31..16 (`a1`, `b1`) into `rs1` and `rs2` delivers two signed 16-bit multiply-accumulates in a single instruction (**Single Instruction, Multiple Data**, or SIMD), sign-extending each 16-bit lane via [`s16`](../sim/oracle.py#L287-L289):
 
@@ -1206,9 +1206,9 @@ The interactive datapath schematic below routes packed dual-16-bit vectors acros
 
 <XapexMacDatapath />
 
-Inside [`RV32Oracle._exec_mac`](../sim/oracle.py#L1171-L1189), hardware verifies `funct7 == 0x00` (trapping otherwise) and handles scalar bias preloads (`mac.set`), readbacks (`mac.get`), and the dual-lane dot-product accumulation below: slicing Bits 15..0 and Bits 31..16 through [`s16`](../sim/oracle.py#L287-L289), adding both signed products onto `base_acc` (0 for `mac.clr` or prior `self.mac_acc` for `mac`), and committing through [`sat32`](../sim/oracle.py#L292-L298):
+Inside [`Oracle._exec_mac`](../sim/oracle.py#L1171-L1189), hardware verifies `funct7 == 0x00` (trapping otherwise) and handles scalar bias preloads (`mac.set`), readbacks (`mac.get`), and the dual-lane dot-product accumulation below: slicing Bits 15..0 and Bits 31..16 through [`s16`](../sim/oracle.py#L287-L289), adding both signed products onto `base_acc` (0 for `mac.clr` or prior `self.mac_acc` for `mac`), and committing through [`sat32`](../sim/oracle.py#L292-L298):
 
-<!-- book-sync: RV32Oracle._exec_mac['if funct3 in (MAC_F3_ACC, MAC_F3_CLR):'..'self.mac_acc = sat32'] -->
+<!-- book-sync: Oracle._exec_mac['if funct3 in (MAC_F3_ACC, MAC_F3_CLR):'..'self.mac_acc = sat32'] -->
 <<< @/systems/brain/sim/oracle.py#L1177-L1182
 
 Notice one crucial subtlety about hardwired-zero write discard: `mac.clr x0, x1, x2` sets `base_acc` to zero (ignoring prior `self.mac_acc`) on the first weight pair while discarding the intermediate register copy into `x0`, subsequent weight pairs accumulate with `mac x0, x1, x2`, and a final `mac.get rd` reads the clamped result out of `self.mac_acc`.
@@ -1296,11 +1296,11 @@ The interactive wire decoder below splits any 32-bit word across all twelve opco
 
 Real processors interact continuously with live peripheral wires such as timer alarms and external serial interrupts, so a single clock tick can face competing events at the exact same instant.
 If hardware and our golden model disagreed on whether to increment timers before checking interrupts or whether a misaligned `pc` fails before reading memory, lockstep verification would fail immediately on subtle timing boundaries.
-[`RV32Oracle.step()`](../sim/oracle.py#L1194-L1273) wraps 64-bit counters modulo $2^{64}$ with `MASK64` (`0xFFFF_FFFF_FFFF_FFFF`), runs one fixed sequence of pre-fetch checks, and always returns a 10-field [`StepTrace`](../sim/oracle.py#L483-L504) commit receipt summarizing the step's observable state delta.
+[`Oracle.step()`](../sim/oracle.py#L1194-L1273) wraps 64-bit counters modulo $2^{64}$ with `MASK64` (`0xFFFF_FFFF_FFFF_FFFF`), runs one fixed sequence of pre-fetch checks, and always returns a 10-field [`StepTrace`](../sim/oracle.py#L483-L504) commit receipt summarizing the step's observable state delta.
 Internally, dispatch helpers return either an early trapping [`StepTrace`](../sim/oracle.py#L483-L504) or a pending non-trapping [`ExecOutcome`](../sim/oracle.py#L507-L522) record holding proposed register writeback (`rd`, `rd_val`), next `pc` (`next_pc`), memory delta (`mem_addr`, `mem_val`, `mem_write`), and a boolean `suppress_minstret` flag so explicit Zicsr writes to `minstret`/`minstreth` are not overwritten by normal retirement.
 The opening slice of [`step()`](../sim/oracle.py#L1194-L1273) below shows the pre-fetch clock advance, pending-interrupt preemption check, and instruction fetch:
 
-<!-- book-sync: RV32Oracle.step['cur_pc = self.pc'..'insn = fetched'] -->
+<!-- book-sync: Oracle.step['cur_pc = self.pc'..'insn = fetched'] -->
 <<< @/systems/brain/sim/oracle.py#L1196-L1207
 
 Four strict ordering guarantees govern every clock tick inside [`step()`](../sim/oracle.py#L1194-L1273):
@@ -1313,7 +1313,7 @@ Four strict ordering guarantees govern every clock tick inside [`step()`](../sim
 ### Precise Faults and Inductive Trace Equivalence
 
 Comparing every bit of state across 32 general-purpose registers, control registers, and 48 MB of memory after each executed instruction would require millions of comparisons per simulated clock cycle.
-Instead, [`RV32Oracle.step()`](../sim/oracle.py#L1194-L1273) normalizes every numeric commit delta as an unsigned 32-bit integer inside the 10-field [`StepTrace`](../sim/oracle.py#L483-L504) record (alongside optional `int | None` fields and boolean flags):
+Instead, [`Oracle.step()`](../sim/oracle.py#L1194-L1273) normalizes every numeric commit delta as an unsigned 32-bit integer inside the 10-field [`StepTrace`](../sim/oracle.py#L483-L504) record (alongside optional `int | None` fields and boolean flags):
 
 <!-- book-sync: StepTrace -->
 <<< @/systems/brain/sim/oracle.py#L483-L504
@@ -1331,13 +1331,13 @@ The table below maps how each field populates across normal instruction retireme
 
 Two formal invariants close the mathematical loop opened in Section 1 ($S_{t+1} = \texttt{step}(S_t)$):
 1. **Precise Exception Atomicity**: Any step that traps leaves architectural registers, `mac_acc`, memory contents, and `minstret` untouched.
-   Because [`RV32Oracle.step()`](../sim/oracle.py#L1194-L1273) defers register writeback, PC updates, and `minstret` increments behind [`ExecOutcome`](../sim/oracle.py#L507-L522) and validates alignment, CSR permissions, and bus bounds before mutating memory, CSRs, or `mac_acc`, any step returning a non-`None` `trap_cause` enforces $\text{regs}_{t+1} = \text{regs}_t$, $\text{mac\_acc}_{t+1} = \text{mac\_acc}_t$, $\text{mem}_{t+1} = \text{mem}_t$, and $\text{minstret}_{t+1} = \text{minstret}_t$.
+   Because [`Oracle.step()`](../sim/oracle.py#L1194-L1273) defers register writeback, PC updates, and `minstret` increments behind [`ExecOutcome`](../sim/oracle.py#L507-L522) and validates alignment, CSR permissions, and bus bounds before mutating memory, CSRs, or `mac_acc`, any step returning a non-`None` `trap_cause` enforces $\text{regs}_{t+1} = \text{regs}_t$, $\text{mac\_acc}_{t+1} = \text{mac\_acc}_t$, $\text{mem}_{t+1} = \text{mem}_t$, and $\text{minstret}_{t+1} = \text{minstret}_t$.
 2. **$O(1)$ Inductive Lockstep Sufficiency**: Comparing the 10-field [`StepTrace`](../sim/oracle.py#L483-L504) receipt on every step verifies full register, `pc`, memory, and trap lockstep in constant work per cycle.
    Aside from deterministic per-step counter ticks (`mcycle`, `mtime`, and non-suppressed `minstret`), every non-trapping instruction mutates `pc`, at most one architectural register `rd`, at most one $w \in \{1, 2, 4\}$-byte memory or peripheral slice, and at most one explicit target CSR or `mac_acc` register (including `mac.clr x0, x1, x2`, which updates `mac_acc` while discarding `rd` into `x0`).
    Starting hardware and oracle from identical reset state $S_0^{\text{hardware}} = S_0^{\text{oracle}}$ under identical external peripheral inputs, step-by-step comparison of `StepTrace` therefore verifies `pc`, all 32 general-purpose registers, every memory write, and every trap transition in $O(1)$ comparisons per step.
    In a conforming implementation, deterministic transition rules keep unlogged internal CSR, peripheral, and `mac_acc` state synchronized across steps; any hardware divergence in those internal registers surfaces in `StepTrace` as soon as a subsequent trap, interrupt, readback (`csrrw`, `csrrs`, `csrrc`, `csrrwi`, `csrrsi`, `csrrci`, `lw`, `mac.get`), or non-`x0` `mac` writeback depends on it.
 
-The interactive trace explorer below pairs a live single-step flow schematic with real scenarios from [`RV32Oracle.step()`](../sim/oracle.py#L1194-L1273)—highlighting clock ticks, pre-fetch interrupt preemption, normal retirement, and emitted `StepTrace` receipts side by side.
+The interactive trace explorer below pairs a live single-step flow schematic with real scenarios from [`Oracle.step()`](../sim/oracle.py#L1194-L1273)—highlighting clock ticks, pre-fetch interrupt preemption, normal retirement, and emitted `StepTrace` receipts side by side.
 
 <OracleStepTracer />
 

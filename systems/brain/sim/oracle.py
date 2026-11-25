@@ -24,7 +24,7 @@ Plain-English Glossary of Abbreviations Used Below:
                and `funct3`/`funct7` (3-bit and 7-bit sub-operation selectors).
 
 Usage:
-  cpu = RV32Oracle()
+  cpu = Oracle()
   cpu.load_words(BOOT_ROM_BASE, program_words)
   traces = cpu.run(max_steps=10_000)
 
@@ -482,7 +482,7 @@ class SparseMemory:
 
 @dataclass
 class StepTrace:
-    """Record of one step executed by `RV32Oracle.step()`.
+    """Record of one step executed by `Oracle.step()`.
 
     All integer address, word, and register fields (`pc`, `insn`, `next_pc`, `rd_val`,
     `mem_addr`, `mem_val`, and `trap_cause`) hold unsigned 32-bit values in [0, 2^32 - 1]
@@ -509,7 +509,7 @@ class ExecOutcome:
     """Pending register writeback, next PC, and StepTrace metadata from a non-trapping instruction.
 
     All fault/permission checks succeed before any bus write, CSR write, or `mac_acc` update
-    occurs; `rd_val` is normalized via `u32()` inside `RV32Oracle._set_reg()` at retirement.
+    occurs; `rd_val` is normalized via `u32()` inside `Oracle._set_reg()` at retirement.
     """
 
     rd: int = 0
@@ -525,7 +525,7 @@ class ExecOutcome:
 # ---------------------------------------------------------------------------
 # Golden RISC-V Reference CPU & System-on-Chip Emulator
 # ---------------------------------------------------------------------------
-class RV32Oracle:
+class Oracle:
     """Instruction-accurate RISC-V RV32IM + Zicsr + Xapex MAC reference CPU and System-on-Chip.
 
     Models all programmer-visible state of the `brain` chip:
