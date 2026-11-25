@@ -15,9 +15,11 @@ import {
 import {
   buildGitHubDiffUrl,
   findAnchorElementForLine,
+  isJumpableThreadPath,
   isRangeInAddedDiff,
   resolveBlockTarget,
   resolveSelectionTarget,
+  shouldTriggerJumpOnClick,
 } from './sourceMapper'
 import type {
   AuthState,
@@ -119,6 +121,8 @@ const pendingScrollLine = ref<number | null>(null)
 const visibleBlocks = new Set<HTMLElement>()
 let selectionTimer: number | null = null
 let layoutRaf: number | null = null
+let jumpHighlightTimer: number | null = null
+let highlightedEl: HTMLElement | null = null
 let docObserver: MutationObserver | null = null
 let docResizeObserver: ResizeObserver | null = null
 let blockIntersectionObserver: IntersectionObserver | null = null
@@ -280,11 +284,17 @@ async function restoreAuth() {
     return
   }
   if (!savedRaw) return
+  let token = ''
   try {
     const parsed = JSON.parse(savedRaw) as { token?: string; persistLocal?: boolean }
-    const token = (parsed.token ?? '').trim()
-    if (!token) return
+    token = (parsed.token ?? '').trim()
     persistLocalToggle.value = parsed.persistLocal ?? savedLocal
+  } catch {
+    saveAuthToken('', true)
+    return
+  }
+  if (!token) return
+  try {
     const user = await verifyGitHubToken(token)
     auth.value = {
       token,
@@ -292,8 +302,14 @@ async function restoreAuth() {
       avatarUrl: user.avatarUrl,
       persistLocal: persistLocalToggle.value,
     }
-  } catch {
-    saveAuthToken('', true)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    if (/\b(401|403)\b|bad credentials/i.test(msg)) {
+      saveAuthToken('', true)
+    } else {
+      auth.value = { token, login: '', avatarUrl: '', persistLocal: persistLocalToggle.value }
+      threadsError.value = `Could not verify saved GitHub token yet: ${msg}`
+    }
   }
 }
 
@@ -681,10 +697,10 @@ async function submitQueuedReview() {
       auth.value.token,
     )
     const failedIds = new Set(result.outcomes.filter((o) => !o.ok).map((o) => o.draftId))
-    const succeededCount = result.outcomes.filter((o) => o.ok).length
-    drafts.value = drafts.value.filter((d) => failedIds.has(d.id))
+    const succeededIds = new Set(result.outcomes.filter((o) => o.ok).map((o) => o.draftId))
+    drafts.value = drafts.value.filter((d) => !succeededIds.has(d.id))
     if (failedIds.size === 0 && result.summaryOk) {
-      submitNotice.value = `Submitted ${succeededCount} item(s) to PR #${meta.prNumber}.`
+      submitNotice.value = `Submitted ${succeededIds.size} item(s) to PR #${meta.prNumber}.`
     } else {
       const firstErr =
         result.summaryError ??
@@ -705,8 +721,17 @@ async function openThreadCard(thread: RemoteReviewThread) {
   activeThread.value = thread
   replyBody.value = ''
   threadActionError.value = ''
-  activeThreadDiffUrl.value =
-    thread.url || (await buildGitHubDiffUrl(meta.repo, meta.prNumber, thread.path, thread.line))
+  activeThreadDiffUrl.value = thread.url || ''
+  if (!thread.url) {
+    try {
+      const url = await buildGitHubDiffUrl(meta.repo, meta.prNumber, thread.path, thread.line)
+      if (activeThread.value?.id === thread.id) {
+        activeThreadDiffUrl.value = url
+      }
+    } catch {
+      // Leave fallback URL empty if WebCrypto diff hashing is unavailable.
+    }
+  }
 }
 
 function queuedRepliesFor(threadId: string): DraftComment[] {
@@ -818,14 +843,48 @@ function toggleThreadResolved(thread: RemoteReviewThread) {
   scheduleMeasure()
 }
 
+const JUMP_HIGHLIGHT_MS = 2200
+const ROUTE_SCROLL_DELAY_MS = 120
+let isComponentUnmounted = false
+
+/** Jump to the referenced source line when clicking a comment card outside nested controls/selections. */
+function onCommentCardClick(
+  event: MouseEvent,
+  repoPath: string,
+  line: number | null,
+) {
+  if (!isJumpableThreadPath(repoPath)) return
+  const selText =
+    typeof window !== 'undefined' ? (window.getSelection()?.toString() ?? '') : ''
+  if (!shouldTriggerJumpOnClick(event.target as Element | null, selText)) return
+  jumpToLocation(repoPath, line)
+}
+
+/** Navigate to the book route for `repoPath` and scroll to `line`, or open the GitHub PR diff tab. */
 async function jumpToLocation(repoPath: string, line: number | null) {
   const bookRoute = mapRepoPathToRoute(repoPath)
   if (!bookRoute) {
-    const url = await buildGitHubDiffUrl(meta.repo, meta.prNumber, repoPath, line)
-    window.open(url, '_blank', 'noreferrer')
+    // Open popup synchronously during user click so mobile/Safari browsers do not block it after await.
+    const popup = window.open('about:blank', '_blank')
+    try {
+      const url = await buildGitHubDiffUrl(meta.repo, meta.prNumber, repoPath, line)
+      if (popup) {
+        popup.opener = null
+        popup.location.href = url
+      } else {
+        window.open(url, '_blank', 'noreferrer')
+      }
+    } catch {
+      popup?.close()
+    }
     return
   }
+  // Clear both overlays and body overflow lock before scrolling so mobile/desktop browsers honor scrollIntoView.
+  activeThread.value = null
   drawerOpen.value = false
+  syncBodyScrollLock(false)
+  await nextTick()
+  if (isComponentUnmounted) return
   if (repoPath === currentRepoPath.value) {
     scrollToSourceLine(line)
   } else {
@@ -834,13 +893,31 @@ async function jumpToLocation(repoPath: string, line: number | null) {
   }
 }
 
+/** Scroll `.vp-doc` to the element covering `line`, expanding `<details>` and pulsing a brief highlight. */
 function scrollToSourceLine(line: number | null) {
   const docRoot = document.querySelector('.vp-doc')
   if (!docRoot) return
   const el = findAnchorElementForLine(docRoot, line)
-  if (el) {
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  if (!el) return
+  let cur: HTMLElement | null = el
+  while (cur) {
+    if (cur instanceof HTMLDetailsElement) cur.open = true
+    cur = cur.parentElement
   }
+  if (highlightedEl) {
+    highlightedEl.classList.remove('apex-jump-highlight')
+  }
+  if (jumpHighlightTimer !== null) {
+    window.clearTimeout(jumpHighlightTimer)
+  }
+  highlightedEl = el
+  el.classList.add('apex-jump-highlight')
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  jumpHighlightTimer = window.setTimeout(() => {
+    highlightedEl?.classList.remove('apex-jump-highlight')
+    highlightedEl = null
+    jumpHighlightTimer = null
+  }, JUMP_HIGHLIGHT_MS)
 }
 
 function attachDocObservers() {
@@ -865,12 +942,15 @@ watch(
   async () => {
     selectionTarget.value = null
     await nextTick()
+    if (isComponentUnmounted) return
     attachDocObservers()
     scheduleMeasure()
     if (pendingScrollLine.value !== null) {
       const targetLine = pendingScrollLine.value
       pendingScrollLine.value = null
-      window.setTimeout(() => scrollToSourceLine(targetLine), 120)
+      syncBodyScrollLock(false)
+      // Wait briefly for VitePress client transition layout measurement before scrolling.
+      window.setTimeout(() => scrollToSourceLine(targetLine), ROUTE_SCROLL_DELAY_MS)
     }
   },
 )
@@ -914,10 +994,13 @@ onMounted(async () => {
   updateViewportMode()
   loadDraftState()
   await restoreAuth()
+  if (isComponentUnmounted) return
   if (auth.value.token) {
     await refreshThreads()
   }
+  if (isComponentUnmounted) return
   await nextTick()
+  if (isComponentUnmounted) return
   attachDocObservers()
   scheduleMeasure()
   window.addEventListener('resize', updateViewportMode, { passive: true })
@@ -930,12 +1013,16 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  isComponentUnmounted = true
   syncBodyScrollLock(false)
   docObserver?.disconnect()
   docResizeObserver?.disconnect()
   blockIntersectionObserver?.disconnect()
   if (selectionTimer !== null) window.clearTimeout(selectionTimer)
   if (layoutRaf !== null) window.cancelAnimationFrame(layoutRaf)
+  if (jumpHighlightTimer !== null) window.clearTimeout(jumpHighlightTimer)
+  highlightedEl?.classList.remove('apex-jump-highlight')
+  highlightedEl = null
   if (typeof window !== 'undefined') {
     window.removeEventListener('resize', updateViewportMode)
     window.removeEventListener('resize', scheduleMeasure)
@@ -1097,7 +1184,16 @@ onUnmounted(() => {
     >
       <div class="apex-modal-card" role="dialog" aria-label="PR Review Thread">
         <div class="apex-meta-row">
-          <span class="apex-mono-path">
+          <button
+            v-if="isJumpableThreadPath(activeThread.path)"
+            type="button"
+            class="apex-rev-btn"
+            :title="`Jump to ${activeThread.path}${activeThread.line ? `:L${activeThread.line}` : ''}`"
+            @click="jumpToLocation(activeThread.path, activeThread.line)"
+          >
+            Go to {{ activeThread.path.split('/').pop() }}<template v-if="activeThread.line">:L{{ activeThread.line }}</template>
+          </button>
+          <span v-else class="apex-mono-path">
             {{ activeThread.path }}<template v-if="activeThread.line">:L{{ activeThread.line }}</template>
           </span>
           <div style="display: flex; gap: 6px; align-items: center">
@@ -1131,7 +1227,13 @@ onUnmounted(() => {
             <strong>@{{ msg.author }}</strong>
             <span class="apex-collapsed-snippet">{{ summarizeComment(msg) }}</span>
           </button>
-          <div v-else class="apex-expanded-msg">
+          <div
+            v-else
+            class="apex-expanded-msg"
+            :class="{ 'is-jumpable': isJumpableThreadPath(activeThread.path) }"
+            :title="isJumpableThreadPath(activeThread.path) ? `Click to go to ${activeThread.path}${activeThread.line ? `:L${activeThread.line}` : ''}` : undefined"
+            @click="onCommentCardClick($event, activeThread.path, activeThread.line)"
+          >
             <div class="apex-meta-row">
               <strong>@{{ msg.author }}</strong>
               <div style="display: flex; gap: 8px; align-items: center">
@@ -1268,7 +1370,17 @@ onUnmounted(() => {
               </button>
             </div>
             <div v-if="submitNotice" class="apex-status-banner">{{ submitNotice }}</div>
-            <div v-if="submitError" class="apex-error-banner">{{ submitError }}</div>
+            <div v-if="submitError" class="apex-error-banner" style="display: flex; flex-direction: column; gap: 6px; align-items: flex-start">
+              <span>{{ submitError }}</span>
+              <button
+                v-if="/personal access token|403|401/i.test(submitError)"
+                type="button"
+                class="apex-rev-btn"
+                @click="drawerView = 'setup'"
+              >
+                Open Token Settings
+              </button>
+            </div>
 
             <div class="apex-section-heading">
               <span>Pending Drafts ({{ drafts.length }})</span>
@@ -1317,7 +1429,15 @@ onUnmounted(() => {
                   Delete
                 </button>
               </div>
-              <blockquote v-if="d.quote" class="apex-quote-box">{{ d.quote }}</blockquote>
+              <blockquote
+                v-if="d.quote"
+                class="apex-quote-box"
+                :class="{ 'is-jumpable': isJumpableThreadPath(d.path) }"
+                :title="isJumpableThreadPath(d.path) ? `Click to go to ${d.path}:L${d.startLine}` : undefined"
+                @click="onCommentCardClick($event, d.path, d.startLine)"
+              >
+                {{ d.quote }}
+              </blockquote>
               <textarea v-if="d.kind !== 'resolve'" v-model="d.body" rows="2" class="apex-textarea" />
               <span
                 class="apex-mode-badge"
@@ -1407,7 +1527,13 @@ onUnmounted(() => {
                   <strong>@{{ msg.author }}</strong>
                   <span class="apex-collapsed-snippet">{{ summarizeComment(msg) }}</span>
                 </button>
-                <div v-else class="apex-expanded-msg">
+                <div
+                  v-else
+                  class="apex-expanded-msg"
+                  :class="{ 'is-jumpable': isJumpableThreadPath(t.path) }"
+                  :title="isJumpableThreadPath(t.path) ? `Click to go to ${t.path}${t.line ? `:L${t.line}` : ''}` : undefined"
+                  @click="onCommentCardClick($event, t.path, t.line)"
+                >
                   <div class="apex-meta-row">
                     <strong>@{{ msg.author }}</strong>
                     <div style="display: flex; gap: 6px; align-items: center">
@@ -1521,19 +1647,32 @@ onUnmounted(() => {
           <div class="apex-card">
             <strong>One-Time GitHub Setup per Browser</strong>
             <div style="font-size: 13px; color: var(--vp-c-text-2); line-height: 1.5">
-              Save a single <strong>Fine-Grained PAT</strong> restricted strictly to
-              <code>{{ meta.repo }}</code> with <strong>Pull requests: Read and write</strong> only.
+              Save a <strong>Fine-Grained PAT</strong> scoped strictly to <code>{{ meta.repo }}</code> with:
+              <strong>Pull requests: Read and write</strong>,
+              <strong>Contents: Read and write</strong> (required by GitHub to resolve/reopen inline threads via GraphQL),
+              and <strong>Issues: Read and write</strong>.
               It is reused automatically across all future Apex PR previews until expiration.
             </div>
-            <a
-              href="https://github.com/settings/personal-access-tokens/new"
-              target="_blank"
-              rel="noreferrer"
-              class="apex-rev-btn"
-              style="text-decoration: none; align-self: flex-start"
-            >
-              Create Scoped Token on GitHub ↗
-            </a>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px">
+              <a
+                href="https://github.com/settings/personal-access-tokens/new"
+                target="_blank"
+                rel="noreferrer"
+                class="apex-rev-btn"
+                style="text-decoration: none"
+              >
+                Create Scoped Token ↗
+              </a>
+              <a
+                href="https://github.com/settings/personal-access-tokens"
+                target="_blank"
+                rel="noreferrer"
+                class="apex-rev-btn"
+                style="text-decoration: none"
+              >
+                Manage Existing Tokens ↗
+              </a>
+            </div>
           </div>
 
           <div v-if="auth.token" class="apex-card">

@@ -121,6 +121,30 @@ function toggleResolvedMarker(rawBody: string, resolved: boolean): string {
   return resolved ? `${stripped}\n\n${PREVIEW_RESOLVED_MARKER}` : stripped
 }
 
+export type GitHubErrorContext = 'read' | 'rest_write' | 'graphql_resolve'
+
+export function formatGitHubPermissionError(
+  message: string,
+  context: GitHubErrorContext,
+): string {
+  if (!/resource not accessible by personal access token/i.test(message)) {
+    return message
+  }
+  if (context === 'graphql_resolve') {
+    return (
+      'Resource not accessible by personal access token. ' +
+      'GitHub requires a Fine-Grained PAT with BOTH "Pull requests: Read and write" ' +
+      'and "Contents: Read and write" to resolve or reopen inline threads via GraphQL. ' +
+      'Open Settings to update your token.'
+    )
+  }
+  return (
+    'Resource not accessible by personal access token. ' +
+    'Verify in Settings that your Fine-Grained PAT targets this repo with ' +
+    '"Pull requests: Read and write", "Contents: Read and write", and "Issues: Read and write".'
+  )
+}
+
 async function apiRequest<T>(
   url: string,
   init: RequestInit,
@@ -140,13 +164,28 @@ async function apiRequest<T>(
   }
   const resp = await fetcher(url, { ...init, headers })
   const text = await resp.text()
-  const parsed = text ? (JSON.parse(text) as Record<string, unknown>) : {}
+  let parsed: Record<string, unknown> = {}
+  if (text) {
+    try {
+      parsed = JSON.parse(text) as Record<string, unknown>
+    } catch (err) {
+      if (resp.ok) {
+        throw new Error(
+          `Invalid JSON response from GitHub (${resp.status}): ${err instanceof Error ? err.message : String(err)}`,
+        )
+      }
+      // Non-2xx proxy/gateway HTML errors lack JSON; fall back so the HTTP status message still surfaces.
+      parsed = {}
+    }
+  }
   if (!resp.ok) {
-    const msg =
+    const rawMsg =
       typeof parsed?.message === 'string'
         ? parsed.message
         : `GitHub API error (${resp.status})`
-    throw new Error(`${resp.status}: ${msg}`)
+    const errContext: GitHubErrorContext =
+      init.method && init.method.toUpperCase() !== 'GET' ? 'rest_write' : 'read'
+    throw new Error(`${resp.status}: ${formatGitHubPermissionError(rawMsg, errContext)}`)
   }
   return parsed as T
 }
@@ -240,7 +279,8 @@ async function fetchGraphQlThreads(
       fetcher,
     )
     if (payload.errors?.length) {
-      throw new Error(payload.errors.map((e) => e.message).join('; '))
+      const combined = payload.errors.map((e) => e.message ?? '').join('; ')
+      throw new Error(formatGitHubPermissionError(combined, 'read'))
     }
     const conn = payload.data?.repository?.pullRequest?.reviewThreads
     for (const node of conn?.nodes ?? []) {
@@ -759,13 +799,16 @@ export async function setThreadResolved(
       fetcher,
     )
     if (payload.errors?.length) {
-      throw new Error(payload.errors.map((e) => e.message).join('; '))
+      const combined = payload.errors.map((e) => e.message ?? '').join('; ')
+      throw new Error(formatGitHubPermissionError(combined, 'graphql_resolve'))
     }
-    return Boolean(
-      resolved
-        ? payload.data?.resolveReviewThread?.thread?.isResolved
-        : payload.data?.unresolveReviewThread?.thread?.isResolved,
-    )
+    const threadState = resolved
+      ? payload.data?.resolveReviewThread?.thread?.isResolved
+      : payload.data?.unresolveReviewThread?.thread?.isResolved
+    if (typeof threadState !== 'boolean') {
+      throw new Error('GitHub GraphQL response omitted updated thread resolution state.')
+    }
+    return threadState
   }
 
   if (thread.source === 'issue' && thread.rawRootBody !== undefined) {

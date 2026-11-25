@@ -9,12 +9,15 @@ import {
 import {
   buildGitHubDiffUrl,
   classifyTargetMode,
+  isJumpableThreadPath,
   isRangeInAddedDiff,
   normalizeQuote,
+  shouldTriggerJumpOnClick,
 } from './sourceMapper.ts'
 import {
   fetchPrHeadInfo,
   fetchPrThreads,
+  formatGitHubPermissionError,
   formatMarkdownBundle,
   parsePreviewLocationMarker,
   replyToThread,
@@ -629,5 +632,132 @@ test('computeBlockAnnotationLayout keeps diff gutter bars clear of indented list
   )
   assert.equal(topScrolledChip.top, 0)
   assert.equal(topScrolledChip.left >= 8, true)
+})
+
+test('formatGitHubPermissionError explains Fine-Grained PAT scopes across GraphQL resolve and REST write failures', async () => {
+  assert.equal(formatGitHubPermissionError('Not Found', 'read'), 'Not Found')
+  const resolveMsg = formatGitHubPermissionError(
+    'Resource not accessible by personal access token',
+    'graphql_resolve',
+  )
+  assert.match(resolveMsg, /Pull requests: Read and write/)
+  assert.match(resolveMsg, /Contents: Read and write/)
+
+  const meta = makeMeta()
+  const resolveDraft: DraftComment[] = [
+    {
+      id: 'res_err',
+      kind: 'resolve',
+      resolveTarget: {
+        threadId: 'PRRT_1',
+        rootCommentId: 101,
+        source: 'inline',
+        path: 'systems/brain/chapters/01_isa.md',
+        line: 14,
+        resolved: true,
+      },
+      path: 'systems/brain/chapters/01_isa.md',
+      startLine: 14,
+      endLine: 14,
+      apiStartLine: 14,
+      apiLine: 14,
+      mode: 'inline',
+      quote: 'Check.',
+      sectionTitle: 'Sec',
+      blockKind: 'Resolve',
+      body: 'Resolve thread',
+      createdAt: '2026-11-24T00:00:00Z',
+    },
+  ]
+  const gql403Fetch: FetchLike = async () =>
+    new Response(
+      JSON.stringify({
+        errors: [{ message: 'Resource not accessible by personal access token' }],
+      }),
+      { status: 200 },
+    )
+  const gqlOut = await submitBatchedReview(meta, resolveDraft, '', 'COMMENT', 'pat', gql403Fetch)
+  assert.equal(gqlOut.outcomes[0].ok, false)
+  assert.match(gqlOut.outcomes[0].error ?? '', /Contents: Read and write/)
+
+  const issueDraft: DraftComment[] = [
+    {
+      id: 'iss_err',
+      kind: 'comment',
+      path: '',
+      startLine: 1,
+      endLine: 1,
+      apiStartLine: 1,
+      apiLine: 1,
+      mode: 'issue',
+      quote: '',
+      sectionTitle: 'PR #42',
+      blockKind: 'PR Comment',
+      body: 'Top-level note',
+      createdAt: '2026-11-24T00:00:00Z',
+    },
+  ]
+  const rest403Fetch: FetchLike = async () =>
+    new Response(
+      JSON.stringify({ message: 'Resource not accessible by personal access token' }),
+      { status: 403 },
+    )
+  const restOut = await submitBatchedReview(meta, issueDraft, '', 'COMMENT', 'pat', rest403Fetch)
+  assert.equal(restOut.outcomes[0].ok, false)
+  assert.match(restOut.outcomes[0].error ?? '', /403: Resource not accessible by personal access token/)
+  assert.match(restOut.outcomes[0].error ?? '', /Issues: Read and write/)
+})
+
+test('comment jump helpers filter non-file threads, interactive controls, and text selections', () => {
+  assert.equal(isJumpableThreadPath('systems/brain/chapters/01_isa.md'), true)
+  assert.equal(isJumpableThreadPath('PR Summary'), false)
+  assert.equal(isJumpableThreadPath('PR Conversation'), false)
+  assert.equal(isJumpableThreadPath(''), false)
+
+  assert.equal(shouldTriggerJumpOnClick({ closest: () => null }, ''), true)
+  assert.equal(shouldTriggerJumpOnClick({ closest: () => null }, 'copied text'), false)
+  assert.equal(shouldTriggerJumpOnClick({ closest: (sel) => (sel.includes('button') ? {} : null) }, ''), false)
+  assert.equal(shouldTriggerJumpOnClick(null, ''), true)
+})
+
+test('sourceMapper and githubClient handle enclosing hunks, NaN lines, malformed JSON, and missing GraphQL state', async () => {
+  const meta = makeMeta()
+  const spanned = classifyTargetMode('systems/brain/chapters/01_isa.md', 5, 28, meta.files)
+  assert.deepEqual(spanned, { mode: 'inline', apiStartLine: 10, apiLine: 25 })
+
+  const nanInput = classifyTargetMode('VISION.md', Number.NaN, Number.NaN, meta.files)
+  assert.deepEqual(nanInput, { mode: 'issue', apiStartLine: 1, apiLine: 1 })
+
+  await assert.rejects(
+    verifyGitHubToken('pat', async () => new Response('<html>bad</html>', { status: 200 })),
+    /Invalid JSON response from GitHub \(200\)/,
+  )
+  await assert.rejects(
+    verifyGitHubToken('pat', async () => new Response('<html>Gateway Error</html>', { status: 502 })),
+    /502: GitHub API error \(502\)/,
+  )
+  await assert.rejects(
+    setThreadResolved(
+      'Ethanex8/apex',
+      42,
+      {
+        id: 'T1',
+        rootCommentId: 101,
+        path: 'systems/brain/chapters/01_isa.md',
+        line: 14,
+        startLine: null,
+        isResolved: false,
+        isOutdated: false,
+        canResolve: true,
+        source: 'inline',
+        url: '',
+        comments: [],
+      },
+      false,
+      'pat',
+      async () => new Response(JSON.stringify({ data: { unresolveReviewThread: {} } }), { status: 200 }),
+    ),
+    /omitted updated thread resolution state/,
+  )
 })
 

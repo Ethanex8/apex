@@ -1,3 +1,8 @@
+/**
+ * Purpose: Map browser DOM text selections, blocks, and comment clicks to exact repository source lines.
+ * Usage: Imported by PrReviewOverlay.vue and unit tests in review.test.mts.
+ * Invariants: Line numbers are 1-based; diff-bounded inline comments clamp cleanly within hunk intervals.
+ */
 import type {
   CommentTarget,
   CommentTargetMode,
@@ -5,6 +10,7 @@ import type {
   LineInterval,
 } from './types.ts'
 
+/** Classified GitHub PR review routing mode and clamped API line bounds. */
 export interface TargetModeClassification {
   mode: CommentTargetMode
   apiStartLine: number
@@ -33,8 +39,10 @@ export function classifyTargetMode(
   endLine: number,
   files: Record<string, DiffFileMeta>,
 ): TargetModeClassification {
-  const safeStart = Math.max(1, Math.min(startLine, endLine))
-  const safeEnd = Math.max(safeStart, endLine)
+  const cleanStart = Number.isFinite(startLine) ? startLine : 1
+  const cleanEnd = Number.isFinite(endLine) ? endLine : cleanStart
+  const safeStart = Math.max(1, Math.min(cleanStart, cleanEnd))
+  const safeEnd = Math.max(safeStart, cleanEnd)
   const fileMeta = files[path]
   if (!fileMeta) {
     return { mode: 'issue', apiStartLine: safeStart, apiLine: safeEnd }
@@ -55,6 +63,17 @@ export function classifyTargetMode(
       mode: 'inline',
       apiStartLine: safeStart,
       apiLine: Math.min(safeEnd, startInterval[1]),
+    }
+  }
+
+  const enclosing = fileMeta.commentable.find(
+    (interval) => safeStart <= interval[1] && safeEnd >= interval[0],
+  )
+  if (enclosing) {
+    return {
+      mode: 'inline',
+      apiStartLine: Math.max(enclosing[0], safeStart),
+      apiLine: Math.min(enclosing[1], safeEnd),
     }
   }
 
@@ -156,10 +175,11 @@ function extractRangeQuote(range: Range): string {
   const frag = range.cloneContents()
   const scratch = document.createElement('div')
   scratch.appendChild(frag)
+  // Strip MathJax's hidden assistive MathML so selected equations are not duplicated in quotes.
   scratch
     .querySelectorAll('mjx-assistive-mml, .apex-review-ui, script, style')
     .forEach((el) => el.remove())
-  return normalizeQuote(scratch.textContent ?? '')
+  return normalizeQuote((scratch.textContent ?? '').replace(/\u200b/g, ''))
 }
 
 export function detectBlockKind(blockEl: HTMLElement): string {
@@ -203,10 +223,14 @@ export function resolveSelectionTarget(
     endBlock = startBlock
   }
 
-  const startBase = Number.parseInt(startBlock.dataset.srcLine ?? '1', 10)
-  const startBlockEnd = Number.parseInt(startBlock.dataset.srcEnd ?? String(startBase), 10)
-  const endBase = Number.parseInt(endBlock.dataset.srcLine ?? String(startBase), 10)
-  const endBlockEnd = Number.parseInt(endBlock.dataset.srcEnd ?? String(endBase), 10)
+  const startBase = Number.parseInt(startBlock.dataset.srcLine ?? '', 10)
+  if (Number.isNaN(startBase)) return null
+  const parsedStartEnd = Number.parseInt(startBlock.dataset.srcEnd ?? String(startBase), 10)
+  const startBlockEnd = Number.isNaN(parsedStartEnd) ? startBase : Math.max(startBase, parsedStartEnd)
+  const parsedEndBase = Number.parseInt(endBlock.dataset.srcLine ?? String(startBase), 10)
+  const endBase = Number.isNaN(parsedEndBase) ? startBase : parsedEndBase
+  const parsedEndEnd = Number.parseInt(endBlock.dataset.srcEnd ?? String(endBase), 10)
+  const endBlockEnd = Number.isNaN(parsedEndEnd) ? endBase : Math.max(endBase, parsedEndEnd)
 
   const startLine = resolveLineAtBoundary(
     startBlock,
@@ -214,13 +238,14 @@ export function resolveSelectionTarget(
     range.startOffset,
     startBase,
   )
+  const crossBlockFallback = endBlock.querySelector('wbr[data-apex-line]') ? endBase : endBlockEnd
   const endLine = tripleClickEndAtNextStart
     ? startBlockEnd
     : resolveLineAtBoundary(
         endBlock,
         range.endContainer,
         range.endOffset,
-        endBlock === startBlock ? startLine : endBlockEnd,
+        endBlock === startBlock ? startLine : crossBlockFallback,
       )
 
   const quote = extractRangeQuote(range)
@@ -343,4 +368,24 @@ export async function buildGitHubDiffUrl(
   } catch {
     return base
   }
+}
+
+/**
+ * Returns true when `repoPath` refers to a repository file rather than a generic PR bucket.
+ */
+export function isJumpableThreadPath(repoPath: string): boolean {
+  return Boolean(repoPath && repoPath !== 'PR Summary' && repoPath !== 'PR Conversation')
+}
+
+/**
+ * Returns true when clicking a comment/quote block should jump to its source line
+ * (suppresses jumps when clicking interactive controls or after dragging a text selection).
+ */
+export function shouldTriggerJumpOnClick(
+  target: { closest?: (selector: string) => unknown } | null,
+  selectionText: string,
+): boolean {
+  if (selectionText.trim().length > 0) return false
+  if (target?.closest?.('button, a, textarea, input, select, label')) return false
+  return true
 }
