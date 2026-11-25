@@ -1,13 +1,13 @@
 <script setup lang="ts">
 /**
- * Purpose: Render an automatically expanded "In This Chapter" section list inside the left sidebar.
- * Usage: Mounted in Layout.vue via `#sidebar-nav-before` so section links stay visible when `< 1280px`.
- * Invariants: Tracks `h2`/`h3` elements inside `.vp-doc` and cleans up scroll/resize listeners on unmount.
+ * Purpose: Embed the active chapter's section outline directly under its expanded entry in the left sidebar.
+ * Usage: Mounted in Layout.vue via `#sidebar-nav-before`; teleports into `.VPSidebarItem.is-active` on client navigation.
+ * Invariants: Scans `.vp-doc` `h2`/`h3` headings after mount/content updates and cleans listeners on unmount.
  */
 import { nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { onContentUpdated, useData } from 'vitepress'
 
-/** Parsed chapter heading entry for in-sidebar outline navigation. */
+/** Parsed heading entry rendered beneath the active chapter link in the left sidebar. */
 interface ChapterHeading {
   id: string
   text: string
@@ -15,11 +15,20 @@ interface ChapterHeading {
 }
 
 const SCROLLSPY_OFFSET_PX = 96
+const SCROLLSPY_BOTTOM_EPSILON_PX = 2
 const EXCLUDED_HEADING_PARENTS = '.apex-review-ui, .hw-widget, .sr-only'
+const ACTIVE_SIDEBAR_ITEM_SELECTOR = '#VPSidebarNav .VPSidebarItem.is-active'
 
 const headings = ref<ChapterHeading[]>([])
 const activeId = ref('')
+const teleportTarget = ref<HTMLElement | null>(null)
 const { frontmatter } = useData()
+
+/** Locate the active sidebar item element so section links embed directly under that chapter. */
+function resolveTeleportTarget(): HTMLElement | null {
+  if (typeof document === 'undefined') return null
+  return document.querySelector<HTMLElement>(ACTIVE_SIDEBAR_ITEM_SELECTOR)
+}
 
 /** Extract readable heading text while stripping VitePress anchor `#` suffixes and zero-width spaces. */
 function cleanHeadingText(el: Element): string {
@@ -30,6 +39,15 @@ function cleanHeadingText(el: Element): string {
 /** Recompute current section highlight from the vertical scroll position of `.vp-doc` headings. */
 function updateActiveSection() {
   if (typeof window === 'undefined' || headings.value.length === 0) return
+  const docEl = document.documentElement
+  // Keep short trailing sections (for example, Problems) active when scrolled all the way to the bottom.
+  if (
+    window.scrollY > 0 &&
+    window.innerHeight + window.scrollY >= docEl.scrollHeight - SCROLLSPY_BOTTOM_EPSILON_PX
+  ) {
+    activeId.value = headings.value[headings.value.length - 1].id
+    return
+  }
   let current = headings.value[0].id
   for (const h of headings.value) {
     const el = document.getElementById(h.id)
@@ -43,9 +61,10 @@ function updateActiveSection() {
   activeId.value = current
 }
 
-/** Collect visible `h2`/`h3` chapter headings from `.vp-doc` after route/content updates. */
+/** Collect visible `h2`/`h3` headings and attach the outline inside the active sidebar entry. */
 function refreshHeadings() {
   if (typeof document === 'undefined') return
+  teleportTarget.value = resolveTeleportTarget()
   const docRoot = document.querySelector('.vp-doc')
   if (!docRoot) {
     headings.value = []
@@ -76,12 +95,18 @@ function onSectionClick(id: string) {
   document.querySelector<HTMLElement>('.VPSidebarBackdrop')?.click()
 }
 
+let isUnmounted = false
+
 onContentUpdated(async () => {
   await nextTick()
+  if (isUnmounted) return
   refreshHeadings()
 })
 
-onMounted(() => {
+onMounted(async () => {
+  // Wait one tick after mount so VPSidebar renders `.VPSidebarItem.is-active` before resolving teleport target.
+  await nextTick()
+  if (isUnmounted) return
   refreshHeadings()
   if (typeof window !== 'undefined') {
     window.addEventListener('scroll', updateActiveSection, { passive: true })
@@ -90,6 +115,8 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  isUnmounted = true
+  teleportTarget.value = null
   if (typeof window !== 'undefined') {
     window.removeEventListener('scroll', updateActiveSection)
     window.removeEventListener('resize', updateActiveSection)
@@ -98,27 +125,30 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <nav
-    v-if="headings.length > 0 && frontmatter.layout !== 'home'"
-    aria-label="In This Chapter"
-    class="sidebar-in-chapter"
-  >
-    <div class="sidebar-in-chapter-title">In This Chapter</div>
-    <ul class="sidebar-in-chapter-list">
-      <li
-        v-for="item in headings"
-        :key="item.id"
-        class="sidebar-in-chapter-item"
-        :class="{ 'is-sub': item.level === 3, 'is-active': activeId === item.id }"
-      >
-        <a
-          :href="`#${item.id}`"
-          class="sidebar-in-chapter-link"
-          @click="onSectionClick(item.id)"
+  <Teleport :to="teleportTarget ?? 'body'" :disabled="!teleportTarget">
+    <nav
+      v-if="headings.length > 0 && frontmatter.layout !== 'home'"
+      aria-label="In This Chapter"
+      class="sidebar-in-chapter"
+      :class="{ 'is-nested': Boolean(teleportTarget) }"
+    >
+      <div v-if="!teleportTarget" class="sidebar-in-chapter-title">In This Chapter</div>
+      <ul class="sidebar-in-chapter-list">
+        <li
+          v-for="item in headings"
+          :key="item.id"
+          class="sidebar-in-chapter-item"
+          :class="{ 'is-sub': item.level === 3, 'is-active': activeId === item.id }"
         >
-          {{ item.text }}
-        </a>
-      </li>
-    </ul>
-  </nav>
+          <a
+            :href="`#${item.id}`"
+            class="sidebar-in-chapter-link"
+            @click="onSectionClick(item.id)"
+          >
+            {{ item.text }}
+          </a>
+        </li>
+      </ul>
+    </nav>
+  </Teleport>
 </template>

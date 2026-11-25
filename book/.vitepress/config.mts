@@ -214,10 +214,7 @@ export default defineConfig({
 
     sidebar: buildTextbookSidebar(REPO_ROOT),
 
-    outline: {
-      level: [2, 3],
-      label: 'In This Chapter',
-    },
+    aside: false,
 
     search: {
       provider: 'local',

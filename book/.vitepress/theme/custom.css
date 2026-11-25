@@ -407,11 +407,18 @@ mjx-container:not([display='true']) {
   }
 }
 
-/* Automatic "In This Chapter" Section Navigation inside Left Sidebar (< 1280px) */
+/* Automatic "In This Chapter" Section Navigation nested inside Left Sidebar */
 .sidebar-in-chapter {
   margin-bottom: 14px;
   padding-bottom: 12px;
   border-bottom: 1px solid var(--vp-c-divider);
+}
+
+.sidebar-in-chapter.is-nested {
+  margin: 4px 0 8px 10px;
+  padding: 2px 0 2px 12px;
+  border-bottom: none;
+  border-left: 1px solid var(--vp-c-divider);
 }
 
 .sidebar-in-chapter-title {
@@ -438,7 +445,7 @@ mjx-container:not([display='true']) {
 .sidebar-in-chapter-link {
   display: block;
   padding: 3px 0;
-  font-size: 13px;
+  font-size: 12.5px;
   line-height: 1.45;
   font-weight: 500;
   color: var(--vp-c-text-2);
@@ -455,16 +462,28 @@ mjx-container:not([display='true']) {
   font-weight: 600;
 }
 
+/* Remove the separate floating "In This Chapter >" dropdown button across all viewports. */
+.VPLocalNavOutlineDropdown {
+  display: none !important;
+}
+
 @media (min-width: 960px) {
-  /* Hide the separate sticky "In This Chapter >" dropdown bar when the left sidebar is already docked. */
   .VPLocalNav.has-sidebar {
     display: none !important;
   }
 }
 
 @media (min-width: 1280px) {
-  /* Wide viewports show the dedicated right-margin outline panel automatically. */
-  .sidebar-in-chapter {
-    display: none;
+  /* Reclaim horizontal width previously reserved for the right-hand aside panel. */
+  .VPDoc.has-sidebar:not(.has-aside) .container {
+    max-width: 980px;
+  }
+
+  .VPDoc.has-sidebar:not(.has-aside) .content {
+    flex-grow: 1;
+  }
+
+  .VPDoc.has-sidebar:not(.has-aside) .content-container {
+    max-width: 860px;
   }
 }
