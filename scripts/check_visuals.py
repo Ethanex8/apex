@@ -24,12 +24,15 @@ Outputs:
 from __future__ import annotations
 
 import argparse
+import contextlib
 import http.server
 import math
 import os
 import shutil
 import sys
 import threading
+from collections.abc import Iterator
+from http import HTTPStatus
 from pathlib import Path
 from typing import Any
 from urllib.parse import unquote
@@ -38,19 +41,37 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_DIST = ROOT_DIR / "book" / ".vitepress" / "dist"
 DEFAULT_BASE = "/apex/"
 VIEWPORTS: tuple[tuple[str, int, int], ...] = (("desktop", 1280, 900), ("mobile", 390, 844))
+DESKTOP_MIN_WIDTH = 900
 MIN_MERMAID_SCALE = 0.48
 MIN_MERMAID_SCALE_MOBILE = 0.52
 MIN_BTN_CONTRAST = 3.5
+OVERFLOW_TOLERANCE_PX = 2
+CLIP_TOLERANCE_PX = 1
+SNIPPET_PREVIEW_CHARS = 24
+# VitePress dark root canvas (`--vp-c-bg`: `#1b1b1f`) used when computed container layers remain transparent.
+DARK_ROOT_BG_RGBA = [27, 27, 31, 1]
+# VitePress `.hw-btn` CSS color/background transitions run for 0.15s (`custom.css`); wait slightly longer for settle.
+THEME_SETTLE_MS = 160
+HOVER_SETTLE_MS = 200
+MATH_SCROLL_SETTLE_MS = 120
+# Wait past Playwright networkidle for MathJax SVG typesetting and VitePress client hydration.
+NAV_SETTLE_MS = 450
 
 # Evaluated per route+viewport to detect container overflow, tiny Mermaid SVGs, and clipped SVG HTML labels.
-LAYOUT_AUDIT_JS = """([minDesktopScale, minMobileScale]) => {
+LAYOUT_AUDIT_JS = """([
+  minDesktopScale,
+  minMobileScale,
+  desktopMinWidth = 900,
+  overflowTolPx = 2,
+  snippetChars = 24,
+]) => {
   const issues = [];
   const docOverflow = document.documentElement.scrollWidth - document.documentElement.clientWidth;
-  if (docOverflow > 2) issues.push(`Document horizontal overflow by ${docOverflow}px`);
+  if (docOverflow > overflowTolPx) issues.push(`Document horizontal overflow by ${docOverflow}px`);
 
   document.querySelectorAll('.hw-widget, .mermaid-book-figure').forEach((el, idx) => {
     const diff = el.scrollWidth - el.clientWidth;
-    if (diff > 2) issues.push(`Container[${idx}] (${el.className}) overflows by ${diff}px`);
+    if (diff > overflowTolPx) issues.push(`Container[${idx}] (${el.className}) overflows by ${diff}px`);
   });
 
   document.querySelectorAll('.mermaid-error').forEach((el, idx) => {
@@ -67,7 +88,7 @@ LAYOUT_AUDIT_JS = """([minDesktopScale, minMobileScale]) => {
       (typeof svg.checkVisibility === 'function' && !svg.checkVisibility());
     if (hidden) return;
     if (vb.length === 4 && vb[2] > 0) {
-      const minScale = window.innerWidth >= 900 ? minDesktopScale : minMobileScale;
+      const minScale = window.innerWidth >= desktopMinWidth ? minDesktopScale : minMobileScale;
       const scale = rect.width / vb[2];
       if (scale < minScale) {
         issues.push(`Mermaid[${idx}] scaled down to ${(scale * 100).toFixed(0)}% (< ${(minScale * 100).toFixed(0)}%)`);
@@ -79,12 +100,17 @@ LAYOUT_AUDIT_JS = """([minDesktopScale, minMobileScale]) => {
       fo.querySelectorAll('div, p, span').forEach((node) => {
         const nr = node.getBoundingClientRect();
         if (nr.width <= 0 || nr.height <= 0) return;
-        const clippedBox = nr.right > fr.right + 2 || nr.bottom > fr.bottom + 2;
+        const clippedBox =
+          nr.left < fr.left - overflowTolPx ||
+          nr.top < fr.top - overflowTolPx ||
+          nr.right > fr.right + overflowTolPx ||
+          nr.bottom > fr.bottom + overflowTolPx;
         const clippedScroll =
-          (node.clientWidth > 0 && node.scrollWidth > node.clientWidth + 2) ||
-          (node.clientHeight > 0 && node.scrollHeight > node.clientHeight + 2);
+          (node.clientWidth > 0 && node.scrollWidth > node.clientWidth + overflowTolPx) ||
+          (node.clientHeight > 0 && node.scrollHeight > node.clientHeight + overflowTolPx);
         if (clippedBox || clippedScroll) {
-          issues.push(`Mermaid[${idx}] label[${fIdx}] ('${node.textContent?.trim().slice(0, 24)}') clips foreignObject box`);
+          const preview = node.textContent?.trim().slice(0, snippetChars) ?? '';
+          issues.push(`Mermaid[${idx}] label[${fIdx}] ('${preview}') clips foreignObject box`);
         }
       });
     });
@@ -99,15 +125,18 @@ LAYOUT_AUDIT_JS = """([minDesktopScale, minMobileScale]) => {
         const id = decodeURIComponent(u.hash.slice(1));
         if (!document.getElementById(id)) issues.push(`Broken hash anchor '${u.hash}'`);
       }
-    } catch (_) {}
+    } catch (err) {
+      issues.push(`Malformed hash anchor link '${a.getAttribute('href') ?? ''}': ${String(err)}`);
+    }
   });
   return issues;
 }"""
 
 # Audited on every route+viewport to catch inline math baseline shifts, per-span scrollbars, and clipped display equations.
-MATH_AUDIT_JS = """() => {
+MATH_AUDIT_JS = """(opts = {}) => {
+  const { desktopMinWidth = 900, overflowTolPx = 2, clipTolPx = 1 } = opts;
   const issues = [];
-  const isDesktop = window.innerWidth >= 900;
+  const isDesktop = window.innerWidth >= desktopMinWidth;
   const badInline = [];
   document.querySelectorAll('mjx-container:not([display="true"])').forEach((el, idx) => {
     const cs = getComputedStyle(el);
@@ -123,10 +152,10 @@ MATH_AUDIT_JS = """() => {
   const badDispWide = [];
   document.querySelectorAll('mjx-container[display="true"]').forEach((el, idx) => {
     const cs = getComputedStyle(el);
-    if (cs.overflowY === 'hidden' && el.scrollHeight > el.clientHeight + 1) {
+    if (cs.overflowY === 'hidden' && el.scrollHeight > el.clientHeight + clipTolPx) {
       badDispClip.push(`[${idx}] (${el.scrollHeight}px > ${el.clientHeight}px)`);
     }
-    if (isDesktop && el.scrollWidth > el.clientWidth + 2) {
+    if (isDesktop && el.scrollWidth > el.clientWidth + overflowTolPx) {
       badDispWide.push(`[${idx}] (${el.scrollWidth}px > ${el.clientWidth}px)`);
     }
   });
@@ -140,10 +169,11 @@ MATH_AUDIT_JS = """() => {
 }"""
 
 # Computes effective composite background and WCAG 2.1 contrast ratio for a visible button element.
-BUTTON_CONTRAST_JS = """(btn) => {
+BUTTON_CONTRAST_JS = """(btn, darkRootBg = [27, 27, 31, 1]) => {
   const parseRgba = (s) => {
+    if (s === 'transparent') return [0, 0, 0, 0];
     const m = s.match(/rgba?\\(([^)]+)\\)/);
-    if (!m) return [255, 255, 255, 0];
+    if (!m) return [Number.NaN, Number.NaN, Number.NaN, Number.NaN];
     const tokens = m[1].trim().split(/[\\s,/]+/).filter(Boolean);
     const parts = tokens.map((v, i) =>
       v.endsWith('%') ? Number.parseFloat(v) * (i < 3 ? 2.55 : 0.01) : Number.parseFloat(v)
@@ -170,7 +200,7 @@ BUTTON_CONTRAST_JS = """(btn) => {
     layers.unshift(c);
   }
   const isDark = document.documentElement.classList.contains('dark');
-  let bg = isDark ? [27, 27, 31, 1] : [255, 255, 255, 1];
+  let bg = isDark ? darkRootBg.slice() : [255, 255, 255, 1];
   for (const layer of layers) bg = blend(layer, bg);
   const fgStyle = getComputedStyle(btn);
   const fg = parseRgba(fgStyle.color);
@@ -190,13 +220,11 @@ BUTTON_CONTRAST_JS = """(btn) => {
 
 
 def discover_routes(root_dir: Path) -> list[str]:
-    """Return built VitePress routes for home, vision, system READMEs, and chapters."""
+    """Return built VitePress routes for home, vision, and published chapters."""
     routes = ["/", "/vision"]
     systems_dir = root_dir / "systems"
     if not systems_dir.is_dir():
         return routes
-    for readme in sorted(systems_dir.glob("*/README.md")):
-        routes.append(f"/{readme.parent.name}/")
     for chap in sorted(systems_dir.glob("*/chapters/*.md")):
         routes.append(f"/{chap.parent.parent.name}/{chap.stem}")
     return routes
@@ -218,7 +246,7 @@ class DistHandler(http.server.SimpleHTTPRequestHandler):
         """Return 204 for missing favicon requests to avoid false console noise."""
         clean = self.path.split("?", 1)[0].split("#", 1)[0]
         if clean == "/favicon.ico":
-            self.send_response(204)
+            self.send_response(HTTPStatus.NO_CONTENT)
             self.end_headers()
             return
         super().do_GET()
@@ -228,11 +256,13 @@ class DistHandler(http.server.SimpleHTTPRequestHandler):
         clean = unquote(path.split("?", 1)[0].split("#", 1)[0])
         if self.base_prefix:
             if not (clean == self.base_prefix or clean.startswith(self.base_prefix + "/")):
+                # Return a deliberately nonexistent path under dist_root so SimpleHTTPRequestHandler serves a 404.
                 return str(self.dist_root / "__invalid_base__")
             clean = clean[len(self.base_prefix) :] or "/"
         rel = clean.lstrip("/")
         candidate = (self.dist_root / rel).resolve()
         if not candidate.is_relative_to(self.dist_root):
+            # Return a deliberately nonexistent path under dist_root rather than serving parent-directory files.
             return str(self.dist_root / "__invalid_escape__")
         if candidate.is_dir():
             return str(candidate / "index.html")
@@ -258,12 +288,15 @@ def start_dist_server(dist_dir: Path, base_path: str) -> tuple[http.server.Threa
     return httpd, int(httpd.server_address[1])
 
 
-def resolve_chromium_executable(pw_executable: str | None = None) -> str | None:
-    """Resolve explicit Chromium binary if set, else prefer Playwright's binary over system Chrome."""
+def resolve_chromium_executable(pw_executable: str | None) -> str | None:
+    """Resolve explicit `CHROMIUM_PATH` (failing fast if missing), else prefer Playwright's binary over system Chrome."""
     env_path = os.environ.get("CHROMIUM_PATH")
-    if env_path and Path(env_path).is_file():
+    if env_path:
+        if not Path(env_path).is_file():
+            raise FileNotFoundError(f"CHROMIUM_PATH does not exist: {env_path}")
         return env_path
     if pw_executable and Path(pw_executable).is_file():
+        # Passing None tells Playwright to launch its own managed Chromium build.
         return None
     for candidate in ("chromium", "chromium-browser", "google-chrome"):
         if found := shutil.which(candidate):
@@ -272,52 +305,104 @@ def resolve_chromium_executable(pw_executable: str | None = None) -> str | None:
     return str(sys_chromium) if sys_chromium.is_file() else None
 
 
-def _check_button_contrast(btn: Any, idx: int, label: str, route: str, errors: list[str]) -> None:
+def _check_button_contrast(
+    btn: Any, idx: int, label: str, route: str, errors: list[str], vp_name: str = "desktop"
+) -> None:
     """Evaluate `BUTTON_CONTRAST_JS` on `btn` and record finite non-compliant contrast ratios."""
-    ratio = float(btn.evaluate(BUTTON_CONTRAST_JS))
+    ratio = float(btn.evaluate(BUTTON_CONTRAST_JS, DARK_ROOT_BG_RGBA))
     if not math.isfinite(ratio) or ratio < MIN_BTN_CONTRAST:
-        errors.append(f"[{route}:desktop] Low {label} contrast ({ratio:.2f}:1) on button[{idx}]")
+        errors.append(f"[{route}:{vp_name}] Low {label} contrast ({ratio:.2f}:1) on button[{idx}]")
 
 
-def _audit_widget_buttons(page: Any, route: str, errors: list[str]) -> None:
-    """Audit widget buttons before clicking (light & dark idle) and after click/hover across themes."""
-    # Capture concrete ElementHandles up front so dynamic enable/disable state changes never shift indices.
-    handles = page.locator(".hw-widget .hw-btn").element_handles()
+@contextlib.contextmanager
+def _dark_theme(page: Any) -> Iterator[None]:
+    """Temporarily enable VitePress `.dark` class and wait past `THEME_SETTLE_MS` on enter and exit."""
+    page.evaluate("document.documentElement.classList.add('dark')")
+    page.wait_for_timeout(THEME_SETTLE_MS)
+    try:
+        yield
+    finally:
+        page.evaluate("document.documentElement.classList.remove('dark')")
+        page.wait_for_timeout(THEME_SETTLE_MS)
+
+
+@contextlib.contextmanager
+def _hidden_chrome(page: Any) -> Iterator[None]:
+    """Temporarily hide fixed VitePress nav bars so scrolled element captures are never occluded."""
+    page.evaluate(
+        "document.querySelectorAll('.VPNav, .VPLocalNav, .book-progress-track').forEach((el) => (el.style.visibility = 'hidden'))"
+    )
+    try:
+        yield
+    finally:
+        page.evaluate(
+            "document.querySelectorAll('.VPNav, .VPLocalNav, .book-progress-track').forEach((el) => (el.style.visibility = ''))"
+        )
+
+
+def _check_visible_buttons(
+    page: Any,
+    handles: list[Any],
+    label: str,
+    route: str,
+    errors: list[str],
+    vp_name: str = "desktop",
+    *,
+    hover: bool = False,
+) -> None:
+    """Check WCAG contrast across visible enabled button handles, optionally triggering `:hover` first."""
     for idx, btn in enumerate(handles):
         if btn.is_visible() and btn.is_enabled():
             btn.scroll_into_view_if_needed()
-            _check_button_contrast(btn, idx, "idle", route, errors)
+            if hover:
+                btn.hover()
+                page.wait_for_timeout(HOVER_SETTLE_MS)
+            _check_button_contrast(btn, idx, label, route, errors, vp_name)
 
-    # Sample true pre-click idle contrast under VitePress `.dark` before click mutations run.
-    page.evaluate("document.documentElement.classList.add('dark')")
-    page.wait_for_timeout(160)
-    try:
-        for idx, btn in enumerate(handles):
-            if btn.is_visible() and btn.is_enabled():
-                _check_button_contrast(btn, idx, "dark-idle", route, errors)
-    finally:
-        page.evaluate("document.documentElement.classList.remove('dark')")
-        page.wait_for_timeout(160)
 
+def _click_and_audit_buttons(
+    page: Any,
+    handles: list[Any],
+    label: str,
+    route: str,
+    errors: list[str],
+    vp_name: str = "desktop",
+) -> None:
+    """Click each visible enabled button, hover after CSS settle, and check WCAG contrast."""
     for idx, btn in enumerate(handles):
         if not btn.is_visible() or not btn.is_enabled():
             continue
         btn.scroll_into_view_if_needed()
         btn.click()
+        if not btn.is_visible():
+            continue
         btn.hover()
         # Wait past `.hw-btn`'s 0.15s CSS color/background transition before sampling final styles.
-        page.wait_for_timeout(200)
+        page.wait_for_timeout(HOVER_SETTLE_MS)
         if btn.is_visible() and btn.is_enabled():
-            _check_button_contrast(btn, idx, "active/hover", route, errors)
+            _check_button_contrast(btn, idx, label, route, errors, vp_name)
 
-    page.evaluate("document.documentElement.classList.add('dark')")
-    page.wait_for_timeout(160)
-    try:
-        for idx, btn in enumerate(handles):
-            if btn.is_visible() and btn.is_enabled():
-                _check_button_contrast(btn, idx, "dark-active/hover", route, errors)
-    finally:
-        page.evaluate("document.documentElement.classList.remove('dark')")
+
+def _audit_widget_buttons(page: Any, route: str, errors: list[str], vp_name: str = "desktop") -> None:
+    """Audit widget buttons before clicking (light & dark idle) and after single-pass clicks in light & dark."""
+    # Capture concrete ElementHandles up front so dynamic enable/disable state changes never shift indices.
+    handles = page.locator(".hw-widget .hw-btn").element_handles()
+    with _hidden_chrome(page):
+        _check_visible_buttons(page, handles, "idle", route, errors, vp_name)
+
+        with _dark_theme(page):
+            _check_visible_buttons(page, handles, "dark-idle", route, errors, vp_name)
+
+        _click_and_audit_buttons(page, handles, "active/hover", route, errors, vp_name)
+
+    if not handles:
+        return
+    # Reload pristine widget state once so dark-mode clicks exercise initial toggles rather than toggling them off.
+    page.reload(wait_until="networkidle")
+    page.wait_for_timeout(NAV_SETTLE_MS)
+    dark_handles = page.locator(".hw-widget .hw-btn").element_handles()
+    with _hidden_chrome(page), _dark_theme(page):
+        _click_and_audit_buttons(page, dark_handles, "dark-active/hover", route, errors, vp_name)
 
 
 def _capture_container_shots(page: Any, out_dir: Path, suffix: str) -> None:
@@ -340,35 +425,23 @@ def _capture_route_screenshots(page: Any, route: str, shot_root: Path, vp_name: 
     out_dir = shot_root / slug
     out_dir.mkdir(parents=True, exist_ok=True)
     suffix = "" if vp_name == "desktop" else f"_{vp_name}"
-    page.evaluate(
-        "document.querySelectorAll('.VPNav, .VPLocalNav, .book-progress-track').forEach((el) => (el.style.visibility = 'hidden'))"
-    )
-    try:
+    with _hidden_chrome(page):
         _capture_container_shots(page, out_dir, suffix)
         if vp_name == "desktop":
-            page.evaluate("document.documentElement.classList.add('dark')")
-            page.wait_for_timeout(160)
-            try:
+            with _dark_theme(page):
                 _capture_container_shots(page, out_dir, "_dark")
-            finally:
-                page.evaluate("document.documentElement.classList.remove('dark')")
-                page.wait_for_timeout(120)
             if page.locator(".vp-doc mjx-container").count() > 0:
                 inline_p = page.locator(".vp-doc p:has(mjx-container:not([display='true']))")
                 math_target = inline_p.first if inline_p.count() > 0 else page.locator(".vp-doc mjx-container").first
                 if math_target.count() > 0 and math_target.is_visible():
                     math_target.scroll_into_view_if_needed()
-                    page.wait_for_timeout(120)
+                    page.wait_for_timeout(MATH_SCROLL_SETTLE_MS)
                     page.screenshot(path=str(out_dir / "prose_math_desktop.png"))
                 disp_math = page.locator(".vp-doc mjx-container[display='true']")
                 if disp_math.count() > 0 and disp_math.first.is_visible():
                     disp_math.first.scroll_into_view_if_needed()
-                    page.wait_for_timeout(120)
+                    page.wait_for_timeout(MATH_SCROLL_SETTLE_MS)
                     page.screenshot(path=str(out_dir / "display_math_desktop.png"))
-    finally:
-        page.evaluate(
-            "document.querySelectorAll('.VPNav, .VPLocalNav, .book-progress-track').forEach((el) => (el.style.visibility = ''))"
-        )
 
 
 def _drain_page_errors(page_errs: list[str], route: str, vp_name: str, errors: list[str]) -> None:
@@ -406,23 +479,39 @@ def _run_browser_audit(
                     "response",
                     lambda resp, pe=page_errs: pe.append(f"HTTP {resp.status}: {resp.url}") if resp.status >= 400 else None,
                 )
+                layout_args = [
+                    MIN_MERMAID_SCALE,
+                    MIN_MERMAID_SCALE_MOBILE,
+                    DESKTOP_MIN_WIDTH,
+                    OVERFLOW_TOLERANCE_PX,
+                    SNIPPET_PREVIEW_CHARS,
+                ]
+                math_args = {
+                    "desktopMinWidth": DESKTOP_MIN_WIDTH,
+                    "overflowTolPx": OVERFLOW_TOLERANCE_PX,
+                    "clipTolPx": CLIP_TOLERANCE_PX,
+                }
                 for route in routes:
                     page_errs.clear()
                     norm_route = "/" + route.lstrip("/")
                     full_url = f"http://127.0.0.1:{port}{base_prefix}{norm_route}"
                     page.goto(full_url, wait_until="networkidle")
-                    page.wait_for_timeout(450)
+                    page.wait_for_timeout(NAV_SETTLE_MS)
                     _drain_page_errors(page_errs, route, vp_name, errors)
-                    scales = [MIN_MERMAID_SCALE, MIN_MERMAID_SCALE_MOBILE]
-                    for issue in page.evaluate(LAYOUT_AUDIT_JS, scales):
-                        errors.append(f"[{route}:{vp_name}] {issue}")
-                    for issue in page.evaluate(MATH_AUDIT_JS):
-                        errors.append(f"[{route}:{vp_name}] {issue}")
-                    if vp_name == "desktop":
-                        _audit_widget_buttons(page, route, errors)
-                        _drain_page_errors(page_errs, route, vp_name, errors)
                     if screenshot_dir is not None:
                         _capture_route_screenshots(page, route, screenshot_dir, vp_name)
+                        _drain_page_errors(page_errs, route, vp_name, errors)
+                    for issue in page.evaluate(LAYOUT_AUDIT_JS, layout_args):
+                        errors.append(f"[{route}:{vp_name}] {issue}")
+                    for issue in page.evaluate(MATH_AUDIT_JS, math_args):
+                        errors.append(f"[{route}:{vp_name}] {issue}")
+                    if vp_name == "desktop":
+                        _audit_widget_buttons(page, route, errors, vp_name)
+                        _drain_page_errors(page_errs, route, vp_name, errors)
+                        for issue in page.evaluate(LAYOUT_AUDIT_JS, layout_args):
+                            errors.append(f"[{route}:{vp_name}:post-click] {issue}")
+                        for issue in page.evaluate(MATH_AUDIT_JS, math_args):
+                            errors.append(f"[{route}:{vp_name}:post-click] {issue}")
             finally:
                 page.close()
     finally:

@@ -372,6 +372,17 @@
   gap: 4px;
 }
 
+.apex-expanded-msg.is-jumpable,
+.apex-quote-box.is-jumpable {
+  cursor: pointer;
+  transition: border-color 0.12s ease, background-color 0.12s ease;
+}
+
+.apex-expanded-msg.is-jumpable:hover,
+.apex-quote-box.is-jumpable:hover {
+  border-color: var(--vp-c-brand-1);
+}
+
 .apex-textarea,
 .apex-input,
 .apex-select {
@@ -445,4 +456,30 @@
   background: rgba(4, 120, 87, 0.1);
   color: var(--hw-green, #047857);
   font-size: 12.5px;
+}
+
+.apex-jump-highlight {
+  outline: 2px solid var(--vp-c-brand-1);
+  outline-offset: 4px;
+  border-radius: 6px;
+  background-color: color-mix(in srgb, var(--vp-c-brand-soft) 55%, transparent);
+  transition: outline-color 0.35s ease, background-color 0.35s ease;
+}
+
+.apex-agent-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 700;
+  background: color-mix(in srgb, var(--hw-purple, #6d28d9) 14%, transparent);
+  color: var(--hw-purple, #6d28d9);
+}
+
+.apex-batch-summary {
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--vp-c-text-2);
 }

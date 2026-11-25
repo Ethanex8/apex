@@ -313,8 +313,16 @@ const trace = computed(() => {
         <text x="442" y="158" text-anchor="middle" font-size="9.5" font-family="var(--vp-font-family-mono)" fill="var(--vp-c-text-2)">
           base + p0 + p1
         </text>
-        <text x="442" y="178" text-anchor="middle" font-size="10" font-weight="700" font-family="var(--vp-font-family-mono)" :fill="trace.didClamp ? 'var(--hw-red)' : 'var(--vp-c-text-1)'">
-          {{ fmtNum(trace.rawSum) }}
+        <text
+          x="442"
+          y="178"
+          text-anchor="middle"
+          font-size="10"
+          font-weight="700"
+          font-family="var(--vp-font-family-mono)"
+          :fill="!trace.isMac ? 'var(--vp-c-text-3)' : trace.didClamp ? 'var(--hw-red)' : 'var(--vp-c-text-1)'"
+        >
+          {{ trace.isMac ? fmtNum(trace.rawSum) : 'Bypassed' }}
         </text>
 
         <!-- Wire to sat32 clamp -->
