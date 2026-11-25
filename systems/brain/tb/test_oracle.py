@@ -168,7 +168,7 @@ from oracle import (  # noqa: E402 — sys.path adjusted for repo-local sim pack
     UINT32_MAX,
     WORD_ALIGN_MASK,
     MemoryAccessFault,
-    RV32Oracle,
+    Oracle,
     SparseMemory,
     enc_b,
     enc_i,
@@ -274,7 +274,7 @@ def _mac_op(funct3: int, rd: int, rs1: int = 0, rs2: int = 0) -> int:
 
 def test_rv32i_arithmetic_shifts_and_x0() -> None:
     """Verify RV32I ALU/immediate ops, shift sign rules, `lui`/`auipc`, and hardwired `x0`."""
-    cpu = RV32Oracle()
+    cpu = Oracle()
     r_neg5, r_three, r_mask = 1, 2, 3
     r_add, r_sub, r_slt, r_sltu = 4, 5, 6, 7
     r_srai, r_srli, r_slli = 8, 9, 10
@@ -338,7 +338,7 @@ def test_rv32i_arithmetic_shifts_and_x0() -> None:
 
 def test_alu_wraparound_large_shifts_and_sltiu_sign_extend() -> None:
     """Verify 32-bit modulo wrap, shift-amount masking for `rs2 >= 32`, and `sltiu` `-1`."""
-    cpu = RV32Oracle()
+    cpu = Oracle()
     r_max, r_seven, r_sh35, r_neg16, r_msb = 1, 2, 3, 4, 5
     r_addi_w, r_add_w, r_sub_w, r_sll, r_srl, r_sra, r_sltiu = 10, 11, 12, 13, 14, 15, 16
     r_auipc_wrap = 17
@@ -379,7 +379,7 @@ def test_alu_wraparound_large_shifts_and_sltiu_sign_extend() -> None:
 
 def test_barrier_and_wait_nops() -> None:
     """Verify `fence`, `fence.i`, and `wfi` retire cleanly as sequential no-ops (`pc + 4`)."""
-    cpu = RV32Oracle()
+    cpu = Oracle()
     cpu.load_words(BOOT_ROM_BASE, [INSN_FENCE, INSN_FENCE_I, INSN_WFI])
     for step_idx in range(3):
         tr = cpu.step()
@@ -391,7 +391,7 @@ def test_barrier_and_wait_nops() -> None:
 
 def test_rv32m_multiplication_variants_and_truncation() -> None:
     """Verify `mul` low-word truncation plus `mulh`/`mulhsu`/`mulhu` upper-word sign divergence."""
-    cpu = RV32Oracle()
+    cpu = Oracle()
     r_neg7, r_three, r_neg1, r_msb, r_pow16 = 1, 2, 3, 4, 5
     r_mul_lo, r_mul_wrap, r_mulhu_carry = 10, 11, 12
     r_mulh_7, r_mulhsu_7, r_mulhu_7 = 13, 14, 15
@@ -432,7 +432,7 @@ def test_rv32m_multiplication_variants_and_truncation() -> None:
 
 def test_rv32m_division_truncation_overflow_and_div_by_zero() -> None:
     """Verify truncating `div`/`rem`, unsigned `divu`/`remu`, divide-by-zero, and `INT32_MIN`."""
-    cpu = RV32Oracle()
+    cpu = Oracle()
     r_pos7, r_neg7, r_pos3, r_neg3 = 1, 2, 3, 4
     r_imin, r_neg1, r_zero, r_big_u = 5, 6, 7, 8
     r_div_np, r_rem_np, r_div_pn, r_rem_pn, r_div_nn, r_rem_nn = 10, 11, 12, 13, 14, 15
@@ -488,7 +488,7 @@ def test_rv32m_division_truncation_overflow_and_div_by_zero() -> None:
 
 def test_conditional_branches_and_subroutine_calls() -> None:
     """Verify all six branch conditions (taken and untaken) and `jal`/`jalr` subroutine linkage."""
-    cpu = RV32Oracle()
+    cpu = Oracle()
     r_sum, r_i, r_limit, r_link = 1, 2, 3, 5
     r_neg1, r_pos1 = 10, 11
     cpu.regs[r_neg1] = u32(-1)
@@ -526,7 +526,7 @@ def test_conditional_branches_and_subroutine_calls() -> None:
 
 def test_large_branch_and_jal_immediate_encodings() -> None:
     """Exercise upper scrambled immediate bits (B-type Bits 12..11; J-type Bits 11 and 19..12)."""
-    cpu = RV32Oracle()
+    cpu = Oracle()
     r_link_fwd, r_link_back, r_ok = 1, 2, 3
     # 1. BRAM (64 KB): forward B-type +2052 exercises Bit 11; negative -2048 hits Bit 12
     branch_fwd_pc = BRAM_BASE
@@ -560,7 +560,7 @@ def test_large_branch_and_jal_immediate_encodings() -> None:
 
 def test_negative_jal_jalr_offsets() -> None:
     """Verify negative `jal` and `jalr` byte offsets preserve return addresses cleanly."""
-    cpu = RV32Oracle()
+    cpu = Oracle()
     r_fwd, r_back = 6, 7
     cpu.reset(reset_pc=BRAM_BASE)
     cpu.load_words(
@@ -579,7 +579,7 @@ def test_negative_jal_jalr_offsets() -> None:
 
 def test_load_bytes_and_stop_on_pc() -> None:
     """Verify host `load_bytes` image loading and exact `run(stop_on_pc=...)` termination."""
-    cpu = RV32Oracle()
+    cpu = Oracle()
     r_out = 10
     cpu.reset(reset_pc=BRAM_BASE)
     insn_bytes = _alu_i(F3_ADD_SUB, rd=r_out, rs1=0, imm=37).to_bytes(4, "little")
@@ -590,7 +590,7 @@ def test_load_bytes_and_stop_on_pc() -> None:
 
 def test_memory_loads_stores_and_mmio_stub() -> None:
     """Verify little-endian byte/half/word loads and stores plus all 5 reserved MMIO stub pages."""
-    cpu = RV32Oracle()
+    cpu = Oracle()
     r_bram, r_val, r_sdram, r_stub, r_stub_hi = 1, 2, 3, 10, 12
     r_lb, r_lbu, r_lh, r_lhu, r_sh_lhu, r_mixed_lw, r_stub_lw, r_stub_lb, r_stub_lh = (
         4, 5, 6, 7, 8, 9, 11, 13, 14
@@ -645,7 +645,7 @@ def test_memory_loads_stores_and_mmio_stub() -> None:
 
 def test_memory_region_bounds_and_qspi_xip_exec() -> None:
     """Verify region end words, unmapped boundary faults, QSPI XIP fetch, and loader bounds."""
-    cpu = RV32Oracle()
+    cpu = Oracle()
     r_qspi = 5
     for base, size in [
         (BOOT_ROM_BASE, BOOT_ROM_SIZE),
@@ -685,7 +685,7 @@ def test_memory_region_bounds_and_qspi_xip_exec() -> None:
 
 def test_load_store_alignment_and_ro_traps() -> None:
     """Verify alignment, read-only, and unmapped traps keep `rd`/`minstret` and set `mtval`."""
-    cpu = RV32Oracle()
+    cpu = Oracle()
     r_addr, r_data = 1, 2
     cases = [
         (_load(F3_LW, rd=r_data, rs1=r_addr, offset=0), BRAM_BASE + 1, CAUSE_LOAD_MISALIGNED),
@@ -719,7 +719,7 @@ def test_load_store_alignment_and_ro_traps() -> None:
 
 def test_step_trace_store_load_and_misalign_payloads() -> None:
     """Verify `StepTrace` fields across byte store, sign-extended load, and misaligned trap."""
-    cpu = RV32Oracle()
+    cpu = Oracle()
     r_base, r_val, r_lb, r_lh = 1, 2, 3, 4
     cpu.regs[r_base] = BRAM_BASE
     cpu.regs[r_val] = 0x1234_80FF
@@ -744,7 +744,7 @@ def test_step_trace_store_load_and_misalign_payloads() -> None:
 
 def test_jalr_bit0_snap_and_untaken_misaligned_branch() -> None:
     """Verify `jalr` Bit-0 snap with `rd == rs1` and untaken misaligned branch skipping trap."""
-    cpu = RV32Oracle()
+    cpu = Oracle()
     r_link_ptr = 2
     cpu.regs[r_link_ptr] = BRAM_BASE
     cpu.load_words(BOOT_ROM_BASE, [_jalr(rd=r_link_ptr, rs1=r_link_ptr, offset=1)])
@@ -759,7 +759,7 @@ def test_jalr_bit0_snap_and_untaken_misaligned_branch() -> None:
 
 def test_sparse_memory_4kb_page_crossing() -> None:
     """Verify `SparseMemory` multi-byte reads across a 4 KB chunk boundary."""
-    cpu = RV32Oracle()
+    cpu = Oracle()
     r_ptr, r_lo, r_hi = 1, 5, 6
     cross_addr = BRAM_BASE + SparseMemory.PAGE_SIZE - 2
     cpu.load_bytes(cross_addr, b"\x11\x22\x33\x44")
@@ -780,7 +780,7 @@ def test_sparse_memory_4kb_page_crossing() -> None:
 
 def test_clint_timer_interrupt_and_ecall_handler() -> None:
     """Verify synchronous `ecall` and CLINT timer interrupt inside a shared M-mode handler."""
-    cpu = RV32Oracle()
+    cpu = Oracle()
     handler_addr = BRAM_BASE
     r_done, r_timer_cause, r_clint, r_clint_max = 20, 21, 22, 23
     r_cause, r_scratch = 25, 26
@@ -841,7 +841,7 @@ def test_clint_timer_interrupt_and_ecall_handler() -> None:
 
 def test_vectored_mtvec_dispatch_and_sync_ecall_fallback() -> None:
     """Verify vectored `mtvec` interrupt slots, trap CSRs, and synchronous `ecall` base jump."""
-    cpu = RV32Oracle()
+    cpu = Oracle()
     for irq_bit, cause in [
         (MIE_MTIE_BIT, CAUSE_INT_M_TIMER),
         (MIE_MSIE_BIT, CAUSE_INT_M_SW),
@@ -878,7 +878,7 @@ def test_vectored_mtvec_dispatch_and_sync_ecall_fallback() -> None:
 
 def test_interrupt_masking_and_64bit_timer_threshold() -> None:
     """Verify `MSTATUS_MIE_BIT`/`mie` masking, 64-bit threshold, and `ebreak` + `mret`."""
-    cpu = RV32Oracle()
+    cpu = Oracle()
     r_out, r_ok = 10, 1
     for mstatus_val, mie_val in [(0, MIE_MTIE_BIT), (MSTATUS_MIE_BIT, 0)]:
         cpu.reset(reset_pc=BOOT_ROM_BASE)
@@ -923,7 +923,7 @@ def test_interrupt_priority_and_masked_fallthrough() -> None:
         (MIE_MEIE_BIT | MIE_MSIE_BIT | MIE_MTIE_BIT, CAUSE_INT_M_EXT),
         (MIE_MSIE_BIT | MIE_MTIE_BIT, CAUSE_INT_M_SW),
     ]:
-        cpu = RV32Oracle()
+        cpu = Oracle()
         cpu.regs[r_mip] = MIE_MEIE_BIT | MIE_MSIE_BIT
         cpu.regs[r_mie] = mie_mask
         cpu.regs[r_mstatus] = MSTATUS_MIE_BIT
@@ -948,7 +948,7 @@ def test_interrupt_priority_and_masked_fallthrough() -> None:
 
 def test_zicsr_immediate_variants_and_rd_eq_rs1_swap() -> None:
     """Verify `csrrwi`/`csrrsi`/`csrrci`, `uimm=0` read-only queries, and `csrrw` `rd == rs1`."""
-    cpu = RV32Oracle()
+    cpu = Oracle()
     r_swap, r_pat, r_cwr, r_csi, r_cci, r_ro_i, r_ro_c, r_cause = 1, 2, 3, 4, 5, 6, 8, 7
     cpu.regs[r_swap] = 0xAA
     cpu.regs[r_pat] = 0x55
@@ -978,7 +978,7 @@ def test_zicsr_immediate_variants_and_rd_eq_rs1_swap() -> None:
 
 def test_zicsr_csrrc_mtval_mip_and_counters() -> None:
     """Verify `csrrc`, `mtval`/`mip` access, exact `mcycle` cadence, and `minstret` suppression."""
-    cpu = RV32Oracle()
+    cpu = Oracle()
     r_0f, r_03, r_csrrc, r_mtval, r_mip, r_cyc_lo, r_cyc_hi, r_ret_lo, r_ret_hi, r_ret_wi = (
         1, 2, 10, 11, 12, 13, 14, 15, 16, 17
     )
@@ -1020,7 +1020,7 @@ def test_zicsr_csrrc_mtval_mip_and_counters() -> None:
 
 def test_clint_lo_hi_register_reads_and_writes() -> None:
     """Verify 32-bit CLINT `mtime`/`mtimecmp` reads/writes, tick advance, and unused offsets."""
-    cpu = RV32Oracle()
+    cpu = Oracle()
     r_0f, r_03, r_clint, r_mt_lo, r_mt_hi, r_cmp_lo, r_cmp_hi = 1, 2, 3, 18, 19, 20, 21
     cpu.regs[r_0f] = 0x0F
     cpu.regs[r_03] = 0x03
@@ -1052,7 +1052,7 @@ def test_clint_lo_hi_register_reads_and_writes() -> None:
 
 def test_counter_carry_and_64bit_rollover() -> None:
     """Verify 32-bit low-to-high carry on `mtime`/`mcycle`/`minstret` and `MASK64` rollover."""
-    cpu = RV32Oracle()
+    cpu = Oracle()
     r_tmp = 1
     cpu.mtime = UINT32_MAX
     cpu.mcycle = UINT32_MAX
@@ -1078,7 +1078,7 @@ def test_counter_carry_and_64bit_rollover() -> None:
 
 def test_csr_warl_masks_and_mret_stack() -> None:
     """Verify CSR WARL masking, `mtvec` mode snapping, `ebreak` push, and `mret` pop."""
-    cpu = RV32Oracle()
+    cpu = Oracle()
     r_all1, r_mode2, r_mode3, r_mip_rd = 1, 2, 3, 10
     cpu.regs[r_all1] = UINT32_MAX
     cpu.regs[r_mode2] = BRAM_BASE | RESERVED_MTVEC_MODE_2
@@ -1120,7 +1120,7 @@ def test_csr_warl_masks_and_mret_stack() -> None:
 
 def test_ro_and_unimplemented_csr_trap_rules() -> None:
     """Verify read-only CSRs allow `rs1=0` reads and trap on non-zero `rs1` writes."""
-    cpu = RV32Oracle()
+    cpu = Oracle()
     r_wr_src, r_zero_reg, r_ro_dst = 1, 2, 10
     for ro_csr in (CSR_MISA, CSR_MVENDORID, CSR_MARCHID, CSR_MIMPID, CSR_MHARTID):
         cpu.reset(reset_pc=BOOT_ROM_BASE)
@@ -1155,7 +1155,7 @@ def test_ro_and_unimplemented_csr_trap_rules() -> None:
 def test_uart0_console_tx_rx_and_mmio_bounds() -> None:
     """Verify UART0 queues, `sw` mask, `lb` sign-extend, `lw` `x0` pop, status, and baud divider."""
     tx_seen: list[int] = []
-    cpu = RV32Oracle(uart_tx_callback=tx_seen.append)
+    cpu = Oracle(uart_tx_callback=tx_seen.append)
     cpu.push_uart_rx(bytes([ord("O"), ord("K"), ord("Z"), 0x80, ord("Q")]))
 
     r_uart, r_h, r_i, r_sw_a, r_baud_set = 1, 2, 3, 4, 5
@@ -1207,14 +1207,14 @@ def test_uart0_console_tx_rx_and_mmio_bounds() -> None:
     cpu.write_u32(UART0_BASE + UNMAPPED_MMIO_OFFSET, 0x1234)
     assert cpu.read_u32(UART0_BASE + UNMAPPED_MMIO_OFFSET) == 0
     assert cpu.read_u32(UART0_BASE + UART0_RXDATA) == 0
-    no_cb_cpu = RV32Oracle()
+    no_cb_cpu = Oracle()
     no_cb_cpu.write_u32(UART0_BASE + UART0_TXDATA, ord("!"))
     assert no_cb_cpu.read_uart_tx() == b"!"
 
 
 def test_bus_invalid_widths_and_sparse_region_faults() -> None:
     """Verify host `bus_read`/`bus_write` and `SparseMemory` reject bad widths or addresses."""
-    cpu = RV32Oracle()
+    cpu = Oracle()
     for bad_addr, width in [
         (CLINT_BASE + 1, 4),
         (CLINT_BASE, 1),
@@ -1237,7 +1237,7 @@ def test_bus_invalid_widths_and_sparse_region_faults() -> None:
 
 def test_cpu_mmio_width_traps_and_non_executable_fetches() -> None:
     """Verify CPU traps on bad CLINT/UART0 widths and refuses non-executable instruction fetches."""
-    cpu = RV32Oracle()
+    cpu = Oracle()
     r_ptr, r_dst = 1, 2
     bad_mmio_cases = [
         (_load(F3_LB, rd=r_dst, rs1=r_ptr, offset=0), CLINT_BASE, CAUSE_LOAD_ACCESS_FAULT),
@@ -1272,7 +1272,7 @@ def test_cpu_mmio_width_traps_and_non_executable_fetches() -> None:
 
 def test_xapex_custom_mac_dot_product_and_saturation() -> None:
     """Verify Xapex `mac`, `mac.clr`, `mac.set`, and `mac.get`, `x0` writeback, and saturation."""
-    cpu = RV32Oracle()
+    cpu = Oracle()
     r_bias, r_p1_a, r_p1_b, r_p2_a, r_p2_b, r_max, r_min = 1, 2, 3, 4, 5, 6, 7
     r_set, r_acc1, r_acc2, r_get, r_hi, r_pos_sat, r_neg_sat, r_neg_stay = (
         10, 11, 12, 13, 14, 15, 16, 17
@@ -1315,7 +1315,7 @@ def test_xapex_custom_mac_dot_product_and_saturation() -> None:
 
 def test_illegal_instructions_and_misaligned_pc_traps() -> None:
     """Verify illegal encodings, misaligned targets, and exact `mtval`/`mepc`/`mcause` values."""
-    cpu = RV32Oracle()
+    cpu = Oracle()
     r_base, r_dst = 1, 2
     cpu.reset(reset_pc=BOOT_ROM_BASE + 2)
     assert cpu.step().trap_cause == CAUSE_INSN_MISALIGNED
@@ -1365,7 +1365,7 @@ def test_illegal_instructions_and_misaligned_pc_traps() -> None:
 
 def test_run_after_ebreak_trap_dispatch() -> None:
     """Verify `run(stop_on_ebreak=False)` continues stepping inside the trap handler."""
-    cpu = RV32Oracle()
+    cpu = Oracle()
     r_handler_ran = 10
     cpu.mtvec = BRAM_BASE
     cpu.load_words(BOOT_ROM_BASE, [INSN_EBREAK])
