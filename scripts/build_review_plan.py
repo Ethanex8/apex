@@ -60,13 +60,13 @@ SV_BLOCK_RE = re.compile(r"^\s*(?:module|function|task)\s+([A-Za-z_]\w*)\b")
 C_FUNC_START_RE = re.compile(r"^(?:[A-Za-z_][\w\s\*]*?[\s\*])([A-Za-z_]\w*)\s*\([^;]*$")
 
 RUBRIC_PATHS = {
-    "cold_reader": ".agents/skills/apex-textbook-author/references/rubric_cold_reader.md",
-    "math_editor": ".agents/skills/apex-textbook-author/references/rubric_math_editor.md",
-    "macro_critic": ".agents/skills/apex-textbook-author/references/rubric_macro_critic.md",
-    "visual_critic": ".agents/skills/apex-textbook-author/references/rubric_visual_critic.md",
-    "diff_guardian": ".agents/skills/apex-textbook-author/references/rubric_diff_guardian.md",
-    "code_arch": ".agents/skills/apex-artifact-author/references/rubric_code_arch.md",
-    "code_clarity": ".agents/skills/apex-artifact-author/references/rubric_code_clarity.md",
+    "cold_reader": ".agents/skills/technical-writing-author/references/rubric_cold_reader.md",
+    "math_editor": ".agents/skills/technical-writing-author/references/rubric_math_editor.md",
+    "macro_critic": ".agents/skills/technical-writing-author/references/rubric_macro_critic.md",
+    "visual_critic": ".agents/skills/technical-writing-author/references/rubric_visual_critic.md",
+    "diff_guardian": ".agents/skills/technical-writing-author/references/rubric_diff_guardian.md",
+    "code_arch": ".agents/skills/code-author/references/rubric_code_arch.md",
+    "code_clarity": ".agents/skills/code-author/references/rubric_code_clarity.md",
 }
 
 ISOLATION_PROHIBITION = (
@@ -692,7 +692,7 @@ def _render_code_shard_tasks(
     context_files: list[str],
 ) -> list[SubagentTask]:
     """Emit frozen-prompt Architecture & Code Clarity tasks for one code shard."""
-    allowed_base = ["GEMINI.md", ".agents/skills/apex-artifact-author/SKILL.md", *context_files]
+    allowed_base = ["GEMINI.md", ".agents/skills/code-author/SKILL.md", *context_files]
     hdr_note = (
         f"Read module context header `L1..L{header_end}` plus primary lines **L{span.start_line}..L{span.end_line}**"
         if idx > 1 and header_end > 0
@@ -708,7 +708,7 @@ def _render_code_shard_tasks(
         prompt = "\n".join([
             f"You are `{role_base}` auditing `{code_rel}` (Shard {idx}/{total}).",
             ISOLATION_PROHIBITION,
-            f"1. Read `GEMINI.md`, `.agents/skills/apex-artifact-author/SKILL.md`, and `{rubric_rel}` completely.",
+            f"1. Read `GEMINI.md`, `.agents/skills/code-author/SKILL.md`, and `{rubric_rel}` completely.",
             f"2. {hdr_note} of `{code_rel}` alongside paired spec/test files: {', '.join(context_files) or '(none)'}.",
             "3. Check every rubric criterion systematically. Report P0/P1/P2 findings with line numbers, or `ZERO P0/P1/P2 DEFECTS FOUND`.",
         ])

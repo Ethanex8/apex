@@ -3,7 +3,7 @@
 
 Purpose:
   Pull inline diff threads, review summaries, and conversation comments from a
-  GitHub pull request via `gh api` so `apex-skill-healer` can score blind
+  GitHub pull request via `gh api` so `pr-review-workflow` can score blind
   subagent recall against every unresolved human critique item.
 
 Usage:

@@ -55,7 +55,7 @@ MAX_PROSE_COORDINATE_REFS = 4
 MAX_MERMAID_LR_EDGES = 4
 BLOCKQUOTE_PREFIX_RE = re.compile(r"^(?:>\s*)+")
 ASCII_FENCE_LANGS = {"", "text", "txt", "ascii", "diagram"}
-REQUIRED_CALIBRATED_SKILLS = ("apex-couch-mentor", "apex-textbook-author", "apex-artifact-author")
+REQUIRED_CALIBRATED_SKILLS = ("apex-couch-mentor", "technical-writing-author", "code-author")
 PROSE_NON_CODE_TERMS = frozenset({
     "HDL", "ISA", "ISAs", "ALU", "FPGA", "FPGAs", "RTL", "EDA", "DSP", "LUT", "LUT4",
     "MMIO", "FIFO", "FIFOs", "CSR", "CSRs", "WARL", "IRQ", "IRQs", "ISR", "ISRs",

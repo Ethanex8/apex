@@ -89,12 +89,15 @@ jobs:
             COMMIT_MSG="deploy: update main textbook (${GITHUB_SHA::7})"
           fi
           touch _gh_pages/.nojekyll
-          git -C _gh_pages config user.name "github-actions[bot]"
-          git -C _gh_pages config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git -C _gh_pages add -A
           if ! git -C _gh_pages diff --cached --quiet; then
+            git -C _gh_pages config user.name "github-actions[bot]"
+            git -C _gh_pages config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git -C _gh_pages checkout --orphan gh-pages-tmp
+            git -C _gh_pages add -A
             git -C _gh_pages commit -m "${COMMIT_MSG}"
-            git -C _gh_pages push origin gh-pages
+            git -C _gh_pages branch -M gh-pages-tmp gh-pages
+            git -C _gh_pages push --force origin gh-pages
           fi
           rm -rf _gh_pages/.git
 
@@ -129,12 +132,15 @@ jobs:
             rm -rf "_gh_pages/pr-${PR_NUM}"
             git -C _gh_pages config user.name "github-actions[bot]"
             git -C _gh_pages config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git -C _gh_pages checkout --orphan gh-pages-tmp
             git -C _gh_pages add -A
             git -C _gh_pages commit -m "deploy: remove closed PR #${PR_NUM} preview"
-            git -C _gh_pages push origin gh-pages
+            git -C _gh_pages branch -M gh-pages-tmp gh-pages
+            git -C _gh_pages push --force origin gh-pages
             rm -rf _gh_pages/.git
             echo "changed=true" >> "${GITHUB_OUTPUT}"
           else
+            rm -rf _gh_pages/.git
             echo "changed=false" >> "${GITHUB_OUTPUT}"
           fi
 

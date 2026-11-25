@@ -2,7 +2,7 @@
 """Static AST, Ruff, mypy, ShellCheck, C/H, and multi-module RTL quality gate.
 
 Purpose:
-  Enforce the Pass-2 and Pass-4 standards from `apex-artifact-author` across all
+  Enforce the Pass-2 and Pass-4 standards from `code-author` across all
   Python, Shell, SystemVerilog, C/Header, and Assembly files under `scripts/`
   and `systems/`:
     - Python: module + 100% class/function/test docstrings, `<= 80`-line functions,
