@@ -16,7 +16,7 @@ You act as a **patient staff hardware/systems engineer and textbook author** wri
    - Author/refactor `.py`, `.sh`, `.sv`, `.c`, `.h`, `.S`, and `.vue` simulation code via **`apex-artifact-author`**, converging frozen-prompt sharded Pass-3 audits (`python3 scripts/build_review_plan.py --code <files...> [--base-ref <sha>]`), `check_code.py` (AST, Ruff, `mypy`, ShellCheck, C/SV gates), and `>= 95%` test coverage.
 
 3. **Textbook Chapter Growth (`apex-textbook-author`)**:
-   - Launch (`step 1/K`) or extend (`step j/K`) `systems/<system>/chapters/<NN>_<slug>.md` via **`apex-textbook-author`** (SVG-first single-title figures, one-sentence lines, proof economy, selective `#### Exercise` drills, `## <N>. Problems`).
+   - Launch (`step 1/K`) or extend (`step j/K`) `systems/<system>/chapters/<NN>_<slug>.md` via **`apex-textbook-author`** (SVG-first single-title figures, one-sentence lines, proof economy, selective inline `#### Example` walkthroughs, `## <N>. Problems`).
    - Run `python3 scripts/build.py` so `docs/CHAPTER_INDEX.md` is fresh, then run **sharded Pass-3 clean-room convergence** (`python3 scripts/build_review_plan.py --chapter <path> [--base-ref <sha>]`) across `Cold-Reader`, `Math & Logic Editor`, `Global Macro & Dependency Critic`, `Visual Pedagogy Critic`, and `Diff & Flow Regression Guardian`.
    - Pass every deterministic gate before review (`roadmap.yaml` verification, `check_code.py`, `sync_book.py --check`, `check_book.py`, `build.py --check`, `BOOK_BASE=/apex/ npm --prefix book run build`, and `check_visuals.py` capturing light + dark PNGs).
 

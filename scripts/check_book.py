@@ -87,10 +87,8 @@ SEQ_MSG_SEMI_RE = re.compile(r"^[^\n:]+(?:->|--?>|->>|-->>|-x|--x|-\)|--\))[^\n:
 H1_HEADING_RE = re.compile(r"^#\s+(.+)$")
 HEADING_RE = re.compile(r"^(#{2,4})\s+(.+)$")
 PRACTICE_HEADING_RE = re.compile(r"\b(?:Exercises?|Problems?)(?:\s+\d+(?:\.\d+)?)?\b", re.IGNORECASE)
-EXERCISE_PREFIX_RE = re.compile(r"^(?:Exercise|Problem)\s+\d+(?:\.\d+)?:\s*(.+)$", re.IGNORECASE)
-H4_EXERCISE_RE = re.compile(r"^####\s+(Exercise\s+\d+(?:\.\d+)?:\s*.+)$", re.IGNORECASE)
-EX_QUESTION_RE = re.compile(r"^\d+\.\s+")
-EX_SUBPART_RE = re.compile(r"^\s*(?:[-*+]\s+)?(?:\*\*)?\([a-z]\)(?:\*\*)?\s+")
+EXERCISE_PREFIX_RE = re.compile(r"^(?:Example|Problem)\s+\d+(?:\.\d+)?:\s*(.+)$", re.IGNORECASE)
+H4_EXERCISE_RE = re.compile(r"^####\s+(Exercise\b.+)$", re.IGNORECASE)
 SECTION_NUM_PREFIX_RE = re.compile(r"^\d+(?:\.\d+)*\.?\s+")
 CHAPTER_PREFIX_RE = re.compile(r"^Chapter\s+\d+:\s*", re.IGNORECASE)
 CHAPTER_BANNER_NOISE_RE = re.compile(
@@ -411,6 +409,12 @@ def _validate_heading_style(
             errors,
             f"[{rel_chap}:{idx}] Problem/exercise closing heading '{body}' should simply be 'Problems' "
             "(e.g., '## <N>. Problems')",
+        )
+    if hashes == "####" and H4_EXERCISE_RE.match(stripped):
+        _append_unique(
+            errors,
+            f"[{rel_chap}:{idx}] Mid-chapter exercise drill '{body}' is banned; "
+            "use a visible inline '#### Example <S.K>: <Title>' block and keep practice in '## <N>. Problems'",
         )
     state.pending_heading = None if PRACTICE_HEADING_RE.search(body) else (idx, body)
     return True
@@ -772,66 +776,28 @@ def _validate_prose_line(
     _check_semantic_line_breaks(raw_line, idx, rel_chap, allow_multi, errors)
 
 
-def _flush_exercise_reveal_check(
-    ex_info: tuple[int, str] | None,
-    prompt_count: int,
-    details_count: int,
-    rel_chap: Path,
-    errors: list[str],
-) -> None:
-    """Emit an error if an Exercise block uses fewer `<details>` reveals than questions/sub-parts."""
-    if ex_info is not None and prompt_count >= 2 and details_count < prompt_count:
-        ex_line, ex_title = ex_info
-        _append_unique(
-            errors,
-            f"[{rel_chap}:{ex_line}] Exercise '{ex_title}' has {prompt_count} question/sub-part(s) "
-            f"but only {details_count} '<details>' reveal(s); embed a collapsible solution beneath "
-            f"each question or sub-part",
-        )
-
-
-def _validate_exercise_solutions(lines: list[str], rel_chap: Path, errors: list[str]) -> None:
-    """Require per-question/per-subpart `<details>` reveals inside every `#### Exercise` block."""
+def _validate_midchapter_details(lines: list[str], rel_chap: Path, errors: list[str]) -> None:
+    """Ban mid-chapter `<details>` quiz toggles outside the closing `## <N>. Problems` section."""
     active_fence: tuple[str, int] | None = None
-    in_details = False
-    cur_ex: tuple[int, str] | None = None
-    prompts = 0
-    subparts_in_cur_q = 0
-    details = 0
+    in_problems = False
 
     for idx, raw_line in enumerate(lines, start=1):
         stripped = raw_line.strip()
         active_fence, toggled = update_fence_state(stripped, active_fence)
         if toggled or active_fence is not None:
             continue
-        if cur_ex is not None and (stripped == "---" or HEADING_RE.match(stripped)):
-            _flush_exercise_reveal_check(cur_ex, prompts, details, rel_chap, errors)
-            cur_ex, prompts, subparts_in_cur_q, details, in_details = None, 0, 0, 0, False
-        if em := H4_EXERCISE_RE.match(stripped):
-            cur_ex, prompts, subparts_in_cur_q, details, in_details = (idx, em.group(1)), 0, 0, 0, False
+        if hm := HEADING_RE.match(stripped):
+            hashes, body = hm.group(1), hm.group(2).strip()
+            if hashes == "##":
+                core = SECTION_NUM_PREFIX_RE.sub("", body).strip().lower()
+                in_problems = core == "problems"
             continue
-        if cur_ex is None:
-            continue
-        lower = stripped.lower()
-        if "<details" in lower:
-            details += 1
-            if "</details>" not in lower:
-                in_details = True
-            continue
-        if "</details>" in lower:
-            in_details = False
-            continue
-        if in_details:
-            continue
-        if EX_QUESTION_RE.match(raw_line):
-            prompts += 1
-            subparts_in_cur_q = 0
-        elif EX_SUBPART_RE.match(raw_line):
-            subparts_in_cur_q += 1
-            if subparts_in_cur_q > 1:
-                prompts += 1
-
-    _flush_exercise_reveal_check(cur_ex, prompts, details, rel_chap, errors)
+        if not in_problems and "<details" in stripped.lower():
+            _append_unique(
+                errors,
+                f"[{rel_chap}:{idx}] Mid-chapter '<details>' toggle is banned outside '## <N>. Problems'; "
+                "show worked steps visibly inside inline '#### Example' blocks instead",
+            )
 
 
 def _validate_single_chapter(
@@ -907,7 +873,7 @@ def _validate_single_chapter(
         _append_unique(errors, f"[{rel_chap}] Unclosed fenced code block at end of file")
     if state.in_math:
         _append_unique(errors, f"[{rel_chap}] Unclosed '$$' math block at end of file")
-    _validate_exercise_solutions(lines, rel_chap, errors)
+    _validate_midchapter_details(lines, rel_chap, errors)
     return state.anchor_count
 
 

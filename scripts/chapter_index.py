@@ -27,7 +27,7 @@ CHAPTER_INDEX_MD_PATH = ROOT_DIR / "docs" / "CHAPTER_INDEX.md"
 H1_RE = re.compile(r"^#\s+(.+)$")
 H2_RE = re.compile(r"^##\s+(.+)$")
 H3_RE = re.compile(r"^###\s+(.+)$")
-H4_EX_RE = re.compile(r"^####\s+(Exercise\s+\d+(?:\.\d+)?)\b", re.IGNORECASE)
+H4_EX_RE = re.compile(r"^####\s+(Example\s+\d+(?:\.\d+)?)\b", re.IGNORECASE)
 PART_NUM_RE = re.compile(r"^\s*\d+\.\s+")
 FENCE_TOGGLE_RE = re.compile(r"^(`{3,}|~{3,})")
 VUE_TAG_RE = re.compile(r"^<([A-Z][A-Za-z0-9]*)(?:\s*/>|\s|>).*$")
@@ -277,7 +277,7 @@ def render_chapter_index_md(root_dir: Path | None = None) -> str:
         out.extend([
             f"## {cmeta.title} (`{rel}`, {cmeta.total_lines} lines)",
             "",
-            "| Section | Lines (% Ch.) | Newly Defined Terms & Symbols | First Later Consumers | Visuals & Drills |",
+            "| Section | Lines (% Ch.) | Newly Defined Terms & Symbols | First Later Consumers | Visuals & Examples |",
             "| :--- | :--- | :--- | :--- | :--- |",
         ])
         for m in cmeta.sections:
