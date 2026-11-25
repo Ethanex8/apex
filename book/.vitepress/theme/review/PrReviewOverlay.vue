@@ -74,7 +74,6 @@ const authBusy = ref(false)
 const authError = ref('')
 
 const drafts = ref<DraftComment[]>([])
-const summaryBody = ref('')
 const submitBusy = ref(false)
 const submitNotice = ref('')
 const submitError = ref('')
@@ -207,10 +206,7 @@ function summarizeComment(msg: RemoteThreadComment): string {
 function saveDraftState() {
   if (typeof window === 'undefined') return
   try {
-    localStorage.setItem(
-      draftStorageKey,
-      JSON.stringify({ drafts: drafts.value, summaryBody: summaryBody.value }),
-    )
+    localStorage.setItem(draftStorageKey, JSON.stringify({ drafts: drafts.value }))
   } catch {
     // ignore storage errors
   }
@@ -228,8 +224,23 @@ function loadDraftState() {
     if (Array.isArray(parsed.drafts)) {
       drafts.value = parsed.drafts
     }
-    if (typeof parsed.summaryBody === 'string') {
-      summaryBody.value = parsed.summaryBody
+    if (typeof parsed.summaryBody === 'string' && parsed.summaryBody.trim()) {
+      drafts.value.push({
+        id: `${Date.now()}-migrated`,
+        kind: 'comment',
+        path: '',
+        startLine: 1,
+        endLine: 1,
+        apiStartLine: 1,
+        apiLine: 1,
+        mode: 'issue',
+        quote: '',
+        sectionTitle: `PR #${meta.prNumber}`,
+        blockKind: 'PR Comment',
+        body: parsed.summaryBody.trim(),
+        createdAt: new Date().toISOString(),
+      })
+      saveDraftState()
     }
   } catch {
     // ignore corrupted local drafts
@@ -575,6 +586,20 @@ function openComposerForBlock(el: HTMLElement) {
   if (target) openComposer(target)
 }
 
+function openTopLevelComposer() {
+  openComposer({
+    path: '',
+    startLine: 1,
+    endLine: 1,
+    apiStartLine: 1,
+    apiLine: 1,
+    mode: 'issue',
+    quote: '',
+    sectionTitle: `PR #${meta.prNumber}`,
+    blockKind: 'PR Comment',
+  })
+}
+
 function addDraftToCart() {
   if (!composerTarget.value) return
   const text = composerBody.value.trim()
@@ -585,6 +610,7 @@ function addDraftToCart() {
   const target = composerTarget.value
   drafts.value.push({
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    kind: 'comment',
     ...target,
     body: text,
     createdAt: new Date().toISOString(),
@@ -592,31 +618,9 @@ function addDraftToCart() {
   saveDraftState()
   composerTarget.value = null
   composerBody.value = ''
-  submitNotice.value = `Queued comment at ${target.path}:${target.startLine}`
-}
-
-function stageSummaryDraft() {
-  const trimmed = summaryBody.value.trim()
-  if (!trimmed) return
-  drafts.value.push({
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-    kind: 'comment',
-    path: '',
-    startLine: 1,
-    endLine: 1,
-    apiStartLine: 1,
-    apiLine: 1,
-    mode: 'issue',
-    quote: '',
-    sectionTitle: `PR #${meta.prNumber}`,
-    blockKind: 'PR Comment',
-    body: trimmed,
-    createdAt: new Date().toISOString(),
-  })
-  saveDraftState()
-  summaryBody.value = ''
-  submitError.value = ''
-  submitNotice.value = 'Staged top-level PR comment draft. Click Submit when ready to send.'
+  submitNotice.value = target.path
+    ? `Queued comment at ${target.path}:${target.startLine}`
+    : 'Queued top-level PR comment draft.'
 }
 
 function removeDraft(id: string) {
@@ -629,8 +633,8 @@ async function submitQueuedReview() {
     drawerView.value = 'setup'
     return
   }
-  if (drafts.value.length === 0 && !summaryBody.value.trim()) {
-    submitError.value = 'Add at least one draft comment or an overall comment.'
+  if (drafts.value.length === 0) {
+    submitError.value = 'Add at least one draft comment before submitting.'
     return
   }
   submitBusy.value = true
@@ -640,16 +644,13 @@ async function submitQueuedReview() {
     const result = await submitBatchedReview(
       meta,
       drafts.value,
-      summaryBody.value,
+      '',
       'COMMENT',
       auth.value.token,
     )
     const failedIds = new Set(result.outcomes.filter((o) => !o.ok).map((o) => o.draftId))
-    const succeededCount = result.outcomes.filter((o) => o.ok).length + (result.summaryOk && summaryBody.value.trim() ? 1 : 0)
+    const succeededCount = result.outcomes.filter((o) => o.ok).length
     drafts.value = drafts.value.filter((d) => failedIds.has(d.id))
-    if (result.summaryOk) {
-      summaryBody.value = ''
-    }
     if (failedIds.size === 0 && result.summaryOk) {
       submitNotice.value = `Submitted ${succeededCount} item(s) to PR #${meta.prNumber}.`
     } else {
@@ -669,7 +670,7 @@ async function submitQueuedReview() {
 }
 
 async function copyMarkdownCart() {
-  const md = formatMarkdownBundle(meta, drafts.value, summaryBody.value)
+  const md = formatMarkdownBundle(meta, drafts.value, '')
   try {
     await navigator.clipboard.writeText(md)
     submitNotice.value = 'Copied formatted Markdown review bundle to clipboard.'
@@ -825,7 +826,7 @@ watch([showGutter, showResolved], () => {
 })
 
 watch(
-  [drafts, summaryBody],
+  drafts,
   () => saveDraftState(),
   { deep: true },
 )
@@ -973,22 +974,13 @@ onUnmounted(() => {
       <button
         type="button"
         class="apex-rev-btn is-pill"
-        :class="{ 'is-primary': drafts.length > 0, 'is-active': drawerOpen && drawerView === 'main' && drafts.length === 0 }"
+        :class="{ 'is-primary': drafts.length > 0, 'is-active': drawerOpen && drafts.length === 0 }"
+        :title="`Open PR #${meta.prNumber} review drawer`"
         @click="openReviewDrawer('main')"
       >
-        <span>Review #{{ meta.prNumber }}</span>
+        <span>Review</span>
         <span v-if="drafts.length > 0" class="apex-badge-count">{{ drafts.length }}</span>
         <span v-else-if="openPageThreadCount > 0" class="apex-badge-count is-warn">{{ openPageThreadCount }}</span>
-      </button>
-
-      <button
-        type="button"
-        class="apex-rev-btn is-pill"
-        :class="{ 'is-active': drawerOpen && drawerView === 'setup' }"
-        :title="auth.login ? `Connected as @${auth.login}` : 'Connect GitHub PAT (saved once across all PRs)'"
-        @click="openReviewDrawer('setup')"
-      >
-        {{ auth.login ? `@${auth.login}` : 'Connect' }}
       </button>
     </div>
 
@@ -999,16 +991,16 @@ onUnmounted(() => {
       @wheel.self.prevent
       @touchmove.self.prevent
     >
-      <div class="apex-modal-card" role="dialog" aria-label="Draft inline PR comment">
+      <div class="apex-modal-card" role="dialog" aria-label="Draft PR comment">
         <div class="apex-meta-row">
           <span class="apex-mono-path">
-            {{ composerTarget.path }}:{{ formatLineLabel(composerTarget.startLine, composerTarget.endLine) }}
+            {{ composerTarget.path ? `${composerTarget.path}:${formatLineLabel(composerTarget.startLine, composerTarget.endLine)}` : `PR #${meta.prNumber}` }}
           </span>
           <span
             class="apex-mode-badge"
-            :class="{ 'is-warn': composerTarget.mode !== 'inline' }"
+            :class="{ 'is-warn': composerTarget.mode !== 'inline' && Boolean(composerTarget.path) }"
           >
-            {{ modeBadgeLabel(composerTarget.mode) }}
+            {{ !composerTarget.path ? 'Top-level PR comment' : modeBadgeLabel(composerTarget.mode) }}
           </span>
         </div>
 
@@ -1020,7 +1012,7 @@ onUnmounted(() => {
           v-model="composerBody"
           rows="4"
           class="apex-textarea"
-          placeholder="Write your inline review comment..."
+          :placeholder="composerTarget.path ? 'Write your inline review comment...' : 'Write a top-level PR comment...'"
           @keydown.meta.enter.prevent="addDraftToCart"
           @keydown.ctrl.enter.prevent="addDraftToCart"
         />
@@ -1185,9 +1177,9 @@ onUnmounted(() => {
       <aside class="apex-drawer-panel" aria-label="PR Inline Review Drawer">
         <div class="apex-drawer-header">
           <div>
-            <strong>PR #{{ meta.prNumber }} Review</strong>
+            <strong>Review</strong>
             <div class="apex-mono-path" style="color: var(--vp-c-text-2)">
-              {{ meta.repo }} · {{ meta.headSha.slice(0, 7) }}
+              PR #{{ meta.prNumber }} · {{ meta.headSha.slice(0, 7) }}
             </div>
           </div>
           <div style="display: flex; gap: 6px">
@@ -1195,9 +1187,10 @@ onUnmounted(() => {
               type="button"
               class="apex-rev-btn"
               :class="{ 'is-active': drawerView === 'setup' }"
+              :title="auth.login ? `GitHub token & settings (connected as @${auth.login})` : 'GitHub token & review settings'"
               @click="drawerView = drawerView === 'setup' ? 'main' : 'setup'"
             >
-              {{ drawerView === 'setup' ? '← Review' : (auth.login ? `@${auth.login}` : 'Setup') }}
+              {{ drawerView === 'setup' ? '← Review' : 'Settings' }}
             </button>
             <a
               :href="meta.prUrl"
@@ -1234,11 +1227,19 @@ onUnmounted(() => {
 
             <div class="apex-section-heading">
               <span>Pending Drafts ({{ drafts.length }})</span>
+              <button
+                type="button"
+                class="apex-rev-btn"
+                style="text-transform: none; letter-spacing: 0; font-weight: 500"
+                @click="openTopLevelComposer"
+              >
+                + PR Comment
+              </button>
             </div>
 
             <div v-if="drafts.length === 0" class="apex-card">
               <div style="font-size: 13px; color: var(--vp-c-text-2)">
-                Highlight any sentence or click <strong>+</strong> beside any block to queue inline review comments.
+                Highlight any sentence, click <strong>+</strong> beside any block, or use <strong>+ PR Comment</strong> to queue drafts.
               </div>
             </div>
 
@@ -1438,41 +1439,23 @@ onUnmounted(() => {
           </div>
 
           <div class="apex-drawer-footer">
-            <textarea
-              v-model="summaryBody"
-              rows="2"
-              class="apex-textarea"
-              placeholder="Top-level PR comment (stage as draft or include on Submit)..."
-              @keydown.meta.enter.prevent="stageSummaryDraft"
-              @keydown.ctrl.enter.prevent="stageSummaryDraft"
-            />
-            <div style="display: flex; gap: 8px; justify-content: space-between; align-items: center">
+            <div style="display: flex; gap: 8px; justify-content: flex-end">
               <button
                 type="button"
                 class="apex-rev-btn"
-                :disabled="!summaryBody.trim()"
-                @click="stageSummaryDraft"
+                :disabled="drafts.length === 0"
+                @click="copyMarkdownCart"
               >
-                Stage Draft
+                Copy MD
               </button>
-              <div style="display: flex; gap: 8px">
-                <button
-                  type="button"
-                  class="apex-rev-btn"
-                  :disabled="drafts.length === 0 && !summaryBody.trim()"
-                  @click="copyMarkdownCart"
-                >
-                  Copy MD
-                </button>
-                <button
-                  type="button"
-                  class="apex-rev-btn is-primary"
-                  :disabled="submitBusy || (Boolean(auth.token) && drafts.length === 0 && !summaryBody.trim())"
-                  @click="submitQueuedReview"
-                >
-                  {{ submitBusy ? 'Submitting…' : auth.token ? (drafts.length > 0 ? `Submit (${drafts.length})` : 'Submit') : 'Connect & Submit' }}
-                </button>
-              </div>
+              <button
+                type="button"
+                class="apex-rev-btn is-primary"
+                :disabled="submitBusy || (Boolean(auth.token) && drafts.length === 0)"
+                @click="submitQueuedReview"
+              >
+                {{ submitBusy ? 'Submitting…' : auth.token ? (drafts.length > 0 ? `Submit (${drafts.length})` : 'Submit') : 'Connect & Submit' }}
+              </button>
             </div>
           </div>
         </template>
