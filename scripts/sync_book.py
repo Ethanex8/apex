@@ -73,7 +73,7 @@ def format_label_lines(label: str, start_ln: int, end_ln: int) -> str:
 
 
 def infer_implicit_symbol(label: str) -> str | None:
-    """Extract an implicit code symbol from a backticked link label like `` `RV32Oracle.step()` ``."""
+    """Extract an implicit code symbol from a backticked link label like `` `Oracle.step()` ``."""
     stripped = label.strip()
     if not (stripped.startswith("`") and stripped.endswith("`")):
         return None

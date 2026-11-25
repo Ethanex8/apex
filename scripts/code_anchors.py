@@ -8,7 +8,7 @@ Purpose:
 
 Usage:
   from code_anchors import AnchorError, extract_symbols, resolve_anchor
-  start, end = resolve_anchor(Path("systems/brain/sim/oracle.py"), "RV32Oracle.step")
+  start, end = resolve_anchor(Path("systems/brain/sim/oracle.py"), "Oracle.step")
 
 Invariants:
   - Returned line numbers are always 1-indexed and inclusive (`1 <= start <= end`).
