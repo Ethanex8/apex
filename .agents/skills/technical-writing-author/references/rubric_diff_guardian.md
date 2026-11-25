@@ -1,6 +1,6 @@
 # Diff & Flow Regression Guardian Rubric
 
-Inspect strictly the pre-generated unified diff patch between pre-fix `base_ref` and the current tree (`Step 3` convergence check) to prevent "fix-induced regressions" where literal compliance with a new rule degrades overall readability:
+Inspect strictly the pre-generated unified diff patch between the pre-edit baseline and the current tree to prevent "fix-induced regressions" where literal compliance with a new rule degrades overall readability:
 
 ## 1. Prose-Flow & Boilerplate Regressions
 1. **No Flow Degradation vs. Baseline**: Compare every rewritten paragraph side-by-side against its removed `-` lines; flag any `+` revision that reads more stiffly, robotically, or abruptly than the original text.
@@ -9,5 +9,5 @@ Inspect strictly the pre-generated unified diff patch between pre-fix `base_ref`
 4. **No Stiff Announcements or Section Catalogs**: Flag newly introduced `"Next we prove..."`, `"Below we show..."`, or multi-section forward roadmaps (`Section X, Section Y...`) injected just to satisfy proof-lead-in checks.
 
 ## 2. Boundary & Reordering Side Effects
-5. **Cross-Section Move Verification**: Whenever theorems, lemmas, or definitions move earlier or later, verify all dependent expressions, symbols, `#### Example` blocks, and `.vue` widgets in between remain strictly valid in their new dependency order.
-6. **No Silent Content Deletion**: Verify style/flow tightenings preserve all genuine quantitative invariants, corner-case proofs, code/test symbol anchors, and hardware-tradeoff insights.
+5. **Cross-Section Move Verification**: Whenever theorems, lemmas, or definitions move earlier or later, verify all dependent expressions, symbols, `#### Example` blocks, and embedded diagrams/widgets in between remain strictly valid in their new dependency order.
+6. **No Silent Content Deletion**: Verify style/flow tightenings preserve all genuine quantitative invariants, corner-case proofs, code/test symbol anchors, and engineering tradeoff insights.
