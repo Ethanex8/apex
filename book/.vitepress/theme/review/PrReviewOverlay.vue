@@ -1313,27 +1313,19 @@ onUnmounted(() => {
             <div v-for="t in filteredDrawerThreads" :key="t.id" class="apex-card">
               <div class="apex-meta-row">
                 <button
+                  v-if="t.path"
                   type="button"
                   class="apex-rev-btn"
                   @click="jumpToLocation(t.path, t.line)"
                 >
                   {{ t.path.split('/').pop() }}<template v-if="t.line">:L{{ t.line }}</template>
                 </button>
-                <div style="display: flex; gap: 6px; align-items: center">
-                  <span class="apex-mode-badge" :class="t.isResolved ? 'is-ok' : 'is-warn'">
-                    {{ t.isResolved ? 'Resolved' : 'Open' }}
-                  </span>
-                  <button
-                    v-if="t.canResolve && auth.token"
-                    type="button"
-                    class="apex-rev-btn"
-                    style="padding: 2px 8px; font-size: 11.5px"
-                    :disabled="threadActionBusy"
-                    @click="toggleThreadResolved(t)"
-                  >
-                    {{ t.isResolved ? 'Reopen' : 'Resolve' }}
-                  </button>
-                </div>
+                <span v-else class="apex-mono-path">
+                  PR #{{ meta.prNumber }}
+                </span>
+                <span class="apex-mode-badge" :class="t.isResolved ? 'is-ok' : 'is-warn'">
+                  {{ t.isResolved ? 'Resolved' : 'Open' }}
+                </span>
               </div>
 
               <template v-for="(msg, mIdx) in t.comments" :key="msg.id">
@@ -1430,8 +1422,14 @@ onUnmounted(() => {
                   >
                     Reply
                   </button>
-                  <button type="button" class="apex-rev-btn" @click="openThreadCard(t)">
-                    Open
+                  <button
+                    v-if="t.canResolve && auth.token"
+                    type="button"
+                    class="apex-rev-btn"
+                    :disabled="threadActionBusy"
+                    @click="toggleThreadResolved(t)"
+                  >
+                    {{ t.isResolved ? 'Reopen' : 'Resolve' }}
                   </button>
                 </div>
               </div>
