@@ -1195,4 +1195,63 @@ def test_harvest_feedback_preview_loc_fallback(monkeypatch: pytest.MonkeyPatch) 
     assert harvest_feedback._extract_preview_location("plain text") == (None, None)
 
 
+def test_harvest_feedback_ack_eyes(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Verify ack_feedback_eyes targets human comments/replies, skips agent replies/reviews, and handles CLI."""
+    monkeypatch.setattr(harvest_feedback.shutil, "which", lambda _n: "/bin/gh")
+    posted: list[list[str]] = []
+
+    def _run_ack_stub(cmd: list[str], **_kw: object) -> subprocess.CompletedProcess[str]:
+        """Record POST reaction commands or fail on injected error repo."""
+        if "reactions" in cmd[-3] or any(arg.endswith("/reactions") for arg in cmd):
+            if "fail-repo" in " ".join(cmd):
+                return subprocess.CompletedProcess(cmd, 1, "", "Forbidden")
+            posted.append(cmd)
+            return subprocess.CompletedProcess(cmd, 0, "{}", "")
+        return subprocess.CompletedProcess(cmd, 0, "[]", "")
+
+    monkeypatch.setattr(harvest_feedback.subprocess, "run", _run_ack_stub)
+    items: list[dict[str, object]] = [
+        {"id": 10, "source": "inline", "author": "Ethanex8", "body": "Fix wording", "replies": []},
+        {
+            "id": 20,
+            "source": "issue",
+            "author": "Ethanex8",
+            "body": "Root issue",
+            "replies": [
+                {"id": 21, "body": "🤖 **[Antigravity]** Done"},
+                {"id": 22, "body": "Human follow-up"},
+            ],
+        },
+        {
+            "id": 30,
+            "source": "issue",
+            "author": "Ethanex8",
+            "body": "Already answered",
+            "replies": [{"id": 31, "body": "<!-- apex-preview-reply-to: 30 -->\n🤖 [Antigravity]: Fixed."}],
+        },
+        {"id": 40, "source": "review", "author": "Ethanex8", "body": "Summary note", "replies": []},
+        {
+            "id": 45,
+            "source": "review",
+            "author": "Ethanex8",
+            "body": "Review summary",
+            "replies": [{"id": 46, "source": "issue", "body": "Issue follow-up under review"}],
+        },
+        {"id": 50, "source": "inline", "author": "Ethanex8", "body": "[Antigravity] Bot root", "replies": []},
+        {"id": 60, "source": "issue", "author": "Ethanex8", "body": "Malformed reply", "replies": ["bad"]},
+    ]
+    assert harvest_feedback.ack_feedback_eyes("Ethanex8/apex", items) == 3
+    assert posted[0][4] == "repos/Ethanex8/apex/pulls/comments/10/reactions"
+    assert posted[1][4] == "repos/Ethanex8/apex/issues/comments/22/reactions"
+    assert posted[2][4] == "repos/Ethanex8/apex/issues/comments/46/reactions"
+    with pytest.raises(RuntimeError, match="reaction failed"):
+        harvest_feedback.ack_feedback_eyes("Ethanex8/fail-repo", items[:1])
+
+    monkeypatch.setattr(harvest_feedback, "normalize_pr_feedback", lambda *_a, **_kw: items[:1])
+    assert harvest_feedback.main(["--repo", "Ethanex8/apex", "--pr", "10", "--ack-eyes"]) == 0
+    assert len(posted) == 4
+
+    bad_dir = Path("/proc/invalid_dir_not_writable") if Path("/proc").exists() else Path("\0bad")
+    assert harvest_feedback.main(["--repo", "Ethanex8/apex", "--pr", "10", "--ack-eyes", "--out", str(bad_dir / "out.json")]) == 1
+    assert len(posted) == 4
 

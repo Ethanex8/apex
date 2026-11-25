@@ -138,7 +138,7 @@ export function createDraftComment(target: CommentTarget, body: string): DraftCo
 
 /** Create a queued reply draft targeting an existing remote PR review thread. */
 export function createReplyDraft(thread: RemoteReviewThread, body: string): DraftComment {
-  const targetAuthor = thread.comments[0]?.author ?? 'reviewer'
+  const targetAuthor = thread.comments[0]?.author?.trim() || 'reviewer'
   return {
     ...buildThreadDraftBase(thread),
     kind: 'reply',
@@ -170,6 +170,7 @@ export function createResolveDraft(thread: RemoteReviewThread): DraftComment {
       line: thread.line,
       resolved: nextResolved,
       rawRootBody: thread.rawRootBody,
+      hasStateOverride: thread.hasStateOverride,
     },
     sectionTitle: nextResolved ? 'Resolve thread' : 'Reopen thread',
     blockKind: nextResolved ? 'Resolve' : 'Reopen',
@@ -199,7 +200,8 @@ function isValidThreadActionTarget(
   }
   return (
     typeof target.resolved === 'boolean' &&
-    (target.rawRootBody === undefined || typeof target.rawRootBody === 'string')
+    (target.rawRootBody === undefined || typeof target.rawRootBody === 'string') &&
+    (target.hasStateOverride === undefined || typeof target.hasStateOverride === 'boolean')
   )
 }
 
@@ -223,13 +225,15 @@ export function isValidDraftComment(raw: unknown): raw is DraftComment {
     typeof raw.sectionTitle !== 'string' ||
     typeof raw.blockKind !== 'string' ||
     typeof raw.createdAt !== 'string' ||
-    typeof raw.body !== 'string' ||
-    !raw.body.trim()
+    typeof raw.body !== 'string'
   ) {
     return false
   }
   const kind = raw.kind ?? 'comment'
   if (typeof kind !== 'string' || !ALLOWED_DRAFT_KINDS.has(kind as NonNullable<DraftComment['kind']>)) {
+    return false
+  }
+  if (kind !== 'resolve' && !raw.body.trim()) {
     return false
   }
   if (kind === 'reply') return isValidThreadActionTarget(raw.replyTarget, false)
@@ -323,4 +327,29 @@ export function canAutoRefreshThreads(
   if (lastRefreshAt === 0 && !threadsLoadedOnce) return true
   const minCooldownMs = hasToken ? AUTH_REFRESH_COOLDOWN_MS : ANON_REFRESH_COOLDOWN_MS
   return nowMs - lastRefreshAt > minCooldownMs
+}
+
+/** Summarize how queued drafts dispatch on Submit: inline hunk comments atomically vs follow-up actions sequentially. */
+export function summarizeSubmitBatch(drafts: readonly DraftComment[]): string {
+  if (drafts.length === 0) return ''
+  let inlineCount = 0
+  let followUpCount = 0
+  for (const d of drafts) {
+    const isComment = d.kind !== 'reply' && d.kind !== 'resolve'
+    if (isComment && d.mode === 'inline') {
+      inlineCount += 1
+    } else {
+      followUpCount += 1
+    }
+  }
+  const inlineLabel = `${inlineCount} inline`
+  const actionNoun = followUpCount === 1 ? 'action' : 'actions'
+  if (inlineCount > 0 && followUpCount > 0) {
+    return `1 batched PR review (${inlineLabel}) + ${followUpCount} follow-up ${actionNoun}`
+  }
+  if (inlineCount > 0) {
+    const suffix = inlineCount === 1 ? 'comment' : 'comments'
+    return `1 batched PR review (${inlineCount} inline ${suffix})`
+  }
+  return `${followUpCount} PR ${actionNoun} (sent sequentially)`
 }

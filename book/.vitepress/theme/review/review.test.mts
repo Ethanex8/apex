@@ -32,6 +32,7 @@ import {
   parseStoredDrafts,
   SUMMARY_TRUNCATE_CHARS,
   summarizeComment,
+  summarizeSubmitBatch,
   threadStatusLabel,
 } from './overlayHelpers.ts'
 import {
@@ -45,10 +46,13 @@ import {
   shouldTriggerJumpOnClick,
 } from './sourceMapper.ts'
 import {
+  fetchPaginatedRest,
   fetchPrHeadInfo,
   fetchPrThreads,
   formatGitHubPermissionError,
   formatMarkdownBundle,
+  formatPreviewLocationBody,
+  parseAgentAttribution,
   parsePreviewLocationMarker,
   replyToThread,
   setThreadResolved,
@@ -801,6 +805,9 @@ test('isValidDraftComment accepts valid comment/reply/resolve drafts and rejects
   assert.equal(isValidDraftComment({ ...validDraft, kind: 'reply', replyTarget: { threadId: '', rootCommentId: 1, source: 'inline', path: 'VISION.md', line: 8, author: 'a' } }), false)
   assert.equal(isValidDraftComment({ ...validDraft, kind: 'reply', replyTarget: { threadId: 'T1', rootCommentId: 1, source: 'inline', path: 'VISION.md', line: 8, author: '' } }), false)
   assert.equal(isValidDraftComment({ ...validDraft, kind: 'resolve', resolveTarget: { threadId: 'T1', rootCommentId: 1, source: 'inline', path: 'VISION.md', line: 8 } }), false)
+  assert.equal(isValidDraftComment({ ...validDraft, kind: 'resolve', resolveTarget: { threadId: 'T1', rootCommentId: 1, source: 'inline', path: 'VISION.md', line: 8, resolved: true, rawRootBody: 42 } }), false)
+  assert.equal(isValidDraftComment({ ...validDraft, kind: 'resolve', resolveTarget: { threadId: 'T1', rootCommentId: 1, source: 'inline', path: 'VISION.md', line: 8, resolved: true, hasStateOverride: 'false' } }), false)
+  assert.equal(isValidDraftComment({ ...validDraft, kind: 'resolve', body: '', resolveTarget: { threadId: 'T1', rootCommentId: 1, source: 'inline', path: 'VISION.md', line: 8, resolved: true, hasStateOverride: true } }), true)
 })
 
 test('parseStoredDrafts handles null/non-object JSON, filters corrupt items, and migrates legacy summaryBody', () => {
@@ -910,4 +917,472 @@ test('all theme Vue SFC templates compile with zero unresolved _ctx script bindi
     ]
     assert.deepEqual(unresolvedCtx, [], `Unresolved template bindings in ${file}: ${unresolvedCtx.join(', ')}`)
   }
+})
+
+test('parseAgentAttribution detects and strips Antigravity markers while leaving human comments untouched', () => {
+  assert.deepEqual(parseAgentAttribution('🤖 **[Antigravity]**\n\nFixed in commit.'), {
+    isAgent: true,
+    cleanedBody: 'Fixed in commit.',
+  })
+  assert.deepEqual(parseAgentAttribution('🤖 [Antigravity]: Updated gate.'), {
+    isAgent: true,
+    cleanedBody: 'Updated gate.',
+  })
+  assert.deepEqual(parseAgentAttribution('Please clarify line 12.'), {
+    isAgent: false,
+    cleanedBody: 'Please clarify line 12.',
+  })
+})
+
+test('summarizeSubmitBatch formats empty, inline-only, mixed, and follow-up-only drawer hints', () => {
+  const inlineDraft = makeDraft({ id: 'i1', mode: 'inline' })
+  const replyDraft = makeDraft({ id: 'r1', kind: 'reply' })
+  const issueDraft = makeDraft({ id: 's1', mode: 'issue' })
+  assert.equal(summarizeSubmitBatch([]), '')
+  assert.equal(summarizeSubmitBatch([inlineDraft]), '1 batched PR review (1 inline comment)')
+  assert.equal(summarizeSubmitBatch([inlineDraft, { ...inlineDraft, id: 'i2' }]), '1 batched PR review (2 inline comments)')
+  assert.equal(summarizeSubmitBatch([inlineDraft, replyDraft]), '1 batched PR review (1 inline) + 1 follow-up action')
+  assert.equal(summarizeSubmitBatch([replyDraft, issueDraft]), '2 PR actions (sent sequentially)')
+})
+
+test('createReplyDraft falls back to reviewer for blank author strings', () => {
+  const blankAuthorThread: RemoteReviewThread = {
+    id: 'T_BLANK',
+    rootCommentId: 91,
+    path: 'VISION.md',
+    line: 8,
+    startLine: null,
+    isResolved: false,
+    isOutdated: false,
+    canResolve: true,
+    source: 'issue',
+    url: '',
+    comments: [{ id: 91, author: '   ', avatarUrl: '', body: 'Note', createdAt: '', url: '' }],
+  }
+  const reply = createReplyDraft(blankAuthorThread, 'Fixed')
+  assert.equal(reply.replyTarget?.author, 'reviewer')
+  assert.equal(reply.sectionTitle, 'Reply to @reviewer')
+})
+
+test('githubClient validates tokens/PRs, paginates REST >100 items, isolates IDs, and surfaces non-ownership errors', async () => {
+  await assert.rejects(verifyGitHubToken('   ', async () => new Response('{}')), /cannot be empty/i)
+  await assert.rejects(
+    fetchPrHeadInfo(TEST_REPO, TEST_PR_NUMBER, TEST_PAT, async () => new Response('{"head":{}}', { status: 200 })),
+    /omitted head SHA or state/i,
+  )
+
+  const page1Inline = Array.from({ length: 100 }, (_, i) => ({
+    id: 1000 + i,
+    path: TEST_CHAPTER_PATH,
+    line: 10,
+    original_line: 10,
+    body: `Comment ${i}`,
+    user: { login: 'u' },
+  }))
+  const page2Inline = [
+    {
+      id: 1000,
+      in_reply_to_id: 1000,
+      path: TEST_CHAPTER_PATH,
+      body: 'Reply\n<!-- apex-preview-loc: path=x line=1 -->',
+      user: { login: 'u' },
+    },
+    {
+      id: 2000,
+      path: TEST_CHAPTER_PATH,
+      line: null,
+      body: 'File-level\n<!-- apex-preview-loc: path=systems/brain/chapters/01_isa.md line=5 -->',
+      user: { login: 'u' },
+    },
+  ]
+  const threads = await fetchPrThreads(TEST_REPO, TEST_PR_NUMBER, '', async (input) => {
+    const url = String(input)
+    if (url.includes(`/pulls/${TEST_PR_NUMBER}/comments`)) {
+      return new Response(JSON.stringify(url.includes('page=2') ? page2Inline : page1Inline), { status: 200 })
+    }
+    if (url.includes(`/pulls/${TEST_PR_NUMBER}/reviews`)) {
+      return new Response(JSON.stringify([{ id: 777, state: 'COMMENTED', body: 'Review #777', user: { login: 'h', type: 'User' } }]), { status: 200 })
+    }
+    if (url.includes(`/issues/${TEST_PR_NUMBER}/comments`)) {
+      return new Response(JSON.stringify([
+        { id: 777, body: 'Issue #777 same numeric ID', user: { login: 'h', type: 'User' } },
+        { id: 888, body: 'Orphan reply\n<!-- apex-preview-reply-to: 99999 -->', user: { login: 'h', type: 'User' } },
+      ]), { status: 200 })
+    }
+    return new Response('[]', { status: 200 })
+  })
+  assert.ok(threads.some((t) => t.id === 'review:777'))
+  assert.ok(threads.some((t) => t.id === 'issue:777'))
+  assert.ok(threads.some((t) => t.id === 'issue:888'))
+  assert.equal(threads.find((t) => t.id === 'rest:2000')?.source, 'file')
+  assert.equal(threads.find((t) => t.id === 'rest:1000')?.comments[1].body, 'Reply')
+
+  const badBatch = await submitBatchedReview(
+    makeMeta(),
+    [makeDraft({ id: 'bad-rep', kind: 'reply' }), makeDraft({ id: 'bad-res', kind: 'resolve' })],
+    '',
+    'COMMENT',
+    TEST_PAT,
+  )
+  assert.deepEqual(badBatch.outcomes.map((o) => o.ok), [false, false])
+
+  await assert.rejects(
+    setThreadResolved(
+      TEST_REPO,
+      TEST_PR_NUMBER,
+      { id: 'issue:1', rootCommentId: 1, path: '', line: null, startLine: null, isResolved: false, isOutdated: false, canResolve: true, source: 'issue', url: '', rawRootBody: 'Note', comments: [] },
+      true,
+      TEST_PAT,
+      async () => new Response('{"message":"Server error"}', { status: 500 }),
+    ),
+    /500: Server error/,
+  )
+
+  const parsedRange = parsePreviewLocationMarker(
+    'Fix\n<!-- apex-preview-loc: path=VISION.md line=10-14 -->\n<!-- apex-preview-resolved: 1 --><!-- apex-preview-resolved: 1 -->',
+  )
+  assert.equal(parsedRange.startLine, 10)
+  assert.equal(parsedRange.line, 14)
+  assert.equal(parsedRange.cleanedBody, 'Fix')
+
+  // Newer root updated_at (T2) supersedes stale apex-preview-state override (T1); GraphQL file comment without marker maps to 'file'.
+  const overrideThreads = await fetchPrThreads(TEST_REPO, TEST_PR_NUMBER, TEST_PAT, async (input) => {
+    const url = String(input)
+    if (url.endsWith('/graphql')) {
+      return new Response(
+        JSON.stringify({
+          data: {
+            repository: {
+              pullRequest: {
+                reviewThreads: {
+                  pageInfo: { hasNextPage: false, endCursor: null },
+                  nodes: [
+                    {
+                      id: 'T_FILE_NO_LOC',
+                      isResolved: false,
+                      isOutdated: false,
+                      path: TEST_CHAPTER_PATH,
+                      line: null,
+                      startLine: null,
+                      originalLine: null,
+                      comments: { nodes: [{ databaseId: 55, body: 'Native file note', createdAt: TEST_TIMESTAMP, url: '', author: { login: 'h', avatarUrl: '' } }] },
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        }),
+        { status: 200 },
+      )
+    }
+    if (url.includes(`/issues/${TEST_PR_NUMBER}/comments`)) {
+      return new Response(
+        JSON.stringify([
+          { id: 90, body: 'Author reopened', created_at: '2026-11-25T01:00:00Z', updated_at: '2026-11-25T03:00:00Z', user: { login: 'h', type: 'User' } },
+          { id: 91, body: '<!-- apex-preview-state: root=90 resolved=1 -->', created_at: '2026-11-25T02:00:00Z', user: { login: 'other', type: 'User' } },
+        ]),
+        { status: 200 },
+      )
+    }
+    return new Response('[]', { status: 200 })
+  })
+  assert.equal(overrideThreads.find((t) => t.id === 'T_FILE_NO_LOC')?.source, 'file')
+  assert.equal(overrideThreads.find((t) => t.id === 'issue:90')?.isResolved, false)
+
+  // When hasStateOverride is true on an author-owned issue/review thread, setThreadResolved must post a superseding state marker.
+  const patchOverrideCalls: Array<{ method: string; url: string; body: string }> = []
+  const resolvedIssueWithOverride = await setThreadResolved(
+    TEST_REPO,
+    TEST_PR_NUMBER,
+    { id: 'issue:90', rootCommentId: 90, path: '', line: null, startLine: null, isResolved: true, isOutdated: false, canResolve: true, hasStateOverride: true, source: 'issue', url: '', rawRootBody: 'Author reopened', comments: [] },
+    false,
+    TEST_PAT,
+    async (input, init) => {
+      patchOverrideCalls.push({ method: String(init?.method), url: String(input), body: String(init?.body ?? '') })
+      return new Response('{}', { status: 200 })
+    },
+  )
+  assert.equal(resolvedIssueWithOverride, false)
+  assert.equal(patchOverrideCalls.length, 2)
+  assert.equal(patchOverrideCalls[0].method, 'PATCH')
+  assert.equal(patchOverrideCalls[1].method, 'POST')
+  assert.match(patchOverrideCalls[1].body, /apex-preview-state: root=90 resolved=0/)
+
+  const putOverrideCalls: Array<{ method: string; url: string; body: string }> = []
+  await setThreadResolved(
+    TEST_REPO,
+    TEST_PR_NUMBER,
+    { id: 'review:77', rootCommentId: 77, path: 'PR Summary', line: null, startLine: null, isResolved: false, isOutdated: false, canResolve: true, hasStateOverride: true, source: 'review', url: '', rawRootBody: 'Summary', comments: [] },
+    true,
+    TEST_PAT,
+    async (input, init) => {
+      putOverrideCalls.push({ method: String(init?.method), url: String(input), body: String(init?.body ?? '') })
+      return new Response('{}', { status: 200 })
+    },
+  )
+  assert.deepEqual(putOverrideCalls.map((c) => c.method), ['PUT', 'POST'])
+  assert.match(putOverrideCalls[1].body, /apex-preview-state: root=77 resolved=1/)
+
+  // Blank comment drafts must fail cleanly while resolve drafts (empty body) still succeed.
+  const blankDraftBatch = await submitBatchedReview(
+    makeMeta(),
+    [
+      makeDraft({ id: 'blank-inline', mode: 'inline', body: '   ' }),
+      makeDraft({ id: 'ok-resolve', kind: 'resolve', body: '', resolveTarget: { threadId: 'issue:90', rootCommentId: 90, path: '', line: null, source: 'issue', resolved: true, hasStateOverride: true, rawRootBody: 'Author reopened' } }),
+    ],
+    '',
+    'COMMENT',
+    TEST_PAT,
+    async () => new Response('{}', { status: 200 }),
+  )
+  assert.deepEqual(
+    blankDraftBatch.outcomes.map((o) => ({ id: o.draftId, ok: o.ok })),
+    [{ id: 'blank-inline', ok: false }, { id: 'ok-resolve', ok: true }],
+  )
+  assert.match(blankDraftBatch.outcomes[0].error ?? '', /cannot be empty/i)
+
+  await assert.rejects(
+    replyToThread(
+      TEST_REPO,
+      TEST_PR_NUMBER,
+      { id: 'issue:1', rootCommentId: 1, path: '', line: null, startLine: null, isResolved: false, isOutdated: false, canResolve: true, source: 'issue', url: '', comments: [] },
+      '   ',
+      TEST_PAT,
+    ),
+    /cannot be empty/i,
+  )
+  await assert.rejects(
+    replyToThread(
+      TEST_REPO,
+      TEST_PR_NUMBER,
+      { id: 'issue:0', rootCommentId: 0, path: '', line: null, startLine: null, isResolved: false, isOutdated: false, canResolve: true, source: 'issue', url: '', comments: [] },
+      'Valid reply',
+      TEST_PAT,
+    ),
+    /Invalid comment root ID/i,
+  )
+  await assert.rejects(
+    replyToThread(
+      TEST_REPO,
+      0,
+      { id: 'issue:1', rootCommentId: 1, path: '', line: null, startLine: null, isResolved: false, isOutdated: false, canResolve: true, source: 'issue', url: '', comments: [] },
+      'Valid reply',
+      TEST_PAT,
+    ),
+    /Invalid pull request number/i,
+  )
+
+  const customPaged = await fetchPaginatedRest<{ id: number }>(
+    `https://api.github.com/repos/${TEST_REPO}/issues/1/comments?per_page=2`,
+    TEST_PAT,
+    async (input) => {
+      const url = String(input)
+      if (!/[?&]page=/.test(url)) return new Response(JSON.stringify([{ id: 1 }, { id: 2 }]), { status: 200 })
+      if (/[?&]page=2\b/.test(url)) return new Response(JSON.stringify([{ id: 3 }]), { status: 200 })
+      return new Response('[]', { status: 200 })
+    },
+  )
+  assert.deepEqual(customPaged.map((x) => x.id), [1, 2, 3])
+
+  await assert.rejects(
+    fetchPaginatedRest<{ id: number }>(
+      `https://api.github.com/repos/${TEST_REPO}/issues/1/comments?per_page=1`,
+      TEST_PAT,
+      async () => new Response(JSON.stringify([{ id: 1 }]), { status: 200 }),
+    ),
+    /Exceeded maximum pagination limit/i,
+  )
+
+  await assert.rejects(fetchPrThreads(TEST_REPO, 0, TEST_PAT), /Invalid pull request number/i)
+  await assert.rejects(
+    fetchPrThreads(TEST_REPO, TEST_PR_NUMBER, TEST_PAT, async (input) =>
+      String(input).endsWith('/graphql')
+        ? new Response('{"data":{"repository":{"pullRequest":null}}}', { status: 200 })
+        : new Response('[]', { status: 200 }),
+    ),
+    /missing pullRequest\/reviewThreads/i,
+  )
+  await assert.rejects(
+    fetchPrThreads(TEST_REPO, TEST_PR_NUMBER, TEST_PAT, async (input) =>
+      String(input).endsWith('/graphql')
+        ? new Response(
+            JSON.stringify({
+              data: { repository: { pullRequest: { reviewThreads: { pageInfo: { hasNextPage: true, endCursor: null }, nodes: [] } } } },
+            }),
+            { status: 200 },
+          )
+        : new Response('[]', { status: 200 }),
+    ),
+    /empty endCursor/i,
+  )
+
+  await assert.rejects(
+    fetchPaginatedRest<{ id: number }>(
+      `https://api.github.com/repos/${TEST_REPO}/issues/1/comments?per_page=abc`,
+      TEST_PAT,
+      async () => new Response('[]', { status: 200 }),
+    ),
+    /Invalid per_page limit/i,
+  )
+  await assert.rejects(fetchPrThreads('owner//repo', TEST_PR_NUMBER, TEST_PAT), /Invalid repository slug/i)
+  await assert.rejects(fetchPrThreads('owner/repo?x=1', TEST_PR_NUMBER, TEST_PAT), /Invalid repository slug/i)
+
+  // Stalled GraphQL pagination (repeating cursor) must fail fast instead of looping indefinitely.
+  let repeatedPage = 0
+  await assert.rejects(
+    fetchPrThreads(TEST_REPO, TEST_PR_NUMBER, TEST_PAT, async (input) => {
+      if (!String(input).endsWith('/graphql')) return new Response('[]', { status: 200 })
+      repeatedPage += 1
+      return new Response(
+        JSON.stringify({
+          data: {
+            repository: {
+              pullRequest: {
+                reviewThreads: {
+                  pageInfo: { hasNextPage: true, endCursor: 'SAME_CURSOR' },
+                  nodes: repeatedPage === 1 ? [] : [],
+                },
+              },
+            },
+          },
+        }),
+        { status: 200 },
+      )
+    }),
+    /stalled on repeated endCursor/i,
+  )
+
+  // Outdated multi-line GraphQL threads must recover `startLine` from `originalStartLine`.
+  const outdatedSpanThreads = await fetchPrThreads(TEST_REPO, TEST_PR_NUMBER, TEST_PAT, async (input) =>
+    String(input).endsWith('/graphql')
+      ? new Response(
+          JSON.stringify({
+            data: {
+              repository: {
+                pullRequest: {
+                  reviewThreads: {
+                    pageInfo: { hasNextPage: false, endCursor: null },
+                    nodes: [
+                      {
+                        id: 'T_OUTDATED_SPAN',
+                        isResolved: false,
+                        isOutdated: true,
+                        path: TEST_CHAPTER_PATH,
+                        line: null,
+                        startLine: null,
+                        originalLine: 19,
+                        originalStartLine: 15,
+                        comments: { nodes: [{ databaseId: 66, body: 'Outdated span', createdAt: TEST_TIMESTAMP, url: '', author: { login: 'h', avatarUrl: '' } }] },
+                      },
+                    ],
+                  },
+                },
+              },
+            },
+          }),
+          { status: 200 },
+        )
+      : new Response('[]', { status: 200 }),
+  )
+  const spanThread = outdatedSpanThreads.find((t) => t.id === 'T_OUTDATED_SPAN')
+  assert.equal(spanThread?.startLine, 15)
+  assert.equal(spanThread?.line, 19)
+
+  // Multi-line quotes must preserve blockquote formatting across every line.
+  const multiQuoteBody = formatPreviewLocationBody('Fix word', TEST_CHAPTER_PATH, 10, 11, 'Line 1\nLine 2', 'Intro')
+  assert.match(multiQuoteBody, /\n> Line 1\n> Line 2\n/)
+  const bundleOut = formatMarkdownBundle(
+    makeMeta(),
+    [makeDraft({ id: 'mq', quote: 'Alpha\nBeta', body: 'Check' })],
+    '',
+  )
+  assert.match(bundleOut, /  > Alpha\n  > Beta/)
+
+  assert.throws(
+    () => formatMarkdownBundle(makeMeta(), [makeDraft({ id: 'bad-r', kind: 'reply', body: 'hi' })], ''),
+    /missing replyTarget/i,
+  )
+  assert.throws(
+    () => formatMarkdownBundle(makeMeta(), [makeDraft({ id: 'bad-s', kind: 'resolve', body: '' })], ''),
+    /missing resolveTarget/i,
+  )
+
+  await assert.rejects(
+    setThreadResolved(
+      TEST_REPO,
+      TEST_PR_NUMBER,
+      { id: '   ', rootCommentId: 1, path: TEST_CHAPTER_PATH, line: 5, startLine: null, isResolved: false, isOutdated: false, canResolve: true, source: 'inline', url: '', comments: [] },
+      true,
+      TEST_PAT,
+    ),
+    /Thread ID cannot be empty/i,
+  )
+
+  // Partition validation rejects missing path / invalid apiLine cleanly and omits start_line when apiStartLine <= 0.
+  let postedInlinePayload: Record<string, unknown> | null = null
+  const mixedInlineBatch = await submitBatchedReview(
+    makeMeta(),
+    [
+      makeDraft({ id: 'bad-inline-line', mode: 'inline', apiLine: 0, body: 'Zero line' }),
+      makeDraft({ id: 'bad-file-path', mode: 'file', path: '  ', body: 'Missing path' }),
+      makeDraft({ id: 'ok-inline-clamp', mode: 'inline', apiStartLine: 0, apiLine: 14, body: 'Clamped start' }),
+    ],
+    '',
+    'COMMENT',
+    TEST_PAT,
+    async (_input, init) => {
+      postedInlinePayload = JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>
+      return new Response('{}', { status: 200 })
+    },
+  )
+  assert.deepEqual(
+    mixedInlineBatch.outcomes.map((o) => ({ id: o.draftId, ok: o.ok })),
+    [{ id: 'bad-inline-line', ok: false }, { id: 'bad-file-path', ok: false }, { id: 'ok-inline-clamp', ok: true }],
+  )
+  const sentComments = (postedInlinePayload as { comments?: Array<Record<string, unknown>> } | null)?.comments ?? []
+  assert.equal(sentComments.length, 1)
+  assert.equal('start_line' in sentComments[0], false)
+
+  await assert.rejects(fetchPrThreads('../..', TEST_PR_NUMBER, TEST_PAT), /Invalid repository slug/i)
+  await assert.rejects(fetchPrThreads('owner/..', TEST_PR_NUMBER, TEST_PAT), /Invalid repository slug/i)
+  await assert.rejects(
+    fetchPaginatedRest(`https://api.github.com/repos/${TEST_REPO}/issues/1/comments?page=2`, TEST_PAT, async () => new Response('[]')),
+    /must not specify page=/i,
+  )
+  await assert.rejects(
+    fetchPaginatedRest(`https://api.github.com/repos/${TEST_REPO}/issues/1/comments?per_page=200`, TEST_PAT, async () => new Response('[]')),
+    /Invalid per_page limit/i,
+  )
+  await assert.rejects(
+    verifyGitHubToken(TEST_PAT, async () => new Response('null', { status: 200 })),
+    /expected JSON object or array/i,
+  )
+  assert.throws(
+    () => formatPreviewLocationBody('Fix', '', 1, 2),
+    /Invalid preview location path/i,
+  )
+  assert.throws(
+    () => formatPreviewLocationBody('Fix', 'bad path.md', 1, 2),
+    /Invalid preview location path/i,
+  )
+  assert.throws(
+    () => formatPreviewLocationBody('Fix', TEST_CHAPTER_PATH, 0, 2),
+    /Invalid preview location line range/i,
+  )
+  assert.throws(
+    () => formatPreviewLocationBody('Fix', TEST_CHAPTER_PATH, 5, 3),
+    /Invalid preview location line range/i,
+  )
+
+  const outdatedRestThreads = await fetchPrThreads(TEST_REPO, TEST_PR_NUMBER, '', async (input) =>
+    String(input).includes(`/pulls/${TEST_PR_NUMBER}/comments`)
+      ? new Response(
+          JSON.stringify([{ id: 333, path: TEST_CHAPTER_PATH, line: null, start_line: null, original_line: 22, original_start_line: 18, body: 'Outdated REST span', user: { login: 'u' } }]),
+          { status: 200 },
+        )
+      : new Response('[]', { status: 200 }),
+  )
+  assert.equal(outdatedRestThreads.find((t) => t.id === 'rest:333')?.startLine, 18)
+  assert.equal(outdatedRestThreads.find((t) => t.id === 'rest:333')?.line, 22)
 })

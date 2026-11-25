@@ -465,3 +465,21 @@
   background-color: color-mix(in srgb, var(--vp-c-brand-soft) 55%, transparent);
   transition: outline-color 0.35s ease, background-color 0.35s ease;
 }
+
+.apex-agent-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 700;
+  background: color-mix(in srgb, var(--hw-purple, #6d28d9) 14%, transparent);
+  color: var(--hw-purple, #6d28d9);
+}
+
+.apex-batch-summary {
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--vp-c-text-2);
+}

@@ -34,6 +34,7 @@ import {
   modeBadgeLabel,
   parseStoredDrafts,
   summarizeComment,
+  summarizeSubmitBatch,
   threadStatusLabel as computeThreadStatusLabel,
 } from './overlayHelpers'
 import {
@@ -215,6 +216,8 @@ const openPageThreadCount = computed(
 const totalOpenThreadCount = computed(
   () => threads.value.filter((t) => !t.isResolved).length,
 )
+
+const submitBatchSummary = computed(() => summarizeSubmitBatch(drafts.value))
 
 /** Clear stale submission and thread action banners across sibling draft mutations. */
 function clearActionErrors() {
@@ -1239,7 +1242,8 @@ onUnmounted(() => {
             @click="toggleCommentExpanded(activeThread.id, msg.id)"
           >
             <span>▸</span>
-            <strong>@{{ msg.author }}</strong>
+            <span v-if="msg.isAgent" class="apex-agent-badge" :title="`Posted via @${msg.author}`">🤖 Antigravity</span>
+            <strong v-else>@{{ msg.author }}</strong>
             <span class="apex-collapsed-snippet">{{ summarizeComment(msg) }}</span>
           </button>
           <div
@@ -1250,7 +1254,8 @@ onUnmounted(() => {
             @click="onCommentCardClick($event, activeThread.path, activeThread.line)"
           >
             <div class="apex-meta-row">
-              <strong>@{{ msg.author }}</strong>
+              <span v-if="msg.isAgent" class="apex-agent-badge" :title="`Posted via @${msg.author}`">🤖 Antigravity</span>
+              <strong v-else>@{{ msg.author }}</strong>
               <div style="display: flex; gap: 8px; align-items: center">
                 <span>{{ msg.createdAt ? msg.createdAt.slice(0, 10) : '' }}</span>
                 <button
@@ -1539,7 +1544,8 @@ onUnmounted(() => {
                   @click="toggleCommentExpanded(t.id, msg.id)"
                 >
                   <span>▸</span>
-                  <strong>@{{ msg.author }}</strong>
+                  <span v-if="msg.isAgent" class="apex-agent-badge" :title="`Posted via @${msg.author}`">🤖 Antigravity</span>
+                  <strong v-else>@{{ msg.author }}</strong>
                   <span class="apex-collapsed-snippet">{{ summarizeComment(msg) }}</span>
                 </button>
                 <div
@@ -1550,7 +1556,8 @@ onUnmounted(() => {
                   @click="onCommentCardClick($event, t.path, t.line)"
                 >
                   <div class="apex-meta-row">
-                    <strong>@{{ msg.author }}</strong>
+                    <span v-if="msg.isAgent" class="apex-agent-badge" :title="`Posted via @${msg.author}`">🤖 Antigravity</span>
+                    <strong v-else>@{{ msg.author }}</strong>
                     <div style="display: flex; gap: 6px; align-items: center">
                       <span>{{ msg.createdAt ? msg.createdAt.slice(0, 10) : '' }}</span>
                       <button
@@ -1645,6 +1652,7 @@ onUnmounted(() => {
           </div>
 
           <div class="apex-drawer-footer">
+            <div v-if="submitBatchSummary" class="apex-batch-summary">{{ submitBatchSummary }}</div>
             <div style="display: flex; gap: 8px; justify-content: flex-end">
               <button
                 type="button"
