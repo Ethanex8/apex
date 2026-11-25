@@ -6,7 +6,6 @@ import {
   fetchPrHeadInfo,
   fetchPrThreads,
   formatMarkdownBundle,
-  setThreadResolved,
   submitBatchedReview,
   verifyGitHubToken,
 } from './githubClient'
@@ -514,7 +513,7 @@ function recomputeDocAnnotations() {
       top: rect.top + scrollY + (chipLeft < rect.right + scrollX ? -12 : 2),
       left: chipLeft,
       line: group.line,
-      allResolved: group.items.every((item) => item.isResolved),
+      allResolved: group.items.every((item) => effectiveThreadResolved(item)),
       threads: group.items,
     })
     tIdx += 1
@@ -692,6 +691,25 @@ function queuedRepliesFor(threadId: string): DraftComment[] {
   return drafts.value.filter((d) => d.kind === 'reply' && d.replyTarget?.threadId === threadId)
 }
 
+function queuedResolveFor(threadId: string): DraftComment | undefined {
+  return drafts.value.find((d) => d.kind === 'resolve' && d.resolveTarget?.threadId === threadId)
+}
+
+function effectiveThreadResolved(thread: RemoteReviewThread): boolean {
+  const queued = queuedResolveFor(thread.id)
+  return queued?.resolveTarget ? queued.resolveTarget.resolved : thread.isResolved
+}
+
+function threadStatusLabel(thread: RemoteReviewThread, showOutdated = false): string {
+  const queued = queuedResolveFor(thread.id)
+  if (queued?.resolveTarget) {
+    return queued.resolveTarget.resolved ? 'Pending Resolve' : 'Pending Reopen'
+  }
+  if (thread.isResolved) return 'Resolved'
+  if (showOutdated && thread.isOutdated) return 'Outdated'
+  return 'Open'
+}
+
 function stageThreadReply(thread: RemoteReviewThread, text: string, fromDrawer = false) {
   const trimmed = text.trim()
   if (!trimmed) return
@@ -734,34 +752,48 @@ function stageThreadReply(thread: RemoteReviewThread, text: string, fromDrawer =
   }
 }
 
-async function toggleThreadResolved(thread: RemoteReviewThread) {
-  if (!auth.value.token || !thread.canResolve) return
-  threadActionBusy.value = true
+function toggleThreadResolved(thread: RemoteReviewThread) {
+  if (!thread.canResolve) return
   threadActionError.value = ''
   threadsError.value = ''
-  try {
-    const nextResolved = await setThreadResolved(
-      meta.repo,
-      meta.prNumber,
-      thread,
-      !thread.isResolved,
-      auth.value.token,
-    )
-    threads.value = threads.value.map((item) =>
-      item.id === thread.id ? { ...item, isResolved: nextResolved } : item,
-    )
-    if (activeThread.value?.id === thread.id) {
-      activeThread.value = { ...activeThread.value, isResolved: nextResolved }
-    }
+  const existing = queuedResolveFor(thread.id)
+  if (existing) {
+    drafts.value = drafts.value.filter((d) => d.id !== existing.id)
+    saveDraftState()
+    submitNotice.value = `Cancelled staged ${existing.resolveTarget?.resolved ? 'resolve' : 'reopen'}.`
     scheduleMeasure()
-    await refreshThreads()
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Failed to update thread state'
-    threadActionError.value = msg
-    threadsError.value = msg
-  } finally {
-    threadActionBusy.value = false
+    return
   }
+  const nextResolved = !thread.isResolved
+  const firstSnippet = thread.comments[0]?.body.split('\n')[0]?.slice(0, 140) ?? ''
+  const lineNum = thread.line ?? 1
+  drafts.value.push({
+    id: `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+    kind: 'resolve',
+    resolveTarget: {
+      threadId: thread.id,
+      rootCommentId: thread.rootCommentId,
+      source: thread.source,
+      path: thread.path,
+      line: thread.line,
+      resolved: nextResolved,
+      rawRootBody: thread.rawRootBody,
+    },
+    path: thread.path,
+    startLine: lineNum,
+    endLine: lineNum,
+    apiStartLine: lineNum,
+    apiLine: lineNum,
+    mode: thread.source === 'review' ? 'issue' : thread.source,
+    quote: firstSnippet,
+    sectionTitle: nextResolved ? 'Resolve thread' : 'Reopen thread',
+    blockKind: nextResolved ? 'Resolve' : 'Reopen',
+    body: nextResolved ? 'Resolve thread' : 'Reopen thread',
+    createdAt: new Date().toISOString(),
+  })
+  saveDraftState()
+  submitNotice.value = `Staged ${nextResolved ? 'resolve' : 'reopen'}. Click Submit in the drawer when ready.`
+  scheduleMeasure()
 }
 
 async function jumpToLocation(repoPath: string, line: number | null) {
@@ -1049,9 +1081,9 @@ onUnmounted(() => {
           <div style="display: flex; gap: 6px; align-items: center">
             <span
               class="apex-mode-badge"
-              :class="activeThread.isResolved ? 'is-ok' : 'is-warn'"
+              :class="effectiveThreadResolved(activeThread) ? 'is-ok' : 'is-warn'"
             >
-              {{ activeThread.isResolved ? 'Resolved' : activeThread.isOutdated ? 'Outdated' : 'Open' }}
+              {{ threadStatusLabel(activeThread, true) }}
             </span>
             <a
               v-if="activeThreadDiffUrl"
@@ -1133,21 +1165,12 @@ onUnmounted(() => {
         />
         <div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px">
           <button
-            v-if="auth.token && activeThread.canResolve"
+            v-if="activeThread.canResolve"
             type="button"
             class="apex-rev-btn"
-            :disabled="threadActionBusy"
             @click="toggleThreadResolved(activeThread)"
           >
-            {{ activeThread.isResolved ? 'Reopen Thread' : 'Resolve Thread' }}
-          </button>
-          <button
-            v-else-if="activeThread.canResolve"
-            type="button"
-            class="apex-rev-btn"
-            @click="activeThread = null; openReviewDrawer('setup')"
-          >
-            Connect PAT to Resolve
+            {{ queuedResolveFor(activeThread.id) ? (activeThread.isResolved ? 'Undo Reopen' : 'Undo Resolve') : (activeThread.isResolved ? 'Reopen Thread' : 'Resolve Thread') }}
           </button>
           <span v-else />
           <div style="display: flex; gap: 8px">
@@ -1251,22 +1274,45 @@ onUnmounted(() => {
                   class="apex-rev-btn"
                   @click="jumpToLocation(d.path, d.startLine)"
                 >
-                  {{ d.kind === 'reply' && d.replyTarget ? `Reply · ${d.path.split('/').pop()}:L${d.replyTarget.line ?? d.startLine}` : `${d.path.split('/').pop()}:${formatLineLabel(d.startLine, d.endLine)}` }}
+                  {{
+                    d.kind === 'resolve' && d.resolveTarget
+                      ? `${d.resolveTarget.resolved ? 'Resolve' : 'Reopen'} · ${d.path.split('/').pop()}${d.resolveTarget.line ? `:L${d.resolveTarget.line}` : ''}`
+                      : d.kind === 'reply' && d.replyTarget
+                        ? `Reply · ${d.path.split('/').pop()}:L${d.replyTarget.line ?? d.startLine}`
+                        : `${d.path.split('/').pop()}:${formatLineLabel(d.startLine, d.endLine)}`
+                  }}
                 </button>
                 <span v-else class="apex-mono-path">
-                  {{ d.kind === 'reply' && d.replyTarget ? `Reply to @${d.replyTarget.author}` : `PR #${meta.prNumber}` }}
+                  {{
+                    d.kind === 'resolve' && d.resolveTarget
+                      ? `${d.resolveTarget.resolved ? 'Resolve' : 'Reopen'} · PR #${meta.prNumber}`
+                      : d.kind === 'reply' && d.replyTarget
+                        ? `Reply to @${d.replyTarget.author}`
+                        : `PR #${meta.prNumber}`
+                  }}
                 </span>
                 <button type="button" class="apex-rev-btn" @click="removeDraft(d.id)">
                   Delete
                 </button>
               </div>
               <blockquote v-if="d.quote" class="apex-quote-box">{{ d.quote }}</blockquote>
-              <textarea v-model="d.body" rows="2" class="apex-textarea" />
+              <textarea v-if="d.kind !== 'resolve'" v-model="d.body" rows="2" class="apex-textarea" />
               <span
                 class="apex-mode-badge"
-                :class="{ 'is-warn': d.kind !== 'reply' && d.mode !== 'inline' && Boolean(d.path) }"
+                :class="{
+                  'is-ok': d.kind === 'resolve' && Boolean(d.resolveTarget?.resolved),
+                  'is-warn': (d.kind === 'resolve' && !d.resolveTarget?.resolved) || (d.kind !== 'reply' && d.kind !== 'resolve' && d.mode !== 'inline' && Boolean(d.path)),
+                }"
               >
-                {{ d.kind === 'reply' && d.replyTarget ? `Reply to @${d.replyTarget.author}` : !d.path ? 'Top-level PR comment' : modeBadgeLabel(d.mode) }}
+                {{
+                  d.kind === 'resolve' && d.resolveTarget
+                    ? (d.resolveTarget.resolved ? 'Staged Resolve' : 'Staged Reopen')
+                    : d.kind === 'reply' && d.replyTarget
+                      ? `Reply to @${d.replyTarget.author}`
+                      : !d.path
+                        ? 'Top-level PR comment'
+                        : modeBadgeLabel(d.mode)
+                }}
               </span>
             </div>
 
@@ -1323,8 +1369,8 @@ onUnmounted(() => {
                 <span v-else class="apex-mono-path">
                   PR #{{ meta.prNumber }}
                 </span>
-                <span class="apex-mode-badge" :class="t.isResolved ? 'is-ok' : 'is-warn'">
-                  {{ t.isResolved ? 'Resolved' : 'Open' }}
+                <span class="apex-mode-badge" :class="effectiveThreadResolved(t) ? 'is-ok' : 'is-warn'">
+                  {{ threadStatusLabel(t) }}
                 </span>
               </div>
 
@@ -1423,13 +1469,12 @@ onUnmounted(() => {
                     Reply
                   </button>
                   <button
-                    v-if="t.canResolve && auth.token"
+                    v-if="t.canResolve"
                     type="button"
                     class="apex-rev-btn"
-                    :disabled="threadActionBusy"
                     @click="toggleThreadResolved(t)"
                   >
-                    {{ t.isResolved ? 'Reopen' : 'Resolve' }}
+                    {{ queuedResolveFor(t.id) ? (t.isResolved ? 'Undo Reopen' : 'Undo Resolve') : (t.isResolved ? 'Reopen' : 'Resolve') }}
                   </button>
                 </div>
               </div>

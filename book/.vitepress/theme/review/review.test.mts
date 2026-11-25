@@ -475,4 +475,62 @@ test('githubClient handles auth, paginated GraphQL threads, unauthenticated REST
   )
   assert.ok(topIssuePost)
   assert.match(formatMarkdownBundle(meta, topDraft, ''), /\*\*Top-level PR comment\*\*: Staged top-level PR note/)
+
+  const resolveDrafts: DraftComment[] = [
+    {
+      id: 'res1',
+      kind: 'resolve',
+      resolveTarget: {
+        threadId: 'PRRT_1',
+        rootCommentId: 101,
+        source: 'inline',
+        path: 'systems/brain/chapters/01_isa.md',
+        line: 14,
+        resolved: true,
+      },
+      path: 'systems/brain/chapters/01_isa.md',
+      startLine: 14,
+      endLine: 14,
+      apiStartLine: 14,
+      apiLine: 14,
+      mode: 'inline',
+      quote: 'Clarify bit slice.',
+      sectionTitle: 'Resolve thread',
+      blockKind: 'Resolve',
+      body: 'Resolve thread',
+      createdAt: '2026-11-24T00:00:00Z',
+    },
+    {
+      id: 'res2',
+      kind: 'resolve',
+      resolveTarget: {
+        threadId: 'ISSUE_300',
+        rootCommentId: 300,
+        source: 'issue',
+        path: '',
+        line: null,
+        resolved: true,
+        rawRootBody: 'General note',
+      },
+      path: '',
+      startLine: 1,
+      endLine: 1,
+      apiStartLine: 1,
+      apiLine: 1,
+      mode: 'issue',
+      quote: 'General note',
+      sectionTitle: 'Resolve thread',
+      blockKind: 'Resolve',
+      body: 'Resolve thread',
+      createdAt: '2026-11-24T00:00:00Z',
+    },
+  ]
+  const callsBeforeResolve = calls.length
+  const resolveBatch = await submitBatchedReview(meta, resolveDrafts, '', 'COMMENT', 'pat_123', mockFetch)
+  assert.equal(resolveBatch.outcomes.length, 2)
+  assert.equal(resolveBatch.outcomes.every((o) => o.ok), true)
+  const resolveCalls = calls.slice(callsBeforeResolve)
+  assert.equal(resolveCalls.some((c) => c.url.endsWith('/graphql') && String((c.body as { query?: string }).query).includes('resolveReviewThread')), true)
+  assert.equal(resolveCalls.some((c) => c.method === 'PATCH' && c.url.endsWith('/issues/comments/300')), true)
+  assert.match(formatMarkdownBundle(meta, resolveDrafts, ''), /\*\*Resolve thread\*\* \(L14, #101\)/)
 })

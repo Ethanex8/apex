@@ -38,10 +38,21 @@ export interface DraftReplyTarget {
   line: number | null
 }
 
+export interface DraftResolveTarget {
+  threadId: string
+  rootCommentId: number
+  source: 'inline' | 'file' | 'issue' | 'review'
+  path: string
+  line: number | null
+  resolved: boolean
+  rawRootBody?: string
+}
+
 export interface DraftComment {
   id: string
-  kind?: 'comment' | 'reply'
+  kind?: 'comment' | 'reply' | 'resolve'
   replyTarget?: DraftReplyTarget
+  resolveTarget?: DraftResolveTarget
   path: string
   startLine: number
   endLine: number

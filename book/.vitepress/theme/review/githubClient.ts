@@ -516,8 +516,9 @@ export async function submitBatchedReview(
   fetcher: FetchLike = fetch,
 ): Promise<SubmitBatchResult> {
   const outcomes: SubmitDraftOutcome[] = []
-  const commentDrafts = drafts.filter((d) => d.kind !== 'reply')
+  const commentDrafts = drafts.filter((d) => d.kind !== 'reply' && d.kind !== 'resolve')
   const replyDrafts = drafts.filter((d) => d.kind === 'reply' && d.replyTarget)
+  const resolveDrafts = drafts.filter((d) => d.kind === 'resolve' && d.resolveTarget)
   const inlineDrafts = commentDrafts.filter((d) => d.mode === 'inline')
   const fileDrafts = commentDrafts.filter((d) => d.mode === 'file')
   const issueDrafts = commentDrafts.filter((d) => d.mode === 'issue')
@@ -652,6 +653,34 @@ export async function submitBatchedReview(
     }
     try {
       await replyToThread(meta.repo, meta.prNumber, targetThread, d.body, token, fetcher)
+      outcomes.push({ draftId: d.id, ok: true })
+    } catch (err) {
+      outcomes.push({
+        draftId: d.id,
+        ok: false,
+        error: err instanceof Error ? err.message : String(err),
+      })
+    }
+  }
+
+  for (const d of resolveDrafts) {
+    const target = d.resolveTarget!
+    const targetThread: RemoteReviewThread = {
+      id: target.threadId,
+      rootCommentId: target.rootCommentId,
+      path: target.path,
+      line: target.line,
+      startLine: null,
+      isResolved: !target.resolved,
+      isOutdated: false,
+      canResolve: true,
+      source: target.source,
+      url: '',
+      rawRootBody: target.rawRootBody,
+      comments: [],
+    }
+    try {
+      await setThreadResolved(meta.repo, meta.prNumber, targetThread, target.resolved, token, fetcher)
       outcomes.push({ draftId: d.id, ok: true })
     } catch (err) {
       outcomes.push({
@@ -817,6 +846,12 @@ export function formatMarkdownBundle(
         lines.push(
           `- **Reply to @${item.replyTarget.author}** (${loc}#${item.replyTarget.rootCommentId}): ${item.body.trim()}`,
         )
+        continue
+      }
+      if (item.kind === 'resolve' && item.resolveTarget) {
+        const loc = item.resolveTarget.line ? `L${item.resolveTarget.line}, ` : ''
+        const verb = item.resolveTarget.resolved ? 'Resolve' : 'Reopen'
+        lines.push(`- **${verb} thread** (${loc}#${item.resolveTarget.rootCommentId})`)
         continue
       }
       if (!item.path) {
