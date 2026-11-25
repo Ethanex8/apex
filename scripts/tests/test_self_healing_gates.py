@@ -1111,3 +1111,84 @@ def test_chapter_index_generation_and_consumers(tmp_path: Path, monkeypatch: pyt
     assert out_idx.is_file()
 
 
+def test_harvest_feedback_preview_loc_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Verify harvest_feedback populates missing path/line from apex-preview-loc markers."""
+    monkeypatch.setattr(harvest_feedback.shutil, "which", lambda _n: "/bin/gh")
+    gql = json.dumps({
+        "data": {
+            "repository": {
+                "pullRequest": {
+                    "reviewThreads": {
+                        "pageInfo": {"hasNextPage": False, "endCursor": None},
+                        "nodes": [
+                            {
+                                "id": "T_FILE",
+                                "isResolved": False,
+                                "isOutdated": False,
+                                "comments": {"nodes": [{"databaseId": 301}]},
+                            }
+                        ],
+                    }
+                }
+            }
+        }
+    })
+    inline = json.dumps([
+        {
+            "id": 301,
+            "path": "systems/brain/chapters/01_isa_and_binary_arithmetic.md",
+            "line": None,
+            "body": "Clarify bit range.\n\n<!-- apex-preview-loc: path=systems/brain/chapters/01_isa_and_binary_arithmetic.md line=42-43 -->",
+            "user": {"login": "Ethanex8", "type": "User"},
+        }
+    ])
+    issue_comments = json.dumps([
+        {
+            "id": 302,
+            "body": "Check figure.\n<!-- apex-preview-loc: path=VISION.md line=15 -->",
+            "user": {"login": "Ethanex8", "type": "User"},
+        },
+        {
+            "id": 303,
+            "body": "Already fixed.\n<!-- apex-preview-resolved: 1 -->",
+            "user": {"login": "Ethanex8", "type": "User"},
+        },
+        {
+            "id": 304,
+            "body": "Reply to fixed.\n<!-- apex-preview-reply-to: 303 -->",
+            "user": {"login": "Ethanex8", "type": "User"},
+        },
+        {
+            "id": 305,
+            "body": "<!-- apex-preview-state: root=302 resolved=1 -->",
+            "user": {"login": "Ethanex8", "type": "User"},
+        },
+    ])
+
+    def _run_stub(cmd: list[str], **_kw: object) -> subprocess.CompletedProcess[str]:
+        """Serve GraphQL thread state, file-level inline thread, and issue comment fallback."""
+        if "graphql" in cmd:
+            return subprocess.CompletedProcess(cmd, 0, gql, "")
+        if cmd[-1].endswith("pulls/11/comments"):
+            return subprocess.CompletedProcess(cmd, 0, inline, "")
+        if cmd[-1].endswith("issues/11/comments"):
+            return subprocess.CompletedProcess(cmd, 0, issue_comments, "")
+        return subprocess.CompletedProcess(cmd, 0, "[]", "")
+
+    monkeypatch.setattr(harvest_feedback.subprocess, "run", _run_stub)
+    items = harvest_feedback.normalize_pr_feedback("Ethanex8/apex", 11)
+    assert len(items) == 1
+    assert items[0]["line"] == 42
+    assert items[0]["body"] == "Clarify bit range."
+    all_items = harvest_feedback.normalize_pr_feedback("Ethanex8/apex", 11, include_resolved=True)
+    assert len(all_items) == 3
+    assert all_items[1]["path"] == "VISION.md"
+    assert all_items[1]["is_resolved"] is True
+    assert all_items[2]["is_resolved"] is True
+    replies = all_items[2]["replies"]
+    assert isinstance(replies, list)
+    assert replies[0]["body"] == "Reply to fixed."
+    assert harvest_feedback._extract_preview_location("plain text") == (None, None)
+
+
+

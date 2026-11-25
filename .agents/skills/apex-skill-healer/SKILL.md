@@ -1,6 +1,6 @@
 ---
 name: apex-skill-healer
-description: Closed-loop 4-step subset-recall PR review and skill self-healing protocol. Sanity-checks PR comments with optional pushback and anti-pendulum rule checks first, establishes frozen-prompt isolated blind subset recall and precision checks before editing deliverables, converges clean-room fixes with diff-regression guarding, resolves answered PR threads, and prepares 1-tap human merge on GitHub.
+description: Closed-loop 4-step subset-recall PR review and skill self-healing protocol. Sanity-checks PR comments with optional pushback and anti-pendulum rule checks first, establishes frozen-prompt isolated blind subset recall and precision checks before editing deliverables, converges clean-room fixes with diff-regression guarding, posts cross-channel replies while leaving resolution to the reviewer, and prepares 1-tap human merge on GitHub.
 ---
 # Apex 4-Step Subset-Recall Review & Self-Healing Protocol
 
@@ -13,7 +13,7 @@ Execute this skill whenever user feedback arrives on an open PR or in chat (`doc
    python3 scripts/harvest_feedback.py --pr <N> [--since <ISO_TS>] --out /tmp/apex-feedback/pr-<N>.json
    ```
 2. Audit each item (`U1..Uk`) against text/code (`AGREE`, `CLARIFY`, or respectful `PUSHBACK`) and classify:
-   - **Tier 0**: Mechanical typos or broken links—purge `/tmp` JSON, fix directly, push, reply, and resolve.
+   - **Tier 0**: Mechanical typos or broken links—purge `/tmp` JSON, fix directly, push, and reply (leaving resolution to the reviewer).
    - **Tier 1**: Local wording, naming, or single-chapter clarity without new rules—if **every** item is unambiguous Tier 1 (`AGREE`, zero `PUSHBACK`/`CLARIFY`), purge `/tmp` JSON and go directly to **Step 3**.
    - **Tier 2**: Systemic gap transferable across unrelated chapters or codebases (or recurring across `2+` chapters).
 3. Whenever **any** item is **Tier 2**, `PUSHBACK`, or `CLARIFY`: draft domain-agnostic edits in the canonical rubric/gate/skill file (never copy-pasting across files or citing chapter tokens), run a **Rule Conflict & Counterbalance Check**, publish `pr_<N>_step1_triage.md`, and **STOP at Gate 1**. Purge `/tmp/apex-feedback/pr-<N>.json` immediately upon sign-off.
@@ -45,9 +45,9 @@ Execute this skill whenever user feedback arrives on an open PR or in chat (`doc
 
 ---
 
-## Step 4: Fast-Forward PR Update, Thread Resolution & 1-Tap Merge Close-Out
+## Step 4: Fast-Forward PR Update, Cross-Channel Replies & 1-Tap Merge Close-Out
 
 1. Commit and push fast-forward updates strictly to the open `step/<step-id>` PR branch (never directly to `main`, and never force-push reviewed commits).
-2. Post concise inline replies (`gh api -X POST repos/<owner>/<repo>/pulls/<N>/comments/<id>/replies`) on every addressed PR comment noting the fix and any upstream rule/gate update.
-3. Resolve every addressed GitHub review thread via GraphQL `resolveReviewThread`, leaving a thread unresolved **only** when an open question remains.
+2. Post concise replies on **every** addressed feedback item across all channels (`gh api -X POST repos/<owner>/<repo>/pulls/<N>/comments/<id>/replies` for inline threads; `gh api -X POST repos/<owner>/<repo>/issues/<N>/comments` with `<!-- apex-preview-reply-to: <root_id> -->` for review-summary or conversation items), noting the fix and any upstream rule/gate update.
+3. **Do not auto-resolve threads**: leave addressed threads open so the reviewer can pull up the preview widget or PR view, read each response directly without toggling resolved filters, and click **Resolve** after verifying (run `python3 scripts/harvest_feedback.py --pr <N>` to verify replies cover open items).
 4. Confirm `Apex CI` and the `/apex/pr-<N>/` preview deploy pass, update bookmarks if needed, and await the reviewer's **1-tap Merge** on GitHub (never call `gh pr merge` unilaterally).

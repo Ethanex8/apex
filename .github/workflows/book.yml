@@ -27,6 +27,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: ${{ github.event_name == 'pull_request' && '0' || '1' }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -37,6 +39,23 @@ jobs:
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
+
+      - name: Export PR inline review metadata
+        if: github.event_name == 'pull_request'
+        env:
+          PR_NUM: ${{ github.event.pull_request.number }}
+          REPO_SLUG: ${{ github.repository }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          git fetch --no-tags origin "${BASE_SHA}" "${HEAD_SHA}" || true
+          python3 scripts/export_pr_review_meta.py \
+            --pr "${PR_NUM}" \
+            --repo "${REPO_SLUG}" \
+            --base-sha "${BASE_SHA}" \
+            --head-sha "${HEAD_SHA}" \
+            --out /tmp/apex-pr-review-meta.json
+          echo "APEX_PR_META_FILE=/tmp/apex-pr-review-meta.json" >> "${GITHUB_ENV}"
 
       - name: Build VitePress textbook
         env:

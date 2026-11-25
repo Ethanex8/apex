@@ -31,6 +31,12 @@ from typing import NamedTuple
 
 REPO_SLUG_RE = re.compile(r"^[^/\s]+/[^/\s]+$")
 PREVIEW_COMMENT_MARKER = "<!-- apex-book-preview -->"
+PREVIEW_LOC_RE = re.compile(
+    r"<!--\s*apex-preview-loc:\s*path=([^\s>]+?)(?:\s+line=(\d+)(?:-\d+)?)?\s*-->"
+)
+PREVIEW_RESOLVED_RE = re.compile(r"<!--\s*apex-preview-resolved:\s*1\s*-->")
+PREVIEW_REPLY_RE = re.compile(r"<!--\s*apex-preview-reply-to:\s*(\d+)\s*-->")
+PREVIEW_STATE_RE = re.compile(r"<!--\s*apex-preview-state:\s*root=(\d+)\s+resolved=(0|1)\s*-->")
 UNKNOWN_AUTHOR = "unknown"
 REVIEW_THREADS_QUERY = """
 query($owner: String!, $name: String!, $pr: Int!, $after: String) {
@@ -238,20 +244,33 @@ def _visible_entry_body_and_user(
     return body, user
 
 
+def _extract_preview_location(body: str) -> tuple[str | None, int | None]:
+    """Parse optional `<!-- apex-preview-loc: path=... line=... -->` metadata from `body`."""
+    match = PREVIEW_LOC_RE.search(body)
+    if match is None:
+        return None, None
+    parsed_line = int(match.group(2)) if match.group(2) else None
+    return match.group(1), parsed_line
+
+
 def _base_feedback_item(
     entry: dict[str, object], source: str, body: str, user: dict[str, object]
 ) -> dict[str, object]:
     """Construct the shared normalized feedback schema from a GitHub comment or review payload."""
+    fallback_path, fallback_line = _extract_preview_location(body)
+    cleaned_body = PREVIEW_LOC_RE.sub("", body)
+    cleaned_body = PREVIEW_RESOLVED_RE.sub("", cleaned_body)
+    cleaned_body = PREVIEW_REPLY_RE.sub("", cleaned_body).strip()
     return {
         "id": entry.get("id"),
         "source": source,
         "author": _author_login(user),
-        "path": entry.get("path"),
-        "line": entry.get("line") or entry.get("original_line"),
+        "path": entry.get("path") or fallback_path,
+        "line": entry.get("line") or entry.get("original_line") or fallback_line,
         "diff_hunk": entry.get("diff_hunk"),
         "url": entry.get("html_url"),
         "created_at": _entry_timestamp(entry),
-        "body": body,
+        "body": cleaned_body,
     }
 
 
@@ -332,6 +351,106 @@ def _build_grouped_inline_items(
     return items
 
 
+def _collect_resolved_roots(
+    review_entries: list[dict[str, object]], issue_entries: list[dict[str, object]]
+) -> set[int]:
+    """Resolve root comment/review IDs using state-comment overrides and body markers."""
+    state_overrides: dict[int, bool] = {}
+    for entry in issue_entries:
+        if m := PREVIEW_STATE_RE.search(str(entry.get("body") or "")):
+            state_overrides[int(m.group(1))] = m.group(2) == "1"
+
+    resolved_roots: set[int] = {rid for rid, flag in state_overrides.items() if flag}
+    for entry in (*review_entries, *issue_entries):
+        cid = entry.get("id")
+        if (
+            isinstance(cid, int)
+            and cid not in state_overrides
+            and PREVIEW_RESOLVED_RE.search(str(entry.get("body") or ""))
+        ):
+            resolved_roots.add(cid)
+    return resolved_roots
+
+
+def _collect_conv_and_review_items(
+    repo: str,
+    pr_number: int,
+    *,
+    include_bots: bool,
+    include_resolved: bool,
+    since_dt: datetime | None,
+    after_review_id: int | None,
+) -> list[dict[str, object]]:
+    """Collect PR review bodies and issue comments while grouping preview replies onto parents."""
+    review_entries = fetch_gh_json(f"repos/{repo}/pulls/{pr_number}/reviews")
+    issue_entries = fetch_gh_json(f"repos/{repo}/issues/{pr_number}/comments")
+    resolved_roots = _collect_resolved_roots(review_entries, issue_entries)
+
+    roots: list[dict[str, object]] = []
+    roots_by_id: dict[int, dict[str, object]] = {}
+    replies_by_parent: dict[int, list[dict[str, object]]] = {}
+    skipped_reviews: set[int] = set()
+
+    for source, raw_entries in (("review", review_entries), ("issue", issue_entries)):
+        for entry in raw_entries:
+            visible = _visible_entry_body_and_user(entry, include_bots)
+            if visible is None:
+                continue
+            body, user = visible
+            if PREVIEW_STATE_RE.search(body):
+                continue
+            comment_id = entry.get("id")
+            if source == "review" and after_review_id is not None and isinstance(comment_id, int) and comment_id <= after_review_id:
+                skipped_reviews.add(comment_id)
+                continue
+            reply_m = PREVIEW_REPLY_RE.search(body)
+            parent_id = int(reply_m.group(1)) if reply_m else None
+            is_marked_resolved = (
+                (isinstance(comment_id, int) and comment_id in resolved_roots)
+                or (parent_id is not None and parent_id in resolved_roots)
+            )
+            if not include_resolved and is_marked_resolved:
+                continue
+            item = _base_feedback_item(entry, source, body, user)
+            if is_marked_resolved:
+                item["is_resolved"] = True
+            if parent_id is not None:
+                replies_by_parent.setdefault(parent_id, []).append(item)
+            else:
+                item["replies"] = []
+                item["reply_count"] = 0
+                item["last_author"] = str(item["author"])
+                item["last_activity_at"] = str(item["created_at"] or "")
+                roots.append(item)
+                if isinstance(comment_id, int):
+                    roots_by_id[comment_id] = item
+
+    for parent_id, rep_items in replies_by_parent.items():
+        if parent_id in skipped_reviews:
+            continue
+        parent = roots_by_id.get(parent_id)
+        if parent is None:
+            for rep in rep_items:
+                if _passes_since(str(rep.get("created_at") or ""), since_dt):
+                    roots.append(rep)
+            continue
+        existing = parent["replies"]
+        assert isinstance(existing, list)
+        for rep in rep_items:
+            existing.append({
+                "id": rep.get("id"),
+                "author": rep.get("author"),
+                "created_at": rep.get("created_at"),
+                "body": rep.get("body"),
+            })
+            if ts := str(rep.get("created_at") or ""):
+                parent["last_activity_at"] = ts
+        parent["reply_count"] = len(existing)
+        parent["last_author"] = str(existing[-1]["author"])
+
+    return [item for item in roots if _passes_since(str(item.get("last_activity_at") or item.get("created_at") or ""), since_dt)]
+
+
 def normalize_pr_feedback(
     repo: str,
     pr_number: int,
@@ -352,27 +471,16 @@ def normalize_pr_feedback(
         include_resolved=include_resolved,
         since_dt=since_dt,
     )
-
-    for source, endpoint in (
-        ("review", f"repos/{repo}/pulls/{pr_number}/reviews"),
-        ("issue", f"repos/{repo}/issues/{pr_number}/comments"),
-    ):
-        for entry in fetch_gh_json(endpoint):
-            visible = _visible_entry_body_and_user(entry, include_bots)
-            if visible is None:
-                continue
-            body, user = visible
-            comment_id = entry.get("id")
-            if (
-                source == "review"
-                and after_review_id is not None
-                and isinstance(comment_id, int)
-                and comment_id <= after_review_id
-            ):
-                continue
-            if not _passes_since(_entry_timestamp(entry), since_dt):
-                continue
-            items.append(_base_feedback_item(entry, source, body, user))
+    items.extend(
+        _collect_conv_and_review_items(
+            repo,
+            pr_number,
+            include_bots=include_bots,
+            include_resolved=include_resolved,
+            since_dt=since_dt,
+            after_review_id=after_review_id,
+        )
+    )
     return items
 
 

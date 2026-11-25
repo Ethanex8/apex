@@ -1,8 +1,12 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { defineAsyncComponent, onMounted, onUnmounted, ref } from 'vue'
 import DefaultTheme from 'vitepress/theme'
+import prReviewMeta from 'virtual:apex-pr-review'
 
 const { Layout } = DefaultTheme
+const PrReviewOverlay = prReviewMeta.enabled
+  ? defineAsyncComponent(() => import('./review/PrReviewOverlay.vue'))
+  : null
 
 const progress = ref(0)
 const serifMode = ref(true)
@@ -30,13 +34,17 @@ function toggleTypography() {
   }
 }
 
-onMounted(() => {
+if (typeof window !== 'undefined') {
   try {
     const saved = localStorage.getItem('apex-book-serif')
     serifMode.value = saved === null ? true : saved === '1'
   } catch {
     serifMode.value = true
   }
+  applyTypography(serifMode.value)
+}
+
+onMounted(() => {
   applyTypography(serifMode.value)
   updateProgress()
   window.addEventListener('scroll', updateProgress, { passive: true })
@@ -67,4 +75,7 @@ onUnmounted(() => {
       </button>
     </template>
   </Layout>
+  <ClientOnly>
+    <PrReviewOverlay v-if="PrReviewOverlay" />
+  </ClientOnly>
 </template>

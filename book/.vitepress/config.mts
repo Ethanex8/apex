@@ -3,10 +3,43 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vitepress'
 import { repoCodeLinksPlugin } from './plugins/repoCodeLinks.mts'
+import { sourceLineMapPlugin } from './plugins/sourceLineMap.mts'
 import { buildTextbookSidebar } from './roadmapSidebar.mts'
+import type { PrReviewMeta } from './theme/review/types.ts'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = path.resolve(__dirname, '../..')
+
+function loadPrReviewMeta(): PrReviewMeta {
+  const empty: PrReviewMeta = {
+    enabled: false,
+    repo: '',
+    prNumber: 0,
+    baseSha: '',
+    headSha: '',
+    prUrl: '',
+    files: {},
+  }
+  const metaPath = process.env.APEX_PR_META_FILE
+  if (!metaPath || !fs.existsSync(metaPath)) return empty
+  try {
+    const parsed = JSON.parse(fs.readFileSync(metaPath, 'utf-8')) as Partial<PrReviewMeta>
+    if (!parsed.enabled || !parsed.repo || !parsed.prNumber) return empty
+    return {
+      enabled: true,
+      repo: parsed.repo,
+      prNumber: parsed.prNumber,
+      baseSha: parsed.baseSha ?? '',
+      headSha: parsed.headSha ?? '',
+      prUrl: parsed.prUrl ?? `https://github.com/${parsed.repo}/pull/${parsed.prNumber}`,
+      files: parsed.files ?? {},
+    }
+  } catch {
+    return empty
+  }
+}
+
+const PR_REVIEW_META = loadPrReviewMeta()
 
 export default defineConfig({
   title: 'Apex Systems Engineering',
@@ -17,6 +50,19 @@ export default defineConfig({
   cleanUrls: true,
   ignoreDeadLinks: false,
   lastUpdated: false,
+  head: [
+    [
+      'script',
+      {},
+      "try{const s=localStorage.getItem('apex-book-serif');if(s===null||s==='1')document.documentElement.classList.add('book-serif-mode')}catch{}",
+    ],
+  ],
+
+  transformPageData(pageData) {
+    return {
+      repoSourcePath: (pageData.filePath || pageData.relativePath).replace(/\\/g, '/'),
+    }
+  },
 
   srcExclude: [
     'README.md',
@@ -97,10 +143,29 @@ export default defineConfig({
         }
         return defaultFence(tokens, idx, options, env, self)
       }
+
+      if (PR_REVIEW_META.enabled) {
+        sourceLineMapPlugin(md)
+      }
     },
   },
 
   vite: {
+    plugins: [
+      {
+        name: 'apex-pr-review-virtual-meta',
+        resolveId(id: string) {
+          if (id === 'virtual:apex-pr-review') return '\0virtual:apex-pr-review'
+          return null
+        },
+        load(id: string) {
+          if (id === '\0virtual:apex-pr-review') {
+            return `export default ${JSON.stringify(PR_REVIEW_META)};`
+          }
+          return null
+        },
+      },
+    ],
     resolve: {
       alias: {
         vue: path.resolve(__dirname, '../node_modules/vue'),

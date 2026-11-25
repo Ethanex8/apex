@@ -6,7 +6,7 @@ This document defines the canonical **3-Tier, 4-Step Subset-Recall PR Review Pro
 
 - **Protected `main` Branch**: Direct pushes, force-pushes, and deletion are disabled via a GitHub Repository Ruleset (`Protect main`), requiring passing `Apex CI` (`verify-python-roadmap-and-book`) and **100% review thread resolution**.
 - **Single PR per Step (`step/<step-id>`)**: Open one Ready-for-Review PR targeting `main` with `step.py approve <step-id> --pr <URL>` pre-staged on the branch so `main` stays `pending` until human merge—zero shadow `review/*` PRs and zero direct-to-`main` pushes.
-- **Isolated PR Previews**: Root `https://ethanex8.github.io/apex/` remains strictly `main`-only, while `book.yml` deploys same-repo PR previews to `https://ethanex8.github.io/apex/pr-<N>/` and cleans them up automatically when the PR closes.
+- **Isolated PR Previews with Inline Reviewing**: Root `https://ethanex8.github.io/apex/` remains strictly `main`-only, while `book.yml` deploys same-repo PR previews to `https://ethanex8.github.io/apex/pr-<N>/` with an always-on two-way inline review overlay—select any sentence or click `+` beside any heading, equation, diagram, or interactive widget to queue native GitHub PR review comments (using a one-time repo-scoped `Pull requests: Read and write` fine-grained PAT reused across all future PRs, or zero-token Markdown export), and view, reply to, or resolve existing PR threads inside the unified Review drawer.
 - **Core Tier-2 Invariant**: Before editing any deliverable on a systemic (`Tier 2`) comment, enforce:
 
 $$
@@ -69,7 +69,7 @@ flowchart TD
         CLEAN{"Zero remaining defects or flow regressions?"}
         FOLLOWUP["Fix remaining items and rebuild"]
         SCOPED_PASS["Round 2+: Scoped re-check of touched areas and diff guard"]
-        PUSH_REPLY["Push update to PR, reply inline, and resolve threads"]
+        PUSH_REPLY["Push update to PR and reply across all addressed threads"]
         NEXT_CYCLE["Ready for next human review -> Repeat from Stage 1 or 1-tap Merge"]
 
         APPLY_FIX --> FULL_PASS
@@ -105,14 +105,14 @@ flowchart TD
 | **Blue** | Human Reviewer | Reviews diff/preview, approves general rule changes, or taps **Merge** |
 | **Amber** | Decision Point | Routes feedback by scope or checks whether a loop has converged |
 | **Purple** | Blind Reviewers | Isolated subagents reading frozen prompts with zero access to PR comments |
-| **Green** | Agent & Automated Checks | Edits files, runs tests/linters/builds, pushes updates, and resolves threads |
+| **Green** | Agent & Automated Checks | Edits files, runs tests/linters/builds, pushes updates, and replies to threads |
 
 ## Detailed Step Reference
 
 ### Step 1: Unresolved Comment Triage and 3-Tier Classification (Gate 1)
 1. Harvest **unresolved** grouped inline threads, review summaries, and issue comments **outside** the repository workspace using `python3 scripts/harvest_feedback.py --pr <N> [--since <ISO_TS>] --out /tmp/apex-feedback/pr-<N>.json` (already-resolved threads and preview bot banners are skipped by default; pass `--include-resolved` only when auditing full history), and freeze the untouched pre-fix `HEAD` commit hash.
 2. Evaluate every comment (`U1..Uk`) against the exact deliverable lines (`AGREE`, `CLARIFY`, or respectful `PUSHBACK`), then classify each item:
-   - **Tier 0**: Pure mechanical typos or broken links—purge `/tmp` feedback JSON, fix directly, push to the PR branch, reply inline, and resolve.
+   - **Tier 0**: Pure mechanical typos or broken links—purge `/tmp` feedback JSON, fix directly, push to the PR branch, and reply across all addressed items (leaving resolution to the reviewer).
    - **Tier 1**: Local editorial phrasing, naming, or single-chapter clarification without rubric edits—if **every** item is unambiguous Tier 1 (`AGREE`, zero `PUSHBACK`/`CLARIFY`), purge `/tmp` feedback JSON and proceed directly to **Step 3**.
    - **Tier 2**: Systemic pedagogical, mathematical, visual, or engineering gap transferable across unrelated chapters or codebases (or recurring across `2+` chapters).
 3. Whenever **any** item is **Tier 2**, `PUSHBACK`, or `CLARIFY`: draft edits strictly to the single canonical `.agents/skills/*/references/rubric_*.md`, `SKILL.md`, `GEMINI.md`, or `scripts/check_*.py` file as **universal domain-agnostic principles** (never referencing chapter symbols, hex constants, widget names, or line hints) alongside a **Rule Conflict & Counterbalance Check** identifying any existing rule narrowed or replaced to prevent pendulum swings.
@@ -131,8 +131,8 @@ flowchart TD
 3. Run `python3 scripts/build.py`, `check_code.py` (AST, Ruff, `mypy`, ShellCheck, C/SV gates), `pytest --cov-fail-under=95`, `sync_book.py --check`, `check_book.py`, `build.py --check`, `BOOK_BASE=/apex/ npm --prefix book run build`, and `check_visuals.py --screenshot-dir .cache/visual-audit` (capturing both light and dark PNGs).
 4. Run fresh isolated clean-room `research` subagents with `--base-ref <untouched_head_sha>`: run a **full sweep** on Round 1 (`python3 scripts/build_review_plan.py [--chapter <path>] [--code <files...>] --base-ref <untouched_head_sha>`), and use deterministic **scoped** sweeps (`--changed-since <round_r_sha>`) for localized Round $r+1$ fixes until all emitted reviewers and the `Diff & Flow Regression Guardian` return **zero P0/P1/P2 defects**.
 
-### Step 4: Fast-Forward PR Update, Thread Resolution, and 1-Tap Merge Close-Out
+### Step 4: Fast-Forward PR Update, Cross-Channel Replies, and 1-Tap Merge Close-Out
 1. Commit and push fast-forward updates strictly to the open `step/<step-id>` PR branch (never directly to `main`, and never force-push reviewed commits).
-2. Post concise inline replies on every addressed PR comment (`gh api -X POST repos/<owner>/<repo>/pulls/<N>/comments/<id>/replies`) noting both the deliverable fix and any upstream rule/gate update.
-3. Resolve every addressed GitHub review thread via GraphQL `resolveReviewThread`, leaving a thread unresolved **only** when a genuine open question remains for the reviewer.
+2. Post concise replies on **every** addressed feedback item across all channels (`gh api -X POST repos/<owner>/<repo>/pulls/<N>/comments/<id>/replies` for inline review comments; `gh api -X POST repos/<owner>/<repo>/issues/<N>/comments` with `<!-- apex-preview-reply-to: <root_id> -->` for PR review summaries and conversation items) noting both the deliverable fix and any upstream rule/gate update.
+3. **Do not auto-resolve threads**: leave addressed threads open so the human reviewer can pull up the preview widget or PR view, read each response without toggling resolved filters, and click **Resolve** once verified (run `python3 scripts/harvest_feedback.py --pr <N>` to verify every newly raised item has a reply).
 4. Confirm `Apex CI` and the `/apex/pr-<N>/` preview deployment succeed, then return to human review. Because `step.py approve <step-id> --pr <URL>` is already staged on the PR branch, tapping **Merge pull request** on GitHub completes the step in **one tap**—atomically updating `main`, auto-deleting `step/<step-id>`, deploying root `https://ethanex8.github.io/apex/`, and removing `/apex/pr-<N>/`.
