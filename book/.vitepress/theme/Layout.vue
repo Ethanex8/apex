@@ -4,7 +4,7 @@
  * Usage: Registered as the root layout component in `book/.vitepress/theme/index.ts`.
  * Invariants: Keeps `serifMode` at its SSR default (`true`) during initial hydration, syncing persisted preference on mount.
  */
-import { defineAsyncComponent, onMounted, onUnmounted, ref } from 'vue'
+import { defineAsyncComponent, defineComponent, onErrorCaptured, onMounted, onUnmounted, ref } from 'vue'
 import DefaultTheme from 'vitepress/theme'
 import prReviewMeta from 'virtual:apex-pr-review'
 import InChapterSidebarNav from './InChapterSidebarNav.vue'
@@ -13,6 +13,24 @@ const { Layout } = DefaultTheme
 const PrReviewOverlay = prReviewMeta.enabled
   ? defineAsyncComponent(() => import('./review/PrReviewOverlay.vue'))
   : null
+
+/** Isolate PR review overlay render/lifecycle errors so book content cannot freeze or lose navigation. */
+const OverlayBoundary = defineComponent({
+  name: 'PrReviewOverlayBoundary',
+  setup(_, { slots }) {
+    const failed = ref(false)
+    onErrorCaptured((err) => {
+      if (typeof document !== 'undefined') {
+        document.documentElement.style.overflow = ''
+        document.body.style.overflow = ''
+      }
+      console.error('[apex-review-overlay] Disabled after runtime error:', err)
+      failed.value = true
+      return false
+    })
+    return () => (failed.value ? null : slots.default?.())
+  },
+})
 
 const SERIF_STORAGE_KEY = 'apex-book-serif'
 const SERIF_CLASS_NAME = 'book-serif-mode'
@@ -94,6 +112,8 @@ onUnmounted(() => {
     </template>
   </Layout>
   <ClientOnly>
-    <PrReviewOverlay v-if="PrReviewOverlay" />
+    <OverlayBoundary v-if="PrReviewOverlay">
+      <PrReviewOverlay />
+    </OverlayBoundary>
   </ClientOnly>
 </template>

@@ -6,8 +6,11 @@
 
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
+import fs from 'node:fs'
 import path from 'node:path'
 import test from 'node:test'
+import { fileURLToPath } from 'node:url'
+import { compileScript, compileTemplate, parse } from '@vue/compiler-sfc'
 import { createMarkdownRenderer } from 'vitepress'
 import { sourceLineMapPlugin } from '../../plugins/sourceLineMap.mts'
 import {
@@ -445,17 +448,23 @@ test('detectBlockKind classifies widgets, equations, mermaid diagrams, code bloc
   assert.equal(detectBlockKind(makeBlock('DIV', '', 'pre.vp-code')), 'Code Block')
 })
 
-test('findAnchorElementForLine selects tightest span and skips malformed non-positive attrs', () => {
+test('findAnchorElementForLine selects tightest span and skips occluded or malformed non-positive attrs', () => {
   const makeNode = (srcLine: string, srcEnd: string, occluded = false) => ({
     dataset: { srcLine, srcEnd },
     closest: () => (occluded ? {} : null),
   })
   const badEl = makeNode('bad', '20')
-  const gapEl = makeNode('10', '')
+  const zeroEl = makeNode('0', '20')
+  const negEl = makeNode('-1', '20')
+  const occludedEl = makeNode('14', '14', true)
+  const gapEl = makeNode('8', '')
+  const wideEl = makeNode('10', '20')
   const exactEl = makeNode('12', '15')
-  const docRoot = { querySelectorAll: () => [badEl, gapEl, exactEl] } as unknown as Element
+  const docRoot = { querySelectorAll: () => [badEl, zeroEl, negEl, occludedEl, gapEl, wideEl, exactEl] } as unknown as Element
   assert.equal(findAnchorElementForLine(docRoot, 14), exactEl)
-  assert.equal(findAnchorElementForLine(docRoot, 10), gapEl)
+  assert.equal(findAnchorElementForLine(docRoot, 8), gapEl)
+  assert.equal(findAnchorElementForLine(docRoot, 18), wideEl)
+  // `line === null` returns the first `[data-src-line]` DOM node unconditionally before line-range parsing.
   assert.equal(findAnchorElementForLine(docRoot, null), badEl)
 })
 
@@ -533,7 +542,11 @@ test('submitBatchedReview omits commit_id and comments for summary-only reviews'
   assert.equal(summaryOnly.summaryOk, true)
   const post = calls.find((c) => c.method === 'POST' && c.url.endsWith(`/pulls/${TEST_PR_NUMBER}/reviews`))
   assert.ok(post)
-  assert.equal('commit_id' in (post.body as Record<string, unknown>), false)
+  const payload = post.body as Record<string, unknown>
+  assert.equal('commit_id' in payload, false)
+  assert.equal('comments' in payload, false)
+  assert.equal(payload.body, 'Only overall note')
+  assert.equal(payload.event, 'COMMENT')
 })
 
 test('replyToThread and setThreadResolved send expected GraphQL and marker payloads', async () => {
@@ -792,17 +805,17 @@ test('isValidDraftComment accepts valid comment/reply/resolve drafts and rejects
 
 test('parseStoredDrafts handles null/non-object JSON, filters corrupt items, and migrates legacy summaryBody', () => {
   const validDraft = makeValidCommentDraft()
-  assert.deepEqual(parseStoredDrafts(null, 10), { drafts: [], migrated: false })
-  assert.deepEqual(parseStoredDrafts('null', 10), { drafts: [], migrated: false })
-  assert.deepEqual(parseStoredDrafts('123', 10), { drafts: [], migrated: false })
-  assert.deepEqual(parseStoredDrafts('{bad-json', 10), { drafts: [], migrated: false })
-  assert.deepEqual(parseStoredDrafts(JSON.stringify({ drafts: [validDraft], summaryBody: '   ' }), 10), { drafts: [validDraft], migrated: false })
+  assert.deepEqual(parseStoredDrafts(null, TEST_PR_NUMBER), { drafts: [], migrated: false })
+  assert.deepEqual(parseStoredDrafts('null', TEST_PR_NUMBER), { drafts: [], migrated: false })
+  assert.deepEqual(parseStoredDrafts('123', TEST_PR_NUMBER), { drafts: [], migrated: false })
+  assert.deepEqual(parseStoredDrafts('{bad-json', TEST_PR_NUMBER), { drafts: [], migrated: false })
+  assert.deepEqual(parseStoredDrafts(JSON.stringify({ drafts: [validDraft], summaryBody: '   ' }), TEST_PR_NUMBER), { drafts: [validDraft], migrated: false })
 
   // Expect 2 items: 1 kept valid draft + 1 migrated `summaryBody` draft - 1 dropped corrupt entry.
-  const migrated = parseStoredDrafts(JSON.stringify({ drafts: [validDraft, { invalid: true }], summaryBody: 'Legacy overall note' }), 10)
+  const migrated = parseStoredDrafts(JSON.stringify({ drafts: [validDraft, { invalid: true }], summaryBody: 'Legacy overall note' }), TEST_PR_NUMBER)
   assert.equal(migrated.migrated, true)
   assert.equal(migrated.drafts.length, 2)
-  assert.equal(migrated.drafts[1].sectionTitle, 'PR #10')
+  assert.equal(migrated.drafts[1].sectionTitle, `PR #${TEST_PR_NUMBER}`)
 })
 
 test('overlayHelpers thread draft builders and status labels cover open, resolve, reopen, and outdated states', () => {
@@ -859,4 +872,42 @@ test('canAutoRefreshThreads enforces cooldown bounds even after failed initial r
   assert.equal(canAutoRefreshThreads(notLoading, notLoadedOnce, INITIAL_FETCH_MS, AFTER_ANON_COOLDOWN_MS, anon), true)
   assert.equal(canAutoRefreshThreads(notLoading, loadedOnce, INITIAL_FETCH_MS, SHORT_RETRY_MS, withToken), false)
   assert.equal(canAutoRefreshThreads(notLoading, loadedOnce, INITIAL_FETCH_MS, AFTER_AUTH_COOLDOWN_MS, withToken), true)
+})
+
+test('all theme Vue SFC templates compile with zero unresolved _ctx script bindings', () => {
+  const themeDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+  const vueFiles = fs
+    .readdirSync(themeDir, { recursive: true })
+    .filter((rel) => String(rel).endsWith('.vue'))
+    .map((rel) => path.join(themeDir, String(rel)))
+    .sort()
+
+  assert.ok(vueFiles.length >= 1, 'Expected at least one .vue file under book/.vitepress/theme')
+  for (const file of vueFiles) {
+    const source = fs.readFileSync(file, 'utf8')
+    const { descriptor, errors } = parse(source, { filename: file })
+    assert.deepEqual(errors, [], `SFC parse errors in ${file}`)
+    if (!descriptor.template) continue
+
+    const bindingMetadata =
+      descriptor.script || descriptor.scriptSetup
+        ? compileScript(descriptor, { id: file }).bindings
+        : {}
+    const compiledTemplate = compileTemplate({
+      source: descriptor.template.content,
+      filename: file,
+      id: file,
+      compilerOptions: {
+        bindingMetadata,
+        mode: 'function',
+      },
+    })
+    assert.deepEqual(compiledTemplate.errors, [], `Template compile errors in ${file}`)
+    const unresolvedCtx = [
+      ...new Set(
+        [...compiledTemplate.code.matchAll(/_ctx\.([A-Za-z_$][A-Za-z0-9_$]*)/g)].map((m) => m[1]),
+      ),
+    ]
+    assert.deepEqual(unresolvedCtx, [], `Unresolved template bindings in ${file}: ${unresolvedCtx.join(', ')}`)
+  }
 })

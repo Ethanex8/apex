@@ -358,6 +358,8 @@ async function connectToken() {
     saveAuthToken(cleaned, persistLocalToggle.value)
     tokenInput.value = ''
     drawerView.value = 'main'
+    // Token verification/persistence succeeded; release authBusy before thread fetching (tracked by threadsLoading).
+    authBusy.value = false
     await refreshThreads()
   } catch (err) {
     if (seq !== authSeq || isComponentUnmounted) return
@@ -372,6 +374,7 @@ async function connectToken() {
 /** Sign out of the saved GitHub PAT and fall back to public anonymous thread reads. */
 function forgetToken() {
   authSeq += 1
+  authBusy.value = false
   auth.value = { token: '', login: '', avatarUrl: '', persistLocal: true }
   saveAuthToken('', true)
   refreshThreads()
@@ -442,11 +445,21 @@ function updateViewportMode() {
 
 /** Track currently near-viewport `[data-src-line]` elements inside `.vp-doc` using IntersectionObserver. */
 function observeDocumentBlocks() {
-  visibleBlocks.clear()
   blockIntersectionObserver?.disconnect()
-  if (typeof document === 'undefined') return
+  if (typeof document === 'undefined') {
+    visibleBlocks.clear()
+    return
+  }
   const docRoot = document.querySelector('.vp-doc')
-  if (!docRoot) return
+  if (!docRoot) {
+    visibleBlocks.clear()
+    return
+  }
+  for (const existing of visibleBlocks) {
+    if (!docRoot.contains(existing)) {
+      visibleBlocks.delete(existing)
+    }
+  }
 
   const blocks = Array.from(
     docRoot.querySelectorAll<HTMLElement>('[data-src-line]'),
@@ -779,6 +792,11 @@ function queuedRepliesFor(threadId: string): DraftComment[] {
   return drafts.value.filter((d) => d.kind === 'reply' && d.replyTarget?.threadId === threadId)
 }
 
+/** Return the queued resolve or reopen draft targeting `threadId`, if any. */
+function queuedResolveFor(threadId: string): DraftComment | undefined {
+  return findQueuedResolve(threadId, drafts.value)
+}
+
 /** Return whether `thread` is resolved either remotely or via a staged draft. */
 function effectiveThreadResolved(thread: RemoteReviewThread): boolean {
   return resolveEffectiveThreadState(thread, drafts.value)
@@ -926,6 +944,10 @@ watch(
   async () => {
     selectionTarget.value = null
     selectionRect.value = null
+    if (routeScrollTimer !== null) {
+      window.clearTimeout(routeScrollTimer)
+      routeScrollTimer = null
+    }
     await nextTick()
     if (isComponentUnmounted) return
     attachDocObservers()
@@ -934,9 +956,6 @@ watch(
       const targetLine = pendingScrollLine.value
       pendingScrollLine.value = null
       syncBodyScrollLock(false)
-      if (routeScrollTimer !== null) {
-        window.clearTimeout(routeScrollTimer)
-      }
       // Wait briefly for VitePress client transition layout measurement before scrolling.
       routeScrollTimer = window.setTimeout(() => {
         routeScrollTimer = null
