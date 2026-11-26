@@ -28,15 +28,15 @@ Write **publication-grade, reader-respecting prose** (*Harris & Harris*, *Crafti
 2. **Layering & Abstraction Boundaries**:
    - Order elementary stateless primitives before coupled multi-part mechanisms, establish intrinsic representation properties early, complete base architectures before custom extensions, and exclude repo-specific constants or unbuilt tools from general theory.
    - Describe higher layers strictly at their observable contract without leaking unintroduced lower-layer ports, pins, internal signals, or implementation cycle counts.
-   - Open comparative sections with a plain-English takeaway, align `###` subsections strictly to headings, unbraid distinct mechanisms, and open new operations with intuition before corner cases.
+   - Open comparative sections with a plain-English takeaway, keep introductory operator overviews free of premature formal bounds, align `###` subsections strictly to headings, and unbraid distinct mechanisms.
 3. **Concise Headings & Calm Bridges**:
-   - Keep H1 (`<= 6` words) and `##`/`###` (`<= 8` words) crisp without `:`, `&`, parentheticals, backticks, or redundant `---` dividers above `## `, opening each section with a calm 2–4 sentence bridge.
+   - Keep H1 (`<= 6` words) and `##`/`###` (`<= 8` words) crisp without `:`, `&`, parentheticals, backticks, or redundant `---` dividers above `## `, give each distinct conceptual layer its own `###` subsection, and open sections with calm 2–4 sentence bridges.
 4. **Diagram-First Visuals & Clean Code Slices**:
    - Place spatial/schematic `<svg>` or Mermaid diagrams (never text-only calculator cards) with one unambiguous title before formalism, auditing insertion lines for zero premature symbols.
    - Derive non-obvious formulas **before** quoting code, keep embedded slices focused (`<= 25` lines), and anchor file/symbol links cleanly.
 
 ### Pass 2: Uncompressed First-Principles Drafting
-1. **Semantic Line Breaks**: Write **one sentence per Markdown line** (no `<br>`), starting a fresh paragraph before pivoting from intuition/examples into formal derivations.
+1. **Direct Openings & Semantic Line Breaks**: Open every section and concept positively by what it is and does (deferring contrasts until after), write **one sentence per Markdown line** (no `<br>`), and break paragraphs before formal derivations.
 2. **Mechanism First & Code-Only Backticks**:
    - State what each new term does before placing `(**expanded name / acronym**)` immediately adjacent (never after an em-dash or `3+` stacked acronyms); tabulate `3+` structured items with proportional lead-in prose across every table category.
    - Reserve backticks strictly for literal code, tokens, constants, CLI flags, and paths—never acronyms, proper nouns, prose numbers/units, or raw TeX; keep boldface `<= 6` words.
