@@ -95,7 +95,7 @@ const formatRows: FormatRow[] = [
       'Drops funct7, rs2, rs1, and funct3 to free a contiguous 20-bit upper payload (Bits 31..12) directly aligned to destination Bits 31..12 with zero bit shuffling.',
     cells: [
       { label: 'S', range: '31', startBit: 31, cols: 1, kind: 'sign' },
-      { label: 'Upper Constant Bits 30..12', range: 'Bits 30..12', startBit: 30, cols: 19, kind: 'imm' },
+      { label: 'Upper Constant 30..12', range: 'Bits 30..12', startBit: 30, cols: 19, kind: 'imm' },
       { label: 'rd', range: 'Bits 11..7', startBit: 11, cols: 5, kind: 'rd' },
       { label: 'opcode', range: 'Bits 6..0', startBit: 6, cols: 7, kind: 'opcode' },
     ],

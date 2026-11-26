@@ -1,14 +1,14 @@
 # Chapter 1 Instruction Set Architecture
 
 Every program that runs on a robot ultimately reduces to fixed-width binary numbers moving between small hardware storage cells and memory addresses.
-Before designing a single physical logic gate for the `brain` processor, we must specify the exact contract governing those binary instructions, storage containers, memory regions, and external timer or device interruptions.
-In this chapter, we derive that hardware-software contract from first principles and implement it as a self-contained, executable Python specification in [`oracle.py`](../sim/oracle.py) verified by [`test_oracle.py`](../tb/test_oracle.py).
+The `brain` processor contract specifies the exact rules governing those binary instructions, storage containers, memory regions, and external timer or device interruptions.
+Deriving that hardware-software contract from first principles yields a self-contained, executable Python specification in [`oracle.py`](../sim/oracle.py) verified by [`test_oracle.py`](../tb/test_oracle.py).
 
 ## 1. Software Golden Reference Models
 
 When you write an ordinary program in Python or C, statements execute one after another in a single predictable sequence.
 A physical processor core (**Central Processing Unit**, or CPU) is instead built in a text-based circuit specification language (**Hardware Description Language**, or HDL) such as SystemVerilog.
-Under the hood, that description wires together boolean logic gates, selector switches (**multiplexers**, the circuit equivalent of `cond ? a : b`), and clocked 1-bit storage cells (**flip-flops**).
+Under the hood, that description wires together elementary true/false switches (**boolean logic gates**), selector switches (**multiplexers**, the circuit equivalent of `cond ? a : b`), and clocked 1-bit storage cells (**flip-flops**).
 Between consecutive ticks of a periodic clock signal (one **clock cycle**), logic gates and multiplexers continuously compute new wire voltages in parallel, and on each tick all flip-flops sample those wires and update their stored bits at the exact same instant.
 
 Testing a concurrent circuit design solely with hand-written test scripts mixes circuit timing with expected instruction behavior and leaves complex multi-instruction or external-signal corner cases unchecked.
@@ -54,12 +54,13 @@ Every loop counter, memory address, and sensor reading must fit inside those $2^
 
 ### Bitwise Wire Gates and Bit Shifts
 
-Every hardware register begins as an ordered row of $N$ binary wires $b_{N-1}, b_{N-2}, \dots, b_0 \in \{0, 1\}$.
-Hardware manuals label individual wire $b_i$ as Bit $i$ and a contiguous slice from $b_{\text{hi}}$ down to $b_{\text{lo}}$ as Bits $\text{hi}..\text{lo}$.
-To write wide 32-bit wire patterns concisely, programmers use base-16 notation (**hexadecimal**), prefixed with `0x`, where each digit `0`–`9` or `A`–`F` packs four binary wires and underscores visually separate 4-digit groups.
+Every hardware register holds an ordered row of binary wires carrying `0` or `1` signals, read from left to right.
+On a 4-wire register holding `1011` (Bits 3..0), Bit 0 sits at the rightmost `1` and Bit 3 sits at the leftmost `1`.
+To write wide bit patterns compactly, programmers group every four wires into one base-16 (**hexadecimal**) digit `0`–`9` (values 0–9) or `A`–`F` (values 10–15) prefixed with `0x`, separating 4-digit groups with underscores.
+Generalizing to any width of $N$ wires labels individual wire $b_i \in \{0, 1\}$ as Bit $i$ ($b_{N-1}, \dots, b_0$) and any contiguous slice from $b_{\text{hi}}$ down to $b_{\text{lo}}$ as Bits $\text{hi}..\text{lo}$.
 
-Hardware combines and slides raw bit patterns across wires using six elementary operators: four bitwise gates and two bit shifts.
-Each **bitwise gate** evaluates Bit $i$ solely from Bit $i$ of its inputs (with `~` inverting one pattern and `&`, `|`, `^` combining two), while **bit shifts** slide every bit left (`<<`) or right (`>>`) across wire positions:
+Hardware combines and slides raw bit patterns across wires using six elementary operators: four bitwise gates (`&`, `|`, `^`, `~`) and two bit shifts (`<<`, `>>`).
+Each **bitwise gate** evaluates Bit $i$ solely from Bit $i$ of its inputs, while **bit shifts** slide every bit left or right across wire positions:
 
 | Operator | Python / Equation Token | Single-Bit Rule (`0` / `1`) | Primary Hardware Role |
 | :--- | :---: | :--- | :--- |
@@ -67,8 +68,10 @@ Each **bitwise gate** evaluates Bit $i$ solely from Bit $i$ of its inputs (with 
 | **Bitwise OR** | `a \| b` | `1` whenever either input bit equals `1` | Sets flag bits or combines non-overlapping packed fields |
 | **Bitwise Exclusive-OR** (XOR) | `a ^ b` / $\oplus$ | `1` when the two input bits differ | Toggles bits paired with `1` and leaves bits paired with `0` unchanged |
 | **Bitwise NOT** | `~a` / $\bar{a}$ | Flips every bit (`0` $\leftrightarrow$ `1`, $\bar{a}_i = 1 - a_i$) | Inverts all wires in parallel |
-| **Bitwise Left Shift** | `a << k` / $\ll$ | Slides every bit left by $k$ positions | Fills vacated bottom bits with `0` (multiplying non-negative integers by powers of two, or placing `1` at Bit $k$ via `1 << k`) |
-| **Bitwise Right Shift** | `a >> k` / $\gg$ | Slides every bit right by $k$ positions | Discards bottom bits and zero-fills vacated top bits on non-negative integers (dividing by powers of two) |
+| **Bitwise Left Shift** | `a << k` / $\ll$ | Slides every bit left by $k$ positions | Fills vacated bottom wires with `0` (or places `1` at Bit $k$ via `1 << k`) |
+| **Bitwise Right Shift** | `a >> k` / $\gg$ | Slides every bit right by $k$ positions | Discards bottom wires and zero-fills vacated top wires |
+
+Evaluating those rules concretely on four wires, Bitwise AND (`1011 & 0011`) zeroes the upper two bits where the mask holds `0` to keep `0011`, while Bitwise Left Shift (`1011 << 1`) drops the leftmost `1` and fills Bit 0 with `0` to produce `0110`.
 
 ### Unsigned Binary Integers
 
@@ -76,10 +79,12 @@ Assigning base-two place weights $2^0, 2^1, \dots, 2^{N-1}$ from right to left m
 On a 4-bit register ($N = 4$), place weights evaluate three sample patterns directly:
 
 $$\begin{aligned}
-\texttt{0011} &\;\mapsto\; 0 \cdot 8 + 0 \cdot 4 + 1 \cdot 2 + 1 \cdot 1 = 3 \\
-\texttt{1011} &\;\mapsto\; 1 \cdot 8 + 0 \cdot 4 + 1 \cdot 2 + 1 \cdot 1 = 11 \\
-\texttt{1111} &\;\mapsto\; 1 \cdot 8 + 1 \cdot 4 + 1 \cdot 2 + 1 \cdot 1 = 15
+\texttt{0011} &\;\mapsto\; 0 \cdot 8 + 0 \cdot 4 + 1 \cdot 2 + 1 \cdot 1 = 3 && (\texttt{0x3}) \\
+\texttt{1011} &\;\mapsto\; 1 \cdot 8 + 0 \cdot 4 + 1 \cdot 2 + 1 \cdot 1 = 11 && (\texttt{0xB}) \\
+\texttt{1111} &\;\mapsto\; 1 \cdot 8 + 1 \cdot 4 + 1 \cdot 2 + 1 \cdot 1 = 15 && (\texttt{0xF})
 \end{aligned}$$
+
+Packing four wires per hexadecimal digit turns `1011` directly into `0xB` and pairs `1011` with `0101` ($5$) to write the 8-wire pattern `1011_0101` compactly as `0xB5`.
 
 Generalizing from 4 wires to any width $N \ge 1$ defines the **unsigned integer interpretation** $U_N(b)$:
 
@@ -111,32 +116,48 @@ For $N = 32$, [`oracle.py`](../sim/oracle.py) names that upper bound `UINT32_MAX
 
 ### Binary Addition and Carry Propagation
 
-**Binary addition** couples adjacent columns from Bit 0 upward using the exact same column-carry rule as base-ten arithmetic, rolling over at $2$ rather than $10$.
-In column $i$, adding input bits $a_i, b_i \in \{0, 1\}$ and an incoming carry $c_i \in \{0, 1\}$ (starting with $c_0 = 0$) forms column total $t_i = a_i + b_i + c_i \in \{0, 1, 2, 3\}$, emitting low bit $s_i \in \{0, 1\}$ and outgoing carry $c_{i+1} \in \{0, 1\}$ satisfying $a_i + b_i + c_i = s_i + 2 c_{i+1}$:
-- **No Carry ($t_i \in \{0, 1\}$)**: Column sums $0$ and $1$ write $s_i = t_i$ with outgoing carry $c_{i+1} = 0$.
-- **Generate Carry ($t_i \in \{2, 3\}$)**: Column sums $2$ and $3$ write $s_i = t_i - 2$ with outgoing carry $c_{i+1} = 1$.
-
-Multiplying each column identity $a_i + b_i + c_i = s_i + 2 c_{i+1}$ by $2^i$ and summing across columns $0 \le i < N$ telescopes every interior carry ($c_0 = 0$) into $U_N(a) + U_N(b) = c_N \cdot 2^N + U_N(s)$ with $0 \le U_N(s) < 2^N$.
-Because an $N$-bit register has only $N$ output wires (Bits $N - 1..0$), the final carry emerging past Bit $N - 1$ (**carry-out**, $c_N \in \{0, 1\}$ with place weight $2^N$) has no register wire to land on and drops off the left end.
-The interactive 4-bit column adder below traces every carry wire from Bit 0 through Bit 3 and shows how dropping carry-out $c_4 \cdot 16$ turns $11 + 7 = 18$ directly into `0010` ($2$).
+**Binary addition** adds columns from Bit 0 upward using the exact same column-carry rule as base-ten arithmetic, rolling over at $2$ rather than $10$ whenever two input bits and any incoming carry sum to $2$ or $3$.
+Adding the 4-bit unsigned pair `1011` ($11$) and `0111` ($7$) passes a carry from Bit 0 up through Bit 3, spilling the Bit-3 carry ($+16$) off the left end and leaving `0010` ($2$) on the four output wires.
+The interactive 4-bit column adder below traces every carry wire across Bits 0 through 3 and lets you toggle inputs to see how carry-out drops off a fixed-width register.
 
 <BinaryAdditionCarryDiagram />
 
+On each column $i$, adding input bits $a_i, b_i \in \{0, 1\}$ and an incoming carry $c_i \in \{0, 1\}$ (starting with $c_0 = 0$) forms column total $t_i = a_i + b_i + c_i \in \{0, 1, 2, 3\}$, emitting kept bit $s_i \in \{0, 1\}$ and outgoing carry $c_{i+1} \in \{0, 1\}$ satisfying $a_i + b_i + c_i = s_i + 2 c_{i+1}$:
+- **No Carry ($t_i \in \{0, 1\}$)**: Column sums $0$ and $1$ write $s_i = t_i$ with outgoing carry $c_{i+1} = 0$.
+- **Generate Carry ($t_i \in \{2, 3\}$)**: Column sums $2$ and $3$ write $s_i = t_i - 2$ with outgoing carry $c_{i+1} = 1$.
+
+For a 1-bit register ($N = 1$), setting $c_0 = 0$ immediately gives $a_0 + b_0 = s_0 + 2 c_1$, matching $U_1(a) + U_1(b) = c_1 \cdot 2^1 + U_1(s)$.
+For any width $N \ge 2$, multiplying every column identity by its place weight $2^i$ and summing across columns $0 \le i < N$ exposes how every interior carry cancels:
+
+$$\begin{aligned}
+\sum_{i=0}^{N-1} a_i 2^i + \sum_{i=0}^{N-1} b_i 2^i + \sum_{i=0}^{N-1} c_i 2^i
+&= \sum_{i=0}^{N-1} s_i 2^i + \sum_{i=0}^{N-1} c_{i+1} 2^{i+1}
+&& \text{(weight by } 2^i \text{ and sum)} \\
+U_N(a) + U_N(b) + c_0 2^0 + \sum_{i=1}^{N-1} c_i 2^i
+&= U_N(s) + \sum_{j=1}^{N-1} c_j 2^j + c_N 2^N
+&& \text{(peel } i = 0\text{; reindex } j = i + 1\text{)} \\
+U_N(a) + U_N(b)
+&= c_N \cdot 2^N + U_N(s)
+&& \text{(} c_0 = 0 \text{; matching sums cancel)}
+\end{aligned}$$
+
+Since every output bit satisfies $s_i \in \{0, 1\}$, the unsigned range bound above guarantees $0 \le U_N(s) < 2^N$.
+Because an $N$-bit register has only $N$ output wires (Bits $N - 1..0$), the final carry emerging past Bit $N - 1$ (**carry-out**, $c_N \in \{0, 1\}$ with place weight $2^N$) has no register wire to land on and drops off the left end.
+
 ### Modular Rings and Congruence
 
-Dropping carry-out $c_N = 1$ off an $N$-bit adder subtracts $2^N$ from the exact sum $x$, wrapping results via integer division with a non-negative remainder (**Euclidean division**).
-Dividing any integer $x \in \mathbb{Z}$ (positive, zero, or negative) by a positive integer modulus $m \in \mathbb{Z}_{>0}$ yields a unique integer quotient $q \in \mathbb{Z}$ and a unique integer remainder $r \in \mathbb{Z}$:
-
-$$x = q \cdot m + r, \qquad 0 \le r < m$$
-
-Setting $m = 2^N$ partitions any integer $x \in \mathbb{Z}$ into a multiple $q \cdot 2^N$ and an $N$-bit remainder $r = x \bmod 2^N \in [0, 2^N - 1]$ carried in wires $0$ through $N - 1$.
-When adding two 4-bit unsigned integers yields $18$ ($11 + 7$) on 4 wires, $c_4 = 1$ accounts for $1 \cdot 16$ and the kept wires hold remainder $r = 2$ (`0010`).
-
-Arithmetic that wraps every result modulo $m$ forms the **modular ring** $\mathbb{Z}_m$: a closed cycle of $m$ slots arranged like a clock face where stepping $+1$ past $m - 1$ returns to $0$.
-Any two integers $a$ and $b$ differing by an integer multiple of $m$ occupy the same **residue class** on the ring, written $a \equiv b \pmod{m}$.
-For example, $18 \equiv 2 \pmod{16}$ because $18 - 2 = 1 \cdot 16$, and $-5 \equiv 11 \pmod{16}$ because $-5 - 11 = (-1) \cdot 16$.
+Arithmetic on a fixed-width register works like counting around a circular clock face: instead of growing without bound, stepping past slot $15$ on a 16-slot dial wraps back around to $0$ (just as a 12-hour wall clock wraps back past $12$).
+On 4-bit wires (`0000` through `1111`), $11 + 7 = 18$ completes one full 16-slot lap plus $2$ extra steps to land on slot $2$ ($18 = 1 \cdot 16 + 2$), while stepping backward $5$ slots from slot $0$ lands on slot $11$ ($-5 = (-1) \cdot 16 + 11$).
+Splitting any whole number into full $m$-slot laps (integer quotient $q$) plus a non-negative slot remainder $r$ between $0$ and $m - 1$ defines integer division with a non-negative remainder (**Euclidean division**) around an $m$-slot cycle (**modular ring**).
+Two integers that differ by whole laps land on the exact same slot (**residue class**), written $a \equiv b \pmod{m}$—for instance, $18 \equiv 2 \pmod{16}$ and $-5 \equiv 11 \pmod{16}$.
 
 <UnsignedClockRing />
+
+Formally, dividing any integer $x \in \mathbb{Z}$ (positive, zero, or negative) by a positive integer modulus $m \in \mathbb{Z}_{>0}$ produces a unique integer quotient $q \in \mathbb{Z}$ and a unique non-negative remainder $r \in \mathbb{Z}$, which defines the modulo remainder $x \bmod m = r$ inside the modular ring $\mathbb{Z}_m$:
+
+$$x = q \cdot m + r, \qquad 0 \le r < m, \qquad x \bmod m = r$$
+
+Setting $m = 2^N$ partitions any integer $x \in \mathbb{Z}$ into $q$ dropped $2^N$-laps and the exact $N$-bit remainder $r = x \bmod 2^N \in [0, 2^N - 1]$ carried on wires $0$ through $N - 1$—matching our 4-bit adder where $18 = 1 \cdot 16 + 2$ leaves $r = 2$ (`0010`) after dropping carry-out $c_4 = 1$.
 
 Crucially, walking any $m$ consecutive integers around an $m$-slot clock visits every slot once, so two integers inside any single $m$-number window $[a, a + m - 1]$ share the same residue modulo $m$ only when they are equal.
 Any difference inside that window has magnitude strictly below $m$, so being a multiple of $m$ forces that difference to zero.
@@ -237,7 +258,7 @@ For example, $-5 = (-1) \cdot 2^{32} + (2^{32} - 5)$ masks via `-5 & 0xFFFF_FFFF
 ### Shared Adder and Negation Circuits
 
 Comparing the unsigned sum $U_N(b)$ and signed sum $S_N(b)$ on the exact same $N$-bit wire pattern explains why hardware needs only one binary adder circuit—augmented by bitwise inversion for negation—across both unsigned and signed integers.
-Because two's complement places $U_N(b)$ and $S_N(b)$ in the same residue class modulo $2^N$, and adding, subtracting, and negating depend only on modular congruence modulo $2^N$, all three operations preserve signed meaning without separate signed adder hardware.
+Isolating the MSB shows why $U_N(b)$ and $S_N(b)$ always sit in the same residue class modulo $2^N$, allowing one shared unsigned adder to implement addition, subtraction, and negation for both interpretations.
 On our 4-bit pattern `1011`, $U_4(\texttt{1011}) = 11$ and $S_4(\texttt{1011}) = -5$, which differ by $11 - (-5) = 16 = 2^4$.
 
 Separating wire $N - 1$ from the lower $N - 1$ wires cancels every lower place weight and isolates $U_N(b) - S_N(b)$:
@@ -418,32 +439,34 @@ System management adds special processor-control instructions to read hardware s
 
 ### Bitfield Layouts and Offset Reach
 
-Before executing an operation, the CPU decoder must slice the fetched 32-bit unsigned word (`insn`) into register indices, operation selectors, and embedded constants (writing `insn[hi..lo]` for Bits $\text{hi}..\text{lo}$ of `insn`).
+The CPU decoder slices each fetched 32-bit unsigned word (`insn`) into register indices, operation selectors, and embedded constants before execution (writing `insn[hi..lo]` for Bits $\text{hi}..\text{lo}$ of `insn`).
 In human-readable textual notation (**assembly syntax**), instructions list destination register `rd` first followed by source registers `rs1` and `rs2`, as in **Add** (`add rd, rs1, rs2`), whereas instructions carrying a literal constant (**immediate**, or `imm`) replace `rs2` with that constant, as in **Add Immediate** (`addi rd, rs1, imm`).
 
-All standard 32-bit RISC-V primary operation codes (`opcode`, Bits 6..0) end with Bits 1..0 equal to `0b11` (decimal 3), reserving the other three 2-bit endings for optional 16-bit compressed instructions.
+All standard 32-bit RISC-V primary operation codes (`opcode`, Bits 6..0) end with Bits 1..0 equal to binary `0b11` (decimal 3), reserving the other three 2-bit endings for optional 16-bit compressed instructions.
 Alongside `opcode`, instructions reuse two secondary sub-operation selectors—a 3-bit function code (`funct3`, Bits 14..12) and a 7-bit function code (`funct7`, Bits 31..25)—to distinguish individual operations sharing the same primary `opcode`.
-Every 32-bit instruction conforms to one of six standard bitfield layouts (**Register** / R-type, **Immediate** / I-type, **Store** / S-type, **Branch** / B-type, **Upper Immediate** / U-type, and **Jump** / J-type):
+Every 32-bit instruction conforms to one of six standard bitfield layouts (**Register** / R-type, **Immediate** / I-type, **Store** / S-type, **Branch** / B-type, **Upper Immediate** / U-type, and **Jump** / J-type) that pack register indices, selectors, and signed offsets or upper constants across Bits 31..0.
+The wire matrix below aligns all six 32-bit RISC-V layouts across Columns 31..0 so you can inspect pinned register columns, the Bit 31 sign wire (`S`), and immediate/offset slices side by side before reading the exact bit mappings.
+
+<RiscvFormatMatrix />
+
+Each format's software role, register fields, constant width, and bit mapping across `insn[31..0]` obey a compact six-row layout:
 
 | Format | Primary Software Role | Registers and Selectors | Signed Constant & Byte Reach | Constant Bit Mapping Across `insn[31..0]` |
 | :---: | :--- | :--- | :--- | :--- |
 | **R-Type** | Register-register integer arithmetic and multiply/divide (combines `rs1` and `rs2` into `rd`) | `funct7` (31..25), `rs2` (24..20), `rs1` (19..15), `funct3` (14..12), `rd` (11..7) | None (all bits spent on selectors and registers) | None |
 | **I-Type** | Immediate integer math, memory loads, and function-pointer (indirect) jumps (`rs1 + imm`) | `rs1` (19..15), `funct3` (14..12), `rd` (11..7) | 12-bit signed ($[-2{,}048, +2{,}047]$) | Bits 11..0 $\to$ `insn[31..20]` |
 | **S-Type** | Memory stores (write `rs2` to `rs1 + imm`) | `rs2` (24..20), `rs1` (19..15), `funct3` (14..12) | 12-bit signed ($[-2{,}048, +2{,}047]$) | Bits 11..5 $\to$ `insn[31..25]`; Bits 4..0 $\to$ `insn[11..7]` |
-| **B-Type** | Conditional PC-relative branches (`pc + offset`) | `rs2` (24..20), `rs1` (19..15), `funct3` (14..12) | 13-bit even ($[-4{,}096, +4{,}094]$ bytes, Bit 0 = 0) | Bit 12 $\to$ `insn[31]`; Bits 10..5 $\to$ `insn[30..25]`; Bits 4..1 $\to$ `insn[11..8]`; Bit 11 $\to$ `insn[7]` |
+| **B-Type** | Conditional PC-relative branches (`PC + offset`) | `rs2` (24..20), `rs1` (19..15), `funct3` (14..12) | 13-bit even ($[-4{,}096, +4{,}094]$ bytes, Bit 0 = 0) | Bit 12 $\to$ `insn[31]`; Bits 10..5 $\to$ `insn[30..25]`; Bits 4..1 $\to$ `insn[11..8]`; Bit 11 $\to$ `insn[7]` |
 | **U-Type** | Load 20-bit upper slice (Bits 31..12) into `rd` | `rd` (11..7) | 20-bit upper payload (`payload << 12`) | Bits 31..12 $\to$ `insn[31..12]` |
-| **J-Type** | Direct PC-relative subroutine call (`pc + offset`, save next 4-byte instruction address `pc + 4` in `rd`) | `rd` (11..7) | 21-bit even ($[-1{,}048{,}576, +1{,}048{,}574]$ bytes, Bit 0 = 0) | Bit 20 $\to$ `insn[31]`; Bits 10..1 $\to$ `insn[30..21]`; Bit 11 $\to$ `insn[20]`; Bits 19..12 $\to$ `insn[19..12]` |
-
-The wire matrix below aligns all six 32-bit RISC-V layouts across Columns 31..0 so you can filter pinned register columns, the Bit 31 sign wire, and split constant slices side by side.
-
-<RiscvFormatMatrix />
+| **J-Type** | Direct PC-relative subroutine call (`PC + offset`, save next 4-byte instruction address `PC + 4` in `rd`) | `rd` (11..7) | 21-bit even ($[-1{,}048{,}576, +1{,}048{,}574]$ bytes, Bit 0 = 0) | Bit 20 $\to$ `insn[31]`; Bits 10..1 $\to$ `insn[30..21]`; Bit 11 $\to$ `insn[20]`; Bits 19..12 $\to$ `insn[19..12]` |
 
 Notice two quantitative properties embedded directly in the bitfield layout table above:
 1. **Offset Reach Scaling**: An unscaled 12-bit signed immediate spans $[-2^{11}, 2^{11} - 1]$, or $[-2{,}048, +2{,}047]$ bytes (about $\pm 2\text{ KB}$), while an unscaled 20-bit signed immediate spans $[-2^{19}, 2^{19} - 1]$ bytes.
    Because optional 16-bit compressed RISC-V instructions sit on even 2-byte addresses, the difference between any two instruction addresses is even (guaranteeing Bit 0 equals zero), letting hardware drop Bit 0 and double byte reach onto even offsets without spending an instruction wire.
    Consequently, B-type encodes 12 stored wires to cover $2 \times [-2^{11}, 2^{11} - 1]$ ($[-4{,}096, +4{,}094]$ even bytes, about $\pm 4\text{ KB}$), while J-type encodes 20 stored wires to cover $2 \times [-2^{19}, 2^{19} - 1]$ ($[-1{,}048{,}576, +1{,}048{,}574]$ even bytes, about $\pm 1\text{ MB}$).
    Because the `brain` CPU implements only fixed 32-bit instructions without 16-bit compressed encodings, the RISC-V specification tightens runtime fetch alignment to 32 bits, or 4-byte multiples (**Instruction Address Alignment**, or IALIGN = 32).
-2. **Decoder Multiplexer Wire-Sharing**: Hardware designers permuted B-type and J-type immediate bits deliberately to keep register indices (`rs1` at 19..15, `rs2` at 24..20, `rd` at 11..7) and the sign bit (Bit 31) stationary so the register file and sign-bit wires can start settling immediately in parallel with `opcode` decoding (before the instruction format is even determined), shortening the longest logic chain within one clock tick (the **critical timing path**).
+2. **Decoder Multiplexer Wire-Sharing**: Hardware designers permuted B-type and J-type immediate bits deliberately to keep register indices (`rs1` at 19..15, `rs2` at 24..20, `rd` at 11..7) and the sign bit (Bit 31) stationary across instructions.
+   Keeping those wires pinned lets the register file and sign-bit lines start settling immediately in parallel with `opcode` decoding—even before the instruction format is known—shortening the longest logic chain within one clock tick (the **critical timing path**).
    Even further, B-type shares 11 of its 12 stored immediate wires with S-type (`insn[31]` as sign, `insn[30..25]` as Bits 10..5, and `insn[11..8]` as Bits 4..1), repurposing only `insn[7]` from S-type Bit 0 to B-type Bit 11.
    Similarly, J-type shares all 8 middle wires `insn[19..12]` with U-type and all 10 low wires `insn[30..21]` with I-type (matching S-type and B-type on the upper 6 of those wires, `insn[30..25]`).
    Every shared wire eliminates a multi-way multiplexer input in the immediate reconstruction circuit.
@@ -462,7 +485,7 @@ During execution, [`_dec_imm_s`](../sim/oracle.py#L400-L402), [`_dec_imm_b`](../
 
 ### Widening Narrow Signed and Unsigned Integers
 
-In the previous subsection, instruction decoders unpacked narrow 12-bit, 13-bit, and 21-bit immediate payloads that must expand to full 32-bit operands before entering the processor execution unit.
+Instruction decoders unpack narrow 12-bit, 13-bit, and 21-bit immediate payloads that expand to full 32-bit operands before entering the processor execution unit.
 When widening a narrow integer from $k \ge 1$ bits to a strictly wider register of $M > k$ bits, **sign extension** preserves the signed value across all bit widths by copying the sign wire into every added upper position, whereas **zero extension** preserves unsigned values while corrupting negative numbers.
 For example, widening 12-bit $-5$ (`0xFFB`, with $U_{12} = 4{,}091$ and sign wire Bit 11 = `1`) to 32 bits separates the two rules cleanly:
 
@@ -638,6 +661,7 @@ Because $1 \le k \le N - 1$ bounds $2 \le 2^{N-k} \le 2^{N-1} < 2^N$, setting $b
 ### Equality and Ordered Comparisons
 
 Whether two register operands match under equality (`==`) never depends on signedness, whereas whether one operand is strictly less than another (`<`, requiring separate `slt`/`slti` versus `sltu`/`sltiu` instructions) flips whenever their top sign bits differ.
+For example, comparing $a$ equal to `1011` ($a_3 = 1$) against $b$ equal to `0011` ($b_3 = 0$) leaves $U_4(\texttt{1011}) = 11 > 3 = U_4(\texttt{0011})$ under unsigned comparison, yet pulls $S_4(\texttt{1011}) = -5 < +3 = S_4(\texttt{0011})$ under signed comparison.
 Because both $U_N$ onto $[0, 2^N - 1]$ and $S_N$ onto $[-2^{N-1}, 2^{N-1} - 1]$ are one-to-one bijections on the $2^N$ bit patterns, $U_N(a) = U_N(b)$ and $S_N(a) = S_N(b)$ both hold if and only if bit vectors $a$ and $b$ match wire-for-wire, so hardware compares equality using one shared circuit with zero signedness mode bits.
 
 For **ordered comparisons** ($<$ and $\ge$), express the signed difference $S_N(a) - S_N(b)$ in terms of the unsigned difference using $S_N(x) = U_N(x) - x_{N-1} \cdot 2^N$:
@@ -651,7 +675,6 @@ S_N(a) - S_N(b)
 When two patterns share the same top wire ($a_{N-1} = b_{N-1}$), the $2^N$ offset cancels ($a_{N-1} - b_{N-1} = 0$) so signed and unsigned ordering match identically.
 When they differ ($a_{N-1} = 1$ and $b_{N-1} = 0$), unsigned place weights guarantee $U_N(a) \ge 2^{N-1} > 2^{N-1} - 1 \ge U_N(b)$, whereas the negative Most Significant Bit gives $S_N(a) < 0 \le S_N(b)$ so signed comparison flips direction.
 Swapping $a$ and $b$ reverses both inequalities identically whenever $a_{N-1} = 0$ and $b_{N-1} = 1$.
-For example, comparing $a$ equal to `1011` ($a_3 = 1$) against $b$ equal to `0011` ($b_3 = 0$) pulls $S_4(a)$ down by $16$: $U_4(\texttt{1011}) = 11 > 3 = U_4(\texttt{0011})$, yet $S_4(\texttt{1011}) = -5 < +3 = S_4(\texttt{0011})$.
 
 #### Example 4.1: Sign-Extended Immediate Comparison Trap
 
@@ -722,12 +745,12 @@ Multiplying two 32-bit integers spans up to 64 bits across unsigned, signed, and
 RISC-V therefore splits every 64-bit product into one shared lower-word instruction (**Multiply**, or `mul`, whose Bits 31..0 match across every signedness mode) and three upper-word instructions (**Multiply High** `mulh`, **Multiply High Signed-Unsigned** `mulhsu`, and **Multiply High Unsigned** `mulhu`).
 Unsigned-by-signed multiplication needs no fourth upper instruction because swapping `rs1` and `rs2` reduces $U_{32}(a) S_{32}(b) = S_{32}(b) U_{32}(a)$ directly to `mulhsu`:
 
-| Instruction | `funct3` | Operands (`rs1`, `rs2`) | Exact 64-Bit Product Range | Returned 32-Bit Slice |
+| Instruction | `funct3` | Operands (`rs1`, `rs2`) | Operand Signedness Role | Returned 32-Bit Slice |
 | :--- | :---: | :--- | :--- | :--- |
-| **Multiply** (`mul`) | 0 | Any ($S_{32}$ or $U_{32}$) | Shares low 32 bits across all combinations | Bits 31..0 |
-| **Multiply High** (`mulh`) | 1 | $S_{32} \times S_{32}$ | $[-2^{62} + 2^{31},\; 2^{62}] \subset [-2^{63}, 2^{63} - 1]$ | Bits 63..32 |
-| **Multiply High Signed-Unsigned** (`mulhsu`) | 2 | $S_{32} \times U_{32}$ | $[-2^{63} + 2^{31},\; 2^{63} - 2^{32} - 2^{31} + 1] \subset [-2^{63}, 2^{63} - 1]$ | Bits 63..32 |
-| **Multiply High Unsigned** (`mulhu`) | 3 | $U_{32} \times U_{32}$ | $[0,\; (2^{32} - 1)^2] = [0,\; 2^{64} - 2^{33} + 1] \subset [0, 2^{64} - 1]$ | Bits 63..32 |
+| **Multiply** (`mul`) | 0 | Any ($S_{32}$ or $U_{32}$) | Shares low 32 bits across all modes | Bits 31..0 |
+| **Multiply High** (`mulh`) | 1 | $S_{32} \times S_{32}$ | Signed by signed upper word | Bits 63..32 |
+| **Multiply High Signed-Unsigned** (`mulhsu`) | 2 | $S_{32} \times U_{32}$ | Signed by unsigned upper word | Bits 63..32 |
+| **Multiply High Unsigned** (`mulhu`) | 3 | $U_{32} \times U_{32}$ | Unsigned by unsigned upper word | Bits 63..32 |
 
 Evaluating `rs1` equal to `0xFFFF_FFFF` ($-1$ signed, $2^{32} - 1$ unsigned) and `rs2` equal to `0x8000_0000` ($-2^{31}$ signed, $+2^{31}$ unsigned) shows all three modes sharing `0x8000_0000` in Bits 31..0 while diverging in Bits 63..32:
 
@@ -762,7 +785,8 @@ Because every operand-signedness pair collapses to that identical 32-bit pattern
 Writing $P = H \cdot 2^{32} + L$ with low remainder $L \in [0, 2^{32} - 1]$ and upper quotient $H = \lfloor P / 2^{32} \rfloor$ confirms why Python's `u32(P >> 32)` (where `P` is `rs1_s * rs2_s`, `rs1_s * rs2_u`, or `rs1_u * rs2_u` in `oracle.py`) extracts exact hardware Bits 63..32 even when $P < 0$.
 Because Python right shift floors toward $-\infty$, `P >> 32` evaluates $\lfloor H + L / 2^{32} \rfloor = H$ directly.
 
-Wrapping $H$ into a 32-bit register via `u32(H)` places $H \bmod 2^{32}$ in Bits 63..32 of a 64-bit word $w$ alongside $L$ in Bits 31..0; applying modulus scaling to $H \bmod 2^{32} \equiv H \pmod{2^{32}}$ with multiplier $2^{32}$ lifts equivalence straight to modulo $2^{64}$:
+Wrapping $H$ into a 32-bit register via `u32(H)` places $H \bmod 2^{32}$ in Bits 63..32 of a 64-bit word $w$ alongside $L$ in Bits 31..0.
+Applying modulus scaling to $H \bmod 2^{32} \equiv H \pmod{2^{32}}$ with multiplier $2^{32}$ lifts equivalence straight to modulo $2^{64}$:
 
 $$\begin{aligned}
 S_{64}(w) \equiv U_{64}(w)
@@ -770,7 +794,15 @@ S_{64}(w) \equiv U_{64}(w)
 &\equiv H \cdot 2^{32} + L = P \pmod{2^{64}}
 \end{aligned}$$
 
-Because exact 32-bit products never exceed one 64-bit lap ($[0, 2^{64} - 1]$ for `mulhu`, or $[-2^{63}, 2^{63} - 1]$ for `mulh` and `mulhsu`), that congruence uniquely forces $U_{64}(w) = P$ (for `mulhu`) and $S_{64}(w) = P$ (for `mulh` and `mulhsu`), proving `u32(H)` equals Bits 63..32 committed to `rd` by [`_set_reg`](../sim/oracle.py#L893-L899).
+Evaluating the extreme operand pairs confirms that every 32-bit product lies inside one 64-bit lap:
+
+$$\begin{aligned}
+\texttt{mulh}:\quad & [-2^{62} + 2^{31},\; 2^{62}] && \subset [-2^{63},\; 2^{63} - 1] \\
+\texttt{mulhsu}:\quad & [-2^{63} + 2^{31},\; 2^{63} - 2^{32} - 2^{31} + 1] && \subset [-2^{63},\; 2^{63} - 1] \\
+\texttt{mulhu}:\quad & [0,\; 2^{64} - 2^{33} + 1] && \subset [0,\; 2^{64} - 1]
+\end{aligned}$$
+
+Because every product sits inside that unique 64-bit window, that congruence forces $U_{64}(w) = P$ (for `mulhu`) and $S_{64}(w) = P$ (for `mulh` and `mulhsu`), proving `u32(H)` equals Bits 63..32 committed to `rd` by [`_set_reg`](../sim/oracle.py#L893-L899).
 
 #### Example 4.3: Mixed-Sign High Word Boundary
 
@@ -784,7 +816,7 @@ Because $-2^{63} + 2^{31}$ remains inside $[-2^{63}, 2^{63} - 1]$ with positive 
 
 RV32M completes integer arithmetic with signed **Divide** (`div`) and **Divide Unsigned** (`divu`), paired with signed **Remainder** (`rem`) and **Remainder Unsigned** (`remu`).
 Python's integer operators (`a // b` and `a % b`) use floor division ($\lfloor a / b \rfloor$), rounding negative quotients downward toward $-\infty$ (`-7 // 3 == -3` with remainder $+2$).
-In contrast, C, SystemVerilog, and RISC-V define **truncating division** toward zero, yielding quotient $-2$ and remainder $-1$ for $-7 / 3$ (unlike the arithmetic right shift earlier in Section 4, which rounds `-5 >> 1 == -3`).
+In contrast, C, the hardware description language SystemVerilog, and RISC-V define **truncating division** toward zero, yielding quotient $-2$ and remainder $-1$ for $-7 / 3$ (unlike the arithmetic right shift earlier in Section 4, which rounds `-5 >> 1 == -3`).
 
 The interactive number line below contrasts RISC-V truncation toward zero against Python floor division across all four dividend/divisor sign combinations before we derive the remainder sign rule and sentinel corner cases:
 
@@ -908,6 +940,7 @@ Calling [`reset`](../sim/oracle.py#L563-L593) clears CPU registers while keeping
 
 Physical 32-bit memory buses wire four byte lanes across aligned 4-byte rows, so reading a 4-byte word split across two rows would require two bus transfers and extra byte-steering multiplexers.
 Our CPU instead enforces **natural alignment**: instruction fetches and word accesses (`lw`, `sw`) require addresses divisible by 4, while halfword accesses (`lh`, `lhu`, `sh`) require even addresses divisible by 2.
+For example, testing 4-byte word alignment compares only the lowest two wires: `0x1000_0004` ends in `00` (`0x1000_0004 & 3 == 0`, aligned), whereas `0x1000_0005` ends in `01` (`0x1000_0005 & 3 == 1`, misaligned).
 
 For any access width $w = 2^k$ ($k \in \{0, 1, 2\}$), Euclidean division writes $\texttt{addr} = q \cdot 2^k + r$ ($0 \le r < 2^k$) with remainder $r = \texttt{addr} \mathbin{\&} (w - 1)$ in the low $k$ wires:
 
@@ -1175,8 +1208,8 @@ Three architectural consequences follow from these state-transition equations to
 Substituting concrete values into the state-transition equations clarifies how WARL `mtvec` masking and Vectored interrupt offsets work inside [`test_clint_timer_interrupt_and_ecall_handler`](../tb/test_oracle.py#L781-L839) and [`test_vectored_mtvec_dispatch_and_sync_ecall_fallback`](../tb/test_oracle.py#L842-L876).
 
 1. **WARL Mode Snapping** (`0x1000_0103` to Direct `0x1000_0100`): Because Bits 1..0 of `0x1000_0103` encode mode `3` (`> 1`), [`_write_csr`](../sim/oracle.py#L807-L858) clears the mode field to `0b00` (`0x1000_0100`).
-   When an enabled Machine Timer Interrupt (MTIE and MIE equal to `1`, `mtime >= mtimecmp`) then preempts `pc` at `0x0000_0020`, hardware writes `0x8000_0007` to `mcause`, saves `0x0000_0020` in `mepc`, sets MPIE to `1` and MIE to `0`, and jumps directly to `0x1000_0100`.
-2. **Vectored Interrupt (`0x1000_0101`) vs. Synchronous `ecall`**: Repeating that same timer preemption with `mtvec` set to `0x1000_0101` (`base` equal to `0x1000_0100`, `mode` equal to `1`, $\text{irq} = 1$, `code` equal to `7`) enters at $\texttt{0x1000\_0100} + 4 \cdot 7 = \texttt{0x1000\_011C}$, whereas executing `ecall` inside the handler ($\text{irq} = 0$, `code` equal to `11`) zeroes $\mathbb{I}[\text{irq} = 1 \land \texttt{mode} = 1]$ and enters cleanly at `0x1000_0100`.
+   When an enabled Machine Timer Interrupt (MTIE and MIE equal to 1, `mtime >= mtimecmp`) then preempts `pc` at `0x0000_0020`, hardware writes `0x8000_0007` to `mcause`, saves `0x0000_0020` in `mepc`, sets MPIE to 1 and MIE to 0, and jumps directly to `0x1000_0100`.
+2. **Vectored Interrupt (`0x1000_0101`) vs. Synchronous `ecall`**: Repeating that same timer preemption with `mtvec` set to `0x1000_0101` (`base` equal to `0x1000_0100`, `mode` equal to 1, $\text{irq} = 1$, `code` equal to 7) enters at $\texttt{0x1000\_0100} + 4 \cdot 7 = \texttt{0x1000\_011C}$, whereas executing `ecall` inside the handler ($\text{irq} = 0$, `code` equal to 11) zeroes $\mathbb{I}[\text{irq} = 1 \land \texttt{mode} = 1]$ and enters cleanly at `0x1000_0100`.
 
 ## 7. Custom Neural Multiply-Accumulate Extension
 
@@ -1342,6 +1375,10 @@ The table below maps how each field populates across normal instruction retireme
 | `mem_addr`, `mem_val`, `mem_write` | Byte address, written (masked) or extended read value, direction flag (or `None`, `None`, `False` for non-memory instructions) | `None`, `None`, `False` (no partial memory mutation on fault) | Audits load/store data width, endianness, and MMIO ordering |
 | `trap_cause`, `interrupt` | `None`, `False` | `mcause` word (Bit 31 equals 1 on asynchronous interrupt) and boolean interrupt flag | Confirms exact priority and trap cause attribution |
 
+The interactive trace explorer below pairs a live single-step flow schematic with real scenarios from [`Oracle.step()`](../sim/oracle.py#L1194-L1273)—highlighting clock ticks, pre-fetch interrupt preemption, normal retirement, and emitted `StepTrace` receipts side by side.
+
+<OracleStepTracer />
+
 Two formal invariants close the mathematical loop opened in Section 1 ($S_{t+1} = \texttt{step}(S_t)$):
 1. **Precise Exception Atomicity**: Any step that traps leaves architectural registers, `mac_acc`, memory contents, and `minstret` untouched.
    Because [`Oracle.step()`](../sim/oracle.py#L1194-L1273) defers register writeback, PC updates, and `minstret` increments behind [`ExecOutcome`](../sim/oracle.py#L507-L522) and validates alignment, CSR permissions, and bus bounds before mutating memory, CSRs, or `mac_acc`, any step returning a non-`None` `trap_cause` enforces $\text{regs}_{t+1} = \text{regs}_t$, $\text{mac\_acc}_{t+1} = \text{mac\_acc}_t$, $\text{mem}_{t+1} = \text{mem}_t$, and $\text{minstret}_{t+1} = \text{minstret}_t$.
@@ -1349,8 +1386,4 @@ Two formal invariants close the mathematical loop opened in Section 1 ($S_{t+1} 
    Aside from deterministic per-step counter ticks (`mcycle`, `mtime`, and non-suppressed `minstret`), every non-trapping instruction mutates `pc`, at most one architectural register `rd`, at most one $w \in \{1, 2, 4\}$-byte memory or peripheral slice, and at most one explicit target CSR or `mac_acc` register (including `mac.clr x0, x1, x2`, which updates `mac_acc` while discarding `rd` into `x0`).
    Starting hardware and oracle from identical reset state $S_0^{\text{hardware}} = S_0^{\text{oracle}}$ under identical external peripheral inputs, step-by-step comparison of `StepTrace` therefore verifies `pc`, all 32 general-purpose registers, every memory write, and every trap transition in $O(1)$ comparisons per step.
    In a conforming implementation, deterministic transition rules keep unlogged internal CSR, peripheral, and `mac_acc` state synchronized across steps; any hardware divergence in those internal registers surfaces in `StepTrace` as soon as a subsequent trap, interrupt, readback (`csrrw`, `csrrs`, `csrrc`, `csrrwi`, `csrrsi`, `csrrci`, `lw`, `mac.get`), or non-`x0` `mac` writeback depends on it.
-
-The interactive trace explorer below pairs a live single-step flow schematic with real scenarios from [`Oracle.step()`](../sim/oracle.py#L1194-L1273)—highlighting clock ticks, pre-fetch interrupt preemption, normal retirement, and emitted `StepTrace` receipts side by side.
-
-<OracleStepTracer />
 

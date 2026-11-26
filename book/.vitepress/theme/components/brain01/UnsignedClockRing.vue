@@ -81,7 +81,7 @@ const clockSlots = computed(() => {
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; align-items: center">
       <div style="display: flex; flex-direction: column; gap: 10px">
         <div class="hw-card">
-          <div class="hw-label">Integer Input (x ∈ ℤ)</div>
+          <div class="hw-label">Integer Input (x)</div>
           <div class="hw-mono" style="font-size: 18px; font-weight: 700; margin: 4px 0">
             x = {{ rawX }}
             <span style="font-size: 12px; font-weight: 400; color: var(--vp-c-text-2)">({{ exprNote }})</span>

@@ -32,16 +32,16 @@ Write **publication-grade, reader-respecting prose** (*Harris & Harris*, *Crafti
 3. **Concise Headings & Calm Bridges**:
    - Keep H1 (`<= 6` words) and `##`/`###` (`<= 8` words) crisp without `:`, `&`, parentheticals, backticks, or redundant `---` dividers above `## `, give each distinct conceptual layer its own `###` subsection, and open sections with calm 2–4 sentence bridges.
 4. **Diagram-First Visuals & Clean Code Slices**:
-   - Place spatial/schematic `<svg>` or Mermaid diagrams (never text-only calculator cards) with one unambiguous title before formalism, auditing insertion lines for zero premature symbols.
+   - Place schematic `<svg>` or Mermaid diagrams (never equation cards, one title) right after plain intuition, a concrete trace, and minimal labels—before set notation, dense formal rules, or proofs rather than last—auditing insertion lines for zero premature symbols.
    - Derive non-obvious formulas **before** quoting code, keep embedded slices focused (`<= 25` lines), and anchor file/symbol links cleanly.
 
 ### Pass 2: Uncompressed First-Principles Drafting
-1. **Direct Openings & Semantic Line Breaks**: Open every section and concept positively by what it is and does (deferring contrasts until after), write **one sentence per Markdown line** (no `<br>`), and break paragraphs before formal derivations.
+1. **Direct Openings & Semantic Line Breaks**: Open sections with plain intuition and concrete examples—never negative foils or cold set-notation, quantifier, or general-theorem walls—write **one sentence per Markdown line** (no `<br>`), and break paragraphs before formal derivations.
 2. **Mechanism First & Code-Only Backticks**:
    - State what each new term does before placing `(**expanded name / acronym**)` immediately adjacent (never after an em-dash or `3+` stacked acronyms); tabulate `3+` structured items with proportional lead-in prose across every table category.
    - Reserve backticks strictly for literal code, tokens, constants, CLI flags, and paths—never acronyms, proper nouns, prose numbers/units, or raw TeX; keep boldface `<= 6` words.
 3. **Proof Economy & Scannable Examples** *(when derivations or bounds appear)*:
-   - Refresh prerequisite identities with examples before use, open proofs with 1–2 plain low-symbol sentences, and choose the shortest transparent proof over multi-block ceremony, prose-math walls, `"Next we prove..."` boilerplate, or forward catalogs.
+   - Refresh prerequisite identities with examples first, open proofs plainly, and display step-by-step aligned `$$` summations (showing index shifts and cancellation rather than prose telescoping shortcuts) while avoiding multi-block bloat or `"Next we prove..."` boilerplate.
    - Place visible inline `#### Example <S.K>: <Title>` blocks **selectively** for non-trivial algebra, boundary traps, or counterexamples—never homework problem sets or `<details>` toggles.
 4. **Math & Visual Hygiene**: Keep inline math unclipped without scrollbars, label bit ranges explicitly (`Bits hi..lo`), escape `\$`, and avoid prose `~` or bare line numbers.
 
