@@ -38,19 +38,19 @@
       <text x="263" y="74" text-anchor="middle" font-size="11.5" font-weight="700" font-family="var(--vp-font-family-mono)" fill="var(--vp-c-text-1)">0x12345</text>
 
       <rect x="418" y="44" width="250" height="36" rx="6" fill="rgba(5, 150, 105, 0.08)" stroke="var(--hw-green)" stroke-width="1.4" />
-      <text x="543" y="59" text-anchor="middle" font-size="9.2" font-weight="700" fill="var(--hw-green)">Bits 11..0 (Bit 11 = 0 → Positive)</text>
+      <text x="543" y="59" text-anchor="middle" font-size="9.2" font-weight="700" fill="var(--hw-green)">Step 1 (Before Bias): Bits 11..0 → addi</text>
       <text x="543" y="74" text-anchor="middle" font-size="11" font-weight="700" font-family="var(--vp-font-family-mono)" fill="var(--vp-c-text-1)">0x123 (+291)</text>
 
       <text x="12" y="103" font-size="10.5" font-weight="700" fill="var(--vp-c-brand-1)">+ 0x800</text>
       <text x="12" y="117" font-size="9.5" font-family="var(--vp-font-family-mono)" fill="var(--vp-c-text-2)">0x1234_5923</text>
 
       <rect x="124" y="88" width="278" height="36" rx="6" fill="var(--vp-c-bg)" stroke="var(--vp-c-brand-1)" stroke-width="1.3" />
-      <text x="263" y="103" text-anchor="middle" font-size="9.2" font-weight="700" fill="var(--vp-c-brand-1)">Upper 20 Bits Unchanged (Carry 0)</text>
+      <text x="263" y="103" text-anchor="middle" font-size="9.2" font-weight="700" fill="var(--vp-c-brand-1)">Step 2 (After +0x800): Bits 31..12</text>
       <text x="263" y="118" text-anchor="middle" font-size="11.5" font-weight="700" font-family="var(--vp-font-family-mono)" fill="var(--vp-c-brand-1)">hi_lui = 0x12345</text>
 
       <rect x="418" y="88" width="250" height="36" rx="6" fill="var(--vp-c-bg)" stroke="var(--vp-c-divider)" stroke-width="1.2" stroke-dasharray="4 2" />
       <text x="543" y="103" text-anchor="middle" font-size="9.2" font-weight="700" fill="var(--vp-c-text-2)">0x123 + 0x800 = 0x923 &lt; 0x1000</text>
-      <text x="543" y="118" text-anchor="middle" font-size="9.2" font-family="var(--vp-font-family-mono)" fill="var(--vp-c-text-2)">No carry out; addi adds +291</text>
+      <text x="543" y="118" text-anchor="middle" font-size="9.2" font-family="var(--vp-font-family-mono)" fill="var(--vp-c-text-2)">0x923 discarded; addi uses 0x123</text>
 
       <rect x="12" y="132" width="656" height="36" rx="7" fill="rgba(5, 150, 105, 0.08)" stroke="var(--hw-green)" stroke-width="1.5" />
       <text x="340" y="154" text-anchor="middle" font-size="10.3" font-weight="700" font-family="var(--vp-font-family-mono)" fill="var(--vp-c-text-1)">
@@ -74,7 +74,7 @@
       <text x="263" y="239" text-anchor="middle" font-size="11.5" font-weight="700" font-family="var(--vp-font-family-mono)" fill="var(--vp-c-text-1)">0x12345</text>
 
       <rect x="418" y="209" width="250" height="36" rx="6" fill="rgba(220, 38, 38, 0.08)" stroke="var(--hw-red)" stroke-width="1.5" />
-      <text x="543" y="224" text-anchor="middle" font-size="9.2" font-weight="700" fill="var(--hw-red)">Bits 11..0 (Bit 11 = 1 → Negative)</text>
+      <text x="543" y="224" text-anchor="middle" font-size="9.2" font-weight="700" fill="var(--hw-red)">Step 1 (Before Bias): Bits 11..0 → addi</text>
       <text x="543" y="239" text-anchor="middle" font-size="10.8" font-weight="700" font-family="var(--vp-font-family-mono)" fill="var(--vp-c-text-1)">0xABC (-1,348 = -0x544)</text>
 
       <!-- Carry corridor (y=245..284) -->
@@ -94,12 +94,12 @@
       <text x="12" y="313" font-size="9.5" font-family="var(--vp-font-family-mono)" fill="var(--vp-c-text-2)">0x1234_62BC</text>
 
       <rect x="124" y="284" width="278" height="36" rx="6" fill="var(--vp-c-brand-soft)" stroke="var(--vp-c-brand-1)" stroke-width="1.5" />
-      <text x="263" y="299" text-anchor="middle" font-size="9.2" font-weight="700" fill="var(--vp-c-brand-1)">Upper 20 Bits Promoted (+1)</text>
+      <text x="263" y="299" text-anchor="middle" font-size="9.2" font-weight="700" fill="var(--vp-c-brand-1)">Step 2 (After +0x800): Promoted (+1)</text>
       <text x="263" y="314" text-anchor="middle" font-size="11.5" font-weight="700" font-family="var(--vp-font-family-mono)" fill="var(--vp-c-brand-1)">hi_lui = 0x12346</text>
 
       <rect x="418" y="284" width="250" height="36" rx="6" fill="var(--vp-c-bg)" stroke="var(--vp-c-divider)" stroke-width="1.2" stroke-dasharray="4 2" />
       <text x="543" y="299" text-anchor="middle" font-size="9.2" font-weight="700" fill="var(--vp-c-text-2)">0xABC + 0x800 = 0x12BC ≥ 0x1000</text>
-      <text x="543" y="314" text-anchor="middle" font-size="9.2" font-family="var(--vp-font-family-mono)" fill="var(--vp-c-text-2)">Low 12 bits dropped; lui zeroes Bits 11..0</text>
+      <text x="543" y="314" text-anchor="middle" font-size="9.2" font-family="var(--vp-font-family-mono)" fill="var(--vp-c-text-2)">0x2BC discarded; addi uses 0xABC</text>
 
       <!-- Naive vs Biased execution cards (y=330..378) -->
       <rect x="12" y="330" width="320" height="48" rx="7" fill="rgba(220, 38, 38, 0.06)" stroke="var(--hw-red)" stroke-width="1.3" />

@@ -706,14 +706,16 @@ When source code or assembly requests an arbitrary 32-bit constant via a pseudo-
 
 Why can the compiler or assembler not simply copy Bits 31..12 directly into `lui` and Bits 11..0 directly into `addi`?
 Because `addi` sign-extends its 12-bit immediate before adding, Bits 11..0 act as positive offsets 0 through +2,047 when Bit 11 equals 0 (`0x000`–`0x7FF`), whereas Bits 11..0 act as negative offsets -2,048 through -1 (subtracting `0x1000`, or 4,096, from their unsigned bit value) whenever Bit 11 equals 1 (`0x800`–`0xFFF`).
-To cancel that unwanted `-0x1000` drop whenever Bit 11 equals 1, the compiler or assembler adds carry bias `0x800` (2,048, half of `0x1000`) to the target constant first before slicing Bits 31..12, handling both bit cases without special-case branches:
+To cancel that `-0x1000` drop whenever Bit 11 equals 1 while using one uniform formula for both cases, the compiler or assembler splits the target constant in two ordered steps: first extract `lo12` directly from Bits 11..0 of the original unbiased constant, and only then add `0x800` (2,048, half of `0x1000`), discard the altered lower 12 bits of that sum, and extract `hi_lui` from Bits 31..12:
 
 1. **No Carry (`0x1234_5123`)** (Bit 11 equals 0):
-   At compile or assembly time, adding `0x800` yields `0x1234_5123 + 0x800 = 0x1234_5923`, leaving Bits 31..12 untouched at `hi_lui = 0x12345` because `0x123 + 0x800 = 0x923` stays below `0x1000`, so the compiler or assembler emits `lui x5, 0x12345` followed by `addi x5, x5, 291` (`0x123` equal to +291).
+   Before adding bias, Step 1 reads Bits 11..0 of unmodified `0x1234_5123` directly as `lo12 = 0x123` (+291).
+   Next, Step 2 adds bias (`0x1234_5123 + 0x800 = 0x1234_5923`) and discards its lower 12 bits (`0x923`) because `0x123 + 0x800 = 0x923` stayed below `0x1000`, leaving `hi_lui = 0x12345` so the compiler emits `lui x5, 0x12345` followed by `addi x5, x5, 291`.
    At runtime, the processor runs `lui x5, 0x12345` to load `0x1234_5000` into `x5`, and then runs `addi x5, x5, 291` to compute `0x1234_5000 + 0x123 = 0x1234_5123`.
 2. **Carry +1 (`0x1234_5ABC`)** (Bit 11 equals 1):
    Without bias, copying Bits 31..12 (`0x12345`) directly would emit `lui x5, 0x12345` and `addi x5, x5, -1348` (`0xABC` sign-extended to -1,348, or `-0x544`), causing runtime execution to produce `0x1234_5000 - 0x544 = 0x1234_4ABC` and undershoot by `0x1000`.
-   Adding carry bias `0x800` first at compile or assembly time gives `0x1234_5ABC + 0x800 = 0x1234_62BC`, carrying +1 across the Bit 11 to Bit 12 seam so the compiler or assembler emits `lui x5, 0x12346` followed by `addi x5, x5, -1348`; at runtime hardware pre-bumps `x5` up to `0x1234_6000` and subtracts `0x544` to land cleanly on `0x1234_6000 - 0x544 = 0x1234_5ABC`.
+   With bias, Step 1 still reads Bits 11..0 of original `0x1234_5ABC` directly as `lo12 = 0xABC` (-1,348), while Step 2 adds bias (`0x1234_5ABC + 0x800 = 0x1234_62BC`), carries +1 across the Bit 11 to Bit 12 seam, discards the biased lower bits `0x2BC`, and extracts promoted `hi_lui = 0x12346` so the compiler emits `lui x5, 0x12346` followed by `addi x5, x5, -1348`.
+   At runtime, hardware pre-bumps `x5` up to `0x1234_6000` and subtracts `0x544` to land cleanly on `0x1234_6000 - 0x544 = 0x1234_5ABC`.
 
 <LuiBiasCarryDiagram />
 
@@ -1310,8 +1312,8 @@ Those bounds immediately establish both asymmetry properties:
 
 Because [`_exec_mac`](../sim/oracle.py#L1171-L1189) clamps intermediate sums via [`sat32`](../sim/oracle.py#L292-L298) after every `mac` instruction, permuting identical weight pairs changes the final accumulator whenever an early step crosses `INT32_MAX`.
 Starting from `mac_acc` equal to `INT32_MAX - 255` (`0x7FFF_FF00`), execute term $A$ contributing $+500$ ($50 \cdot 10$) and term $B$ contributing $-400$ ($-40 \cdot 10$):
-1. **Positive Peak First (`A` then `B`)**: Step 1 clamps `(INT32_MAX - 255) + 500 = INT32_MAX + 245` down to `INT32_MAX` (`0x7FFF_FFFF`), discarding 245 units of headroom, so step 2 ends at `INT32_MAX - 400`.
-2. **Negative Offset First (`B` then `A`)**: Step 1 lowers `mac_acc` to `INT32_MAX - 655`, keeping step 2 cleanly inside `[INT32_MIN, INT32_MAX]` at exact total `INT32_MAX - 155`.
+1. **Positive Peak First ($A$ then $B$)**: Step 1 clamps `(INT32_MAX - 255) + 500 = INT32_MAX + 245` down to `INT32_MAX` (`0x7FFF_FFFF`), discarding 245 units of headroom, so step 2 ends at `INT32_MAX - 400`.
+2. **Negative Offset First ($B$ then $A$)**: Step 1 lowers `mac_acc` to `INT32_MAX - 655`, keeping step 2 cleanly inside `[INT32_MIN, INT32_MAX]` at exact total `INT32_MAX - 155`.
 
 ## 8. Unified Decoding and Lockstep Verification
 
