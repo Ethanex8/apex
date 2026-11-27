@@ -40,4 +40,5 @@ For repos without custom `harvest_feedback.py` / `watch_pr_feedback.py` scripts,
 1. Push fast-forward commits strictly to the open PR branch (never force-push reviewed commits).
 2. Prefix every agent reply with `🤖 [Antigravity]` and post across all channels (`pulls/<N>/comments/<id>/replies` for inline threads; `issues/<N>/comments` for reviews/conversation items).
 3. **Do not auto-resolve threads**: leave addressed threads open so the reviewer can inspect fixes directly and click **Resolve** after verifying.
-4. Confirm CI (and preview deploy, if configured) passes; if a repo watcher script exists (`scripts/watch_pr_feedback.py --pr <N>`), launch it as an async non-daemon background task (`IsDaemon=false`) before ending the turn.
+4. Confirm CI (and preview deploy) passes; if `scripts/watch_pr_feedback.py --pr <N>` exists, run it asynchronously (`IsDaemon=false`, default 1h idle limit) before ending the turn.
+5. Re-arm across shorter sandbox command timeouts while total idle wait stays under **1 hour**, then pause intentionally and notify the user to resume on reply.

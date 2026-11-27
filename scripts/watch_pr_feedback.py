@@ -13,7 +13,8 @@ Usage:
 Outputs:
   Prints detected feedback items in Markdown (or PR merge/close status) and
   exits 0; exits 1 on invalid CLI arguments or persistent `gh` errors; exits 2
-  when `--max-polls` expires with no new activity or state transition.
+  when `--max-polls` or `--max-duration` (default 3600s / 1 hour) expires with
+  no new activity or state transition.
 """
 
 from __future__ import annotations
@@ -30,6 +31,7 @@ from dataclasses import dataclass
 import harvest_feedback
 
 DEFAULT_POLL_INTERVAL_S = 25.0
+DEFAULT_MAX_DURATION_S = 3600.0
 DEFAULT_MAX_CONSECUTIVE_ERRORS = 5
 DEFAULT_GH_TIMEOUT_S = 30.0
 EXIT_OK = 0
@@ -147,6 +149,7 @@ def _validate_watch_params(
     pr_number: int,
     interval_s: float,
     max_polls: int | None,
+    max_duration_s: float | None,
     max_consecutive_errors: int,
 ) -> None:
     """Validate watcher loop bounds upfront so invalid parameters fail before API calls."""
@@ -156,6 +159,8 @@ def _validate_watch_params(
         raise ValueError(f"--interval must be finite and positive (got {interval_s}).")
     if max_polls is not None and max_polls <= 0:
         raise ValueError(f"--max-polls must be positive when set (got {max_polls}).")
+    if max_duration_s is not None and (not math.isfinite(max_duration_s) or max_duration_s <= 0):
+        raise ValueError(f"--max-duration must be finite and positive when set (got {max_duration_s}).")
     if max_consecutive_errors <= 0:
         raise ValueError(f"max_consecutive_errors must be positive (got {max_consecutive_errors}).")
 
@@ -182,16 +187,24 @@ def _emit_close_state(pr_number: int, close_state: PrCloseState) -> None:
     print(f"PR #{pr_number} {outcome} — review cycle complete.")
 
 
+def _emit_idle_pause(pr_number: int, elapsed_s: float) -> None:
+    """Print clean pause notice when the idle watch window expires."""
+    minutes = max(1, round(elapsed_s / 60.0)) if elapsed_s >= 60.0 else 0
+    window = f"{minutes} minute(s)" if minutes else f"{elapsed_s:g}s"
+    print(f"No new activity on PR #{pr_number} after {window}; pausing watcher.")
+
+
 def watch_pr_until_feedback(
     repo: str,
     pr_number: int,
     *,
     interval_s: float = DEFAULT_POLL_INTERVAL_S,
     max_polls: int | None = None,
+    max_duration_s: float | None = DEFAULT_MAX_DURATION_S,
     max_consecutive_errors: int = DEFAULT_MAX_CONSECUTIVE_ERRORS,
 ) -> int:
     """Poll `repo` PR `#pr_number`; return `0` on feedback or merge/close, or `2` on timeout."""
-    _validate_watch_params(pr_number, interval_s, max_polls, max_consecutive_errors)
+    _validate_watch_params(pr_number, interval_s, max_polls, max_duration_s, max_consecutive_errors)
 
     # Check PR state before sleeping so an already-merged or closed PR exits immediately.
     close_state = _fetch_pr_close_state(repo, pr_number)
@@ -200,11 +213,22 @@ def watch_pr_until_feedback(
         return EXIT_OK
 
     baseline = capture_snapshot(repo, pr_number)
+    start_t = time.monotonic()
+    deadline = start_t + max_duration_s if max_duration_s is not None else None
     polls = 0
     consecutive_errors = 0
     last_error: RuntimeError | None = None
     while max_polls is None or polls < max_polls:
-        time.sleep(interval_s)
+        if deadline is not None:
+            remaining_s = deadline - time.monotonic()
+            if remaining_s <= 0:
+                if last_error is not None:
+                    raise last_error
+                _emit_idle_pause(pr_number, time.monotonic() - start_t)
+                return EXIT_TIMEOUT
+            time.sleep(min(interval_s, remaining_s))
+        else:
+            time.sleep(interval_s)
         polls += 1
         try:
             current = capture_snapshot(repo, pr_number)
@@ -249,6 +273,12 @@ def main(argv: list[str] | None = None) -> int:
         help="Poll interval in seconds.",
     )
     parser.add_argument("--max-polls", type=int, default=None, help="Optional max poll iterations.")
+    parser.add_argument(
+        "--max-duration",
+        type=float,
+        default=DEFAULT_MAX_DURATION_S,
+        help=f"Max idle watch duration in seconds before pausing (default {DEFAULT_MAX_DURATION_S:g}s / 1 hour).",
+    )
     try:
         args = parser.parse_args(argv)
     except SystemExit as exc:
@@ -256,13 +286,20 @@ def main(argv: list[str] | None = None) -> int:
         return EXIT_OK if exc.code in (0, None) else EXIT_ERROR
 
     try:
-        _validate_watch_params(args.pr, args.interval, args.max_polls, DEFAULT_MAX_CONSECUTIVE_ERRORS)
+        _validate_watch_params(
+            args.pr,
+            args.interval,
+            args.max_polls,
+            args.max_duration,
+            DEFAULT_MAX_CONSECUTIVE_ERRORS,
+        )
         repo = harvest_feedback.resolve_repo_slug(args.repo)
         return watch_pr_until_feedback(
             repo,
             args.pr,
             interval_s=args.interval,
             max_polls=args.max_polls,
+            max_duration_s=args.max_duration,
         )
     except (RuntimeError, ValueError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
