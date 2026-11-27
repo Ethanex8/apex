@@ -69,7 +69,7 @@ const presets: MacPreset[] = [
     explain: 'mac.get reads mac_acc (+930) directly to x12 without altering mac_acc or reading rs1/rs2.',
   },
   {
-    label: '5. +Sat Clamp (-32768²)',
+    label: '5. +Sat Clamp: (-32768)²',
     insn: 'mac.clr x10, x1, x1',
     funct3: 1,
     rd: 10,

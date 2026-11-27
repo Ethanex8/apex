@@ -1,6 +1,6 @@
 # Apex Systems Engineering
 
-This companion textbook is written for engineers and aspiring engineers who know general programming plus undergraduate math and physics and want to master processor architecture, circuit-board physics, motor control, and legged robotics from first principles.
+This companion textbook is written for anyone with general programming experience and foundational math and physics literacy who wants to master processor architecture, circuit-board physics, motor control, and legged robotics from first principles.
 
 <div class="book-hero-banner">
   <div class="book-hero-stat">
@@ -27,12 +27,12 @@ This companion textbook is written for engineers and aspiring engineers who know
 Across eight chronological parts, we design a custom 32-bit processor implementing the open-standard **Reduced Instruction Set Computer, Fifth Generation** (RISC-V) architecture and deploy it onto a reprogrammable logic chip (**Field-Programmable Gate Array**, or FPGA).
 We then route a 6-layer controlled-impedance circuit board, write a C compiler and a deterministic task scheduler (**Real-Time Operating System**, or RTOS), build 20 kHz brushless motor drives and solid-state battery protection, and close whole-body locomotion and stereo navigation loops.
 
-Every chapter develops one primary engineering discipline—combining gentle mathematical derivations, interactive visualizers, verified source code in `systems/`, and closing hardware bench labs—growing section by section as each implementation step lands.
+Every chapter develops one primary engineering discipline—combining plain-language intuition, interactive schematics, concrete numbers, concise math, verified source code in `systems/`, and closing hardware bench labs—growing section by section as each implementation step lands.
 
 ## Start Reading
 
 The prologue establishes the locked electrical, mechanical, and communication contracts shared across all six subsystems, and Chapter 1 begins Part I by constructing the software golden reference processor.
-Every chapter combines gentle mathematical derivations, interactive hardware visualizers, and live-synced code excerpts designed to be read sequentially:
+Every chapter pairs words, visuals, concrete numbers, concise math, and live-synced code excerpts designed to be read sequentially:
 
 - **[Prologue — System Architecture and Contracts](/vision)** — How the six physical subsystems bolt directly into the final quadruped without circuit-board redesigns or throwaway bench builds.
 - **[Chapter 1 — Instruction Set Architecture](/brain/01_isa_and_binary_arithmetic)** — Software golden reference modeling, fixed-width modular binary arithmetic and two's complement, 32-bit instruction encoding, memory-mapped device registers, and fault or interrupt redirects (**traps**).

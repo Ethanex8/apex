@@ -8,7 +8,7 @@ Audit whole-document macro architecture, section balance, and consumer-driven pl
 3. **Base-Before-Custom Progression**: Verify core standard architectures complete end-to-end before custom domain extensions or project-specific optimizations.
 4. **One Core Topic per Subsection**: Flag oversized `###` subsections—especially with compound "A, B, and C" headings—that pack distinct conceptual layers (such as representation, bit-level mechanics, and algebraic theory) into one block; keep small cohesive primitive sets unified in one overview.
 
-## 2. Rigor Balance & Example Coverage
-5. **End-to-End Quantitative Balance**: Check the full document outline to confirm later system, integration, and verification sections derive explicit bounds or invariants rather than flattening into superficial API narration.
-6. **Selective Inline `#### Example` Scoping (No Problem Sets)**: Flag any homework drill (`#### Exercise`), closing `Problems` section, or `<details>` toggle, and verify inline `#### Example` blocks focus strictly on genuinely non-trivial algebra, boundary traps, or counterexamples rather than duplicating derivations or verification tables.
+## 2. Rule-of-Four Balance & Woven Examples
+5. **End-to-End Rule-of-Four & Quantitative Balance**: Check the full document outline to confirm every section balances Words, Visuals, Numbers, and Algebra cleanly—preserving concrete invariants and quantitative contracts in later sections without either proof-wall overload or superficial API narration.
+6. **Woven Examples Only (Zero Standalone Example Headings or Drills)**: Flag any standalone `### Example` / `#### Example` heading, homework drill (`#### Exercise`), closing `Problems` section, or `<details>` toggle, verifying concrete examples live woven naturally inside section prose.
 7. **Heading Conciseness & Alignment**: Check every H1 (`<= 6` words) and `##`/`###` (`<= 8` words, no colons/`&`/backticks) aligns strictly with its subsection contents.

@@ -27,8 +27,6 @@ CHAPTER_INDEX_MD_PATH = ROOT_DIR / "docs" / "CHAPTER_INDEX.md"
 H1_RE = re.compile(r"^#\s+(.+)$")
 H2_RE = re.compile(r"^##\s+(.+)$")
 H3_RE = re.compile(r"^###\s+(.+)$")
-H4_EX_RE = re.compile(r"^####\s+(Example\s+\d+(?:\.\d+)?)\b", re.IGNORECASE)
-PART_NUM_RE = re.compile(r"^\s*\d+\.\s+")
 FENCE_TOGGLE_RE = re.compile(r"^(`{3,}|~{3,})")
 VUE_TAG_RE = re.compile(r"^<([A-Z][A-Za-z0-9]*)(?:\s*/>|\s|>).*$")
 MD_SYMBOL_RE = re.compile(r"\[`([A-Za-z_][A-Za-z0-9_.]*)`\]\([^)]+\)")
@@ -58,7 +56,6 @@ class SubsectionMeta:
     defined_terms: list[str] = field(default_factory=list)
     code_symbols: list[str] = field(default_factory=list)
     widgets: list[str] = field(default_factory=list)
-    exercises: list[str] = field(default_factory=list)
     consumers: list[str] = field(default_factory=list)
     raw_text_lower: str = ""
 
@@ -146,15 +143,11 @@ def _populate_meta_tokens(
     seen_terms: set[str],
     seen_syms: set[str],
 ) -> None:
-    """Populate newly introduced terms, symbols, widgets, and exercises for `meta`."""
+    """Populate newly introduced terms, symbols, and widgets for `meta`."""
     in_fence = False
-    in_details = False
     terms: list[str] = []
     symbols: list[str] = []
     widgets: list[str] = []
-    exercises: list[str] = []
-    cur_ex: str | None = None
-    cur_ex_parts = 0
 
     for raw in slice_lines:
         stripped = raw.strip()
@@ -163,20 +156,8 @@ def _populate_meta_tokens(
             continue
         if in_fence:
             continue
-        if stripped.startswith("<details"):
-            in_details = True
-        elif stripped.startswith("</details"):
-            in_details = False
         if wm := VUE_TAG_RE.match(stripped):
             widgets.append(f"<{wm.group(1)} />")
-        if em := H4_EX_RE.match(stripped):
-            if cur_ex is not None:
-                exercises.append(f"{cur_ex} ({cur_ex_parts} pts)")
-            cur_ex = em.group(1)
-            cur_ex_parts = 0
-            continue
-        if cur_ex is not None and not in_details and PART_NUM_RE.match(stripped):
-            cur_ex_parts += 1
         for sm in MD_SYMBOL_RE.finditer(stripped):
             tok = sm.group(1)
             if not tok.endswith((".py", ".sv", ".c", ".h", ".sh")):
@@ -191,12 +172,9 @@ def _populate_meta_tokens(
             if tok.lower() not in GENERIC_STOPWORDS and not tok.startswith("0x"):
                 symbols.append(tok)
 
-    if cur_ex is not None:
-        exercises.append(f"{cur_ex} ({cur_ex_parts} pts)")
     meta.defined_terms = _dedupe_novel(terms, seen_terms, 4)
     meta.code_symbols = _dedupe_novel(symbols, seen_syms, 5)
     meta.widgets = _dedupe_novel(widgets, set(), 3)
-    meta.exercises = exercises
     meta.raw_text_lower = "\n".join(slice_lines).lower()
 
 
@@ -277,17 +255,16 @@ def render_chapter_index_md(root_dir: Path | None = None) -> str:
         out.extend([
             f"## {cmeta.title} (`{rel}`, {cmeta.total_lines} lines)",
             "",
-            "| Section | Lines (% Ch.) | Newly Defined Terms & Symbols | First Later Consumers | Visuals & Examples |",
+            "| Section | Lines (% Ch.) | Newly Defined Terms & Symbols | First Later Consumers | Visuals |",
             "| :--- | :--- | :--- | :--- | :--- |",
         ])
         for m in cmeta.sections:
             sec_label = f"**{m.short_ref}: {m.label}**" if m.level == 2 else f"↳ `{m.short_ref}` {m.label}"
             span = f"`L{m.start_line}..L{m.end_line}` ({m.line_count}, {m.pct_chapter:.1f}%)"
             toks = [*m.defined_terms[:3], *(f"`{s}`" for s in m.code_symbols[:4])]
-            vis = [*m.widgets, *m.exercises]
             out.append(
                 f"| {sec_label} | {span} | {_format_cell(toks)} | "
-                f"{_format_cell(m.consumers)} | {_format_cell(vis)} |"
+                f"{_format_cell(m.consumers)} | {_format_cell(m.widgets)} |"
             )
         out.append("")
     return "\n".join(out).rstrip() + "\n"

@@ -43,7 +43,6 @@ MAX_LEDGER_ITEMS = 250
 
 H2_RE = re.compile(r"^##\s+(.+)$")
 H3_RE = re.compile(r"^###\s+(.+)$")
-H4_EX_RE = re.compile(r"^####\s+(Example\b.+)$", re.IGNORECASE)
 FENCE_TOGGLE_RE = re.compile(r"^(`{3,}|~{3,})")
 VUE_COMPONENT_RE = re.compile(r"^<([A-Z][A-Za-z0-9]*)(?:\s*/>|\s|>).*$")
 TRANSCLUDE_SLICE_RE = re.compile(r"^<<<\s+(@/[^\s{#\[]+|\.\.?/[^\s{#\[]+)(?:#L(\d+)(?:-L?(\d+))?)?")
@@ -108,7 +107,6 @@ class PriorLedger:
     bold_terms: list[str] = field(default_factory=list)
     code_tokens: list[str] = field(default_factory=list)
     math_symbols: list[str] = field(default_factory=list)
-    exercises: list[str] = field(default_factory=list)
     bold_overflow: int = 0
     code_overflow: int = 0
     math_overflow: int = 0
@@ -298,14 +296,13 @@ def _dedupe_capped(items: list[str], limit: int) -> tuple[list[str], int]:
 
 
 def _build_prior_ledger(lines: list[str], before_line: int) -> PriorLedger:
-    """Compile headings, bold terms, code tokens, math symbols, and exercises before `before_line`."""
+    """Compile headings, bold terms, code tokens, and math symbols before `before_line`."""
     if before_line <= 1:
         return PriorLedger()
     headings: list[str] = []
     bold_terms: list[str] = []
     code_tokens: list[str] = []
     math_symbols: list[str] = []
-    exercises: list[str] = []
     in_fence = False
     in_display_math = False
     for raw in lines[: before_line - 1]:
@@ -323,9 +320,6 @@ def _build_prior_ledger(lines: list[str], before_line: int) -> PriorLedger:
             continue
         if H2_RE.match(stripped) or H3_RE.match(stripped):
             headings.append(stripped)
-            continue
-        if em := H4_EX_RE.match(stripped):
-            exercises.append(em.group(1))
             continue
         for bmatch in INLINE_BOLD_RE.finditer(stripped):
             term = bmatch.group(1).strip().rstrip(":")
@@ -346,7 +340,6 @@ def _build_prior_ledger(lines: list[str], before_line: int) -> PriorLedger:
         bold_terms=kept_bold,
         code_tokens=kept_code,
         math_symbols=kept_math,
-        exercises=exercises,
         bold_overflow=bold_ov,
         code_overflow=code_ov,
         math_overflow=math_ov,
@@ -369,8 +362,6 @@ def _format_ledger_summary(ledger: PriorLedger) -> str:
     if ledger.math_symbols:
         tail = f" (+{ledger.math_overflow} more)" if ledger.math_overflow else ""
         parts.append("  - Math symbols/macros: " + ", ".join(f"`{m}`" for m in ledger.math_symbols) + tail)
-    if ledger.exercises:
-        parts.append("  - Earlier examples: " + "; ".join(ledger.exercises))
     return "\n".join(parts)
 
 
@@ -439,8 +430,8 @@ def _render_macro_task(chapter_rel: str, total_lines: int) -> SubagentTask:
             "or first motivating subsystem rather than floating detached."
         ),
         (
-            "3. Audit base-before-custom layering, end-to-end rigor balance, selective `#### Example` scoping, "
-            "absence of problem sets or `<details>` drills, and concise headings."
+            "3. Audit base-before-custom layering, end-to-end Rule-of-Four balance, absence of standalone "
+            "`#### Example` headings, problem sets, or `<details>` drills, and concise headings."
         ),
         "4. Report P0/P1/P2 defects with exact line numbers, or output `ZERO P0/P1/P2 DEFECTS FOUND`.",
     ])

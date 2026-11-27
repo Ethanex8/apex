@@ -89,7 +89,7 @@ SEQ_MSG_SEMI_RE = re.compile(r"^[^\n:]+(?:->|--?>|->>|-->>|-x|--x|-\)|--\))[^\n:
 H1_HEADING_RE = re.compile(r"^#\s+(.+)$")
 HEADING_RE = re.compile(r"^(#{2,4})\s+(.+)$")
 PRACTICE_HEADING_RE = re.compile(r"\b(?:Exercises?|Problems?)(?:\s+\d+(?:\.\d+)?)?\b", re.IGNORECASE)
-EXERCISE_PREFIX_RE = re.compile(r"^Example\s+\d+(?:\.\d+)?:\s*(.+)$", re.IGNORECASE)
+EXAMPLE_SUBHEADING_RE = re.compile(r"^Examples?\b", re.IGNORECASE)
 DRILL_SUBHEADING_RE = re.compile(r"^(?:Exercises?|Problems?)\b", re.IGNORECASE)
 SECTION_NUM_PREFIX_RE = re.compile(r"^\d+(?:\.\d+)*\.?\s+")
 CHAPTER_PREFIX_RE = re.compile(r"^Chapter\s+\d+:\s*", re.IGNORECASE)
@@ -383,8 +383,13 @@ def _validate_heading_style(
                 f"[{rel_chap}:{idx}] Chapter jumps straight from H1 into '{body}' without introductory prose",
             )
         state.seen_h2 = True
-    ex_m = EXERCISE_PREFIX_RE.match(body)
-    core = ex_m.group(1).strip() if ex_m else SECTION_NUM_PREFIX_RE.sub("", body).strip()
+    core = SECTION_NUM_PREFIX_RE.sub("", body).strip()
+    if hashes in ("##", "###", "####") and EXAMPLE_SUBHEADING_RE.match(core):
+        _append_unique(
+            errors,
+            f"[{rel_chap}:{idx}] Standalone example heading '{body}' is banned; "
+            "weave concrete numbers naturally into section prose",
+        )
     if ":" in core:
         _append_unique(
             errors,
@@ -417,13 +422,13 @@ def _validate_heading_style(
         _append_unique(
             errors,
             f"[{rel_chap}:{idx}] Problem/exercise section heading '{body}' is banned; "
-            "integrate non-redundant calculations visibly as inline '#### Example <S.K>: <Title>' blocks",
+            "weave non-redundant calculations naturally into section prose",
         )
     if hashes in ("###", "####") and DRILL_SUBHEADING_RE.match(core):
         _append_unique(
             errors,
             f"[{rel_chap}:{idx}] Quiz/problem drill '{body}' is banned; "
-            "use a visible inline '#### Example <S.K>: <Title>' block instead",
+            "weave concrete calculations naturally into section prose instead",
         )
     state.pending_heading = (idx, body)
     return True
@@ -806,7 +811,7 @@ def _validate_chapter_details(lines: list[str], rel_chap: Path, errors: list[str
             _append_unique(
                 errors,
                 f"[{rel_chap}:{idx}] Collapsible '<details>' quiz toggle is banned; "
-                "show worked steps visibly inside inline '#### Example' blocks instead",
+                "show worked steps visibly woven into section prose instead",
             )
 
 

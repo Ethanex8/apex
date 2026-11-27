@@ -162,7 +162,7 @@ const scenarios: Scenario[] = [
           { addr: '+2', byteHex: '0x22' },
           { addr: '+3', byteHex: '0x11' },
         ],
-        traceReceipt: 'StepTrace(pc=0x04, rd=4, rd_val=0xFFFFFFFF, mem_addr=0x10000000)',
+        traceReceipt: 'StepTrace(pc=0x04, rd=4, rd_val=0xFFFFFFFF, mem_addr=0x10000000, mem_val=0xFFFFFFFF)',
       },
       {
         stepNum: 3,
@@ -180,7 +180,7 @@ const scenarios: Scenario[] = [
           { addr: '+2', byteHex: '0x22' },
           { addr: '+3', byteHex: '0x11' },
         ],
-        traceReceipt: 'StepTrace(pc=0x08, rd=5, rd_val=0x000000FF, mem_addr=0x10000000)',
+        traceReceipt: 'StepTrace(pc=0x08, rd=5, rd_val=0x000000FF, mem_addr=0x10000000, mem_val=0x000000FF)',
       },
       {
         stepNum: 4,
