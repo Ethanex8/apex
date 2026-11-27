@@ -830,6 +830,11 @@ def test_build_review_plan_sharding_ledgers_and_seams(tmp_path: Path) -> None:
     assert "systems/demo/sim/core.py#L1-L2" in plan.shards[1].transclusions[0]
     assert any("Alpha Term" in t.prompt and "`op_a`" in t.prompt for t in plan.tasks if "Shard 2" in t.role)
     assert any("U_N" in t.prompt and "\\lfloor" in t.prompt for t in plan.tasks if "Shard 2" in t.role)
+    shard1_cold = next(t for t in plan.tasks if t.role.startswith("Cold-Reader (Shard 1/"))
+    shard2_cold = next(t for t in plan.tasks if t.role.startswith("Cold-Reader (Shard 2/"))
+    assert "Chapter Scope Anchor" not in shard1_cold.prompt
+    assert "Chapter Scope Anchor `systems/demo/chapters/01_intro.md#L1-L" in shard2_cold.prompt
+    assert any(f.startswith("systems/demo/chapters/01_intro.md#L1-L") for f in shard2_cold.allowed_files)
     assert any("<unresolved:MissingWidget.vue>" in w for w in plan.shards[-1].widgets)
     vis_task = next(t for t in plan.tasks if t.role == "Visual Pedagogy Critic")
     assert "WidgetA.vue" in vis_task.prompt

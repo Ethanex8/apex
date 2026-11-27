@@ -28,7 +28,7 @@ Write **publication-grade, reader-respecting prose** (*Feynman Lectures*, *The A
 1. **Source Inventory**: Inventory every constant, public interface, normal path, and error path across paired code and tests before drafting.
 2. **Layering & Abstraction Boundaries**:
    - Order elementary stateless primitives before coupled multi-part mechanisms, establish intrinsic representation properties early, complete base architectures before custom extensions, and exclude repo-specific constants or unbuilt tools from general theory.
-   - Describe higher layers strictly at their observable contract without leaking unintroduced lower-layer ports, pins, internal signals, or implementation cycle counts.
+   - Describe higher layers strictly at their declared observable contract without leaking unintroduced lower-layer internals or deferred implementation details.
    - Open comparative sections with a plain-English takeaway, keep introductory overviews free of premature formal bounds, align `###` subsections strictly to headings, and unbraid distinct mechanisms.
 3. **Concise Headings & Calm Bridges**:
    - Keep H1 (`<= 6` words) and `##`/`###` (`<= 8` words) crisp without `:`, `&`, parentheticals, backticks, or redundant `---` dividers above `## `, give each distinct conceptual layer its own `###` subsection, and open sections with calm 2–4 sentence bridges.
@@ -37,13 +37,13 @@ Write **publication-grade, reader-respecting prose** (*Feynman Lectures*, *The A
    - Explain each mechanism clearly using the right Rule-of-Four mix **before** quoting code, keep embedded slices focused (`<= 25` lines), and anchor file/symbol links cleanly.
 
 ### Pass 2: First-Principles Rule-of-Four Drafting
-1. **Feynman Openings & Semantic Line Breaks**: Open sections directly with plain mechanistic intuition (showing why naive models break when relevant)—never negative foils or cold, unmotivated theorem/set-notation walls—write **one sentence per Markdown line** (no `<br>`), and break paragraphs cleanly around visuals and equations.
+1. **Feynman Openings & Semantic Line Breaks**: Open sections directly with plain mechanistic intuition (contrasting only an immediately intuitive naive attempt when helpful, never obscure dead ends, negative foils, or cold theorem walls)—write **one sentence per Markdown line** (no `<br>`), and break paragraphs cleanly around visuals and equations.
 2. **Mechanism First & Code-Only Backticks**:
-   - State what each new term does before placing `(**expanded name / acronym**)` immediately adjacent (never after an em-dash or `3+` stacked acronyms); tabulate `3+` structured items with proportional lead-in prose across every table category.
+   - State what each new term does before placing `(**expanded name / acronym**)` immediately adjacent (never after an em-dash or `3+` stacked acronyms); use explicit section/element referents (never bare *"below"*/*"above"*) and tabulate `3+` structured items with proportional lead-in prose.
    - Reserve backticks strictly for literal code, tokens, constants, CLI flags, and paths—never acronyms, proper nouns, prose numbers/units, or raw TeX; keep boldface `<= 6` words.
 3. **Rule-of-Four Fit, Refreshers & Zero Logic Leaps**:
-   - Refresh foundational math/physics with brief 1–2 sentence intuitive anchors right before use, choose whichever of Words, Visuals, Numbers, or Algebra is cleanest (e.g. `\begin{cases}` over tangled prose; concrete traces over proof theater), and state every domain and boundary explicitly.
-   - Reserve multi-step formal proofs strictly for genuinely non-obvious invariants or surprising hardware collapses; when writing an explicit proof, show key steps cleanly without `"Next we prove..."` boilerplate or prose-telescoping shortcuts.
+   - Refresh foundational math/physics with brief 1–2 sentence intuitive anchors right before use, pick whichever of Words, Visuals, Numbers, or Algebra is cleanest (tabulating parallel labeled comparisons instead of jagged aligned blocks), and state every domain and boundary explicitly.
+   - Reserve multi-step formal proofs strictly for genuinely non-obvious invariants or surprising structural equivalences; when writing an explicit proof, show key steps cleanly without `"Next we prove..."` boilerplate or prose-telescoping shortcuts.
 4. **Woven Examples & Visual Hygiene**: Weave concrete examples naturally inside section explanations—never standalone `### Example`/`#### Example` headings, homework drills, or `<details>` toggles—keep inline math unclipped, label bit ranges `Bits hi..lo`, escape `\$`, and avoid prose `~` or bare line numbers.
 
 ### Pass 3: Clean-Room Audit & Diff-Regression Convergence

@@ -20,7 +20,7 @@ interface FormatRow {
 }
 
 const filterMode = ref<FilterMode>('all')
-const activeFormat = ref<string>('B')
+const activeFormat = ref<string>('R')
 
 const formatRows: FormatRow[] = [
   {

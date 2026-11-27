@@ -10,4 +10,4 @@ Inspect strictly the pre-generated unified diff patch between the pre-edit basel
 
 ## 2. Boundary & Reordering Side Effects
 5. **Cross-Section Move Verification**: Whenever definitions, equations, or mechanisms move earlier or later, verify all dependent expressions, symbols, and embedded diagrams/widgets in between remain strictly valid in their new dependency order.
-6. **Preserve Invariants & Contracts (Allow Simplifying Proof Theater)**: Verify simplifications of verbose proofs into clearer Rule-of-Four explanations preserve all genuine hardware invariants, exact bounds, edge-case contracts, code/test symbol anchors, and engineering tradeoff insights.
+6. **Preserve Invariants & Contracts (Allow Simplifying Proof Theater)**: Verify simplifications of verbose proofs into clearer Rule-of-Four explanations preserve all genuine system invariants, exact bounds, edge-case contracts, code/test symbol anchors, and engineering tradeoff insights.

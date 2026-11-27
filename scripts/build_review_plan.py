@@ -182,6 +182,22 @@ def _collect_section_units(lines: list[str], target_lines: int) -> list[SectionU
     return units
 
 
+def _find_scope_anchor_end(lines: list[str]) -> int:
+    """Return the last line of the chapter's opening scope block (H1 + first `##`), or 0."""
+    h2_lines: list[int] = []
+    in_fence = False
+    for idx, raw in enumerate(lines, start=1):
+        stripped = raw.strip()
+        if FENCE_TOGGLE_RE.match(stripped):
+            in_fence = not in_fence
+            continue
+        if not in_fence and H2_RE.match(stripped):
+            h2_lines.append(idx)
+            if len(h2_lines) == 2:
+                return idx - 1
+    return (h2_lines[0] - 1) if len(h2_lines) == 1 and h2_lines[0] > 1 else 0
+
+
 def _split_oversized_h2(
     lines: list[str], span_start: int, span_end: int, h2_title: str
 ) -> list[SectionUnit]:
@@ -372,6 +388,7 @@ def _render_shard_task(
     shard: ShardSpec,
     ledger: PriorLedger,
     extra_files: list[str],
+    scope_anchor_end: int = 0,
 ) -> SubagentTask:
     """Render one deterministic, content-agnostic shard audit task."""
     rubric_rel = RUBRIC_PATHS[rubric_key]
@@ -383,17 +400,25 @@ def _render_shard_task(
         if shard.transclusions
         else "  - (none in this shard)"
     )
+    anchor_ref = f"{chapter_rel}#L1-L{scope_anchor_end}" if scope_anchor_end > 0 else ""
     allowed = [
         "GEMINI.md",
         "docs/CHAPTER_INDEX.md",
         rubric_rel,
+        *([anchor_ref] if anchor_ref else []),
         f"{chapter_rel}#L{shard.start_line}-L{shard.end_line}",
         *extra_files,
     ]
+    step1 = (
+        f"1. Read `GEMINI.md`, `docs/CHAPTER_INDEX.md`, `{rubric_rel}`, and the read-only Chapter Scope Anchor "
+        f"`{anchor_ref}` (enforcing the chapter's declared abstraction boundary) before reading the chapter slice."
+        if anchor_ref
+        else f"1. Read `GEMINI.md`, `docs/CHAPTER_INDEX.md`, and `{rubric_rel}` completely before reading the chapter slice."
+    )
     prompt = "\n".join([
         f"You are `{role_prefix}` auditing Shard {shard.index}/{shard.total} of `{chapter_rel}`.",
         ISOLATION_PROHIBITION,
-        f"1. Read `GEMINI.md`, `docs/CHAPTER_INDEX.md`, and `{rubric_rel}` completely before reading the chapter slice.",
+        step1,
         (
             f"2. Audit `{chapter_rel}` primary lines **L{shard.start_line}..L{shard.end_line}** "
             f"(read-only boundary context: previous overlap `{prev_txt}`, next overlap `{next_txt}`)."
@@ -894,14 +919,16 @@ def _build_chapter_tasks(
         )
 
     tasks: list[SubagentTask] = []
+    scope_end = _find_scope_anchor_end(lines)
     for sh in shards:
         if sh.index not in selected:
             continue
         ledger = _build_prior_ledger(lines, sh.start_line)
         vue_files = [w.split("-> ", 1)[1] for w in sh.widgets if "<unresolved:" not in w]
         slice_files = sorted({s.split(": ", 1)[1] for s in sh.transclusions})
-        tasks.append(_render_shard_task("Cold-Reader", "cold_reader", chapter_rel, sh, ledger, [*vue_files, *slice_files]))
-        tasks.append(_render_shard_task("Math & Logic Editor", "math_editor", chapter_rel, sh, ledger, slice_files))
+        anchor_end = min(scope_end, sh.start_line - 1) if sh.index > 1 and scope_end > 0 else 0
+        tasks.append(_render_shard_task("Cold-Reader", "cold_reader", chapter_rel, sh, ledger, [*vue_files, *slice_files], anchor_end))
+        tasks.append(_render_shard_task("Math & Logic Editor", "math_editor", chapter_rel, sh, ledger, slice_files, anchor_end))
     if run_macro:
         tasks.append(_render_macro_task(chapter_rel, total_lines))
     if run_visual:
