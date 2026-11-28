@@ -187,10 +187,10 @@ def test_check_book_pedagogy_gates_and_widget_shorthand(tmp_path: Path) -> None:
         "Cryptic bit-slice shorthand '[30..25|10..5]'",
         "Problem/exercise section heading 'Graded Engineering Exercises' is banned",
         "Quiz/problem drill 'Problem 1: Warmup' is banned",
+        "Standalone example heading 'Example 2.1: Quick Substitution' is banned",
         "Quiz/problem drill 'Exercise 2.2: Disallowed Mid-Chapter Drill' is banned",
     ):
         assert expected in chap_errs
-    assert "Example 2.1" not in chap_errs
     widget_errs = "\n".join(check_book.validate_widgets(tmp_path))
     assert "Cryptic bit-slice shorthand 'imm[12|10:5]'" in widget_errs
 
@@ -284,7 +284,7 @@ def test_check_book_coordinate_prose_wall_and_table_exemption(tmp_path: Path) ->
 
 
 def test_check_book_midchapter_details_ban_and_inline_examples(tmp_path: Path) -> None:
-    """Verify check_book rejects <details> toggles, Problems headings, and redundant --- dividers before ##."""
+    """Verify check_book rejects <details> toggles, Problems, standalone Example headings, and double ---."""
     chap = _write(
         tmp_path / "systems" / "demo" / "chapters" / "01.md",
         "# Modular Arithmetic\n\nEvery register wraps cleanly.\n\n"
@@ -300,6 +300,7 @@ def test_check_book_midchapter_details_ban_and_inline_examples(tmp_path: Path) -
     )
     _write(tmp_path / "VISION.md", "# Vision\n\nIntro.\n\n---\n\n## 1. Overview\n\nBody.\n")
     errs = "\n".join(check_book.validate_chapters(tmp_path).errors)
+    assert "Standalone example heading 'Example 1.1: Ring Wrap' is banned" in errs
     assert "Collapsible '<details>' quiz toggle is banned" in errs
     assert "Problem/exercise section heading '2. Problems' is banned" in errs
     assert "Redundant horizontal rule '---' immediately before '##' heading" in errs
@@ -307,10 +308,8 @@ def test_check_book_midchapter_details_ban_and_inline_examples(tmp_path: Path) -
 
     chap.write_text(
         "# Modular Arithmetic\n\nEvery register wraps cleanly.\n\n"
-        "## 1. Core Rings\n\nRings wrap around a fixed modulus.\n\n"
-        "#### Example 1.1: Ring Wrap\n\n"
-        "Walk through a wrap example.\n\n"
-        "1. Wrapping $17$ modulo $16$ leaves remainder $1$.\n",
+        "## 1. Core Rings\n\nRings wrap around a fixed modulus.\n"
+        "For example, wrapping $17$ modulo $16$ leaves remainder $1$.\n",
         encoding="utf-8",
     )
     _write(tmp_path / "VISION.md", "# Vision\n\nIntro.\n\n## 1. Overview\n\nBody.\n")
@@ -810,7 +809,6 @@ def test_build_review_plan_sharding_ledgers_and_seams(tmp_path: Path) -> None:
         "```markdown\n## Fake Heading Inside Fence\n<IgnoredWidget />\n```\n"
         "## 1. Base Concepts\n### First Topic\n"
         "Introduce **Beta Term** and `op_b`.\n"
-        "#### Example 1.1: Quick Check\n1. Evaluate `op_a`.\n\n"
         "### Second Topic\n"
         "<WidgetA />\n"
         "<<< @/systems/demo/sim/core.py#L1-L2\n"
@@ -832,7 +830,11 @@ def test_build_review_plan_sharding_ledgers_and_seams(tmp_path: Path) -> None:
     assert "systems/demo/sim/core.py#L1-L2" in plan.shards[1].transclusions[0]
     assert any("Alpha Term" in t.prompt and "`op_a`" in t.prompt for t in plan.tasks if "Shard 2" in t.role)
     assert any("U_N" in t.prompt and "\\lfloor" in t.prompt for t in plan.tasks if "Shard 2" in t.role)
-    assert any("Example 1.1" in t.prompt for t in plan.tasks if "Shard 3" in t.role)
+    shard1_cold = next(t for t in plan.tasks if t.role.startswith("Cold-Reader (Shard 1/"))
+    shard2_cold = next(t for t in plan.tasks if t.role.startswith("Cold-Reader (Shard 2/"))
+    assert "Chapter Scope Anchor" not in shard1_cold.prompt
+    assert "Chapter Scope Anchor `systems/demo/chapters/01_intro.md#L1-L" in shard2_cold.prompt
+    assert any(f.startswith("systems/demo/chapters/01_intro.md#L1-L") for f in shard2_cold.allowed_files)
     assert any("<unresolved:MissingWidget.vue>" in w for w in plan.shards[-1].widgets)
     vis_task = next(t for t in plan.tasks if t.role == "Visual Pedagogy Critic")
     assert "WidgetA.vue" in vis_task.prompt
@@ -1092,8 +1094,6 @@ def test_chapter_index_generation_and_consumers(tmp_path: Path, monkeypatch: pyt
         "```python\n## fake\n```\n"
         "Introduce **First Concept** and [`helper_alpha`](../sim/mod.py#L1-L4).\n"
         "<WidgetAlpha />\n"
-        "#### Example 1.1: Core Walkthrough\n1. Part A.\n2. Part B.\n"
-        "#### Example 1.2: Follow Walkthrough\n1. Part C.\n"
         "### Second Layer\n"
         "Pure prose sentence with `val` only.\n"
         "## 2. Standalone Hardware\n"
@@ -1101,7 +1101,7 @@ def test_chapter_index_generation_and_consumers(tmp_path: Path, monkeypatch: pyt
     )
     rendered = chapter_index.render_chapter_index_md(tmp_path)
     assert "**Sec 1: 1. Core Foundations**" in rendered
-    assert "Example 1.1 (2 pts), Example 1.2 (1 pts)" in rendered
+    assert "| Visuals |" in rendered
     assert "<WidgetAlpha />" in rendered
     assert "`helper_alpha`" in rendered
     assert "`novel_beta`" in rendered

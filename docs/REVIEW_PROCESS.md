@@ -70,7 +70,7 @@ flowchart TD
         FOLLOWUP["Fix remaining items and rebuild"]
         SCOPED_PASS["Round 2+: Scoped re-check of touched areas and diff guard"]
         PUSH_REPLY["Push update to PR and reply across all addressed threads"]
-        WATCH_PR["Start watch_pr_feedback.py --pr N in background and wait"]
+        WATCH_PR["Start watch_pr_feedback.py --pr N (pause after 1h idle)"]
         NEXT_CYCLE["Ready for next human review -> Repeat from Stage 1 or 1-tap Merge"]
 
         APPLY_FIX --> FULL_PASS
@@ -137,4 +137,5 @@ flowchart TD
 1. Commit and push fast-forward updates strictly to the open `step/<step-id>` PR branch (never directly to `main`, and never force-push reviewed commits).
 2. Prefix every agent-authored reply with `🤖 [Antigravity]` and post concise updates on **every** addressed feedback item across all channels (`gh api -X POST repos/<owner>/<repo>/pulls/<N>/comments/<id>/replies` for inline review comments; `gh api -X POST repos/<owner>/<repo>/issues/<N>/comments` with `<!-- apex-preview-reply-to: <root_id> -->` for PR review summaries and conversation items) so both GitHub and the preview overlay distinguish agent responses from human messages under the shared login.
 3. **Do not auto-resolve threads**: leave addressed threads open so the human reviewer can pull up the preview widget or PR view, read each response without toggling resolved filters, and click **Resolve** once verified (run `python3 scripts/harvest_feedback.py --pr <N>` to verify every newly raised item has a reply).
-4. Confirm `Apex CI` and the `/apex/pr-<N>/` preview deployment succeed, then launch `python3 scripts/watch_pr_feedback.py --pr <N>` as an async non-daemon background task (`IsDaemon=false`) before ending the turn so the agent automatically wakes on new human comments, reviews, or **1-tap Merge**—atomically updating `main`, auto-deleting `step/<step-id>`, deploying root `https://ethanex8.github.io/apex/`, and removing `/apex/pr-<N>/`.
+4. Confirm `Apex CI` and the `/apex/pr-<N>/` preview deployment succeed, then launch `python3 scripts/watch_pr_feedback.py --pr <N>` as an async non-daemon background task (`IsDaemon=false`, default 1-hour `--max-duration`) before ending the turn so the agent automatically wakes on new human comments, reviews, or **1-tap Merge**—atomically updating `main`, auto-deleting `step/<step-id>`, deploying root `https://ethanex8.github.io/apex/`, and removing `/apex/pr-<N>/`.
+5. **Watcher 1-Hour Idle Pause**: If a sandbox command timeout ends `watch_pr_feedback.py` early (`exit -1`) before new activity arrives, verify PR state and re-arm asynchronously (`IsDaemon=false`) while total idle wait since the last push or activity stays under **1 hour**. Once **1 hour** of idle waiting elapses (or `watch_pr_feedback.py` exits `2` on its 1-hour timeout), pause the watcher cleanly, stop automatic restarts, and inform the user so they can resume anytime by replying in chat.

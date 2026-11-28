@@ -1,21 +1,20 @@
 # Editorial Pacing, Logic & Math Editor Rubric
 
-Activate whenever a document includes headings, derivations, aligned proofs, quantitative bounds, or worked numeric examples. Audit every bridge, equation intro, proof block, and worked `#### Example` inside the primary shard:
+Activate whenever a document includes headings, equations, derivations, quantitative bounds, or worked numeric traces. Audit every bridge, formula, bound, and inline numeric check inside the primary shard:
 
 ## 1. Mathematical & Logical Soundness
-1. **Strict Lemma Dependency Order**: Flag any step citing an unproved property, forward corollary, or identity derived later in the document (checking prior-section boundaries explicitly).
-2. **Prerequisite Refreshers & Operational Intuition**: Flag non-trivial discrete, modular, bit-slice, or physics rules used without an intuitive refresher, usage boundaries (what substitutions hold vs. break), and a concrete example.
-3. **Simple-to-Derived Theorem Ordering**: Flag lists or derivations that place implementation tricks ahead of simpler direct consequences they rely upon.
-4. **Strict Causal Entailment**: Test every causal connective (*because*, *consequently*, *therefore*, *thus*, *so*); flag any link where premise $P$ leaves conclusion $Q$'s mechanism unproved.
-5. **Exact Arithmetic & Boundary Proofs**: Verify every signed/unsigned bound, congruence, power-of-two identity, rounding direction (floor vs. truncating), empty-sum or $N = 1$ corner case, and worked calculation.
+1. **Strict Dependency Order**: Flag any step citing an unestablished property, convention, forward corollary, or identity introduced later in the document (checking prior-section boundaries explicitly).
+2. **Just-in-Time Prerequisite Refreshers**: Flag non-trivial discrete, modular, algebraic, calculus, linear-algebra, or physics rules used without a brief 1–2 sentence intuitive refresher, operational boundaries (what holds vs. breaks), and a concrete check.
+3. **Simple-to-Derived Ordering**: Flag lists or explanations that place implementation tricks ahead of simpler direct consequences they rely upon.
+4. **Strict Causal Entailment & Zero Logic Leaps**: Test every causal connective (*because*, *therefore*, *thus*, *so*), inequality step, and concluding claim on examples or derivations; flag any unstated domain, omitted discreteness condition, or leap from one concrete calculation to an unproven general property.
+5. **Exact Arithmetic & Boundary Verification**: Verify every domain bound, equivalence, identity, rounding convention, and worked numeric calculation for complete accuracy.
 
-## 2. Equations & Dual-Interpretation Derivations
-6. **Prose-to-Equation Action Alignment**: Flag intro sentences before `$$` that describe operations absent from the displayed symbols below, or dense >40-word prose walls preceding an equation.
-7. **Post-Equation Sub-Term Remarks**: Flag prose commenting on unseen equation sub-terms, indices, or exponents before `$$` appears, or stating integrality/parity preconditions without naming the theorem step needing them.
-8. **Step-by-Step Clarity, Proof Economy & Scannable Examples**: Flag skipped algebraic steps **and** overly long, multi-block, or auxiliary-variable-heavy proofs where a direct 3–5 line or structural argument is clearer; flag multi-step numeric/symbolic examples buried inside prose paragraphs instead of aligned LaTeX blocks (`<= 624 px`) or SVGs.
-9. **Justified Output-to-Target Bridges**: Flag shared-hardware or dual-interpretation proofs argued in prose instead of an aligned `target(output)` derivation down through semantics with concise right-hand reasons; ensure shared bridges appear once before parallel lists.
-10. **Parenthetical Sub-Proofs & Redundant Proofs**: Flag hidden sub-proofs or unexplained examples inside parentheses, motivating sentences overloaded with secondary boundary caveats, full parallel re-derivations duplicating established congruence, or separate near-identical symmetric cases that collapse cleanly into one unified derivation.
+## 2. Rule-of-Four Representation Fit & Proof Economy
+6. **Symmetric Rule-of-Four Fit**: Flag **mode mismatches** in any direction—tangled verbal `if`/`else` cases where concise `\begin{cases}` fits, algebraic walls where words/numbers/visuals clarify better, or parallel labeled numeric comparisons forced into two-column `\begin{aligned}` blocks that zig-zag on the left margin or clip narrow screens (tabulate cleanly instead).
+7. **Proof Economy (Zero Proof Theater)**: Reserve multi-step formal derivations strictly for genuinely non-obvious invariants or surprising structural equivalences; flag auxiliary lemmas, forced proof ceremonies, or multi-block proofs where an intuitive, visual, numeric, or 2-line algebraic check suffices.
+8. **Prose-Equation Alignment & Interleaving**: When derivations combine two or more substitutions or multi-equality steps, interleave one concise sentence per move ahead of each equation rather than front-loading dense prose summaries before multi-step or aligned `$$` blocks (keep single-move identities compact); flag unseen sub-terms or skipped steps.
+9. **Zero Parenthetical Sub-Proofs or Redundant Re-Derivations**: Flag hidden sub-proofs inside parentheses, motivating sentences overloaded with secondary boundary caveats, full parallel re-derivations duplicating an established rule, or separate near-identical symmetric cases that collapse cleanly.
 
-## 3. Editorial Discipline & Worked Example Conciseness
-11. **Pacing, Style & Proportional Lead-Ins**: Verify calm 2–4 sentence bridges matching `<= 8`-word headings, proportional lead-ins across all groups in multi-category tables, Markdown tables over `3+` item prose catalogs, one-sentence-per-line formatting, and zero stiff `"Next we prove..."` announcements.
-12. **Scannable Worked Examples & Clean Notation**: Verify inline `#### Example` blocks are terse, scannable, free of exercises, problem sets, or `<details>` toggles, and use strictly symbols and notation already defined in the document.
+## 3. Editorial Discipline & Clean Notation
+10. **Pacing, Proportional Lead-Ins & Formatting**: Verify calm 2–4 sentence bridges matching `<= 8`-word headings, proportional lead-ins across all groups in multi-category tables, Markdown tables over `3+` item prose catalogs, one-sentence-per-line formatting, and zero stiff `"Next we prove..."` announcements.
+11. **Clean Notation & Zero Standalone Example Headings**: Verify every symbol is defined before use and flag any standalone `### Example` / `#### Example` heading, exercise, problem set, or `<details>` toggle anywhere in the shard.

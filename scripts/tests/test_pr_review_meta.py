@@ -200,10 +200,45 @@ def test_watch_pr_feedback_detection_and_timeout(
     assert rc_timeout == 2
 
 
+def test_watch_pr_feedback_max_duration_pause(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Verify --max-duration pauses cleanly with EXIT_TIMEOUT and supports max_duration_s=None."""
+    clock = {"now": 100.0}
+
+    def _advancing_sleep(sec: float) -> None:
+        """Advance fake monotonic clock during sleep."""
+        clock["now"] += sec
+
+    monkeypatch.setattr(watch_pr_feedback.harvest_feedback, "normalize_pr_feedback", lambda _r, _p, **_k: [])
+    monkeypatch.setattr(watch_pr_feedback.harvest_feedback, "fetch_gh_json", lambda _e: [])
+    monkeypatch.setattr(watch_pr_feedback, "fetch_gh_object", lambda _e: {"state": "open", "merged": False})
+    monkeypatch.setattr(watch_pr_feedback.harvest_feedback, "resolve_repo_slug", lambda r: r or "Ethanex8/apex")
+    monkeypatch.setattr(watch_pr_feedback.time, "monotonic", lambda: clock["now"])
+    monkeypatch.setattr(watch_pr_feedback.time, "sleep", _advancing_sleep)
+
+    assert watch_pr_feedback.main(["--pr", "9", "--interval", "30", "--max-duration", "60"]) == 2
+    assert "No new activity on PR #9 after 1 minute(s); pausing watcher." in capsys.readouterr().out
+
+    clock["now"] = 0.0
+    assert watch_pr_feedback.main(["--pr", "9", "--interval", "5", "--max-duration", "5"]) == 2
+    assert "after 5s; pausing watcher." in capsys.readouterr().out
+    assert watch_pr_feedback.watch_pr_until_feedback("Ethanex8/apex", 9, interval_s=0.01, max_polls=1, max_duration_s=None) == 2
+
+
+
 def test_watch_pr_feedback_cli_bounds_and_reply_keys(monkeypatch: pytest.MonkeyPatch) -> None:
     """Verify CLI syntax/parameter bounds, cross-endpoint reply key isolation, and slug resolution failures."""
     assert watch_pr_feedback.main(["--help"]) == 0
-    for bad_cli in ([], ["--pr", "abc"], ["--pr", "0"], ["--pr", "9", "--interval", "nan"], ["--pr", "9", "--max-polls", "0"]):
+    for bad_cli in (
+        [],
+        ["--pr", "abc"],
+        ["--pr", "0"],
+        ["--pr", "9", "--interval", "nan"],
+        ["--pr", "9", "--max-polls", "0"],
+        ["--pr", "9", "--max-duration", "0"],
+        ["--pr", "9", "--max-duration", "nan"],
+    ):
         assert watch_pr_feedback.main(bad_cli) == 1
     keys = watch_pr_feedback._extract_comment_keys(
         [{"id": 1, "source": "inline", "replies": [{"id": 55}]}, {"id": 2, "source": "issue", "replies": [{"id": 55}]}]
@@ -259,6 +294,14 @@ def test_watch_pr_feedback_transient_errors(
     monkeypatch.setattr(watch_pr_feedback, "capture_snapshot", _raise_after_baseline)
     with pytest.raises(RuntimeError, match="bounded poll error"):
         watch_pr_feedback.watch_pr_until_feedback("Ethanex8/apex", 9, interval_s=0.01, max_polls=1, max_consecutive_errors=5)
+    calls["count"] = 0
+    clock = {"now": 0.0}
+    monkeypatch.setattr(watch_pr_feedback.time, "monotonic", lambda: clock["now"])
+    monkeypatch.setattr(watch_pr_feedback.time, "sleep", lambda sec: clock.__setitem__("now", clock["now"] + sec))
+    with pytest.raises(RuntimeError, match="bounded poll error"):
+        watch_pr_feedback.watch_pr_until_feedback(
+            "Ethanex8/apex", 9, interval_s=5.0, max_duration_s=5.0, max_consecutive_errors=5
+        )
     with pytest.raises(ValueError, match="max_consecutive_errors"):
         watch_pr_feedback.watch_pr_until_feedback("Ethanex8/apex", 9, max_consecutive_errors=0)
 

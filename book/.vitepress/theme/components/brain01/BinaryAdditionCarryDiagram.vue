@@ -205,8 +205,8 @@ const carryOut = computed<number>(() => (trueSum.value >> BIT_WIDTH) & 1)
 
         <!-- Single-Bit Addition Rule Strip -->
         <rect x="10" y="6" width="660" height="28" rx="6" fill="var(--vp-c-bg)" stroke="var(--vp-c-divider)" stroke-width="1.1" />
-        <text x="340" y="24" text-anchor="middle" font-size="10.5" font-family="var(--vp-font-family-mono)" fill="var(--vp-c-text-1)">
-          1-Bit Column Rules:   0+0 = 0 (c=0)   |   0+1 = 1 (c=0)   |   1+1 = 0 (c=1)   |   1+1+1 = 1 (c=1)
+        <text x="340" y="24" text-anchor="middle" font-size="9.8" font-family="var(--vp-font-family-mono)" fill="var(--vp-c-text-1)">
+          1-Bit Rules:  0+0=0 (carry 0)  |  0+1=1 (carry 0)  |  1+1=0 (carry 1)  |  1+1+1=1 (carry 1)
         </text>
 
         <!-- Register cutoff seam between Carry-Out and Bit 3 -->

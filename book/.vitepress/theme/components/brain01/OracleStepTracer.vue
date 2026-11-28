@@ -162,7 +162,7 @@ const scenarios: Scenario[] = [
           { addr: '+2', byteHex: '0x22' },
           { addr: '+3', byteHex: '0x11' },
         ],
-        traceReceipt: 'StepTrace(pc=0x04, rd=4, rd_val=0xFFFFFFFF, mem_addr=0x10000000)',
+        traceReceipt: 'StepTrace(pc=0x04, rd=4, rd_val=0xFFFFFFFF, mem_addr=0x10000000, mem_val=0xFFFFFFFF)',
       },
       {
         stepNum: 3,
@@ -180,7 +180,7 @@ const scenarios: Scenario[] = [
           { addr: '+2', byteHex: '0x22' },
           { addr: '+3', byteHex: '0x11' },
         ],
-        traceReceipt: 'StepTrace(pc=0x08, rd=5, rd_val=0x000000FF, mem_addr=0x10000000)',
+        traceReceipt: 'StepTrace(pc=0x08, rd=5, rd_val=0x000000FF, mem_addr=0x10000000, mem_val=0x000000FF)',
       },
       {
         stepNum: 4,
@@ -206,7 +206,7 @@ const scenarios: Scenario[] = [
     id: 'trap_irq',
     title: '3. Exact Trap & Timer Preemption (1 Instruction per Step)',
     summary:
-      'Executes one RV32Oracle.step() call per frame with vectored mtvec = 0x1000_0001: ecall traps to 0x1000_0000 (advancing mepc to 0x18), then CLINT preempts 0x18 at mtime = 4 and branches to 0x1000_001C.',
+      'Executes one Oracle.step() call per frame with vectored mtvec = 0x1000_0001: ecall traps to 0x1000_0000 (advancing mepc to 0x18), then CLINT preempts 0x18 at mtime = 4 and branches to 0x1000_001C.',
     frames: [
       {
         stepNum: 0,
@@ -512,7 +512,7 @@ const flowState = computed(() => {
 <template>
   <div class="hw-widget">
     <div class="hw-widget-header">
-      <div class="hw-widget-title">RV32Oracle.step() Single-Step Execution Tracer</div>
+      <div class="hw-widget-title">Oracle.step() Single-Step Execution Tracer</div>
       <div style="display: flex; gap: 6px">
         <button
           type="button"

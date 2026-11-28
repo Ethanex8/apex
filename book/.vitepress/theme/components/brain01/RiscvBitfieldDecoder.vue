@@ -253,7 +253,7 @@ const decoded = computed(() => {
     if (funct3 !== 4) {
       if (!csrName) {
         opName = `Illegal Unimplemented CSR ${csrHex} (Trap Cause 2)`
-        csrEffect = `CSR address ${csrHex} is unimplemented in RV32Oracle; traps to mtvec with mcause = 2 without updating x${rd}.`
+        csrEffect = `CSR address ${csrHex} is unimplemented in Oracle; traps to mtvec with mcause = 2 without updating x${rd}.`
       } else if (isReadOnly && !suppressWrite) {
         opName = `Illegal Write to Read-Only CSR ${csrName} (Trap Cause 2)`
         csrEffect = `CSR ${csrName} (${csrHex}) is read-only and write is not suppressed (${isImm ? 'uimm' : 'rs1'} != 0 or csrrw/csrrwi); traps with mcause = 2.`
@@ -682,7 +682,7 @@ const positionedSpans = computed(() => {
         </div>
       </div>
       <div class="hw-card">
-        <div class="hw-label">What <code>RV32Oracle.step()</code> Executes</div>
+        <div class="hw-label">What <code>Oracle.step()</code> Executes</div>
         <div style="font-size: 13px">
           {{ decoded.effect }}
         </div>

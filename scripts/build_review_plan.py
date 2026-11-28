@@ -43,7 +43,6 @@ MAX_LEDGER_ITEMS = 250
 
 H2_RE = re.compile(r"^##\s+(.+)$")
 H3_RE = re.compile(r"^###\s+(.+)$")
-H4_EX_RE = re.compile(r"^####\s+(Example\b.+)$", re.IGNORECASE)
 FENCE_TOGGLE_RE = re.compile(r"^(`{3,}|~{3,})")
 VUE_COMPONENT_RE = re.compile(r"^<([A-Z][A-Za-z0-9]*)(?:\s*/>|\s|>).*$")
 TRANSCLUDE_SLICE_RE = re.compile(r"^<<<\s+(@/[^\s{#\[]+|\.\.?/[^\s{#\[]+)(?:#L(\d+)(?:-L?(\d+))?)?")
@@ -108,7 +107,6 @@ class PriorLedger:
     bold_terms: list[str] = field(default_factory=list)
     code_tokens: list[str] = field(default_factory=list)
     math_symbols: list[str] = field(default_factory=list)
-    exercises: list[str] = field(default_factory=list)
     bold_overflow: int = 0
     code_overflow: int = 0
     math_overflow: int = 0
@@ -182,6 +180,22 @@ def _collect_section_units(lines: list[str], target_lines: int) -> list[SectionU
         else:
             units.extend(_split_oversized_h2(lines, span_start, span_end, h2_title))
     return units
+
+
+def _find_scope_anchor_end(lines: list[str]) -> int:
+    """Return the last line of the chapter's opening scope block (H1 + first `##`), or 0."""
+    h2_lines: list[int] = []
+    in_fence = False
+    for idx, raw in enumerate(lines, start=1):
+        stripped = raw.strip()
+        if FENCE_TOGGLE_RE.match(stripped):
+            in_fence = not in_fence
+            continue
+        if not in_fence and H2_RE.match(stripped):
+            h2_lines.append(idx)
+            if len(h2_lines) == 2:
+                return idx - 1
+    return (h2_lines[0] - 1) if len(h2_lines) == 1 and h2_lines[0] > 1 else 0
 
 
 def _split_oversized_h2(
@@ -298,14 +312,13 @@ def _dedupe_capped(items: list[str], limit: int) -> tuple[list[str], int]:
 
 
 def _build_prior_ledger(lines: list[str], before_line: int) -> PriorLedger:
-    """Compile headings, bold terms, code tokens, math symbols, and exercises before `before_line`."""
+    """Compile headings, bold terms, code tokens, and math symbols before `before_line`."""
     if before_line <= 1:
         return PriorLedger()
     headings: list[str] = []
     bold_terms: list[str] = []
     code_tokens: list[str] = []
     math_symbols: list[str] = []
-    exercises: list[str] = []
     in_fence = False
     in_display_math = False
     for raw in lines[: before_line - 1]:
@@ -323,9 +336,6 @@ def _build_prior_ledger(lines: list[str], before_line: int) -> PriorLedger:
             continue
         if H2_RE.match(stripped) or H3_RE.match(stripped):
             headings.append(stripped)
-            continue
-        if em := H4_EX_RE.match(stripped):
-            exercises.append(em.group(1))
             continue
         for bmatch in INLINE_BOLD_RE.finditer(stripped):
             term = bmatch.group(1).strip().rstrip(":")
@@ -346,7 +356,6 @@ def _build_prior_ledger(lines: list[str], before_line: int) -> PriorLedger:
         bold_terms=kept_bold,
         code_tokens=kept_code,
         math_symbols=kept_math,
-        exercises=exercises,
         bold_overflow=bold_ov,
         code_overflow=code_ov,
         math_overflow=math_ov,
@@ -369,8 +378,6 @@ def _format_ledger_summary(ledger: PriorLedger) -> str:
     if ledger.math_symbols:
         tail = f" (+{ledger.math_overflow} more)" if ledger.math_overflow else ""
         parts.append("  - Math symbols/macros: " + ", ".join(f"`{m}`" for m in ledger.math_symbols) + tail)
-    if ledger.exercises:
-        parts.append("  - Earlier examples: " + "; ".join(ledger.exercises))
     return "\n".join(parts)
 
 
@@ -381,6 +388,7 @@ def _render_shard_task(
     shard: ShardSpec,
     ledger: PriorLedger,
     extra_files: list[str],
+    scope_anchor_end: int = 0,
 ) -> SubagentTask:
     """Render one deterministic, content-agnostic shard audit task."""
     rubric_rel = RUBRIC_PATHS[rubric_key]
@@ -392,17 +400,25 @@ def _render_shard_task(
         if shard.transclusions
         else "  - (none in this shard)"
     )
+    anchor_ref = f"{chapter_rel}#L1-L{scope_anchor_end}" if scope_anchor_end > 0 else ""
     allowed = [
         "GEMINI.md",
         "docs/CHAPTER_INDEX.md",
         rubric_rel,
+        *([anchor_ref] if anchor_ref else []),
         f"{chapter_rel}#L{shard.start_line}-L{shard.end_line}",
         *extra_files,
     ]
+    step1 = (
+        f"1. Read `GEMINI.md`, `docs/CHAPTER_INDEX.md`, `{rubric_rel}`, and the read-only Chapter Scope Anchor "
+        f"`{anchor_ref}` (enforcing the chapter's declared abstraction boundary) before reading the chapter slice."
+        if anchor_ref
+        else f"1. Read `GEMINI.md`, `docs/CHAPTER_INDEX.md`, and `{rubric_rel}` completely before reading the chapter slice."
+    )
     prompt = "\n".join([
         f"You are `{role_prefix}` auditing Shard {shard.index}/{shard.total} of `{chapter_rel}`.",
         ISOLATION_PROHIBITION,
-        f"1. Read `GEMINI.md`, `docs/CHAPTER_INDEX.md`, and `{rubric_rel}` completely before reading the chapter slice.",
+        step1,
         (
             f"2. Audit `{chapter_rel}` primary lines **L{shard.start_line}..L{shard.end_line}** "
             f"(read-only boundary context: previous overlap `{prev_txt}`, next overlap `{next_txt}`)."
@@ -439,8 +455,8 @@ def _render_macro_task(chapter_rel: str, total_lines: int) -> SubagentTask:
             "or first motivating subsystem rather than floating detached."
         ),
         (
-            "3. Audit base-before-custom layering, end-to-end rigor balance, selective `#### Example` scoping, "
-            "absence of problem sets or `<details>` drills, and concise headings."
+            "3. Audit base-before-custom layering, end-to-end Rule-of-Four balance, absence of standalone "
+            "`#### Example` headings, problem sets, or `<details>` drills, and concise headings."
         ),
         "4. Report P0/P1/P2 defects with exact line numbers, or output `ZERO P0/P1/P2 DEFECTS FOUND`.",
     ])
@@ -903,14 +919,16 @@ def _build_chapter_tasks(
         )
 
     tasks: list[SubagentTask] = []
+    scope_end = _find_scope_anchor_end(lines)
     for sh in shards:
         if sh.index not in selected:
             continue
         ledger = _build_prior_ledger(lines, sh.start_line)
         vue_files = [w.split("-> ", 1)[1] for w in sh.widgets if "<unresolved:" not in w]
         slice_files = sorted({s.split(": ", 1)[1] for s in sh.transclusions})
-        tasks.append(_render_shard_task("Cold-Reader", "cold_reader", chapter_rel, sh, ledger, [*vue_files, *slice_files]))
-        tasks.append(_render_shard_task("Math & Logic Editor", "math_editor", chapter_rel, sh, ledger, slice_files))
+        anchor_end = min(scope_end, sh.start_line - 1) if sh.index > 1 and scope_end > 0 else 0
+        tasks.append(_render_shard_task("Cold-Reader", "cold_reader", chapter_rel, sh, ledger, [*vue_files, *slice_files], anchor_end))
+        tasks.append(_render_shard_task("Math & Logic Editor", "math_editor", chapter_rel, sh, ledger, slice_files, anchor_end))
     if run_macro:
         tasks.append(_render_macro_task(chapter_rel, total_lines))
     if run_visual:

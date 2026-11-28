@@ -120,8 +120,8 @@ const unsignedOverflow = computed(() => rawSumU.value > UNSIGNED4_MAX)
 const signedOverflow = computed(() => rawSumS.value < SIGNED4_MIN || rawSumS.value > SIGNED4_MAX)
 
 const operandControls = computed<OperandControl[]>(() => [
-  { which: 'a', title: 'Input A (Green Ring — Click Bits 3..0)', valU4: aU4.value, valS4: aS4.value },
-  { which: 'b', title: 'Input B (Amber Ring — Click Bits 3..0)', valU4: bU4.value, valS4: bS4.value },
+  { which: 'a', title: 'Input A (Green Halo — Click Bits 3..0)', valU4: aU4.value, valS4: aS4.value },
+  { which: 'b', title: 'Input B (Amber Halo — Click Bits 3..0)', valU4: bU4.value, valS4: bS4.value },
 ])
 
 const overlapNote = computed(() => {
