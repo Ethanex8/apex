@@ -152,13 +152,14 @@ x \cdot y &= x' y' + (k_1 y' + k_2 x' + k_1 k_2 m)m \equiv x' y' \pmod{m}
 \end{aligned}$$
 
 Setting $y = y' = c$ likewise shows integer scaling ($c \cdot x \equiv c \cdot x' \pmod{m}$) preserves congruence.
-In practice, $\equiv \pmod{m}$ acts as a drop-in substitution rule across $+$, $-$, and $\times$ once you respect three boundaries:
+In practice, $\equiv \pmod{m}$ acts as a drop-in substitution rule across $+$, $-$, and $\times$ once you respect four boundaries:
 
 | Congruence Rule | Requirement | Valid vs. Broken Substitution |
 | :--- | :--- | :--- |
 | **Safe Term-Wise Substitution** | Replace congruent terms under one shared modulus $m$ across $+$, $-$, $\times$, and integer scaling | Swapping $14 \to -2$ modulo $16$ preserves sums and products directly |
 | **Matching Terms and Modulus** | Every swapped term must match modulo $m$ without mixing distinct moduli | Swapping $14 \to 13$ modulo $16$ breaks $19 + 14 = 33 \not\equiv 16 = 3 + 13 \pmod{16}$ |
-| **Division and Factor Cancellation** | Dropping integer-division remainders or cancelling a factor sharing a divisor $> 1$ with $m$ breaks congruence | Integer-dividing $17 \equiv 1 \pmod{16}$ by $5$ (which shares no factor $> 1$ with $16$) drops remainders to quotients $3 \not\equiv 0$; $6 \cdot 5 \equiv 6 \cdot 13 \pmod{16}$ yet $5 \not\equiv 13$ because $6$ and $16$ share factor $2$ |
+| **Integer Division** | Dropping integer-division remainders breaks congruence | Dividing $17 \equiv 1 \pmod{16}$ by $5$ drops remainders to quotients $3 \not\equiv 0$ |
+| **Factor Cancellation** | Cancelling a factor sharing a divisor $> 1$ with $m$ breaks congruence | $6 \cdot 5 \equiv 6 \cdot 13 \pmod{16}$ yet $5 \not\equiv 13$ because $6$ and $16$ share factor $2$ |
 
 ### Two's Complement Signed Integers
 
@@ -373,8 +374,10 @@ S_{k+1}(b') &= -b_{k-1} 2^k + b_{k-1} 2^{k-1} + \sum_{i=0}^{k-2} b_i 2^i \\
 
 Repeating that single-bit copy up to any target width $M > k$ keeps $S_M(\text{extended } b) = S_k(b)$ for every $k \ge 1$ (with no lower sum when $k = 1$), while shifting the unsigned reading of negative inputs upward by $b_{k-1}(2^M - 2^k)$ since $U_M = S_M + b_{k-1} 2^M = U_k - b_{k-1} 2^k + b_{k-1} 2^M$.
 
-Whereas a fixed 32-bit word widens a $k$-bit integer by replicating Bit $k - 1$ across Bits $31..k$, Python's arbitrary-precision integers have no fixed upper bit width to copy into.
-Instead, the Python oracle masks the input down to its low $k$ bits with $2^k - 1$, flips Bit $k - 1$ ($s = 2^{k-1}$) with bitwise XOR (`^` in Python and $\oplus$ in equations), and subtracts $s$ to evaluate $S_k(b)$ directly.
+Because the Python oracle stores raw bit patterns as unsigned integers (`0..0xFFFF_FFFF` in `self.regs`) and extracts field slices in `_dec_imm_s`, `_dec_imm_b`, and `_dec_imm_j` as non-negative values, Python operators such as `<`, `+`, `-`, and `*` would read `0xFFB` as $+4{,}091$ and `0xFFFF_FFFB` as $+4{,}294{,}967{,}291$ instead of $-5$.
+Correct signed comparisons, backward offsets, and arithmetic inside Python therefore require converting raw $k$-bit bit patterns into Python's native signed `int` representation ($S_k(b)$).
+Whereas a fixed 32-bit word widens a $k$-bit integer by replicating Bit $k - 1$ across Bits $31..k$, Python's arbitrary-precision integers have no top bit boundary to fill, so copying sign bits leaves negative two's-complement patterns strictly positive.
+Instead, the oracle masks the input down to its low $k$ bits with $2^k - 1$, flips Bit $k - 1$ ($s = 2^{k-1}$) with bitwise XOR (`^` in Python and $\oplus$ in equations), and subtracts $s$ to shift negative inputs directly into Python's native signed range.
 Evaluating both 12-bit branches ($s = 2^{11} = \texttt{0x800} = 2{,}048$) shows how XOR shifts non-negative inputs upward by $+s$ (cancelled by subtracting $s$) and negative inputs downward by $-s$ (turning $+2^{11}$ into $-2^{11}$):
 
 | Sign Bit (Bit 11) | 12-Bit Input ($v$) | Flip Sign Bit ($v \oplus \texttt{0x800}$) | Subtract `0x800` ($2{,}048$) |
@@ -448,20 +451,25 @@ The interactive 8-bit wire schematic below shows kept bits sliding right by $k$,
 <RightShiftComparator />
 
 Why does dropping the low $k$ bits always round *downward* toward $-\infty$, even for negative numbers?
-For $k = 0$, no bits drop and both shifts leave $x = \lfloor x / 1 \rfloor$ untouched; for $1 \le k \le N - 1$, splitting $b$ at Bit $k$ isolates the kept $(N - k)$-bit upper slice $H$ ($H_j = b_{j+k}$, top bit $b_{N-1}$) and the non-negative dropped remainder $R = \sum_{m=0}^{k-1} b_m 2^m \in [0, 2^k - 1]$.
-Factoring $2^k$ out of Bits $N-1\dots k$ writes both interpretations as a kept multiple of $2^k$ plus $R$, and because $b \gg_{\text{log}} k$ zero-extends $H$ while $b \gg_{\text{arith}} k$ sign-extends $H$ to $N$ bits (holding cleanly through $k = N - 1$ where $S_1(H) = -b_{N-1}$), Section 3's widening rules replace $U_{N-k}(H)$ and $S_{N-k}(H)$ with the shifted $N$-bit values:
+For $k = 0$, no bits drop and both shifts leave $x = \lfloor x / 1 \rfloor$ untouched; for $1 \le k \le N - 1$, split $b$ at Bit $k$ into the kept $(N - k)$-bit upper slice $H$ ($H_j = b_{j+k}$, top bit $b_{N-1}$) and the non-negative dropped remainder $R = \sum_{m=0}^{k-1} b_m 2^m \in [0, 2^k - 1]$.
+Factoring $2^k$ out of Bits $N-1\dots k$ writes both interpretations as a shifted upper slice plus $R$:
 
 $$\begin{aligned}
-U_N(b) &= U_{N-k}(H) \cdot 2^k + R = U_N(b \gg_{\text{log}} k) \cdot 2^k + R \\
-S_N(b) &= S_{N-k}(H) \cdot 2^k + R = S_N(b \gg_{\text{arith}} k) \cdot 2^k + R
+U_N(b) &= U_{N-k}(H) \cdot 2^k + R \\
+S_N(b) &= S_{N-k}(H) \cdot 2^k + R
 \end{aligned}$$
 
-Writing $(x, q)$ for either pair gives $x = q \cdot 2^k + R$, and dividing $0 \le R < 2^k$ by $2^k$ traps $x / 2^k$ inside $[q, q + 1)$, forcing $q = \lfloor x / 2^k \rfloor$:
+Because $b \gg_{\text{log}} k$ zero-extends $H$ while $b \gg_{\text{arith}} k$ sign-extends $H$ to $N$ bits—holding through $k = N - 1$ where $S_1(H) = -b_{N-1}$—Section 3's widening rules preserve both values at full width:
 
 $$\begin{aligned}
-0 \le \frac{R}{2^k} < 1 &\implies q \le q + \frac{R}{2^k} = \frac{x}{2^k} < q + 1 \\
-&\implies q = \left\lfloor \frac{x}{2^k} \right\rfloor
+U_N(b) &= U_N(b \gg_{\text{log}} k) \cdot 2^k + R \\
+S_N(b) &= S_N(b \gg_{\text{arith}} k) \cdot 2^k + R
 \end{aligned}$$
+
+Writing $(x, q)$ for either pair gives $x = q \cdot 2^k + R$, and dividing $0 \le R < 2^k$ by $2^k$ bounds the fractional remainder inside $0 \le R / 2^k < 1$.
+Adding $q$ traps $x / 2^k = q + R / 2^k$ inside $[q, q + 1)$, which by definition forces the integer quotient $q = \lfloor x / 2^k \rfloor$:
+
+$$q \le q + \frac{R}{2^k} = \frac{x}{2^k} < q + 1 \implies q = \left\lfloor \frac{x}{2^k} \right\rfloor$$
 
 That also closes our Python oracle formula from the base-operations table in *Base Integer Operations and Zero Idioms*: Python's `rs1_s >> shamt` computes $\lfloor S_{32}(b) / 2^{\texttt{shamt}} \rfloor = S_{32}(b \gg_{\text{arith}} \texttt{shamt})$, so wrapping through `u32(rs1_s >> shamt)` recovers the exact 32-bit pattern via $U_{32} \equiv S_{32} \pmod{2^{32}}$.
 On 32-bit `0xFFFF_FFFB` ($-5$ signed, $2^{32} - 5$ unsigned), shifting right by $k = 1$ drops Bit 0 ($R = 1$) and highlights the sign split:
@@ -693,16 +701,14 @@ For example, every byte address inside 64 KB BRAM (`0x1000_0000`–`0x1000_FFFF`
 More generally, each SoC memory or peripheral window (treating the five MMIO stub blocks as individual 64 KB windows) uses a capacity $2^K$ ($1 \le K < 32$) aligned to base address $B = m \cdot 2^K$ ($m \ge 0$, integer).
 
 Splitting any byte address into its upper prefix and low $K$-bit offset turns an aligned memory range test into simple prefix equality for every window.
-For any 32-bit address $a$ (`addr`) in $[0, 2^{32} - 1]$ and aligned base $B = m \cdot 2^K$ (so $m = B / 2^K = B \gg K$), dividing by $2^K$ isolates the integer prefix directly:
+For any 32-bit address $a$ (`addr`) in $[0, 2^{32} - 1]$ and aligned base $B = m \cdot 2^K$ (so $m = B / 2^K = B \gg K$), substituting $B$ and dividing by positive $2^K$ turns the byte-window bounds into a normalized quotient interval:
 
-$$\begin{aligned}
-B \le a < B + 2^K
-&\iff m \cdot 2^K \le a < (m + 1) \cdot 2^K \\
-&\iff m \le \frac{a}{2^K} < m + 1 \\
-&\iff \left\lfloor \frac{a}{2^K} \right\rfloor = m \iff (a \gg K) = (B \gg K)
-\end{aligned}$$
+$$B \le a < B + 2^K \iff m \cdot 2^K \le a < (m + 1) \cdot 2^K \iff m \le \frac{a}{2^K} < m + 1$$
 
-The third equivalence follows directly from the definition of floor for integer $m$, and the final step uses Section 4's unsigned right-shift floor identity $\lfloor a / 2^K \rfloor = a \gg K$.
+Because $m$ is an integer, $m \le a / 2^K < m + 1$ holds if and only if $\lfloor a / 2^K \rfloor = m$, and Section 4's unsigned right-shift floor identity $\lfloor a / 2^K \rfloor = a \gg K$ equates the prefix slices directly:
+
+$$\left\lfloor \frac{a}{2^K} \right\rfloor = m \iff (a \gg K) = (B \gg K)$$
+
 Whenever $\lfloor a / 2^K \rfloor = m$, Euclidean division gives $a = m \cdot 2^K + (a \bmod 2^K) = B + (a \bmod 2^K)$, so the window offset $a - B = a \bmod 2^K$ is simply the low $K$ bits of `addr` with zero subtraction.
 Because $B$ is an exact multiple of $2^K$, a full range test $B \le a < B + 2^K$ collapses cleanly into comparing only the upper $32 - K$ bits (Bits $31..K$) via `(addr >> K) == (B >> K)`.
 
@@ -1013,7 +1019,7 @@ The interactive datapath schematic below routes packed dual-16-bit vectors acros
 
 <XapexMacDatapath />
 
-Inside [`Oracle._exec_mac`](../sim/oracle.py#L1171-L1189), hardware verifies `funct7 == 0x00` (trapping otherwise) and handles scalar bias preloads (`mac.set`), readbacks (`mac.get`), and the dual-lane dot-product code slice that follows: slicing Bits 15..0 and Bits 31..16 through [`s16`](../sim/oracle.py#L287-L289), adding both signed products onto `base_acc` (0 for `mac.clr` or prior `self.mac_acc` for `mac`), and committing through [`sat32`](../sim/oracle.py#L292-L298):
+Inside [`Oracle._exec_mac`](../sim/oracle.py#L1171-L1189), the method verifies `funct7 == 0x00` (trapping otherwise) and handles scalar bias preloads (`mac.set`), readbacks (`mac.get`), and the dual-lane dot-product code slice that follows: slicing Bits 15..0 and Bits 31..16 through [`s16`](../sim/oracle.py#L287-L289), adding both signed products onto `base_acc` (0 for `mac.clr` or prior `self.mac_acc` for `mac`), and committing through [`sat32`](../sim/oracle.py#L292-L298):
 
 <!-- book-sync: Oracle._exec_mac['if funct3 in (MAC_F3_ACC, MAC_F3_CLR):'..'self.mac_acc = sat32'] -->
 <<< @/systems/brain/sim/oracle.py#L1177-L1182
@@ -1060,7 +1066,7 @@ Starting from `mac_acc = INT32_MAX - 255` (`0x7FFF_FF00`) with term $A$ adding $
 ## 8. Unified Decoding and Lockstep Verification
 
 With every instruction family, memory window, trap priority, and custom neural instruction specified, we must now close Section 1's verification contract before writing any hardware circuit code.
-That verification contract rests on two pillars: confirming that every possible 32-bit machine word decodes deterministically without ambiguity, and bounding per-step comparison work so clock-by-clock hardware circuit simulation matches our Python oracle in constant time per cycle.
+That verification contract rests on two pillars: confirming that every possible 32-bit machine word decodes deterministically without ambiguity, and bounding per-step comparison work so hardware circuit simulation matches our Python oracle in constant work per step.
 
 ### Unified 32-Bit Instruction Decoder
 
@@ -1108,7 +1114,7 @@ Five strict ordering guarantees govern every clock tick inside [`step()`](../sim
 
 ### Precise Faults and Inductive Trace Equivalence
 
-Comparing every bit of state across 32 general-purpose registers, control registers, and 48 MB of memory after each executed instruction would require millions of comparisons per simulated clock cycle.
+Comparing every bit of state across 32 general-purpose registers, control registers, and 48 MB of memory after each executed instruction would require millions of comparisons per step.
 Instead, [`Oracle.step()`](../sim/oracle.py#L1194-L1273) normalizes every numeric commit delta as an unsigned 32-bit integer inside the 10-field [`StepTrace`](../sim/oracle.py#L483-L504) record (alongside optional `int | None` fields and boolean flags):
 
 <!-- book-sync: StepTrace -->
@@ -1132,7 +1138,7 @@ The interactive trace explorer below pairs a live single-step flow schematic wit
 Two invariants close the verification loop opened in Section 1 ($S_{t+1} = \texttt{step}(S_t)$):
 1. **Precise Exception Atomicity**: Any step that traps leaves architectural registers, `mac_acc`, memory contents, and `minstret` untouched.
    Because [`Oracle.step()`](../sim/oracle.py#L1194-L1273) defers register writeback, PC updates, and `minstret` increments behind [`ExecOutcome`](../sim/oracle.py#L507-L522) and validates alignment, CSR permissions, and bus bounds before mutating memory, CSRs, or `mac_acc`, any step returning a non-`None` `trap_cause` enforces $\text{regs}_{t+1} = \text{regs}_t$, $\text{mac\_acc}_{t+1} = \text{mac\_acc}_t$, $\text{mem}_{t+1} = \text{mem}_t$, and $\text{minstret}_{t+1} = \text{minstret}_t$.
-2. **$O(1)$ Inductive Lockstep Sufficiency**: Comparing the 10-field [`StepTrace`](../sim/oracle.py#L483-L504) receipt on every step verifies full register, `pc`, memory, and trap lockstep in constant work per cycle.
+2. **$O(1)$ Inductive Lockstep Sufficiency**: Comparing the 10-field [`StepTrace`](../sim/oracle.py#L483-L504) receipt on every step verifies full register, `pc`, memory, and trap lockstep in constant work per step.
    Aside from deterministic per-step counter ticks (`mcycle`, `mtime`, and non-suppressed `minstret`), every non-trapping instruction mutates `pc`, at most one architectural register `rd`, at most one $w \in \{1, 2, 4\}$-byte memory or peripheral slice, and at most one CSR (`mstatus` on `mret` or the Zicsr target) or `mac_acc` register (including `mac.clr x0, x1, x2`, which updates `mac_acc` while discarding `rd` into `x0`).
    Starting hardware and oracle from identical reset state $S_0^{\text{hardware}} = S_0^{\text{oracle}}$ under identical external peripheral inputs, step-by-step comparison of `StepTrace` therefore verifies `pc`, all 32 general-purpose registers, every memory write, and every trap transition in $O(1)$ comparisons per step.
    In a conforming implementation, deterministic transition rules keep unlogged internal CSR, peripheral, and `mac_acc` state synchronized across steps; any hardware divergence in those internal registers surfaces in `StepTrace` as soon as a subsequent trap, `mret`, interrupt, non-`x0` readback (`csrrw`, `csrrs`, `csrrc`, `csrrwi`, `csrrsi`, `csrrci`, `lb`, `lbu`, `lh`, `lhu`, `lw`, `mac.get`), or non-`x0` `mac` writeback depends on it.

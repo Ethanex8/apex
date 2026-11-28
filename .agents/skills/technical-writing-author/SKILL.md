@@ -43,7 +43,7 @@ Write **publication-grade, reader-respecting prose** (*Feynman Lectures*, *The A
    - Reserve backticks strictly for literal code, tokens, constants, CLI flags, and paths—never acronyms, proper nouns, prose numbers/units, or raw TeX; keep boldface `<= 6` words.
 3. **Rule-of-Four Fit, Refreshers & Zero Logic Leaps**:
    - Refresh foundational math/physics with brief 1–2 sentence intuitive anchors right before use, pick whichever of Words, Visuals, Numbers, or Algebra is cleanest (tabulating parallel labeled comparisons instead of jagged aligned blocks), and state every domain and boundary explicitly.
-   - Reserve multi-step formal proofs strictly for genuinely non-obvious invariants or surprising structural equivalences; when writing an explicit proof, show key steps cleanly without `"Next we prove..."` boilerplate or prose-telescoping shortcuts.
+   - Reserve multi-step proofs for non-obvious invariants; state what fails for callers on unconverted inputs before avoiding a runtime limit, interleave one sentence per move ahead of each equation rather than dense summary-then-aligned blocks (keep single-move identities compact), and cut `"Next we prove..."` boilerplate.
 4. **Woven Examples & Visual Hygiene**: Weave concrete examples naturally inside section explanations—never standalone `### Example`/`#### Example` headings, homework drills, or `<details>` toggles—keep inline math unclipped, label bit ranges `Bits hi..lo`, escape `\$`, and avoid prose `~` or bare line numbers.
 
 ### Pass 3: Clean-Room Audit & Diff-Regression Convergence
